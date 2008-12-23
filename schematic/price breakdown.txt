@@ -1,0 +1,14 @@
+Prices in CAD at Digikey
+--------------
+ATmega644: 8.49$
+AD725: 12.45$
+Regulator: 4$
+SOCKET ADAPTR SOJ/32PIN .400 DIP: 9.62$
+Resistors: 8$
+Caps: 8$
+Crystal: 1.50$
+Wire Wrap sockets: 14$
+Jacks & connectors: 8$
+vectorboard: 4$
+NES Connectors: Priceless
+Total: ~75$
