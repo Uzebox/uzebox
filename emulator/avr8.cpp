@@ -1196,9 +1196,9 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				break;
 			case 0x940E:	// CALL; relies on fact that upper k bits are always zero!
 				DIS("CALL   $%04x",progmem[pc]);
-				write_sram(SP,(pc+1)>>8);
-				DEC_SP;
 				write_sram(SP,(pc+1));
+				DEC_SP;
+				write_sram(SP,(pc+1)>>8);
 				DEC_SP;
 				pc = progmem[pc];
 				cycles=4;
@@ -1211,16 +1211,16 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			case 0x9508:
 				DIS("RET");
 				INC_SP;
-				pc = read_sram(SP);
+				pc = read_sram(SP) << 8;
 				INC_SP;
-				pc |= read_sram(SP) << 8;
+				pc |= read_sram(SP);
 				cycles=4;
 				break;
 			case 0x9509:
 				DIS("ICALL");
-				write_sram(SP,(pc)>>8);
-				DEC_SP;
 				write_sram(SP,u8(pc));
+				DEC_SP;
+				write_sram(SP,(pc)>>8);
 				DEC_SP;
 				pc = Z;
 				cycles=3;
@@ -1228,18 +1228,18 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			case 0x9518:
 				DIS("RETI");
 				INC_SP;
-				pc = read_sram(SP);
+				pc = read_sram(SP) << 8;
 				INC_SP;
-				pc |= read_sram(SP) << 8;
+				pc |= read_sram(SP);
 				cycles=4;
 				SREG |= (1<<SREG_I);
 				--interruptLevel;
 				break;
 			case 0x9519:
 				DIS("EICALL");
-				write_sram(SP,(pc)>>8);
-				DEC_SP;
 				write_sram(SP,u8(pc));
+				DEC_SP;
+				write_sram(SP,(pc)>>8);
 				DEC_SP;
 				pc = Z;
 				cycles=3;
@@ -1482,9 +1482,9 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		break;
 	case 13: /*1101 kkkk kkkk kkkk		RCALL k */
 		DIS("RCALL  $%04x",pc+k12);
-		write_sram(SP,pc>>8);
-		DEC_SP;
 		write_sram(SP,(u8)pc);
+		DEC_SP;
+		write_sram(SP,pc>>8);
 		DEC_SP;
 		pc += k12;
 		cycles=3;
@@ -1639,9 +1639,9 @@ void avr8::trigger_interrupt(int location)
 		set_bit(SREG,SREG_I,0);
 
 		// push current PC
-		write_sram(SP,pc>>8);
-		DEC_SP;
 		write_sram(SP,(u8)pc);
+		DEC_SP;
+		write_sram(SP,pc>>8);
 		DEC_SP;
 
 		// jump to new location (which jumps to the real handler)
@@ -2019,7 +2019,7 @@ int main(int argc,char **argv)
 		now = SDL_GetTicks() - now;
 
 		char caption[128];
-		sprintf(caption,"uzebox emulator v1.03 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
+		sprintf(caption,"uzebox emulator v1.04 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 		if (uzebox.fullscreen)
 			puts(caption);
 		else
