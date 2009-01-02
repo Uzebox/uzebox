@@ -59,8 +59,16 @@ typedef unsigned short u16;
 typedef signed short s16;
 typedef unsigned long u32;
 
+enum { NES_A, NES_B, PAD_SELECT, PAD_START, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT };
+enum { SNES_B, SNES_Y, SNES_A=8, SNES_X, SNES_LSH, SNES_RSH };
+
+#if 0	// 644P
 const unsigned sramSize = 4096;
 const unsigned progSize = 65536;
+#else	// 1284P
+const unsigned sramSize = 16384;
+const unsigned progSize = 131072;
+#endif
 
 #define X		((XL)|(XH<<8))
 #define DEC_X	(XL-- || XH--)
@@ -248,9 +256,9 @@ struct avr8
 	u32 palette[256];
 	// SNES bit order:  B, Y, Select, Start, Up, Down, Left, Right, A, X, L, R
 	// NES bit order:  A, B, Select, Start, Up, Down, Left, Right
-	u16 buttons;
-	u16 latched_buttons;
-	bool snes_pad;
+	u32 buttons[2], latched_buttons[2];
+	int mouse_scale;
+	enum { NES_PAD, SNES_PAD, SNES_PAD2, SNES_MOUSE } pad_mode;
 
 	void audio_callback(Uint8 *stream,int len);
 	static void audio_callback_stub(void *userdata, Uint8 *stream, int len)
@@ -599,6 +607,37 @@ static const char *addr_or_port_name(int addr)
 	return temp;
 }
 
+#if GUI
+static u8 encode_delta(int d)
+{
+	u8 result;
+	if (d < 0)
+	{
+		result = 0;
+		d = -d;
+	}
+	else
+		result = 1;
+	if (d > 127)
+		d = 127;
+	if (!(d & 64))
+		result |= 2;
+	if (!(d & 32))
+		result |= 4;
+	if (!(d & 16))
+		result |= 8;
+	if (!(d & 8))
+		result |= 16;
+	if (!(d & 4))
+		result |= 32;
+	if (!(d & 2))
+		result |= 64;
+	if (!(d & 1))
+		result |= 128;
+	return result;
+}
+#endif
+
 void avr8::write_io(u8 addr,u8 value)
 {
 	// p106 in 644 manual; 16-bit values are latched
@@ -653,6 +692,24 @@ void avr8::write_io(u8 addr,u8 value)
 						exit(0);
 					}
 				}
+				if (pad_mode == SNES_MOUSE) 
+				{
+					// http://www.repairfaq.org/REPAIR/F_SNES.html
+					// we always report "low sensitivity"
+					int mouse_dx, mouse_dy;
+					u8 mouse_buttons = SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
+					mouse_dx >>= mouse_scale;
+					mouse_dy >>= mouse_scale;
+					// clear high bit so we know it's the mouse
+					buttons[0] = (encode_delta(mouse_dx) << 24)
+						| (encode_delta(mouse_dy) << 16) | 0x7FFF;
+					if (mouse_buttons & SDL_BUTTON_LMASK)
+						buttons[0] &= ~(1<<9);
+					if (mouse_buttons & SDL_BUTTON_RMASK)
+						buttons[0] &= ~(1<<10);
+				}
+				else
+					buttons[0] = (buttons[0] | 0x8000) & 0xFFFF;	// no mouse
 				singleStep = nextSingleStep;
 
 				if (SDL_MUSTLOCK(screen))
@@ -667,20 +724,25 @@ void avr8::write_io(u8 addr,u8 value)
 	{
 		u8 changed = value ^ io[addr];
 		u8 went_low = changed & io[addr];
+		// u8 went_hi = changed & value;
 		if (went_low == (1<<2))
 		{
-			latched_buttons = buttons;
+			latched_buttons[0] = buttons[0];
+			latched_buttons[1] = buttons[1];
 			// don't let UP+DOWN register at same time
-			if ((latched_buttons & (3<<4)) == 0)
-				latched_buttons |= (1<<4);
+			if ((latched_buttons[0] & ((1<<PAD_LEFT)|(1<<PAD_RIGHT))) == 0)
+				latched_buttons[0] |= (1<<PAD_RIGHT);
 			// same for LEFT+RIGHT
-			if ((latched_buttons & (3<<6)) == 0)
-				latched_buttons |= (1<<6);
-			// printf("latched_buttons = %x\n",latched_buttons);
+			if ((latched_buttons[0] & ((1<<PAD_UP)|(1<<PAD_DOWN))) == 0)
+				latched_buttons[0] |= (1<<PAD_DOWN);
+			// printf("LATCH latched_buttons = %x\n",latched_buttons);
 		}
 		else if (went_low == (1<<3))
-			latched_buttons >>= 1;
-		PINA = (latched_buttons & 1);
+		{
+			latched_buttons[0] >>= 1;
+			latched_buttons[1] >>= 1;
+		}
+		PINA = u8((latched_buttons[0] & 1) | ((latched_buttons[1] & 1) << 1));
 		// printf("(writing %x to PORTA pc = %x) setting PINA to %x\n",value,pc-1,PINA);
 		io[addr] = value;
 	}
@@ -1707,8 +1769,10 @@ bool avr8::init_gui()
 	scanline_count = -999;
 	left_edge = -152;
 
-	latched_buttons = buttons = ~0;
-	snes_pad = true;
+	latched_buttons[0] = buttons[0] = ~0;
+	latched_buttons[1] = buttons[1] = ~0;
+	pad_mode = SNES_PAD;
+	mouse_scale = 1;
 
 	// Precompute final palette for speed.
 	// Should build some NTSC compensation magic in here too.
@@ -1728,6 +1792,7 @@ void avr8::handle_key_down(SDL_Event &ev)
 	update_buttons(ev.key.keysym.sym,true);
 	static int ssnum = 0;
 	char ssbuf[32];
+	static const char *pad_mode_strings[4] = {"NES pad.","SNES pad.","SNES 2p pad.","SNES mouse."};
 
 	switch (ev.key.keysym.sym)
 	{
@@ -1738,7 +1803,22 @@ void avr8::handle_key_down(SDL_Event &ev)
 			case SDLK_2: left_edge++; printf("left=%d\n",left_edge); break;
 			case SDLK_3: scanline_top--; printf("top=%d\n",scanline_top); break;
 			case SDLK_4: scanline_top++; printf("top=%d\n",scanline_top); break;
-			case SDLK_5: snes_pad = !snes_pad; puts(snes_pad?"SNES mode":"NES mode"); break;
+			case SDLK_5: 
+				if (pad_mode == NES_PAD)
+					pad_mode = SNES_PAD;
+				else if(pad_mode == SNES_PAD)
+					pad_mode = SNES_PAD2;
+				else if(pad_mode == SNES_PAD2)
+					pad_mode = SNES_MOUSE;
+				else
+					pad_mode = NES_PAD;
+				puts(pad_mode_strings[pad_mode]); 
+				break;
+			case SDLK_6:
+				if (++mouse_scale == 6)
+					mouse_scale = 0;
+				printf("new mouse sensitivity is %d\n",mouse_scale);
+				break;
 			case SDLK_ESCAPE:
 				printf("user abort (pressed ESC).\n");
 				exit(0);
@@ -1747,13 +1827,14 @@ void avr8::handle_key_down(SDL_Event &ev)
 				printf("saving screenshot to '%s'...\n",ssbuf);
 				SDL_SaveBMP(screen,ssbuf);
 				break;
-			case SDLK_p:
+			case SDLK_0:
 				PIND = PIND & ~8;
 				break;
 			case SDLK_F1:
 				puts("1/2 - Adjust left edge lock");
 				puts("3/4 - Adjust top edge lock");
-				puts(" 5  - Toggle NES/SNES pad mode (default is SNES)");
+				puts(" 5  - Toggle NES/SNES 1p/SNES 2p/SNES mouse mode (default is SNES pad)");
+				puts(" 6  - Mouse sensitivity scale factor");
 				puts(" F1 - This help text");
 #if DISASM
 				puts(" F5 - Debugger resume execution");
@@ -1761,16 +1842,13 @@ void avr8::handle_key_down(SDL_Event &ev)
 				puts("F10 - Debugger single step");
 #endif
 				puts("Esc - Quit emulator");
-				puts(" P  - AVCORE Baseboard power switch");
-				puts(" A  - A button");
-				puts(" S  - B button");
-				puts(" X  - X button");
-				puts(" Z  - Y button");
-				puts("Tab - Select button");
-				puts("Enter      - Start button");
-				puts("LeftShift  - Left shoulder button");
-				puts("RightShift - Right shoulder button");
-				puts("Arrow keys - D-pad");
+				puts(" 0  - AVCORE Baseboard power switch");
+				puts("");
+				puts("            Up Down Left Right A B X Y Start Sel LShldr RShldr");
+				puts("NES:        ----arrow keys---- a s     Enter Tab              ");
+				puts("SNES 1p:    ----arrow keys---- a s x z Enter Tab LShift RShift");
+				puts("  2p P1:     w   s    a    d   f g r t   z    x     q      e  ");
+				puts("  2p P2:     i   k    j    l   ; ' p [   n    m     u      o  ");
 				break;
 #if DISASM
 			case SDLK_F9:
@@ -1804,45 +1882,54 @@ void avr8::handle_key_up(SDL_Event &ev)
 		PIND |= 8;
 }
 
+struct keymap { u16 key; u8 player, bit; };
+#define END_OF_MAP { 0,0,0 }
+keymap nes_one_player[] = 
+{	
+	{ SDLK_a, 0, NES_A }, { SDLK_s, 0, NES_B }, { SDLK_TAB, 0, PAD_SELECT }, { SDLK_RETURN, 0, PAD_START },
+	{ SDLK_UP, 0, PAD_UP }, { SDLK_DOWN, 0, PAD_DOWN }, { SDLK_LEFT, 0, PAD_LEFT }, { SDLK_RIGHT, 0, PAD_RIGHT },
+	END_OF_MAP
+};
+keymap snes_one_player[] =
+{
+	{ SDLK_s, 0, SNES_B }, { SDLK_z, 0, SNES_Y }, { SDLK_TAB, 0, PAD_SELECT }, { SDLK_RETURN, 0, PAD_START },
+	{ SDLK_UP, 0, PAD_UP }, { SDLK_DOWN, 0, PAD_DOWN }, { SDLK_LEFT, 0, PAD_LEFT }, { SDLK_RIGHT, 0, PAD_RIGHT },
+	{ SDLK_a, 0, SNES_A }, { SDLK_x, 0, SNES_X }, { SDLK_LSHIFT, 0, SNES_LSH }, { SDLK_RSHIFT, 0, SNES_RSH },
+	END_OF_MAP
+};
+keymap snes_two_players[] =
+{
+	// P1
+	{ SDLK_a, 0, PAD_LEFT }, { SDLK_s, 0, PAD_DOWN }, { SDLK_d, 0, PAD_RIGHT }, { SDLK_w, 0, PAD_UP },
+	{ SDLK_q, 0, SNES_LSH }, { SDLK_e, 0, SNES_RSH }, { SDLK_r, 0, SNES_Y }, { SDLK_t, 0, SNES_X },
+	{ SDLK_f, 0, SNES_B }, { SDLK_g, 0, SNES_A }, { SDLK_z, 0, PAD_SELECT }, { SDLK_x, 0, PAD_START },
+	// P2
+	{ SDLK_j, 1, PAD_LEFT }, { SDLK_k, 1, PAD_DOWN }, { SDLK_l, 1, PAD_RIGHT }, { SDLK_i, 1, PAD_UP },
+	{ SDLK_u, 1, SNES_LSH }, { SDLK_o, 1, SNES_RSH }, { SDLK_p, 1, SNES_Y }, { SDLK_LEFTBRACKET, 1, SNES_X },
+	{ SDLK_SEMICOLON, 1, SNES_B }, { SDLK_QUOTE, 1, SNES_A }, { SDLK_n, 1, PAD_SELECT }, { SDLK_m, 1, PAD_SELECT },
+	END_OF_MAP
+};
+keymap snes_mouse[] =
+{
+	END_OF_MAP
+};
+keymap *keymaps[] = { nes_one_player, snes_one_player, snes_two_players, snes_mouse };
+
 void avr8::update_buttons(int key,bool down)
 {
-	int bit;
-	// SNES bit order:  B, Y, Select, Start, Up, Down, Left, Right, A, X, L, R
-	//		    0  1    2       3    4    5     6      7    8  9  A  B
-	// NES bit order:  A, B, Select, Start, Up, Down, Left, Right
-	//		   0  1     2     3     4     5     6     7
-	if (snes_pad) switch(key)
+	keymap *k = keymaps[pad_mode];
+	while (k->key)
 	{
-		case SDLK_s: bit = 0; break; // B
-		case SDLK_z: bit = 1; break; // Y
-		case SDLK_TAB: bit = 2; break; // Select
-		case SDLK_RETURN: bit = 3; break; // Start
-		case SDLK_UP: bit = 4; break; // Up
-		case SDLK_DOWN: bit = 5; break; // Down
-		case SDLK_LEFT: bit = 6; break; // Left
-		case SDLK_RIGHT: bit = 7; break; // Right
-		case SDLK_a: bit = 8; break; // A
-		case SDLK_x: bit = 9;  break; // X
-		case SDLK_LSHIFT: bit = 10; break; // L
-		case SDLK_RSHIFT: bit = 11; break; // R
-		default: return;
+		if (key == k->key)
+		{
+			if (down)
+				buttons[k->player] &= ~(1<<k->bit);
+			else
+				buttons[k->player] |= (1<<k->bit);
+			break;
+		}
+		++k;
 	}
-	else switch (key)
-	{
-		case SDLK_a: bit = 0; break; // A
-		case SDLK_s: bit = 1; break; // B
-		case SDLK_TAB: bit = 2; break; // Select
-		case SDLK_RETURN: bit = 3; break; // Start
-		case SDLK_UP: bit = 4; break; // Up
-		case SDLK_DOWN: bit = 5; break; // Down
-		case SDLK_LEFT: bit = 6; break; // Left
-		case SDLK_RIGHT: bit = 7; break; // Right
-		default: return;
-	}
-	if (down)
-		buttons &= ~(1<<bit);
-	else
-		buttons |= (1<<bit);
 	// printf("buttons = %x\n",buttons);
 }
 #endif
@@ -2019,7 +2106,7 @@ int main(int argc,char **argv)
 		now = SDL_GetTicks() - now;
 
 		char caption[128];
-		sprintf(caption,"uzebox emulator v1.04 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
+		sprintf(caption,"uzebox emulator v1.06 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 		if (uzebox.fullscreen)
 			puts(caption);
 		else
