@@ -62,7 +62,7 @@ typedef unsigned long u32;
 enum { NES_A, NES_B, PAD_SELECT, PAD_START, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT };
 enum { SNES_B, SNES_Y, SNES_A=8, SNES_X, SNES_LSH, SNES_RSH };
 
-#if 0	// 644P
+#if 1	// 644P
 const unsigned sramSize = 4096;
 const unsigned progSize = 65536;
 #else	// 1284P
@@ -218,7 +218,7 @@ struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0)
+		prevWDR(0), frameCounter(0), new_input_mode(false)
 	{
 		memset(r, 0, sizeof(r));
 		memset(io, 0, sizeof(io));
@@ -227,6 +227,9 @@ struct avr8
 		memset(progmem,0,progSize);
 
 		PIND = 8;
+#if GUI
+		pad_mode = SNES_PAD;
+#endif
 	}
 	~avr8()
 	{
@@ -239,7 +242,8 @@ struct avr8
 	u16 breakpoint;
 	u8 TEMP;				// for 16-bit timers
 	u32 cycleCounter, prevPortB, prevWDR;
-	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced;
+	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
+		new_input_mode;
 	int interruptLevel;
 	u32 lastFlip;
 	u32 inset;
@@ -707,9 +711,16 @@ void avr8::write_io(u8 addr,u8 value)
 						buttons[0] &= ~(1<<9);
 					if (mouse_buttons & SDL_BUTTON_RMASK)
 						buttons[0] &= ~(1<<10);
+					// keep mouse centered so it doesn't get stuck on edge of screen.
+					// ...and immediately consume the bogus motion event it generated.
+					if (fullscreen)
+					{
+						SDL_WarpMouse(400,300);
+						SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
+					}
 				}
 				else
-					buttons[0] = (buttons[0] | 0x8000) & 0xFFFF;	// no mouse
+					buttons[0] |= 0xFFFF8000;
 				singleStep = nextSingleStep;
 
 				if (SDL_MUSTLOCK(screen))
@@ -725,24 +736,35 @@ void avr8::write_io(u8 addr,u8 value)
 		u8 changed = value ^ io[addr];
 		u8 went_low = changed & io[addr];
 		// u8 went_hi = changed & value;
-		if (went_low == (1<<2))
+		if (went_low == (1<<2))		// LATCH
 		{
-			latched_buttons[0] = buttons[0];
-			latched_buttons[1] = buttons[1];
-			// don't let UP+DOWN register at same time
-			if ((latched_buttons[0] & ((1<<PAD_LEFT)|(1<<PAD_RIGHT))) == 0)
-				latched_buttons[0] |= (1<<PAD_RIGHT);
-			// same for LEFT+RIGHT
-			if ((latched_buttons[0] & ((1<<PAD_UP)|(1<<PAD_DOWN))) == 0)
-				latched_buttons[0] |= (1<<PAD_DOWN);
-			// printf("LATCH latched_buttons = %x\n",latched_buttons);
+			for (int i=0; i<2; i++)
+			{
+				latched_buttons[i] = buttons[i];
+				// don't let UP+DOWN register at same time
+				if ((latched_buttons[i] & ((1<<PAD_LEFT)|(1<<PAD_RIGHT))) == 0)
+					latched_buttons[i] |= (1<<PAD_RIGHT);
+				// same for LEFT+RIGHT
+				if ((latched_buttons[i] & ((1<<PAD_UP)|(1<<PAD_DOWN))) == 0)
+					latched_buttons[i] |= (1<<PAD_DOWN);
+				// printf("LATCH latched_buttons = %x\n",latched_buttons);
+			}
 		}
-		else if (went_low == (1<<3))
+		else if (went_low == (1<<3))	// CLOCK
 		{
+			if (new_input_mode)
+				PINA = u8((latched_buttons[0] & 1) | ((latched_buttons[1] & 1) << 1));
 			latched_buttons[0] >>= 1;
 			latched_buttons[1] >>= 1;
+			if ((latched_buttons[1] < 0xFFFFF) && !new_input_mode)
+			{
+				printf("new input routines detected, switching emulation method.\n");
+				new_input_mode = true;
+			}
 		}
-		PINA = u8((latched_buttons[0] & 1) | ((latched_buttons[1] & 1) << 1));
+		if (!new_input_mode)
+			PINA = u8((latched_buttons[0] & 1) | ((latched_buttons[1] & 1) << 1));
+
 		// printf("(writing %x to PORTA pc = %x) setting PINA to %x\n",value,pc-1,PINA);
 		io[addr] = value;
 	}
@@ -1744,6 +1766,11 @@ bool avr8::init_gui()
 	if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) < 0)
 		return false;
 
+	if (fullscreen)
+	{
+		SDL_ShowCursor(0);
+	}
+
 	// Open audio driver
 	SDL_AudioSpec desired;
 	memset(&desired, 0, sizeof(desired));
@@ -1771,7 +1798,6 @@ bool avr8::init_gui()
 
 	latched_buttons[0] = buttons[0] = ~0;
 	latched_buttons[1] = buttons[1] = ~0;
-	pad_mode = SNES_PAD;
 	mouse_scale = 1;
 
 	// Precompute final palette for speed.
@@ -2071,6 +2097,8 @@ int main(int argc,char **argv)
 		fprintf(stderr,"\t-hwsurface : use SDL hardware surface (probably slower)\n");
 		fprintf(stderr,"\t-nodoublebuf : no double buffering\n");
 		fprintf(stderr,"\t-interlaced : turn on interlaced rendering\n");
+		fprintf(stderr,"\t-mouse : start with emulated mouse enabled\n");
+		fprintf(stderr,"\t-2p: start with snes 2p mode enabled\n");
 		return 1;
 	}
 
@@ -2088,6 +2116,10 @@ int main(int argc,char **argv)
 			uzebox.sdl_flags &= ~SDL_DOUBLEBUF;
 		else if (!strcmp(argv[i],"-interlaced"))
 			uzebox.interlaced = true;
+		else if (!strcmp(argv[i],"-mouse"))
+			uzebox.pad_mode = avr8::SNES_MOUSE;
+		else if (!strcmp(argv[i],"-2p"))
+			uzebox.pad_mode = avr8::SNES_PAD2;
 	}
 
 #if GUI
@@ -2106,7 +2138,7 @@ int main(int argc,char **argv)
 		now = SDL_GetTicks() - now;
 
 		char caption[128];
-		sprintf(caption,"uzebox emulator v1.06 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
+		sprintf(caption,"uzebox emulator v1.07 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 		if (uzebox.fullscreen)
 			puts(caption);
 		else
