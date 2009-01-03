@@ -96,9 +96,6 @@
 .global SetFontTilesIndex
 #endif
 
-.global WriteEeprom
-.global ReadEeprom
-		
 .section .data
 	#if VIDEO_MODE == 2
 
