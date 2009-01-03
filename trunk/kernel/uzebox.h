@@ -72,10 +72,6 @@
 	//Access the joypads buttons state
 	extern unsigned int ReadJoypad(unsigned char joypadNo);
 
-	//Read/write EEPROM
-	extern void WriteEeprom(int addr,unsigned char value);
-	extern unsigned char ReadEeprom(int addr);
-
 	/*
 	 * Sound Engine defines & functions
 	 */	
