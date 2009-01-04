@@ -65,9 +65,11 @@ enum { SNES_B, SNES_Y, SNES_A=8, SNES_X, SNES_LSH, SNES_RSH };
 #if 1	// 644P
 const unsigned sramSize = 4096;
 const unsigned progSize = 65536;
+const unsigned eepromSize = 2048;
 #else	// 1284P
 const unsigned sramSize = 16384;
 const unsigned progSize = 131072;
+const unsigned eepromSize = 4096;	// unconfirmed
 #endif
 
 #define X		((XL)|(XH<<8))
@@ -218,12 +220,13 @@ struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0), new_input_mode(false)
+		prevWDR(0), frameCounter(0), new_input_mode(false), eepromDirty(false), eepromName("eeprom.hex")
 	{
 		memset(r, 0, sizeof(r));
 		memset(io, 0, sizeof(io));
 		memset(sram, 0, sizeof(sram));
 		progmem = new u16[progSize/2];
+		eeprom = new u8[eepromSize];
 		memset(progmem,0,progSize);
 
 		PIND = 8;
@@ -234,8 +237,16 @@ struct avr8
 	~avr8()
 	{
 		delete[] progmem;
+		delete[] eeprom;
 	}
 
+	void shutdown()
+	{
+		if (eepromDirty)
+			save_hex_eeprom();
+	}
+
+	u8 *eeprom;
 	u16 *progmem;
 	u16 progmemLast;		// size of the last file
 	u16 pc;
@@ -243,9 +254,10 @@ struct avr8
 	u8 TEMP;				// for 16-bit timers
 	u32 cycleCounter, prevPortB, prevWDR;
 	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
-		new_input_mode;
+		new_input_mode, eepromDirty;
 	int interruptLevel;
 	u32 lastFlip;
+	const char *eepromName;
 	u32 inset;
 #if GUI
 	SDL_Surface *screen;
@@ -381,7 +393,12 @@ struct avr8
 
 	void update_hardware(int cycles);
 
-	bool load_hex(const char *filename);
+	bool load_hex_common(const char *filename,void *dest,int destSize,bool isWord);
+	bool save_hex_common(const char *filename,const u8 *src,int srcSize);
+
+	bool load_hex_progmem(const char *filename);
+	bool load_hex_eeprom();
+	bool save_hex_eeprom();
 };
 
 
@@ -541,7 +558,7 @@ inline void set_bit(u8 &dest,int bit,int value)
 #define CLEAR_Z		(SREG &= ~(1<<SREG_Z))
 #define SET_C		(SREG |= (1<<SREG_C))
 
-#define ILL if (!disasmOnly) { fprintf(stderr,"invalid insn %x\n",insn); exit(1); }
+#define ILL if (!disasmOnly) { fprintf(stderr,"invalid insn %x\n",insn); shutdown(); exit(1); }
 
 #if defined(_DEBUG) && 0
 #define DISASM 1
@@ -652,6 +669,41 @@ void avr8::write_io(u8 addr,u8 value)
 		io[addr] = value;
 		io[addr+1] = TEMP;
 	}
+	else if (addr == ports::EECR)
+	{
+		// EEPM1   5
+		// EEPM0   4
+		// EERIE   3
+		// EEMPE   2
+		// EEPE    1
+		// EERE    0
+		u8 changed = io[addr] ^ value;
+		u8 went_hi = changed & value;
+
+		// If EEPE went hi, and EEMPE is already high...
+		if (went_hi == (1<<1) && (io[addr] & (1<<2)))
+		{
+			u16 addr = (EEARL | (EEARH << 8)) & (eepromSize-1);
+			if (eeprom[addr] != EEDR)
+			{
+				eeprom[addr] = EEDR;
+				eepromDirty = true;
+				printf("EEPROM: wrote %02x to %04x\n",EEDR,addr);
+			}
+			// Turn off EEMPE (and never turn on EEPE)
+			io[addr] = io[addr] & ~(1<<2);
+		}
+		// If EERE went high...
+		else if (went_hi == (1<<0))
+		{
+			u16 addr = (EEARL | (EEARH << 8)) & (eepromSize-1);
+			EEDR = eeprom[addr];
+			printf("EEPROM: read %02x from %04x\n",EEDR,addr);
+			// (ignore the write)
+		}
+		else
+			io[addr] = value;
+	}
 #if GUI
 	else if (addr == ports::PORTB)
 	{
@@ -693,6 +745,7 @@ void avr8::write_io(u8 addr,u8 value)
 					else if (event.type == SDL_QUIT)
 					{
 						printf("user abort (closed window).\n");
+						shutdown();
 						exit(0);
 					}
 				}
@@ -812,6 +865,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 {
 	if (pc >= progmemLast) {
 		fprintf(stderr,"illegal pc %x caught\n",pc);
+		shutdown();
 		exit(1);
 	}
 
@@ -1362,6 +1416,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				if (Z >= progSize/2)
 				{
 					fprintf(stderr,"illegal write to progmem addr %x\n",Z);
+					shutdown();
 					exit(1);
 				}
 				else
@@ -1847,6 +1902,7 @@ void avr8::handle_key_down(SDL_Event &ev)
 				break;
 			case SDLK_ESCAPE:
 				printf("user abort (pressed ESC).\n");
+				shutdown();
 				exit(0);
 			case SDLK_PRINT:
 				sprintf(ssbuf,"uzem_%03d.bmp",ssnum++);
@@ -2021,7 +2077,17 @@ static int parse_hex_word(const char *s)
 		(parse_hex_nibble(s[2])<<4) | parse_hex_nibble(s[3]);
 }
 
-bool avr8::load_hex(const char *filename)
+bool avr8::load_hex_progmem(const char *filename)
+{
+	return load_hex_common(filename,progmem,progSize,true);
+}
+
+bool avr8::load_hex_eeprom()
+{
+	return load_hex_common(eepromName,eeprom,eepromSize,false);
+}
+
+bool avr8::load_hex_common(const char *filename,void *dest,int destSize,bool isWord)
 {
 	/*
 	http://en.wikipedia.org/wiki/.hex
@@ -2037,33 +2103,54 @@ bool avr8::load_hex(const char *filename)
 	00 is data, 01 is EOF.	For record type zero, next "wide" field is the actual data, followed by a 
 	checksum.
 	*/
-	FILE *f = fopen(filename,"r");
+	FILE *f = fopen(filename,"rt");
 
 	if (!f)
 		return false;
 
 	// Zero entire memory out first in case new image is shorter than last one
-	memset(progmem, 0, progSize);
+	memset(dest, 0, destSize);
 
 	char line[128];
 	int lineNumber = 1;
-	progmemLast = 0;
+	if (isWord)
+		progmemLast = 0;
 	while (fgets(line, sizeof(line), f) && line[0]==':')
 	{
 		int bytes = parse_hex_byte(line+1);
 		int addr = parse_hex_word(line+3);
 		int recordType = parse_hex_byte(line+7);
+		u8 checksum = bytes + parse_hex_byte(line+3) + parse_hex_byte(line+5) + recordType;
 		if (recordType == 0)
 		{
 			char *lp = line + 9;
 			while (bytes > 0)
 			{
-				progmem[(addr & (progSize-1)) >> 1] = parse_hex_byte(lp) | (parse_hex_byte(lp+2)<<8);
-				addr += 2;
-				if ((addr>>1) > progmemLast)
-					progmemLast = (addr>>1);
-				lp += 4;
-				bytes -= 2;
+				if (isWord)
+				{
+					checksum += parse_hex_byte(lp) + parse_hex_byte(lp+2);
+					u16 *p = (u16*) dest;
+					p[(addr & (progSize-1)) >> 1] = parse_hex_byte(lp) | (parse_hex_byte(lp+2)<<8);
+					addr += 2;
+					if ((addr>>1) > progmemLast)
+						progmemLast = (addr>>1);
+					bytes -= 2;
+					lp += 4;
+				}
+				else
+				{
+					checksum += parse_hex_byte(lp);
+					u8 *b = (u8*) dest;
+					b[addr & (destSize-1)] = parse_hex_byte(lp);
+					addr += 1;
+					bytes -= 1;
+					lp += 2;
+				}
+			}
+			checksum = ~checksum + 1;
+			if (checksum != parse_hex_byte(lp))
+			{
+				fprintf(stderr,"line %d: checksum error, expected %x, got %x\n",lineNumber,checksum,parse_hex_byte(lp));
 			}
 		}
 		else if (recordType == 1)
@@ -2080,6 +2167,38 @@ bool avr8::load_hex(const char *filename)
 	return true;
 }
 
+
+bool avr8::save_hex_common(const char *filename,const u8 *src,int srcSize)
+{
+	FILE *f = fopen(filename,"wt");
+	if (!f)
+		return false;
+
+	for (int i=0; i<srcSize; i+=16)
+	{
+		// :10 65B0 00 661F771F881F991F1A9469F760957095 59
+		fprintf(f,":10%04X00",i);
+		u8 checksum = 0x10 + (i >> 8) + (i & 255);
+		for (int j=0; j<16; j++)
+		{
+			fprintf(f,"%02X",src[i+j]);
+			checksum += src[i+j];
+		}
+		fprintf(f,"%02X\n",(~checksum + 1) & 255);
+	}
+	fprintf(f,":00000001FF\n");
+	fclose(f);
+
+	return true;
+}
+
+
+bool avr8::save_hex_eeprom()
+{
+	return save_hex_common(eepromName,eeprom,eepromSize);
+}
+
+
 int main(int argc,char **argv)
 {
 	avr8 uzebox;
@@ -2089,7 +2208,7 @@ int main(int argc,char **argv)
 	uzebox.sdl_flags = SDL_DOUBLEBUF | SDL_SWSURFACE;
 #endif
 
-	if (argc<2 || !uzebox.load_hex(argv[1]))
+	if (argc<2 || !uzebox.load_hex_progmem(argv[1]))
 	{
 		fprintf(stderr,"usage: %s filename.hex flags...\n",argv[0]);
 		fprintf(stderr,"\t-bp addr : set breakpoint\n");
@@ -2099,13 +2218,16 @@ int main(int argc,char **argv)
 		fprintf(stderr,"\t-interlaced : turn on interlaced rendering\n");
 		fprintf(stderr,"\t-mouse : start with emulated mouse enabled\n");
 		fprintf(stderr,"\t-2p: start with snes 2p mode enabled\n");
+		fprintf(stderr,"\t-eeprom name : set eeprom filename (default eeprom.hex)\n");
 		return 1;
 	}
+	else
+		puts("Run emulator with no parameters to see command line help.");
 
 	for (int i=0; i<argc; i++)
 	{
 		if (!strcmp(argv[i],"-bp"))
-			uzebox.breakpoint = (u16) strtoul(argv[i+1],NULL,16);
+			uzebox.breakpoint = (u16) strtoul(argv[++i],NULL,16);
 		else if (!strcmp(argv[i],"-nosound"))
 			uzebox.enableSound = false;
 		else if (!strcmp(argv[i],"-fullscreen"))
@@ -2120,7 +2242,11 @@ int main(int argc,char **argv)
 			uzebox.pad_mode = avr8::SNES_MOUSE;
 		else if (!strcmp(argv[i],"-2p"))
 			uzebox.pad_mode = avr8::SNES_PAD2;
+		else if (!strcmp(argv[i],"-eeprom"))
+			uzebox.eepromName = argv[++i];
 	}
+
+	uzebox.load_hex_eeprom();
 
 #if GUI
 	if (!uzebox.init_gui())
@@ -2138,7 +2264,7 @@ int main(int argc,char **argv)
 		now = SDL_GetTicks() - now;
 
 		char caption[128];
-		sprintf(caption,"uzebox emulator v1.07 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
+		sprintf(caption,"uzebox emulator v1.08 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 		if (uzebox.fullscreen)
 			puts(caption);
 		else
