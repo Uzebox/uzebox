@@ -1569,19 +1569,15 @@ mode2_render_line_offset_5:
 sub_video_mode1:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,222 //200-20+22+19+1
+	ldi ZL,222 
 mode0_render_delay:
 	lpm
 	nop
 	dec ZL
 	brne mode0_render_delay 
 
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
+	lpm
+	lpm
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
@@ -1596,32 +1592,23 @@ mode0_render_delay:
 next_text_line:	
 	rcall hsync_pulse ;3+144=147
 
-	ldi r19,41-5 + CENTER_ADJUSTMENT
-text_wait1:
+	ldi r19,37 + CENTER_ADJUSTMENT
 	dec r19			
-	brne text_wait1;206
+	brne .-4
 
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,10+5 - CENTER_ADJUSTMENT
-text_wait2:
+	ldi r19,26 - CENTER_ADJUSTMENT
 	dec r19			
-	brne text_wait2;233
-
-	
-	nop
+	brne .-4
 
 
 	dec r10
 	breq text_frame_end
 	
-
-	nop
+	lpm ;3 nop
 	inc r22
-
-	nop
-	nop
 
 	cpi r22,8 ;last char line? 1
 	breq next_text_row 
@@ -1631,36 +1618,28 @@ text_wait2:
 	lpm ;3 nop
 	lpm ;3 nop
 	nop
+
 	rjmp next_text_line	
 
 next_text_row:
 	clr r22		;current char line			;1	
-
 
 	clr r0
 	ldi r19,VRAM_TILES_H*2
 	add YL,r19
 	adc YH,r0
 
-
-	;nop
-	;nop
-	nop
-	nop
+	lpm
 	nop
 
-	nop
 	rjmp next_text_line
 
 text_frame_end:
-	;13
-	lpm ;3 nop
-	lpm ;3 nop
-	lpm ;3 nop
-	lpm ;3 nop
-	lpm ;3 nop
-	nop
-	nop
+
+	ldi r19,5
+	dec r19			
+	brne .-4
+	rjmp .
 
 	rcall hsync_pulse ;145
 	
@@ -1693,15 +1672,12 @@ text_end2:
 ; cycles  = 1495
 ;*************************************************
 render_tile_line:
-	push r24
-	push r25
 
 	movw XL,YL
 
 	;add tile Y offset
 	mul r22,r23
 	movw r24,r0
-	nop
 
 	;load the first tile from vram
 	ld	r20,X+	;load tile adress LSB from VRAM
@@ -1712,8 +1688,9 @@ render_tile_line:
 
 	movw ZL,r20
 	;draw 40 tiles wide, 6 clocks/pixel
-.rept 40
-	
+	ldi r18,SCREEN_TILES_H
+
+m0_loop:	
 	lpm r16,Z+
 	out _SFR_IO_ADDR(DATA_PORT),r16
 	
@@ -1732,45 +1709,25 @@ render_tile_line:
 	lpm r16,Z+
 	out _SFR_IO_ADDR(DATA_PORT),r16
 
-	rjmp .
-
-	lpm r16,Z+
-	out _SFR_IO_ADDR(DATA_PORT),r16
-
 	add r20,r24	;add tile table row offset 
 	adc r21,r25 ;add tile table row offset 
 
-
 	lpm r16,Z+
 	out _SFR_IO_ADDR(DATA_PORT),r16
 
-	nop
+	lpm r16,Z+
 	movw ZL,r20
+	dec r18
 
-	
-
-.endr
+	out _SFR_IO_ADDR(DATA_PORT),r16
+	brne m0_loop
 
 	;end set last pix to zero
-	nop
+	rjmp .
 	clr r16
 	nop
 	out _SFR_IO_ADDR(DATA_PORT),r16
 
-
-
-
-	ldi r16,4+2+2
-rtl2:
-	dec r16
-	brne rtl2
-
-	nop
-	nop
-	nop
-
-	pop r25
-	pop r24
 	ret
 #endif
 
@@ -2638,12 +2595,7 @@ set_normal_rate_HDRIVE:
 		ldi XL,lo8(vram)
 		ldi XH,hi8(vram)
 
-
-#if  VIDEO_MODE == 3
 		ldi r22,RAM_TILES_COUNT
-#else
-		clr r22
-#endif
 
 
 	fill_vram_loop:
@@ -3087,184 +3039,184 @@ SetFullSpeed:
 	sts _SFR_MEM_ADDR(CLKPR),r25
 	ret
 
+#if VIDEO_MODE == 3
+	;***********************************
+	; SET TILE 8bit mode
+	; C-callable
+	; r24=ROM tile index
+	; r22=RAM tile index
+	;************************************
+	CopyTileToRam:
+	/*
+		src=tile_table_lo+((bt&0x7f)*64);
+		dest=ram_tiles+(free_tile_index*TILE_HEIGHT*TILE_WIDTH);
 
-;***********************************
-; SET TILE 8bit mode
-; C-callable
-; r24=ROM tile index
-; r22=RAM tile index
-;************************************
-CopyTileToRam:
-/*
-	src=tile_table_lo+((bt&0x7f)*64);
-	dest=ram_tiles+(free_tile_index*TILE_HEIGHT*TILE_WIDTH);
+		ram_tiles_restore[free_tile_index].addr=ramPtr;//(by*VRAM_TILES_H)+bx+x;
+		ram_tiles_restore[free_tile_index].tileIndex=bt;
 
-	ram_tiles_restore[free_tile_index].addr=ramPtr;//(by*VRAM_TILES_H)+bx+x;
-	ram_tiles_restore[free_tile_index].tileIndex=bt;
-
-	for(j=0;j<64;j++){
-		px=pgm_read_byte(src++);
-		*dest++=px;
-	}
-*/
-
-	ldi r18,TILE_HEIGHT*TILE_WIDTH
-
-	;compute source adress
-	lds ZL,tile_table_lo
-	lds ZH,tile_table_hi
-	;andi r24,0x7f
-	subi r24,RAM_TILES_COUNT
-	mul r24,r18
-	add ZL,r0
-	adc ZH,r1
-
-	;compute destination adress
-	ldi XL,lo8(ram_tiles)
-	ldi XH,hi8(ram_tiles)
-	mul r22,r18
-	add XL,r0
-	adc XH,r1
-
-	clr r0
-	;copy data (fastest possible)
-.rept TILE_HEIGHT*TILE_WIDTH
-	lpm r0,Z+	
-	st X+,r0
-.endr
-
-
-	clr r1
-	ret
-
-
-
-
-;***********************************
-; SET TILE 8bit mode
-; C-callable
-; r24=SpriteNo
-; r22=RAM tile index (bt)
-; r21:r20=Y:X
-; r19:r18=DY:DX
-;************************************
-BlitSprite:
-	
-	;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
-	ldi r25,SPRITE_STRUCT_SIZE
-	mul r24,r25
-	
-	ldi ZL,lo8(sprites)	
-	ldi ZH,hi8(sprites)	
-	add ZL,r0
-	adc ZH,r1
-	ldd r24,Z+sprTileIndex
-
-	lds ZL,sprites_tiletable_lo
-	lds ZH,sprites_tiletable_hi
-	ldi r25,TILE_WIDTH*TILE_HEIGHT
-	mul r24,r25
-	add ZL,r0	;src
-	adc ZH,r1
-
-	;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
-	ldi XL,lo8(ram_tiles)	
-	ldi XH,hi8(ram_tiles)
-	mul r22,r25
-	add XL,r0
-	adc XH,r1
-
-	;if(x==0){
-	;	dest+=dx;
-	;	xdiff=dx;
-	;}else{
-	;	src+=(8-dx);
-	;	xdiff=(8-dx);
-	;}	
-	clr r1
-	cpi r20,0
-	brne x_2nd_tile
-	add XL,r18
-	adc XH,r1
-	mov r24,r18	;xdiff
-	rjmp x_check_end
-x_2nd_tile:
-	ldi r24,8
-	sub r24,r18	;xdiff
-	add ZL,r24
-	adc ZH,r1	
-x_check_end:
-
-	;if(y==0){
-	;	dest+=(dy*TILE_WIDTH);
-	;	ydiff=dy;
-	;}else{
-	;	src+=((8-dy)*TILE_WIDTH);
-	;	ydiff=(8-dy);
-	;}
-	cpi r21,0
-	brne y_2nd_tile
-	ldi r25,TILE_WIDTH
-	mul r25,r19
-	add XL,r0
-	adc XH,r1
-	mov r25,r19	;ydiff
-	rjmp y_check_end
-y_2nd_tile:
-	ldi r25,TILE_HEIGHT
-	sub r25,r19	;ydiff
-	ldi r21,TILE_WIDTH
-	mul r21,r25
-	add ZL,r0
-	adc ZH,r1	
-y_check_end:	
-	
-/*
-	for(y2=ydiff;y2<TILE_HEIGHT;y2++){
-		for(x2=xdiff;x2<TILE_WIDTH;x2++){
-								
+		for(j=0;j<64;j++){
 			px=pgm_read_byte(src++);
-			if(px!=TRANSLUCENT_COLOR){
-				*dest=px;
-			}
-			dest++;
+			*dest++=px;
+		}
+	*/
 
-		}		
-		src+=xdiff;
-		dest+=xdiff;
+		ldi r18,TILE_HEIGHT*TILE_WIDTH
 
-	}
-*/
+		;compute source adress
+		lds ZL,tile_table_lo
+		lds ZH,tile_table_hi
+		;andi r24,0x7f
+		subi r24,RAM_TILES_COUNT
+		mul r24,r18
+		add ZL,r0
+		adc ZH,r1
 
-	clr r1
-	ldi r19,TRANSLUCENT_COLOR
+		;compute destination adress
+		ldi XL,lo8(ram_tiles)
+		ldi XH,hi8(ram_tiles)
+		mul r22,r18
+		add XL,r0
+		adc XH,r1
 
-	ldi r21,8
-	sub r21,r25 ;y2
+		clr r0
+		;copy data (fastest possible)
+	.rept TILE_HEIGHT*TILE_WIDTH
+		lpm r0,Z+	
+		st X+,r0
+	.endr
 
-y2_loop:
-	ldi r20,8
-	sub r20,r24 ;x2
-x2_loop:
-	lpm r18,Z+
-	cpse r18,r19
-	st X,r18
-	adiw XL,1
-	dec r20
-	brne x2_loop
 
-	add ZL,r24
-	adc ZH,r1
-	add XL,r24
-	adc XH,r1
+		clr r1
+		ret
 
-	dec r21
-	brne y2_loop
 
-	clr r1
 
-	ret
 
+	;***********************************
+	; SET TILE 8bit mode
+	; C-callable
+	; r24=SpriteNo
+	; r22=RAM tile index (bt)
+	; r21:r20=Y:X
+	; r19:r18=DY:DX
+	;************************************
+	BlitSprite:
+	
+		;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
+		ldi r25,SPRITE_STRUCT_SIZE
+		mul r24,r25
+	
+		ldi ZL,lo8(sprites)	
+		ldi ZH,hi8(sprites)	
+		add ZL,r0
+		adc ZH,r1
+		ldd r24,Z+sprTileIndex
+
+		lds ZL,sprites_tiletable_lo
+		lds ZH,sprites_tiletable_hi
+		ldi r25,TILE_WIDTH*TILE_HEIGHT
+		mul r24,r25
+		add ZL,r0	;src
+		adc ZH,r1
+
+		;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
+		ldi XL,lo8(ram_tiles)	
+		ldi XH,hi8(ram_tiles)
+		mul r22,r25
+		add XL,r0
+		adc XH,r1
+
+		;if(x==0){
+		;	dest+=dx;
+		;	xdiff=dx;
+		;}else{
+		;	src+=(8-dx);
+		;	xdiff=(8-dx);
+		;}	
+		clr r1
+		cpi r20,0
+		brne x_2nd_tile
+		add XL,r18
+		adc XH,r1
+		mov r24,r18	;xdiff
+		rjmp x_check_end
+	x_2nd_tile:
+		ldi r24,8
+		sub r24,r18	;xdiff
+		add ZL,r24
+		adc ZH,r1	
+	x_check_end:
+
+		;if(y==0){
+		;	dest+=(dy*TILE_WIDTH);
+		;	ydiff=dy;
+		;}else{
+		;	src+=((8-dy)*TILE_WIDTH);
+		;	ydiff=(8-dy);
+		;}
+		cpi r21,0
+		brne y_2nd_tile
+		ldi r25,TILE_WIDTH
+		mul r25,r19
+		add XL,r0
+		adc XH,r1
+		mov r25,r19	;ydiff
+		rjmp y_check_end
+	y_2nd_tile:
+		ldi r25,TILE_HEIGHT
+		sub r25,r19	;ydiff
+		ldi r21,TILE_WIDTH
+		mul r21,r25
+		add ZL,r0
+		adc ZH,r1	
+	y_check_end:	
+	
+	/*
+		for(y2=ydiff;y2<TILE_HEIGHT;y2++){
+			for(x2=xdiff;x2<TILE_WIDTH;x2++){
+								
+				px=pgm_read_byte(src++);
+				if(px!=TRANSLUCENT_COLOR){
+					*dest=px;
+				}
+				dest++;
+
+			}		
+			src+=xdiff;
+			dest+=xdiff;
+
+		}
+	*/
+
+		clr r1
+		ldi r19,TRANSLUCENT_COLOR
+
+		ldi r21,8
+		sub r21,r25 ;y2
+
+	y2_loop:
+		ldi r20,8
+		sub r20,r24 ;x2
+	x2_loop:
+		lpm r18,Z+
+		cpse r18,r19
+		st X,r18
+		adiw XL,1
+		dec r20
+		brne x2_loop
+
+		add ZL,r24
+		adc ZH,r1
+		add XL,r24
+		adc XH,r1
+
+		dec r21
+		brne y2_loop
+
+		clr r1
+
+		ret
+#endif
 
 
 ;***********************************

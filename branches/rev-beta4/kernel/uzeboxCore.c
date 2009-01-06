@@ -84,8 +84,7 @@ extern unsigned char scanline_sprite_buf[];
 extern unsigned char burstOffset;
 extern unsigned char vsync_phase;
 extern volatile unsigned int joypad1_status_lo,joypad2_status_lo,joypad1_status_hi,joypad2_status_hi;
-extern void WriteEeprom(unsigned int address,unsigned char value);
-extern unsigned char ReadEeprom(unsigned int address);
+
 
 bool snesMouseEnabled;
 

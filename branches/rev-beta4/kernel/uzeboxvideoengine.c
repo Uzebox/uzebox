@@ -27,137 +27,139 @@
 
 #define CHAR_ZERO 16 
 
-extern unsigned char ram_tiles[];
-struct SpriteStruct sprites[MAX_SPRITES];
-extern unsigned char *sprites_tiletable_lo;
-extern unsigned char *tile_table_lo;
-extern struct BgRestoreStruct ram_tiles_restore[];
+#if VIDEO_MODE == 3
+	extern unsigned char ram_tiles[];
+	struct SpriteStruct sprites[MAX_SPRITES];
+	extern unsigned char *sprites_tiletable_lo;
+	extern unsigned char *tile_table_lo;
+	extern struct BgRestoreStruct ram_tiles_restore[];
 
-extern void CopyTileToRam(unsigned char romTile,unsigned char ramTile);
-extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
+	extern void CopyTileToRam(unsigned char romTile,unsigned char ramTile);
+	extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
 
-unsigned char free_tile_index=0;
-bool spritesOn=true;
+	unsigned char free_tile_index=0;
+	bool spritesOn=true;
 
-void RestoreBackground(){
-	unsigned char i;
-	for(i=0;i<free_tile_index;i++){
-		vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
-	}
+	void RestoreBackground(){
+		unsigned char i;
+		for(i=0;i<free_tile_index;i++){
+			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+		}
 	
-	free_tile_index=0;
-}
-
-
-void SetSpriteVisibility(bool visible){
-	spritesOn=visible;
-}
-
-
-void ProcessSprites(){
-	unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1;
-	unsigned int ramPtr;
-
-
-	RestoreBackground();
-
-	if(!spritesOn) return;
-		
-	for(i=0;i<MAX_SPRITES;i++){
-		by=sprites[i].y;
-		if(by<(SCREEN_TILES_V*TILE_HEIGHT)){
-			tx=1;
-			ty=1;
-			//get the BG tiles that are overlapped by the sprite
-			bx=sprites[i].x>>3;
-			dx=sprites[i].x&0x7;
-			if(dx>0) tx++;
-
-			by=sprites[i].y>>3;			
-			dy=sprites[i].y&0x7;		
-			if(dy>0) ty++;			
-
-			for(y=0;y<ty;y++){
-
-				for(x=0;x<tx;x++){
-
-					ramPtr=((by+y)*VRAM_TILES_H)+bx+x;
-					bt=vram[ramPtr];
-
-					if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
-
-						//tile is mapped to flash. Copy it to next free RAM tile.
-						//if no ram free ignore tile
-						ram_tiles_restore[free_tile_index].addr=ramPtr;
-						ram_tiles_restore[free_tile_index].tileIndex=bt;
-														
-						CopyTileToRam(bt,free_tile_index);
-
-						vram[ramPtr]=free_tile_index;
-						bt=free_tile_index;
-						free_tile_index++;										
-					}
-					
-					if(bt<RAM_TILES_COUNT){
-
-						BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);
-
-						/*	THIS COMMENTED CODE HAS BEEN MOVE TO ASM				
-						//blit sprite to RAM tile
-						src=sprites_tiletable_lo+(sprites[i].tileIndex*64);
-						dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH);
-
-						if(x==0){
-							dest+=dx;
-							xdiff=dx;
-						}else{
-							src+=(8-dx);
-							xdiff=(8-dx);
-						}
-
-						if(y==0){
-							dest+=(dy*TILE_WIDTH);
-							ydiff=dy;
-						}else{
-							src+=((8-dy)*TILE_WIDTH);
-							ydiff=(8-dy);
-						}
-
-						for(y2=ydiff;y2<TILE_HEIGHT;y2++){
-							for(x2=xdiff;x2<TILE_WIDTH;x2++){
-													
-								px=pgm_read_byte(src++);
-								if(px!=TRANSLUCENT_COLOR){
-									*dest=px;
-								}
-								dest++;
-
-							}		
-							src+=xdiff;
-							dest+=xdiff;
-
-						}
-						*/					
-					}
-
-
-				}//end for X
-			}//end for Y
-		
-		}//	if(by<(SCREEN_TILES_V*TILE_HEIGHT))		
+		free_tile_index=0;
 	}
 
 
+	void SetSpriteVisibility(bool visible){
+		spritesOn=visible;
+	}
 
-}
+
+	void ProcessSprites(){
+		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1;
+		unsigned int ramPtr;
 
 
+		RestoreBackground();
+
+		if(!spritesOn) return;
+		
+		for(i=0;i<MAX_SPRITES;i++){
+			by=sprites[i].y;
+			if(by<(SCREEN_TILES_V*TILE_HEIGHT)){
+				tx=1;
+				ty=1;
+				//get the BG tiles that are overlapped by the sprite
+				bx=sprites[i].x>>3;
+				dx=sprites[i].x&0x7;
+				if(dx>0) tx++;
+
+				by=sprites[i].y>>3;			
+				dy=sprites[i].y&0x7;		
+				if(dy>0) ty++;			
+
+				for(y=0;y<ty;y++){
+
+					for(x=0;x<tx;x++){
+
+						ramPtr=((by+y)*VRAM_TILES_H)+bx+x;
+						bt=vram[ramPtr];
+
+						if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
+
+							//tile is mapped to flash. Copy it to next free RAM tile.
+							//if no ram free ignore tile
+							ram_tiles_restore[free_tile_index].addr=ramPtr;
+							ram_tiles_restore[free_tile_index].tileIndex=bt;
+														
+							CopyTileToRam(bt,free_tile_index);
+
+							vram[ramPtr]=free_tile_index;
+							bt=free_tile_index;
+							free_tile_index++;										
+						}
+					
+						if(bt<RAM_TILES_COUNT){
+
+							BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);
+
+							/*	THIS COMMENTED CODE HAS BEEN MOVE TO ASM				
+							//blit sprite to RAM tile
+							src=sprites_tiletable_lo+(sprites[i].tileIndex*64);
+							dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH);
+
+							if(x==0){
+								dest+=dx;
+								xdiff=dx;
+							}else{
+								src+=(8-dx);
+								xdiff=(8-dx);
+							}
+
+							if(y==0){
+								dest+=(dy*TILE_WIDTH);
+								ydiff=dy;
+							}else{
+								src+=((8-dy)*TILE_WIDTH);
+								ydiff=(8-dy);
+							}
+
+							for(y2=ydiff;y2<TILE_HEIGHT;y2++){
+								for(x2=xdiff;x2<TILE_WIDTH;x2++){
+													
+									px=pgm_read_byte(src++);
+									if(px!=TRANSLUCENT_COLOR){
+										*dest=px;
+									}
+									dest++;
+
+								}		
+								src+=xdiff;
+								dest+=xdiff;
+
+							}
+							*/					
+						}
+
+
+					}//end for X
+				}//end for Y
+		
+			}//	if(by<(SCREEN_TILES_V*TILE_HEIGHT))		
+		}
+
+
+
+	}
+
+#endif
 
 
 #if VIDEO_MODE == 2
 	#include "data/scrolltable.inc"
 	extern char scanline_sprite_buf[];
 	extern char sprites_per_lines[SCREEN_TILES_V*TILE_HEIGHT][MAX_SPRITES_PER_LINE];
+	struct SpriteStruct sprites[MAX_SPRITES];
 
 	/**
 	 *  =====USED INTERNALLY ONLY - USE SCREEN SECTIONS XSCROLL & YSCROLL===
@@ -200,123 +202,6 @@ void ProcessSprites(){
 
 	}
 
-
-	/**
-	 * Computes the sprites visibily per scanline. This
-	 * function is invoked for each field at the beginning of VSYNC.
-	 *
-	 * This function is used internally by the kernel. User programs
-	 * should not invoke it directly.
-	 */
-	void ProcessSprites(){	
-
-		unsigned char sprNo,cy,yclip=8,sx,sy,disp,i,t;		
-		static unsigned char rotateSprNo=1;	
-
-		//erase the sprites-per-line buffer. 
-		//Only clear sections onto which sprites can appear (has priority)
-		sy=0;
-		for(i=0;i<SCREEN_SECTIONS_COUNT;i++){
-
-				//pre-compute sections stuff
-				SetScrolling(i,ScreenSections[i].scrollX,ScreenSections[i].scrollY);
-			
-				if((ScreenSections[i].flags & SS_FLAGS_SPR_PRIORITY)==1){
-					//sprites will be visible over this section
-					t=sy+ScreenSections[i].height;
-					while(sy<t){
-						sprites_per_lines[sy][0]=0;
-						sprites_per_lines[sy][1]=0;
-						sprites_per_lines[sy][2]=0;
-						sprites_per_lines[sy][3]=0;
-						sprites_per_lines[sy][4]=0;
-						sy++;
-					}				
-				}else{
-					//this section will be cleared in the last step
-					sy+=ScreenSections[i].height;
-				}
-			
-		}
-
-
-		//check if we need to do sprite clip or flick
-		if(SpritesConfig&1){
-			sprNo=rotateSprNo;
-		}else{
-			sprNo=1;
-		}
-
-		//fill buffer
-		for(i=1;i<MAX_SPRITES;i++){
-			sy=Sprites[sprNo].y;
-			sx=Sprites[sprNo].x;
-
-			//ignore sprites that are totally off screen
-			if(sy>0 && sy<((SCREEN_TILES_V+1)*TILE_HEIGHT) && sx>0 && sx<((SCREEN_TILES_H+1)*TILE_WIDTH)){
-		
-				for(cy=0;cy<TILE_HEIGHT;cy++){
-					if((sy+cy >= yclip) && (sy+cy < ((SCREEN_TILES_V+1)*TILE_HEIGHT)) ){
-
-						disp=sy+cy-8;
-
-						//find free slot for sprite row otherwise it cannot be displayed
-						if(sprites_per_lines[disp][0]==0){
-							sprites_per_lines[disp][0]=(cy<<5)+sprNo;
-							
-
-						}else if(sprites_per_lines[disp][1]==0){
-							sprites_per_lines[disp][1]=(cy<<5)+sprNo;
-							
-			
-						}else if(sprites_per_lines[disp][2]==0){
-							sprites_per_lines[disp][2]=(cy<<5)+sprNo;
-							
-			
-						}else if(sprites_per_lines[disp][3]==0){
-							sprites_per_lines[disp][3]=(cy<<5)+sprNo;
-							
-						}else if(sprites_per_lines[disp][4]==0){
-							sprites_per_lines[disp][4]=(cy<<5)+sprNo;
-							
-							rotateSprNo=sprNo-1;
-						}
-
-					}
-
-				}
-	
-			}	
-			sprNo++;
-			if(sprNo>=MAX_SPRITES)sprNo=1;		
-		}			
-		if(rotateSprNo>=MAX_SPRITES)rotateSprNo=1;
-
-
-		sy=0;
-		for(i=0;i<SCREEN_SECTIONS_COUNT;i++){
-		
-				if((ScreenSections[i].flags & SS_FLAGS_SPR_PRIORITY)==0){
-					//this section will be cleared in the last step
-					t=sy+ScreenSections[i].height;
-					while(sy<t){
-						sprites_per_lines[sy][0]=0;
-						sprites_per_lines[sy][1]=0;
-						sprites_per_lines[sy][2]=0;
-						sprites_per_lines[sy][3]=0;
-						sprites_per_lines[sy][4]=0;
-						sy++;
-					}				
-				}else{
-					//sprites will be visible over this section				
-					sy+=ScreenSections[i].height;
-				}
-		
-		}
-
-
-
-	}
 
 #endif
 
@@ -521,33 +406,34 @@ void WaitVsync(int count){
 	}
 }
 
-void MapSprite(unsigned char startSprite,const char *map){
-	unsigned char tile;
-	unsigned char mapWidth=pgm_read_byte(&(map[0]));
-	unsigned char mapHeight=pgm_read_byte(&(map[1]));
+#if SPRITES_ENABLED == 1
+	void MapSprite(unsigned char startSprite,const char *map){
+		unsigned char tile;
+		unsigned char mapWidth=pgm_read_byte(&(map[0]));
+		unsigned char mapHeight=pgm_read_byte(&(map[1]));
 
-	for(unsigned char dy=0;dy<mapHeight;dy++){
-		for(unsigned char dx=0;dx<mapWidth;dx++){
+		for(unsigned char dy=0;dy<mapHeight;dy++){
+			for(unsigned char dx=0;dx<mapWidth;dx++){
 			
-		 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
-			sprites[startSprite++].tileIndex=tile ;
+			 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
+				sprites[startSprite++].tileIndex=tile ;
+			}
 		}
+
 	}
 
-}
-
-void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height){
+	void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height){
 	
-	for(unsigned char dy=0;dy<height;dy++){
-		for(unsigned char dx=0;dx<width;dx++){
+		for(unsigned char dy=0;dy<height;dy++){
+			for(unsigned char dx=0;dx<width;dx++){
 				
-			sprites[startSprite].x=x+(8*dx);
-			sprites[startSprite].y=y+(8*dy);
-			startSprite++;
-		}
-	}	
+				sprites[startSprite].x=x+(8*dx);
+				sprites[startSprite].y=y+(8*dy);
+				startSprite++;
+			}
+		}	
 
-}
-
+	}
+#endif
 
 

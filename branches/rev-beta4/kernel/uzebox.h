@@ -34,8 +34,11 @@
 		extern unsigned int vram[]; 
 	#endif
 
-	extern struct SpriteStruct sprites[];
-	extern struct ScreenSectionStruct screenSections[];
+	#if VIDEO_MODE == 2 ||  VIDEO_MODE == 3
+		extern struct SpriteStruct sprites[];
+		extern struct ScreenSectionStruct screenSections[];
+	#endif
+
 	extern void SetSpritesOptions(unsigned char params);
 	extern void SetSpritesTileTable(const char *data);
 	extern unsigned char GetVsyncFlag(void);
@@ -78,8 +81,8 @@
 	extern unsigned int ReadJoypadExt(unsigned char joypadNo); //use with SNES mouse
 
 	//Read/write EEPROM
-    extern void WriteEeprom(int addr,unsigned char value);
-    extern unsigned char ReadEeprom(int addr);
+    extern void WriteEeprom(unsigned int addr,unsigned char value);
+    extern unsigned char ReadEeprom(unsigned int addr);
 	extern char EepromWriteBlock(struct EepromBlockStruct *block);
 	extern char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block);
 	extern bool isEepromFormatted();

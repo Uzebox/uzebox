@@ -174,6 +174,8 @@
 		unsigned int loopEnd;   		       
 	}; 
 
+	extern void SetColorBurstOffset(unsigned char offset);
+
 	//EEPROM Kernel structs
 	struct EepromHeaderStruct
 	{

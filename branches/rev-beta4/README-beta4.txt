@@ -27,6 +27,7 @@ New Features:
 -New EEPROM libraries to save game related data (ie: scores, progress, etc).
 -New switchable color correction for the composite output. It's been reported to screw some LCD TV, but for those, use the S-VIDEO output!
 -Support for the SNES mouse
+-Fixed mode1 to remove unrolled loop
 
 
 Rev 2.0 Beta3 Notes
