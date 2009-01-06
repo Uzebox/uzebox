@@ -37,7 +37,8 @@
 ;Sprites Struct offsets
 #define sprPosX  0
 #define sprPosY  1
-#define sprIndex 2
+#define sprTileIndex 2
+#define sprFlags 3
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -64,7 +65,7 @@
 .global RestoreTile
 .global LoadMap
 .global ClearVram
-
+.global CopyTileToRam
 
 .global GetVsyncFlag
 .global ClearVsyncFlag
@@ -73,12 +74,31 @@
 .global SetTileMap
 .global ReadJoypad
 .global read_joypads
+.global BlitSprite
+.global test
+.global vsync_phase
+.global ReadJoypadExt
+.global joypad1_status_lo
+.global joypad2_status_lo
+.global joypad1_status_hi
+.global joypad2_status_hi
+.global WriteEeprom
+.global ReadEeprom
+.global WaitUs
 
 ;Public variables
 .global vram
+.global curr_frame
 .global sync_pulse
 .global sync_phase
 .global curr_field
+.global tile_table_lo
+.global sprites_tiletable_lo
+.global ram_tiles
+.global SetSpritesTileTable
+.global ram_tiles_restore
+.global SetColorBurstOffset
+.global burstOffset
 
 
 #if VIDEO_MODE == 2
@@ -96,8 +116,6 @@
 .global SetFontTilesIndex
 #endif
 
-.global WriteEeprom
-.global ReadEeprom
 		
 .section .data
 	#if VIDEO_MODE == 2
@@ -144,12 +162,21 @@
 		rotate_spr_no:		.byte 1	
 	#endif
 
+	#if VIDEO_MODE == 3
+		ram_tiles:			.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
+		ram_tiles_restore:  .space RAM_TILES_COUNT*3 ;vram addr|Tile
+		sprites_tiletable_lo: .byte 1
+		sprites_tiletable_hi: .byte 1	
+
+	#endif
 
 	sync_phase:  .byte 1 ;0=pre-eq, 1=eq, 2=post-eq, 3=hsync, 4=vsync
 	sync_pulse:	 .byte 1
-	vsync_flag: .byte 1	;set 30 hz
+	vsync_flag:  .byte 1	;set 30 hz
 	curr_field:	 .byte 1	;0 or 1, changes at 60hz
+	curr_frame:  .byte 1	;odd or even frame
 
+	vsync_phase:    .byte 1
 
 	tile_table_lo:	.byte 1
 	tile_table_hi:	.byte 1
@@ -167,14 +194,18 @@
 	#endif 
 
 	;last read results of joypads
-
 	joypad1_status_lo:	.byte 1
+						.byte 1
 	joypad1_status_hi:	.byte 1
+						.byte 1
 	
-
 	joypad2_status_lo:	.byte 1
+						.byte 1
 	joypad2_status_hi:	.byte 1
+						.byte 1
 
+
+	burstOffset:		.byte 1
 
 .section .text
 	
@@ -183,6 +214,346 @@
 						.word pm(do_post_eq)
 						.word pm(do_hsync)
 
+
+
+test:
+	ldi XL,0x0
+	ldi XH,0x0
+	ld r18,X
+
+	ldi XH,0x10
+	ld r19,X
+
+	ldi XL,0x80
+	ldi XH,0x2
+	ld r20,X
+
+	ldi XH,0x12
+	ld r21,X
+	ret
+
+
+#if VIDEO_MODE == 3
+
+;***************************************************
+; TEXT MODE VIDEO PROCESSING
+; Process video frame in tile mode (40*28)
+;***************************************************	
+
+sub_video_mode3:
+
+
+	//cause a shift in the color burst phase
+	//on odd frames (NTSC superframe?)
+	lds r16,curr_field
+	cpi r16,1
+	nop
+	
+	ldi r24,0//-4
+	brne .+2
+	ldi r24,0 //4
+
+	lpm
+	lpm
+	nop
+
+
+	;waste line to align with next hsync in render function
+	ldi ZL,222-1-1
+mode0_render_delay:
+	lpm
+	nop
+	dec ZL
+	brne mode0_render_delay 
+
+	lpm
+	nop
+	nop
+	nop
+
+
+
+	ldi YL,lo8(vram)
+	ldi YH,hi8(vram)
+
+	ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw (28*8)
+	mov r10,r16
+	clr r22
+	ldi r23,TILE_WIDTH ;tile width in pixels
+
+
+
+
+
+next_text_line:	
+	rcall hsync_pulse ;3+144=147
+
+
+	ldi r19,41-5-1 + CENTER_ADJUSTMENT 
+text_wait1:
+	dec r19			
+	brne text_wait1;206
+
+	;***draw line***
+	call render_tile_line
+
+	ldi r19,10+5 - CENTER_ADJUSTMENT
+text_wait2:
+	dec r19			
+	brne text_wait2;233
+
+	
+	rjmp .
+
+
+	dec r10
+	breq text_frame_end
+	
+
+	nop
+	inc r22
+
+	nop
+	nop
+
+	cpi r22,8 ;last char line? 1
+	breq next_text_row 
+	
+	;wait to align with next_tile_row instructions (+1 cycle for the breq)
+	lpm ;3 nop
+	lpm ;3 nop
+	lpm ;3 nop
+	nop
+	rjmp next_text_line	
+
+next_text_row:
+	clr r22		;current char line			;1	
+
+
+	clr r0
+	ldi r19,VRAM_TILES_H
+	add YL,r19
+	adc YH,r0
+
+
+	;nop
+	;nop
+	nop
+	nop
+	nop
+
+	nop
+	rjmp next_text_line
+
+text_frame_end:
+	;13
+	lpm ;3 nop
+	lpm ;3 nop
+	lpm ;3 nop
+	lpm ;3 nop
+	lpm ;3 nop
+	nop
+	nop
+
+	rcall hsync_pulse ;145
+	
+
+	;set vsync flag if beginning of next frame (each two fields)
+	ldi r17,1
+	lds r16,curr_field
+	eor r16,r17
+	sts curr_field,r16
+
+	lds r18,curr_frame
+	tst r16
+	breq .+2
+	eor r18,r17
+	sts curr_frame,r18
+
+	;set vsync flag if beginning of next frame
+	ldi ZL,1
+	sts vsync_flag,ZL
+
+	;clear any pending timer int
+	ldi ZL,(1<<OCF1A)
+	sts _SFR_MEM_ADDR(TIFR1),ZL
+
+	clr r1
+
+
+	ret
+
+
+
+;*************************************************
+; RENDER TILE LINE
+;
+; r22     = Y offset in tiles
+; r23 	  = tile width in bytes
+; Y       = VRAM adress to draw from (must not be modified)
+;
+; Can destroy: r0,r1,r2,r3,r4,r5,r6,r7,r13,r16,r17,r18,r19,r20,r21,Z
+; 
+; cycles  = 1495
+;*************************************************
+render_tile_line:
+
+	;load first tile and determine if its a ROM or RAM tile
+
+	movw XL,YL
+
+	mul r22,r23
+
+	nop
+
+	lds r16,tile_table_lo 
+	lds r17,tile_table_hi
+	subi r16,lo8(RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH)
+	sbci r17,hi8(RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH)
+
+	add r16,r0
+	adc r17,r1
+	movw r2,r16			;rom tiles
+
+	ldi r16,lo8(ram_tiles)
+	ldi r17,hi8(ram_tiles)
+	add r16,r0
+	adc r17,r1
+	movw r4,r16			;ram tiles
+
+	ldi r19,TILE_HEIGHT*TILE_WIDTH
+	ldi r17,SCREEN_TILES_H
+
+    ld r18,X+     	;load next tile # from VRAM
+	cpi r18,RAM_TILES_COUNT
+	in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
+	bst r6,SREG_C
+
+	mul r18,r19 	;tile*width*height
+	movw r20,r2		;rom tiles
+	brtc .+2
+	movw r20,r4		;ram tiles
+
+    add r0,r20    ;add title table address +row offset
+    adc r1,r21
+
+	movw ZL,r0
+
+	brts ramloop
+	
+
+romloop:
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 1
+    ld r18,X+     ;load next tile # from VRAM
+
+
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 2
+	mul r18,r19 ;tile*width*height
+
+
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 3
+	cpi r18,RAM_TILES_COUNT
+	in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
+
+
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
+	brsh .+2	
+	movw r20,r4 ;RAM title table address +row offset	
+   
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 5
+    bst r6,SREG_C
+	add r0,r20    ;add title table address +row offset
+    
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 6
+	adc r1,r21
+	dec r17
+
+   
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 7   
+    lpm r16,Z+
+
+	breq end	
+    movw ZL,r0   
+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
+    brtc romloop
+	
+	rjmp .
+
+ramloop:
+
+    ld r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 1
+    ld r18,X+     ;load next tile # from VRAM
+
+    ld r16,Z+ 
+	nop   
+	out _SFR_IO_ADDR(DATA_PORT),r16 		;pixel 2
+	mul r18,r19 ;tile*width*height
+
+
+    ld r16,Z+
+	nop
+	out _SFR_IO_ADDR(DATA_PORT),r16         ;pixel 3
+	cpi r18,RAM_TILES_COUNT
+	in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
+	bst r6,SREG_C
+   
+
+    ld r16,Z+
+	out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
+	brts .+2 
+	movw r20,r2 	;ROM title table address +row offset	
+   
+   
+    ld r16,Z+
+    add r0,r20    ;add title table address +row offset
+	out _SFR_IO_ADDR(DATA_PORT),r16       ;pixel 5
+    adc r1,r21
+	rjmp .
+    
+	ld r16,Z+		
+	out _SFR_IO_ADDR(DATA_PORT),r16       ;pixel 6
+	nop
+	rjmp .  
+
+    ld r16,Z+	
+	out _SFR_IO_ADDR(DATA_PORT),r16      ;pixel 7   
+    ld r16,Z+
+
+    dec r17
+    breq end
+	
+	movw ZL,r0
+	out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
+	
+    brtc romloop
+	rjmp ramloop
+	
+end:
+	out _SFR_IO_ADDR(DATA_PORT),r16  	;pixel 8
+	clr r16	
+	lpm	
+	nop
+	out _SFR_IO_ADDR(DATA_PORT),r16        
+
+	;wait
+	ldi r16,5
+	dec r16
+	brne .-4
+
+	
+
+
+	ret
+#endif
 
 #if VIDEO_MODE == 2
 
@@ -1438,8 +1809,35 @@ do_hsync_delay:
 	call MixSound
 
 not_start_of_frame:
+/*
+	lds ZL,sync_pulse
+	cpi ZL,(SYNC_HSYNC_PULSES-1)
+	brne noshift
+	//cause a shift in the color burst phase
+	//on odd frames (NTSC superframe?)
+	lds ZL,curr_frame
+	cpi ZL,1
+	nop
+	
+	ldi ZH,-4
+	brne .+2
+	ldi ZH,4
 
+	ldi ZL,hi8(HDRIVE_CL) //4
+	sts _SFR_MEM_ADDR(OCR1AH),ZL	
+	
+	ldi ZL,lo8(HDRIVE_CL) //4
+	add ZL,ZH
+	sts _SFR_MEM_ADDR(OCR1AL),ZL
+	ret
 
+noshift:
+	;restore full line size
+	ldi ZL,hi8(HDRIVE_CL)
+	sts _SFR_MEM_ADDR(OCR1AH),ZL	
+	ldi ZL,lo8(HDRIVE_CL)
+	sts _SFR_MEM_ADDR(OCR1AL),ZL
+*/
 	ret
 
 
@@ -1449,7 +1847,7 @@ not_start_of_frame:
 ;*****************************************
 
 read_joypads:
-
+/*
 	//latch data
 	sbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_LATCH_PIN
 	jmp . ; wait ~200ns
@@ -1533,6 +1931,23 @@ read_joypads_loop:
 	sts joypad2_status_lo,r22
 	sts joypad2_status_hi,r23
 
+	//check for a reset condition (a+b+select+start)
+	ldi r25,(BTN_B+BTN_START+BTN_SELECT)>>8
+	
+	//player 1
+	cpi r20,BTN_A
+	cpc r21,r25
+	brne no_reset_p1
+	call SoftReset
+no_reset_p1:
+
+	//player 2
+	cpi r22,BTN_A
+	cpc r23,r25
+	brne no_reset_p2
+	call SoftReset
+no_reset_p2:
+*/
 	ret
 
 
@@ -1586,8 +2001,10 @@ render:
 	
 	#if VIDEO_MODE == 1
 		call sub_video_mode1
-	#else
+	#elif VIDEO_MODE == 2
 		call sub_video_mode2
+	#elif VIDEO_MODE == 3
+		call sub_video_mode3
 	#endif
 
 
@@ -1686,6 +2103,49 @@ TIMER1_COMPA_vect:
 	pop ZH
 	reti
 
+;.rept 50
+;fmulsu r20,r20
+;.endr
+
+/*
+;*************************************************
+; Generate a H-Sync pulse - 136 clocks (4.749us)
+; Note: TCNT1 should be equal to 
+; 0x44 on the cbi 
+; 0xcc on the sbi 
+;
+; Cycles: 144
+; Destroys: ZL (r30)
+;*************************************************
+hsync_pulse_new:
+	in ZL,_SFR_IO_ADDR(SYNC_PORT)
+	andi ZL,~SYNC_PIN
+	lds ZH,vsync_phase
+	eor ZL,ZH
+	out _SFR_IO_ADDR(SYNC_PORT),ZL
+	
+	
+	//cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
+	
+	call update_sound_buffer ;36 -> 63
+	
+	ldi ZL,21
+	dec ZL 
+	brne .-4
+
+
+
+	lds ZL,sync_pulse
+	dec ZL
+	sts sync_pulse,ZL
+
+	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
+
+	nop
+	nop
+
+	ret
+*/
 
 ;***************************************************
 ; Composite SYNC
@@ -1742,10 +2202,16 @@ hsync_pulse:
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
 
+
+
+
+
 	nop
 	nop
 
 	ret
+
+
 
 
 ;**************************
@@ -1819,6 +2285,46 @@ do_post_eq:
 	ldi ZL,SYNC_PHASE_HSYNC
 	ldi ZH,SYNC_HSYNC_PULSES
 	rcall update_sync_phase
+
+
+
+	lds ZL,sync_pulse
+	cpi ZL,(SYNC_POST_EQ_PULSES-1)
+	brne noshift
+	//cause a shift in the color burst phase
+	//on odd frames (NTSC superframe?)
+	lds ZL,curr_field
+	cpi ZL,1
+	nop
+	
+	lds ZH,burstOffset
+	brne peq_odd
+	lds ZH,burstOffset
+	neg ZH
+ peq_odd:
+
+	ldi ZL,hi8(HDRIVE_CL_TWICE) //4
+	sts _SFR_MEM_ADDR(OCR1AH),ZL	
+	
+	ldi ZL,lo8(HDRIVE_CL_TWICE) //4
+	add ZL,ZH
+	sts _SFR_MEM_ADDR(OCR1AL),ZL
+	ret
+
+noshift:
+	;restore full line size
+	ldi ZL,hi8(HDRIVE_CL_TWICE)
+	sts _SFR_MEM_ADDR(OCR1AH),ZL	
+	ldi ZL,lo8(HDRIVE_CL_TWICE)
+	sts _SFR_MEM_ADDR(OCR1AL),ZL
+
+
+
+
+
+
+
+
 
 	ret
 
@@ -2132,7 +2638,13 @@ set_normal_rate_HDRIVE:
 		ldi XL,lo8(vram)
 		ldi XH,hi8(vram)
 
+
+#if  VIDEO_MODE == 3
+		ldi r22,RAM_TILES_COUNT
+#else
 		clr r22
+#endif
+
 
 	fill_vram_loop:
 		st X+,r22
@@ -2222,6 +2734,18 @@ set_normal_rate_HDRIVE:
 #endif
 
 
+#if VIDEO_MODE == 2 || VIDEO_MODE == 3
+;*****************************
+; Defines where the sprites tile are defined.
+; C-callable
+; r25:r24=pointer to sprites pixel data.
+;*****************************
+SetSpritesTileTable:
+	sts sprites_tiletable_lo,r24
+	sts sprites_tiletable_hi,r25
+	ret
+#endif
+
 
 #if VIDEO_MODE == 2
 
@@ -2235,15 +2759,6 @@ SetSpritesOptions:
 	sts spritesOptions,r24
 	ret
 
-;*****************************
-; Defines where the sprites tile are defined.
-; C-callable
-; r25:r24=pointer to sprites pixel data.
-;*****************************
-SetSpritesTileTable:
-	sts sprites_tiletable_lo,r24
-	sts sprites_tiletable_hi,r25
-	ret
 
 ProcessSprites:
 	push r14
@@ -2551,24 +3066,6 @@ ClearVsyncFlag:
 	sts vsync_flag,r1
 	ret
 
-;*****************************
-; Return joypad 1 or 2 buttons status
-; C-callable
-; r24=joypad No (0 or 1)
-; returns: (int) r25:r24
-;*****************************
-ReadJoypad:	
-	tst r24
-	brne rj_p2
-		
-	lds r24,joypad1_status_lo
-	lds r25,joypad1_status_hi
-	ret
-rj_p2:
-	lds r24,joypad2_status_lo
-	lds r25,joypad2_status_hi	
-
-	ret
 
 ;*****************************
 ; Sets CPU speed to 14.3Mhz
@@ -2590,6 +3087,255 @@ SetFullSpeed:
 	sts _SFR_MEM_ADDR(CLKPR),r25
 	ret
 
+
+;***********************************
+; SET TILE 8bit mode
+; C-callable
+; r24=ROM tile index
+; r22=RAM tile index
+;************************************
+CopyTileToRam:
+/*
+	src=tile_table_lo+((bt&0x7f)*64);
+	dest=ram_tiles+(free_tile_index*TILE_HEIGHT*TILE_WIDTH);
+
+	ram_tiles_restore[free_tile_index].addr=ramPtr;//(by*VRAM_TILES_H)+bx+x;
+	ram_tiles_restore[free_tile_index].tileIndex=bt;
+
+	for(j=0;j<64;j++){
+		px=pgm_read_byte(src++);
+		*dest++=px;
+	}
+*/
+
+	ldi r18,TILE_HEIGHT*TILE_WIDTH
+
+	;compute source adress
+	lds ZL,tile_table_lo
+	lds ZH,tile_table_hi
+	;andi r24,0x7f
+	subi r24,RAM_TILES_COUNT
+	mul r24,r18
+	add ZL,r0
+	adc ZH,r1
+
+	;compute destination adress
+	ldi XL,lo8(ram_tiles)
+	ldi XH,hi8(ram_tiles)
+	mul r22,r18
+	add XL,r0
+	adc XH,r1
+
+	clr r0
+	;copy data (fastest possible)
+.rept TILE_HEIGHT*TILE_WIDTH
+	lpm r0,Z+	
+	st X+,r0
+.endr
+
+
+	clr r1
+	ret
+
+
+
+
+;***********************************
+; SET TILE 8bit mode
+; C-callable
+; r24=SpriteNo
+; r22=RAM tile index (bt)
+; r21:r20=Y:X
+; r19:r18=DY:DX
+;************************************
+BlitSprite:
+	
+	;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
+	ldi r25,SPRITE_STRUCT_SIZE
+	mul r24,r25
+	
+	ldi ZL,lo8(sprites)	
+	ldi ZH,hi8(sprites)	
+	add ZL,r0
+	adc ZH,r1
+	ldd r24,Z+sprTileIndex
+
+	lds ZL,sprites_tiletable_lo
+	lds ZH,sprites_tiletable_hi
+	ldi r25,TILE_WIDTH*TILE_HEIGHT
+	mul r24,r25
+	add ZL,r0	;src
+	adc ZH,r1
+
+	;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
+	ldi XL,lo8(ram_tiles)	
+	ldi XH,hi8(ram_tiles)
+	mul r22,r25
+	add XL,r0
+	adc XH,r1
+
+	;if(x==0){
+	;	dest+=dx;
+	;	xdiff=dx;
+	;}else{
+	;	src+=(8-dx);
+	;	xdiff=(8-dx);
+	;}	
+	clr r1
+	cpi r20,0
+	brne x_2nd_tile
+	add XL,r18
+	adc XH,r1
+	mov r24,r18	;xdiff
+	rjmp x_check_end
+x_2nd_tile:
+	ldi r24,8
+	sub r24,r18	;xdiff
+	add ZL,r24
+	adc ZH,r1	
+x_check_end:
+
+	;if(y==0){
+	;	dest+=(dy*TILE_WIDTH);
+	;	ydiff=dy;
+	;}else{
+	;	src+=((8-dy)*TILE_WIDTH);
+	;	ydiff=(8-dy);
+	;}
+	cpi r21,0
+	brne y_2nd_tile
+	ldi r25,TILE_WIDTH
+	mul r25,r19
+	add XL,r0
+	adc XH,r1
+	mov r25,r19	;ydiff
+	rjmp y_check_end
+y_2nd_tile:
+	ldi r25,TILE_HEIGHT
+	sub r25,r19	;ydiff
+	ldi r21,TILE_WIDTH
+	mul r21,r25
+	add ZL,r0
+	adc ZH,r1	
+y_check_end:	
+	
+/*
+	for(y2=ydiff;y2<TILE_HEIGHT;y2++){
+		for(x2=xdiff;x2<TILE_WIDTH;x2++){
+								
+			px=pgm_read_byte(src++);
+			if(px!=TRANSLUCENT_COLOR){
+				*dest=px;
+			}
+			dest++;
+
+		}		
+		src+=xdiff;
+		dest+=xdiff;
+
+	}
+*/
+
+	clr r1
+	ldi r19,TRANSLUCENT_COLOR
+
+	ldi r21,8
+	sub r21,r25 ;y2
+
+y2_loop:
+	ldi r20,8
+	sub r20,r24 ;x2
+x2_loop:
+	lpm r18,Z+
+	cpse r18,r19
+	st X,r18
+	adiw XL,1
+	dec r20
+	brne x2_loop
+
+	add ZL,r24
+	adc ZH,r1
+	add XL,r24
+	adc XH,r1
+
+	dec r21
+	brne y2_loop
+
+	clr r1
+
+	ret
+
+
+
+;***********************************
+; Offset the color burst per field
+; C-callable
+; r24=burst offset in clock cycles
+;************************************
+SetColorBurstOffset:
+	sts burstOffset,r24
+
+	ret
+
+
+
+
+;*****************************
+; Return joypad 1 or 2 buttons status
+; C-callable
+; r24=joypad No (0 or 1)
+; returns: (int) r25:r24
+;*****************************
+ReadJoypad:	
+	tst r24
+	brne rj_p2
+		
+	lds r24,joypad1_status_lo
+	lds r25,joypad1_status_lo+1
+	ret
+rj_p2:
+	lds r24,joypad2_status_lo
+	lds r25,joypad2_status_lo+1	
+
+	ret
+
+;*****************************
+; Return joypad 1 or 2 buttons status
+; C-callable
+; r24=joypad No (0 or 1)
+; returns: (int) r25:r24
+;*****************************
+ReadJoypadExt:
+
+	tst r24
+	brne rj_p2m
+		
+	lds r24,joypad1_status_hi
+	lds r25,joypad1_status_hi+1
+	ret
+rj_p2m:
+	lds r24,joypad2_status_hi
+	lds r25,joypad2_status_hi+1	
+	ret
+
+	
+;****************************
+; Wait for n microseconds
+; r25:r24 - us to wait
+; returns: void
+;****************************
+WaitUs:
+	
+wms_loop:	
+	ldi r23,8
+	dec 23
+	brne .-4 ;~1 us
+	nop
+	sbiw r24,1
+	brne wms_loop
+
+	ret
+	
 ;****************************
 ; Write byte to EEPROM
 ; extern void WriteEeprom(int addr,u8 value)
@@ -2597,21 +3343,21 @@ SetFullSpeed:
 ; r22 - value to write
 ;****************************
 WriteEeprom:
-	; Wait for completion of previous write
-	sbic _SFR_IO_ADDR(EECR),EEPE
-	rjmp WriteEeprom
-	; Set up address (r25:r24) in address register
-	out _SFR_IO_ADDR(EEARH), r25
-	out _SFR_IO_ADDR(EEARL), r24
-	; Write data (r22) to Data Register
-	out _SFR_IO_ADDR(EEDR),r22
-	cli
-	; Write logical one to EEMPE
-	sbi _SFR_IO_ADDR(EECR),EEMPE
-	; Start eeprom write by setting EEPE
-	sbi _SFR_IO_ADDR(EECR),EEPE
-	sei
-	ret
+   ; Wait for completion of previous write
+   sbic _SFR_IO_ADDR(EECR),EEPE
+   rjmp WriteEeprom
+   ; Set up address (r25:r24) in address register
+   out _SFR_IO_ADDR(EEARH), r25
+   out _SFR_IO_ADDR(EEARL), r24
+   ; Write data (r22) to Data Register
+   out _SFR_IO_ADDR(EEDR),r22
+   cli
+   ; Write logical one to EEMPE
+   sbi _SFR_IO_ADDR(EECR),EEMPE
+   ; Start eeprom write by setting EEPE
+   sbi _SFR_IO_ADDR(EECR),EEPE
+   sei
+   ret
 
 ;****************************
 ; Read byte from EEPROM
@@ -2620,17 +3366,18 @@ WriteEeprom:
 ; r24 - value read
 ;****************************
 ReadEeprom:
-	; Wait for completion of previous write
-	sbic _SFR_IO_ADDR(EECR),EEPE
-	rjmp ReadEeprom
-	; Set up address (r25:r24) in address register
-	out _SFR_IO_ADDR(EEARH), r25
-	out _SFR_IO_ADDR(EEARL), r24
-	; Start eeprom read by writing EERE
-	cli
-	sbi _SFR_IO_ADDR(EECR),EERE
-	; Read data from Data Register
-	in r24,_SFR_IO_ADDR(EEDR)
-	sei
-	ret
+   ; Wait for completion of previous write
+   sbic _SFR_IO_ADDR(EECR),EEPE
+   rjmp ReadEeprom
+   ; Set up address (r25:r24) in address register
+   out _SFR_IO_ADDR(EEARH), r25
+   out _SFR_IO_ADDR(EEARL), r24
+   ; Start eeprom read by writing EERE
+   cli
+   sbi _SFR_IO_ADDR(EECR),EERE
+   ; Read data from Data Register
+   in r24,_SFR_IO_ADDR(EEDR)
+   sei
+   ret
+
 

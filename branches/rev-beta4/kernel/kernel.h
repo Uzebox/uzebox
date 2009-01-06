@@ -23,14 +23,28 @@
 
 	#include "defines.h"
 
+	#if  VIDEO_MODE == 2
+		struct SpriteStruct
+		{
+			unsigned char x;
+			unsigned char y;
+			unsigned char tileIndex;
+		};
+	#elif VIDEO_MODE == 3
+		struct SpriteStruct
+		{
+			unsigned char x;
+			unsigned char y;
+			unsigned char tileIndex;
+			unsigned char flags;
+		};			
+		
+		struct BgRestoreStruct{
+			unsigned int addr;
+			unsigned char tileIndex;
+		};
 
-	struct SpriteStruct
-	{
-		unsigned char x;
-		unsigned char y;
-		unsigned char tileIndex;
-	};
-
+	#endif
 
 	//	unsigned char scrollX: x displacement
 	//	unsigned char scrollY: y displacement
@@ -123,6 +137,7 @@
 		unsigned char tremoloLevel;
 		unsigned char tremoloRate;
 
+		unsigned char expressionVol;
 		unsigned char trackVol;
 		unsigned char noteVol;
 		unsigned char envelopeVol;		//(0-255)
@@ -159,5 +174,66 @@
 		unsigned int loopEnd;   		       
 	}; 
 
+	//EEPROM Kernel structs
+	struct EepromHeaderStruct
+	{
+		//special identifier/magic number to determine if the EEPROM 
+		//contains kernel recognizable data
+		unsigned int signature;
+		
+		//version of this EEPROM data structure
+		unsigned char version;
+
+		//size of allocated blocks in bytes (should be 32)
+		unsigned char blockSize;  
+
+		//size of this header in blocks (should be 2)
+		unsigned char headerSize;
+
+		//identifies the harware type. Uzebox, Fuzebox,etc. Do we need that?
+		unsigned char hardwareVersion;
+
+		//identifies the harware revision. Do we need that?
+		unsigned char hardwareRevision;
+
+		/*
+		Hardware features on board
+		b15:b12 Reserved  
+		b11     AD725 power control
+		b10     PS2 Mouse
+		b9      PS2 Keyboard
+		b8      Ethernet
+		b7      MIDI OUT
+		b6      MIDI IN
+		b5      SD Card Interface
+		b4      Status LED
+		b3      Soft Power switch 
+		b2:b0   Joystick type: 0=SNES, 1=NES, 2-7=Reserved
+		*/
+		unsigned int features;
+
+		//Even more features -- for future use
+		unsigned int featuresExt;
+
+		//MAC adress for the Ethernet interface
+		unsigned char macAdress[6];		
+
+		//Composite Color Correction 
+		//0=none
+		//1=shorten line 	
+		unsigned char colorCorrectionType;	
+
+		//for future expansion
+		unsigned char reserved[14];		
+	};
+
+	struct EepromBlockStruct{
+		//some unique block ID assigned by ?. If 0xffff, block is free.
+		unsigned int id;
+		
+		//application specific data
+		//cast to your own types
+		unsigned char data[30];		
+	};
 
 #endif

@@ -24,15 +24,16 @@
 #include <avr/pgmspace.h>
 #include "uzebox.h"
 
-
+#define CONTROLER_VOL 7
+#define CONTROLER_EXPRESSION 11
 #define CONTROLER_TREMOLO 92
 #define CONTROLER_TREMOLO_RATE 100
-#define CONTROLER_VOL 7
+
 
 #define DEFAULT_WAVE		7
 #define DEFAULT_PATCH		0
 #define DEFAULT_TRACK_VOL	0xff
-
+#define DEFAULT_EXPRESSION_VOL 0xff
 
 #define MIDI_NULL 0xfd
 
@@ -184,6 +185,7 @@ void InitMusicPlayer(const struct PatchStruct *patchPointersParam){
 	for(unsigned char t=0;t<CHANNELS;t++){
 		tracks[t].allocated=true;
 		tracks[t].noteVol=0;
+		tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
 		tracks[t].trackVol=DEFAULT_TRACK_VOL;
 		tracks[t].patchNo=DEFAULT_PATCH;
 		tracks[t].priority=0;
@@ -328,6 +330,8 @@ void ProcessMusic(void){
 							
 							if(c1==CONTROLER_VOL){
 								tracks[channel].trackVol=c2<<1;
+							}else if(c1==CONTROLER_EXPRESSION){
+								tracks[channel].expressionVol=c2<<1;
 							}else if(c1==CONTROLER_TREMOLO){
 								tracks[channel].tremoloLevel=c2<<1;
 							}else if(c1==CONTROLER_TREMOLO_RATE){
@@ -362,6 +366,8 @@ void ProcessMusic(void){
 									
 									if(c1==CONTROLER_VOL){
 										tracks[channel].trackVol=c2<<1;
+									}else if(c1==CONTROLER_EXPRESSION){
+										tracks[channel].expressionVol=c2<<1;
 									}else if(c1==CONTROLER_TREMOLO){
 										tracks[channel].tremoloLevel=c2<<1;
 									}else if(c1==CONTROLER_TREMOLO_RATE){
@@ -381,7 +387,7 @@ void ProcessMusic(void){
 
 				}
 				//read next delta time
-				nextDeltaTime=ReadVarLen(&songPos)>>1;			
+				nextDeltaTime=ReadVarLen(&songPos); //Bug fix: remove divide by two 			
 				currDeltaTime=0;
 			
 			}//end while
@@ -453,6 +459,8 @@ void ProcessMusic(void){
 							
 							if(c1==CONTROLER_VOL){
 								tracks[channel].trackVol=c2<<1;
+							}else if(c1==CONTROLER_EXPRESSION){
+								tracks[channel].expressionVol=c2<<1;
 							}else if(c1==CONTROLER_TREMOLO){
 								tracks[channel].tremoloLevel=c2<<1;
 							}else if(c1==CONTROLER_TREMOLO_RATE){
@@ -503,6 +511,8 @@ void ProcessMusic(void){
 									
 									if(c1==CONTROLER_VOL){
 										tracks[channel].trackVol=c2<<1;
+									}else if(c1==CONTROLER_EXPRESSION){
+										tracks[channel].expressionVol=c2<<1;
 									}else if(c1==CONTROLER_TREMOLO){
 										tracks[channel].tremoloLevel=c2<<1;
 									}else if(c1==CONTROLER_TREMOLO_RATE){
@@ -602,6 +612,8 @@ void ProcessMusic(void){
 				uVol>>=8;
 				uVol=(uVol*tracks[track].envelopeVol)+0x100;
 				uVol>>=8;
+				uVol=(uVol*tracks[track].expressionVol)+0x100;
+				uVol>>=8;
 				uVol=(uVol*masterVolume)+0x100;
 				uVol>>=8;
 
@@ -699,6 +711,7 @@ void TriggerFx(unsigned char patch,unsigned char volume,bool retrig){
 	tracks[channel].fxPatchNo=patch;
 	tracks[channel].priority=1;	
 	tracks[channel].tremoloLevel=0;
+	tracks[channel].expressionVol=DEFAULT_EXPRESSION_VOL;
 
 	#if MIXER_CHAN4_TYPE == 0
 		if(channel==3){
@@ -796,6 +809,7 @@ void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,un
 			tracks[channel].patchEnvelopeHold=false;
 			tracks[channel].patchWave=0;
 			tracks[channel].tremoloLevel=0;
+			tracks[channel].expressionVol=DEFAULT_EXPRESSION_VOL;
 		}
 
 	}
@@ -805,9 +819,32 @@ void SetMasterVolume(unsigned char vol){
 	masterVolume=vol;
 }
 
+/*
+//Print a byte in hexadecimal
+void PrintHexByte3(char x,char y,unsigned char byte){
+	unsigned char nibble;
+
+	//hi nibble	
+	nibble=(byte>>4);
+	if(nibble<=9){
+		SetFont(x,y,nibble+1+RAM_TILES_COUNT);
+	}else{
+		SetFont(x,y,nibble+1+ RAM_TILES_COUNT);
+	}
+
+	//lo nibble	
+	nibble=(byte&0xf);
+	if(nibble<=9){		
+		SetFont(x+1,y,nibble+1+ RAM_TILES_COUNT);
+	}else{
+		SetFont(x+1,y,nibble+1+ RAM_TILES_COUNT);
+	}
+
+}
+
 //Called each frame 
 void DisplayMixStats(char phase,char line){
-/*
+
 	unsigned char total;
 
 	if(phase==0){
@@ -820,7 +857,7 @@ void DisplayMixStats(char phase,char line){
 		total=18+(252-line);
 	}
 
-	PrintByte(4,1,total);
-*/
-}
+	PrintHexByte3(4,1,total);
 
+}
+*/

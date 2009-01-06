@@ -25,13 +25,6 @@
  * enables certains options. Note that these options affects the
  * memory consomption (RAM & FLASH).
  *
- * Since this is a defaults file that is part of the kernel and affect 
- * all games, it is preferable you define custom compilation options. 
- * In AvrStudio go in: Project->Congiguration Options->Custom Options
- * and add -D switches. 
- * 
- * I.e.: To define video mode 2 add a -DVIDEO_MODE=2 switch under [All files]
- *
  * ===============================================================================
  */
 #ifndef __DEFINES_H_
@@ -41,6 +34,113 @@
 	//Generic define
 	#define DISABLED 0
 	#define ENABLED  1
+
+
+ 	/*
+	 * Defines the video mode to use. 
+	 *
+	 * 0 = Reserved
+	 * 1 = 40x28 Tile-only. 'Unlimited' tiles per frame (16 bit VRAM). 6x8 tiles.
+	 * 2 = 22x26 Tiles+Sprites, full-screen scrolling with split screens. Max 256 background tiles. 6x8 tiles & sprites.
+	 * 3 = 30x28 Tiles+Sprites (currently no scrolling). Max 256 background tiles. 8x8 tiles. 
+	 */
+	#define VIDEO_MODE 3
+
+	/*
+	 * Enable horizontal scrolling for video mode 2.
+	 * 
+	 * Note: This option needs 9K of flash due to unrolled loops.
+	 * 
+	 * 0 = no
+	 * 1 = yes
+	 */	
+	#define MODE2_HORIZONTAL_SCROLLING 1
+
+
+	/*
+	 * Display the Uzebox logo when the console is reset
+	 * 0 = none
+	 * 1 = with "bling" sound
+	 * 2 = with "uzebox" synth voice (PCM required, MIXER_CHAN4_TYPE must == 1)
+	 */
+	#define INTRO_LOGO 0
+
+	/*
+	 * Joystick type used on the board.
+	 * Note: Will be read from EEPROM in a future release. 
+	 *
+	 * 0 = SNES
+	 * 1 = NES
+	 */
+	#define JOYSTICK 0
+
+	/*
+	 * Activates the MIDI-IN support. 
+	 * Not supported with video mode 2.
+	 *
+	 * 0 = no
+	 * 1 = yes
+	 */
+	#define MIDI_IN 0
+
+	/*
+	 * Screen center adjustment for mode 1 only.
+	 * Useful if your game field absolutely needs a non-even width.
+	 * Do not go more than +14/-14.
+	 *
+	 * Center = 0
+	 */
+	#define CENTER_ADJUSTMENT 0
+
+	
+	/*
+	 * Number of screen sections to allocate memory for
+	 * Min=1, Max=SCREEN_TILES_V*TILE_HEIGHT
+	 */
+	#define SCREEN_SECTIONS_COUNT 1
+
+
+	/*
+	 * Channel 4 type
+	 *
+	 * 0=LFSR noise
+	 * 1=PCM
+	 */
+	#define MIXER_CHAN4_TYPE 0
+
+
+	/*
+	 * Include wavetable
+	 *
+	 * 0=dont' include (saves ~2.3K flash)
+	 * 1=include waves
+	 */
+	#define INCLUDE_DEFAULT_WAVES 1
+
+
+	/*
+	 * These are are temp fix when using video mode 3.
+	 * Since that mode takes a lot of cycles to
+	 * blit sprites, not enough CPU is left
+	 * and the program can crash. Disable 1
+	 * or more sound channels mixing to 
+	 * regain enough CPU. 
+	 *
+	 * Sound channel 1 is always enabled.
+	 *
+	 * 0=disable
+	 * 1=enable
+	 */
+	#define SOUND_CHANNEL_2_ENABLE 1
+	#define SOUND_CHANNEL_3_ENABLE 1
+	#define SOUND_CHANNEL_4_ENABLE 0
+
+
+
+	/*
+	 * Kernel Internal settings, do not modify
+	 */
+
 
 	//Pin used to enable the AD723
 	#define VIDEOCE_PIN PB4
@@ -53,6 +153,7 @@
 	#define TYPE_SNES 0
 	#define TYPE_NES 1
 
+/*
 	#define BTN_SR	   1
 	#define BTN_SL	   2
 	#define BTN_X	   4
@@ -65,6 +166,29 @@
 	#define BTN_SELECT 512
 	#define BTN_Y      1024 
 	#define BTN_B      2048 
+*/
+
+
+	#define BTN_SR	   2048
+	#define BTN_SL	   1024
+	#define BTN_X	   512
+	#define BTN_A	   256
+	#define BTN_RIGHT  128
+	#define BTN_LEFT   64
+	#define BTN_DOWN   32
+	#define BTN_UP     16
+	#define BTN_START  8
+	#define BTN_SELECT 4
+	#define BTN_Y      2
+	#define BTN_B      1
+
+	#define BTN_MOUSE_LEFT 512
+	#define BTN_MOUSE_RIGHT 256
+
+	#define MOUSE_SENSITIVITY_LOW    0b00
+	#define MOUSE_SENSITIVITY_MEDIUM 0b10
+	#define MOUSE_SENSITIVITY_HIGH   0b01
+
 
 	//Screen sections flags
 	#define SCT_PRIORITY_BG  0
@@ -88,129 +212,19 @@
 	#define PC_TREMOLO_RATE	10
 	#define PATCH_END		0xff
 
- 	/*
-	 * Defines the video mode to use. 
-	 * For all modes, tiles are 6x8 pixels (horizontal x vertical)
-	 *
-	 * 0 = Reserved
-	 * 1 = 40x28 Tile-only.
-	 * 2 = 22x26 Tiles, Sprites and full-screen scrolling.
-	 * 
-	 */
-	#ifndef VIDEO_MODE 
-		#define VIDEO_MODE 1
-	#endif
-
-	/*
-	 * Enable horizontal scrolling for video mode 2.
-	 * 
-	 * Note: This option needs 9K of flash due to unrolled loops.
-	 * 
-	 * 0 = no
-	 * 1 = yes
-	 */	
-	#ifndef MODE2_HORIZONTAL_SCROLLING
-		#define MODE2_HORIZONTAL_SCROLLING 1
-	#endif
-
-
-	/*
-	 * Display the Uzebox logo when the console is reset
-	 * 0 = none
-	 * 1 = with "bling" sound
-	 * 2 = with "uzebox" synth voice
-	 */
-	#ifndef INTRO_LOGO
-		#define INTRO_LOGO 1
-	#endif
-
-	/*
-	 * Joystick type used on the board.
-	 * Note: Will be read from EEPROM in a future release. 
-	 *
-	 * 0 = SNES
-	 * 1 = NES
-	 */
-	#ifndef JOYSTICK
-		#define JOYSTICK 0
-	#endif
-
-	/*
-	 * Activates the MIDI-IN support. 
-	 * Not supported with video mode 2.
-	 *
-	 * 0 = no
-	 * 1 = yes
-	 */
-	#ifndef MIDI_IN
-		#define MIDI_IN 0
-	#endif
-
-	/*
-	 * Screen center adjustment for mode 1 only.
-	 * Useful if your game field absolutely needs a non-even width.
-	 * Do not go more than +14/-14.
-	 *
-	 * Center = 0
-	 */
-	#ifndef CENTER_ADJUSTMENT
-		#define CENTER_ADJUSTMENT 0
-	#endif
-
-	
-	/*
-	 * Number of screen sections to allocate memory for
-	 * Min=1, Max=SCREEN_TILES_V*TILE_HEIGHT
-	 */
-	#ifndef SCREEN_SECTIONS_COUNT
-		#define SCREEN_SECTIONS_COUNT 1
-	#endif
-
-
-	/*
-	 * Channel 4 type
-	 *
-	 * 0=LFSR noise
-	 * 1=PCM
-	 */
-	#ifndef MIXER_CHAN4_TYPE
-		#define MIXER_CHAN4_TYPE 0
-	#endif
-
-
-	/*
-	 * Include wavetable
-	 *
-	 * 0=dont' include (saves ~2.3K flash)
-	 * 1=include waves
-	 */
-	#ifndef INCLUDE_DEFAULT_WAVES
-		#define INCLUDE_DEFAULT_WAVES 1
-	#endif
-
-
-
-
-
-	/*
-	 * Kernel Internal settings, do not modify
-	 */
-
 	#if VIDEO_MODE == 1
 		#define TILE_HEIGHT 8
 		#define TILE_WIDTH 6
 	
 		#define VRAM_TILES_H 40 
-
-		#ifndef VRAM_TILES_V
-			#define VRAM_TILES_V 28
-		#endif
+		#define VRAM_TILES_V 28
 
 		#define SCREEN_TILES_H 40
 		#define SCREEN_TILES_V 28
 	
 		#define FIRST_RENDER_LINE 20
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V*2
+		#define RAM_TILES_COUNT 0
 		#define VRAM_ADDR_SIZE 2 //in bytes
 
 	#elif VIDEO_MODE == 2
@@ -218,11 +232,8 @@
 		#define TILE_WIDTH 6
 
 		#define VRAM_TILES_H  32
+		#define VRAM_TILES_V 32
 		
-		#ifndef VRAM_TILES_V
-			#define VRAM_TILES_V 32
-		#endif
-
 		#define SCREEN_TILES_H 22
 		#define SCREEN_TILES_V 26
 		#define FIRST_RENDER_LINE 24
@@ -235,6 +246,27 @@
 		#define TRANSLUCENT_COLOR 0xfe	
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 		#define X_SCROLL_WRAP VRAM_TILES_H*TILE_WIDTH
+		#define RAM_TILES_COUNT 0
+		#define VRAM_ADDR_SIZE 1 //in bytes
+	
+	#elif VIDEO_MODE == 3
+		#define TILE_HEIGHT 8
+		#define TILE_WIDTH 8
+
+		#define VRAM_TILES_H 30
+		#define VRAM_TILES_V 29		
+
+		#define SCREEN_TILES_H 30
+		#define SCREEN_TILES_V 28
+		#define FIRST_RENDER_LINE 20
+		
+		#define MAX_SPRITES 9
+		#define SPRITE_STRUCT_SIZE 4
+		#define TRANSLUCENT_COLOR 0xfe	
+		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
+		#define X_SCROLL_WRAP VRAM_TILES_H*TILE_WIDTH
+
+		#define RAM_TILES_COUNT 16
 
 		#define VRAM_ADDR_SIZE 1 //in bytes
 
@@ -284,5 +316,15 @@
 	#define JOYPAD_LATCH_PIN PA2
 	#define JOYPAD_DATA1_PIN PA0
 	#define JOYPAD_DATA2_PIN PA1
+
+	#define EEPROM_BLOCK_SIZE 32
+	#define EEPROM_HEADER_SIZE 2
+	#define EEPROM_SIGNATURE 0x555A
+	#define EEPROM_SIGNATURE2 0x555B
+	#define EEPROM_FREE_BLOCK 0xffff
+	#define EEPROM_ERROR_INVALID_BLOCK 0x1
+	#define EEPROM_ERROR_FULL 0x2
+	#define EEPROM_ERROR_BLOCK_NOT_FOUND 0x3
+	#define EEPROM_ERROR_NOT_FORMATTED 0x4
 
 #endif

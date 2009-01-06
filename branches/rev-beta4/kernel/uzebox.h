@@ -34,13 +34,16 @@
 		extern unsigned int vram[]; 
 	#endif
 
-	extern struct SpriteStruct sprites[32];
+	extern struct SpriteStruct sprites[];
 	extern struct ScreenSectionStruct screenSections[];
 	extern void SetSpritesOptions(unsigned char params);
 	extern void SetSpritesTileTable(const char *data);
 	extern unsigned char GetVsyncFlag(void);
 	extern void ClearVsyncFlag(void);
-
+	extern void SetSpriteVisibility(bool visible);
+	extern void MapSprite(unsigned char startSprite,const char *map);
+	extern void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height);
+	extern void RestoreBackground();
 
 	extern void SoftReset(void);
 	extern void ClearVram(void);
@@ -61,9 +64,10 @@
 	extern void PrintHexByte(char x,char y,unsigned char byte);
 	extern void PrintHexInt(char x,char y,int byte);
 	extern void PrintLong(int x,int y, unsigned long val);
-	extern void PrintByte(int x,int y, unsigned char val);
+	extern void PrintByte(int x,int y, unsigned char val,bool zeropad);
 	extern void PrintChar(int x,int y,char c);
 	extern void WaitVsync(int count);
+	extern void PrintInt(int x,int y, unsigned int,bool zeropad);
 
 	extern void Fill(int x,int y,int width,int height,int tile);
 	extern void FontFill(int x,int y,int width,int height,int tile);
@@ -71,11 +75,15 @@
 
 	//Access the joypads buttons state
 	extern unsigned int ReadJoypad(unsigned char joypadNo);
+	extern unsigned int ReadJoypadExt(unsigned char joypadNo); //use with SNES mouse
 
 	//Read/write EEPROM
-	extern void WriteEeprom(int addr,unsigned char value);
-	extern unsigned char ReadEeprom(int addr);
-
+    extern void WriteEeprom(int addr,unsigned char value);
+    extern unsigned char ReadEeprom(int addr);
+	extern char EepromWriteBlock(struct EepromBlockStruct *block);
+	extern char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block);
+	extern bool isEepromFormatted();
+	
 	/*
 	 * Sound Engine defines & functions
 	 */	
@@ -91,4 +99,11 @@
 	extern void ResumeSong();
 	extern void InitMusicPlayer(const struct PatchStruct *patchPointersParam);
 
+
+
+
+	extern void WaitUs(unsigned int microseconds);
+	extern void EnableSnesMouse();
+	extern bool SetMouseSensitivity(unsigned char value);
+	extern unsigned char GetMouseSensitivity();
 #endif

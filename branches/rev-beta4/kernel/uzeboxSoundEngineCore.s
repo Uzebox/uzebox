@@ -63,7 +63,7 @@
 	mix_bank: 	  .byte 1 ;0=first half,1=second half
 	mix_block:	  .byte 1
 	stat_lines:	  .byte 1
-
+	
 
 #if MIDI_IN == ENABLED
 	midi_rx_buf:  	.space MIDI_RX_BUF_SIZE 
@@ -131,8 +131,6 @@ tr3_loop_end_hi: .byte 1
 	tr4_loop_start_hi: .byte 1
 	tr4_loop_end_lo: .byte 1
 	tr4_loop_end_hi: .byte 1
-
-	//no part of the structure but used during muxing to hold a computed value
 
 #endif
 
@@ -290,7 +288,7 @@ MixSound:
 	sei ;must enable ints for hsync pulses
 	clr r1
 	
-#if VIDEO_MODE == 2
+#if VIDEO_MODE == 2 || VIDEO_MODE == 3
 	//this call should not be here. Temp fix.
  
 
@@ -302,7 +300,9 @@ MixSound:
 
 
 
-	call read_joypads
+	//call read_joypads
+	call ReadControllers
+
 	call ProcessMusic
 
 	push r2
@@ -343,57 +343,57 @@ end_set_bank:
 	ldi r16,2
 	sts mix_block,r16	
 	
+	;mix channels
 
-	;mix
+#if SOUND_CHANNEL_4_ENABLE == 1
+	#if MIXER_CHAN4_TYPE == 0	
+		lds r21,tr4_vol
+		lds r22,tr4_barrel_lo
+		lds r23,tr4_barrel_hi
+		lds r24,tr4_divider
+	#else
+		lds r21,tr4_vol
+		lds r22,tr4_pos_lo
+		lds r23,tr4_pos_hi
+		lds r24,tr4_pos_frac
 
-#if MIXER_CHAN4_TYPE == 0	
-	lds r21,tr4_vol
-	lds r22,tr4_barrel_lo
-	lds r23,tr4_barrel_hi
-	lds r24,tr4_divider
-#else
-	lds r21,tr4_vol
-	lds r22,tr4_pos_lo
-	lds r23,tr4_pos_hi
-	lds r24,tr4_pos_frac
+		lds r4,tr4_step_lo 
+		lds r5,tr4_step_hi 
+		clr r6
+		lds r8,tr4_loop_end_lo
+		lds r9,tr4_loop_end_hi
 
-	lds r4,tr4_step_lo 
-	lds r5,tr4_step_hi 
-	clr r6
-	lds r8,tr4_loop_end_lo
-	lds r9,tr4_loop_end_hi
+		lds r10,tr4_loop_start_lo
+		lds r11,tr4_loop_start_hi
 
-	lds r10,tr4_loop_start_lo
-	lds r11,tr4_loop_start_hi
+		movw r2,XL	;push
 
-	movw r2,XL	;push
+		ldi r28,lo8(262/2)
+	ch4_loop:
+		;channel 4 -PCM mode
+	.rept 2
+		add r24,r4
+		adc r22,r5
+		adc r23,r6
 
-	ldi r28,lo8(262/2)
-ch4_loop:
-	;channel 4 -PCM mode
-.rept 2
-	add r24,r4
-	adc r22,r5
-	adc r23,r6
+		cp r22,r8
+		cpc r23,r9
+		brlo .+2
+		movw r22,r10
 
-	cp r22,r8
-	cpc r23,r9
-	brlo .+2
-	movw r22,r10
+		movw ZL,r22
+		lpm	r20,Z	;load sample
+		mulsu r20,r21;(sample*mixing vol)
+		st X+,r1
 
-	movw ZL,r22
-	lpm	r20,Z	;load sample
-	mulsu r20,r21;(sample*mixing vol)
-	st X+,r1
+	.endr	
+		dec r28
+		brne ch4_loop
 
-.endr	
-	dec r28
-	brne ch4_loop
+		movw XL,r2	;push
 
-	movw XL,r2	;push
-
+	#endif
 #endif
-
 
 
 
@@ -429,7 +429,7 @@ ch4_loop:
 	ldi r25,0xff 
 mix_loop:
 
-	#if MIXER_CHAN4_TYPE == 1
+	#if MIXER_CHAN4_TYPE == 1 && SOUND_CHANNEL_4_ENABLE == 1
 		ld 28,X
 		clr r29	;sign extend
 		sbrc r28,7
@@ -445,7 +445,7 @@ mix_loop:
 	clr r0
 	sbc r0,r0	;sign extend
 
-	#if MIXER_CHAN4_TYPE == 0
+	#if MIXER_CHAN4_TYPE == 0 || SOUND_CHANNEL_4_ENABLE == 0
 		mov r28,r1	;add (sample*vol>>8) to mix buffer lsb
 		mov r29,r0	;ajust mix buffer msb
 	#else
@@ -453,61 +453,64 @@ mix_loop:
 		adc r29,r0	;ajust mix buffer msb		
 	#endif
 
-	;channel 2
-	add	r9,r7	;add step to fractional part of sample pos
-	adc r10,r8	;add step to low byte of sample pos 
-	movw ZL,r10
-	lpm	r20,Z	;load sample
-	mulsu r20,r18;(sample*mixing vol)
-	clr r0
-	sbc r0,r0	;sign extend
-	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
-	adc r29,r0	;ajust mix buffer msb
+	#if SOUND_CHANNEL_2_ENABLE == 1
+		;channel 2
+		add	r9,r7	;add step to fractional part of sample pos
+		adc r10,r8	;add step to low byte of sample pos 
+		movw ZL,r10
+		lpm	r20,Z	;load sample
+		mulsu r20,r18;(sample*mixing vol)
+		clr r0
+		sbc r0,r0	;sign extend
+		add r28,r1	;add (sample*vol>>8) to mix buffer lsb
+		adc r29,r0	;ajust mix buffer msb
+	#endif 
 
+	#if SOUND_CHANNEL_3_ENABLE == 1
+		;channel 3
+		add	r16,r12	;add step to fractional part of sample pos
+		adc r14,r13	;add step to low byte of sample pos 
+		movw ZL,r14
+		lpm	r20,Z	;load sample
+		mulsu r20,r19;(sample*mixing vol)
+		clr r0
+		sbc r0,r0	;sign extend
+		add r28,r1	;add (sample*vol>>8) to mix buffer lsb
+		adc r29,r0	;ajust mix buffer msb
+	#endif
 
-	;channel 3
-	add	r16,r12	;add step to fractional part of sample pos
-	adc r14,r13	;add step to low byte of sample pos 
-	movw ZL,r14
-	lpm	r20,Z	;load sample
-	mulsu r20,r19;(sample*mixing vol)
-	clr r0
-	sbc r0,r0	;sign extend
-	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
-	adc r29,r0	;ajust mix buffer msb
+	#if MIXER_CHAN4_TYPE == 0 && SOUND_CHANNEL_4_ENABLE == 1	
 
+		;channel 4 - 7/15 bit LFSR (12 cycles/24 cycles)
+		dec r24
+		brpl no_shift
 
-#if MIXER_CHAN4_TYPE == 0	
-	;channel 4 - 7/15 bit LFSR (12 cycles/24 cycles)
-	dec r24
-	brpl no_shift
+		lds r20,tr4_params
+		mov r24,r20
+		lsr r24 ;keep bits7:1
 
-	lds r20,tr4_params
-	mov r24,r20
-	lsr r24 ;keep bits7:1
+		mov r0,r22  ;copy barrel shifter
+		lsr r0
+		eor r0,r22  ;xor bit0 and bit1
+		bst r0,0
+		lsr r23
+		ror r22	
+		bld r23,6	;15 bits mode
+		sbrs r20,0
+		bld r22,6	;7 bits mode
 
-	mov r0,r22  ;copy barrel shifter
-	lsr r0
-	eor r0,r22  ;xor bit0 and bit1
-	bst r0,0
-	lsr r23
-	ror r22	
-	bld r23,6	;15 bits mode
-	sbrs r20,0
-	bld r22,6	;7 bits mode
+	no_shift:
+		ldi r20,0x80 ;-128
+		sbrc r22,0
+		ldi r20,0x7f ;+127
 
-no_shift:
-	ldi r20,0x80 ;-128
-	sbrc r22,0
-	ldi r20,0x7f ;+127
+		mulsu r20,r21;(sample*mixing vol)
+		clr r0
+		sbc r0,r0	;sign extend
+		add r28,r1	;add (sample*vol>>8) to mix buffer lsb
+		adc r29,r0	;ajust mix buffer msb
 
-	mulsu r20,r21;(sample*mixing vol)
-	clr r0
-	sbc r0,r0	;sign extend
-	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
-	adc r29,r0	;ajust mix buffer msb
-
-#endif
+	#endif
 
 	;final processing
 
@@ -582,12 +585,13 @@ no_shift:
 	pop r3
 	pop r2
 
-	clr r25
-	lds r24,sync_phase
-	clr r23
-	lds r22,sync_pulse
-	clr r1
-	call DisplayMixStats
+
+//	clr r25
+//	lds r24,sync_phase
+//	clr r23
+//	lds r22,sync_pulse
+//	clr r1
+//	call DisplayMixStats
 		
 	pop r27
 	pop r26

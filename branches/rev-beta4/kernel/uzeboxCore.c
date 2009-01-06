@@ -27,9 +27,24 @@
 #include "uzebox.h"
 
 
+
+
+#define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
+#define Wait100ns() asm volatile("lpm\n\t");
+
+
+#if INTRO_LOGO !=0
+	#if VIDEO_MODE == 3 
+		#include "data/uzeboxlogo_8x8.pic.inc"
+		#include "data/uzeboxlogo_8x8.map.inc"
+	#else
+		#include "data/uzeboxlogo.pic.inc"
+		#include "data/uzeboxlogo.map.inc"
+	#endif
+#endif
+
+
 #if INTRO_LOGO == 1 
-	#include "data/uzeboxlogo.pic.inc"
-	#include "data/uzeboxlogo.map.inc"
 
 	//Logo "kling" sound
 	const char initPatch[] PROGMEM ={	
@@ -50,8 +65,7 @@
 
 
 #elif INTRO_LOGO == 2
-	#include "data/uzeboxlogo.pic.inc"
-	#include "data/uzeboxlogo.map.inc"
+
 	#include "data/logovoice.inc"
 
 	const struct PatchStruct initPatches[] PROGMEM = 
@@ -64,8 +78,16 @@ extern unsigned char rotate_spr_no;
 extern unsigned char sync_phase;
 extern unsigned char sync_pulse;
 extern unsigned char curr_field;
+extern unsigned char  curr_frame;
 extern struct TrackStruct tracks[CHANNELS];
 extern unsigned char scanline_sprite_buf[];
+extern unsigned char burstOffset;
+extern unsigned char vsync_phase;
+extern volatile unsigned int joypad1_status_lo,joypad2_status_lo,joypad1_status_hi,joypad2_status_hi;
+extern void WriteEeprom(unsigned int address,unsigned char value);
+extern unsigned char ReadEeprom(unsigned int address);
+
+bool snesMouseEnabled;
 
 void wdt_init(void) __attribute__((naked)) __attribute__((section(".init3")));
 void Initialize(void) __attribute__((naked)) __attribute__((section(".init8")));
@@ -82,12 +104,19 @@ void wdt_init(void)
  * Performs a software reset
  */
 void SoftReset(void){        
-	wdt_enable(WDTO_15MS);  
-	while(0);
+//	wdt_enable(WDTO_15MS);  
+//	while(0);
+}
+
+/*
+ This method activates teh code to read the mouse. 
+ Currently reading the mouse takes a much a 2.5 scanlines.
+*/
+void EnableSnesMouse(){
+	snesMouseEnabled=true;
 }
 
 void logo(){
-
 
 	#if INTRO_LOGO !=0
 
@@ -96,7 +125,10 @@ void logo(){
 		#if VIDEO_MODE == 2
 			#define LOGO_X_POS 8
 			screenSections[0].tileTableAdress=uzeboxlogo;
-		#else
+		#elif VIDEO_MODE==3
+			#define LOGO_X_POS 13
+			SetTileTable(logo_tileset);
+		#else			
 			#define LOGO_X_POS 18
 			SetTileTable(uzeboxlogo);
 			SetFontTable(uzeboxlogo);
@@ -113,19 +145,29 @@ void logo(){
 			TriggerFx(0,0xff,true);
 		#endif
 
-		DrawMap(LOGO_X_POS,12,map_uzeboxlogo);
-		WaitVsync(3);
-		DrawMap(LOGO_X_POS,12,map_uzeboxlogo2);
-		WaitVsync(2);
-		DrawMap(LOGO_X_POS,12,map_uzeboxlogo);
-	
+		#if VIDEO_MODE == 3
+			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo);
+			WaitVsync(3);
+			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo2);
+			WaitVsync(2);
+			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo);
+		#else
+			DrawMap(LOGO_X_POS,12,map_uzeboxlogo);
+			WaitVsync(3);
+			DrawMap(LOGO_X_POS,12,map_uzeboxlogo2);
+			WaitVsync(2);
+			DrawMap(LOGO_X_POS,12,map_uzeboxlogo);
+		#endif	
+
 		#if INTRO_LOGO == 2
 
 			SetMasterVolume(0xc0);
 			TriggerNote(3,0,16,0xff);
 
-			WaitVsync(50);
+
 		#endif 
+		
+		WaitVsync(30);
 
 		#if VIDEO_MODE == 2
 			WaitVsync(80);
@@ -146,7 +188,7 @@ void logo(){
 int i;
 void Initialize(void){
 
-	asm("cli");
+	cli();
 
 	//Initialize the mixer buffer
 	for(i=0;i<MIX_BANK_SIZE*2;i++){
@@ -211,6 +253,14 @@ void Initialize(void){
 		rotate_spr_no=1;
 
 	#endif
+	
+	#if VIDEO_MODE == 3
+		//clear srpites
+		for(i=0;i<MAX_SPRITES;i++){
+			sprites[i].y=(SCREEN_TILES_V*TILE_HEIGHT);		
+		}
+
+	#endif
 
 	//set ports
 	DDRC=0xff; //video dac
@@ -219,7 +269,7 @@ void Initialize(void){
 
 	//setup port A for joypads
 	DDRA =0b00001100; //set only control lines as outputs
-	PORTA=0b11110011; //activate pullups on the data lines
+	PORTA=0b11111011; //activate pullups on the data lines
 
 	//set sync parameters. starts at odd field, in pre-eq pulses, line 1
 	sync_phase=SYNC_PHASE_PRE_EQ;
@@ -249,11 +299,226 @@ void Initialize(void){
 
 	SYNC_PORT=(1<<SYNC_PIN)|(1<<VIDEOCE_PIN); //set sync & chip enable line to hi
 
+	burstOffset=0;
+	curr_frame=0;
+	vsync_phase=0;
+	joypad1_status_hi=0;
+	joypad2_status_hi=0;
+	snesMouseEnabled=false;
 
+	sei();
 
-	asm("sei");
 	logo();
 }
 
+void ReadButtons(){
+	unsigned int p1ButtonsLo=0,p2ButtonsLo=0;
+	unsigned char i;
+
+	//latch controllers
+	JOYPAD_OUT_PORT|=_BV(JOYPAD_LATCH_PIN);
+	if(snesMouseEnabled){
+		WaitUs(1);
+	}else{
+		Wait200ns();
+	}	
+	JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));
 
 
+	//read button states
+	for(i=0;i<16;i++){
+		
+		p1ButtonsLo>>=1;
+		p2ButtonsLo>>=1;
+	
+		//pulse clock pin		
+		JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
+		if(snesMouseEnabled){
+			WaitUs(5);
+		}else{
+			Wait200ns();
+		}
+		
+		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsLo|=(1<<15);
+		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsLo|=(1<<15);
+		
+		JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
+		if(snesMouseEnabled){
+			WaitUs(5);
+		}else{
+			Wait200ns();
+		}
+
+	}
+
+	joypad1_status_lo=p1ButtonsLo;
+	joypad2_status_lo=p2ButtonsLo;
+
+}
+
+void ReadControllers(){
+	unsigned int p1ButtonsHi=0,p2ButtonsHi=0;
+	unsigned char i;
+
+	//read the standard buttons
+	ReadButtons();
+
+	//read the extended bits. Applies only if the mouse is plugged.
+	//if bit 15 of standard word is 1, a mouse is plugged.
+	if(joypad1_status_lo&(1<<15) || joypad2_status_lo&(1<<15)){
+
+		WaitUs(1);
+
+		for(i=0;i<16;i++){
+		
+			p1ButtonsHi<<=1;
+			p2ButtonsHi<<=1;
+	
+			//pulse clock pin		
+			JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
+			Wait200ns();
+			Wait200ns();
+		
+			if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsHi|=1;
+			if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsHi|=1;
+
+			JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
+			WaitUs(8);
+		}
+		
+		joypad1_status_hi=p1ButtonsHi;
+		joypad2_status_hi=p2ButtonsHi;
+
+	}
+
+}
+
+unsigned char GetMouseSensitivity(){
+	unsigned char sens=-1;
+
+	if(snesMouseEnabled){
+		ReadButtons();
+
+		if(joypad1_status_lo&(1<<15)){
+			sens=(joypad1_status_lo>>10)&3;
+		}else if(joypad2_status_lo&(1<<15)){
+			sens=(joypad2_status_lo>>10)&3;
+		}
+
+	}
+
+	return sens;
+}
+
+bool SetMouseSensitivity(unsigned char value){
+	unsigned char i,retries=6;
+
+	if(snesMouseEnabled){	
+		while(retries>0){
+			
+			if(GetMouseSensitivity()==value){
+				return true;
+			}
+
+			WaitUs(1000);
+
+			for(i=0;i<31;i++){	
+				JOYPAD_OUT_PORT|=_BV(JOYPAD_LATCH_PIN);	
+
+				//pulse clock pin		
+				JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
+				Wait200ns();
+				Wait200ns();
+				Wait200ns();			
+				Wait100ns();			
+				JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
+
+				JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));	
+			
+				WaitUs(2);
+				Wait200ns();
+				Wait200ns();
+				Wait200ns();			
+				Wait100ns();
+			}	
+			
+			retries++;
+		}
+	}
+
+	return false;
+}
+
+//returns true if the EEPROM has been setup to work with the kernel.
+bool isEepromFormatted(){
+	unsigned id;
+	id=ReadEeprom(0)+(ReadEeprom(1)<<8);
+	return (id==EEPROM_SIGNATURE);
+}
+
+/*
+ * Write a data block in the specified block id. If the block does not exist, it is created.
+ *
+ * Returns: 0 on success or error codes
+ */
+char EepromWriteBlock(struct EepromBlockStruct *block){
+	unsigned char i,nextFreeBlock=0,c;
+	unsigned int destAddr=0,id;
+	unsigned char *srcPtr=(unsigned char *)block;
+
+	if(!isEepromFormatted()) return EEPROM_ERROR_NOT_FORMATTED;
+	if(block->id==EEPROM_FREE_BLOCK || block->id==EEPROM_SIGNATURE) return EEPROM_ERROR_INVALID_BLOCK;
+
+	//scan all blocks and get the adress of that block or the next free one.
+	for(i=2;i<64;i++){
+		id=ReadEeprom(i*EEPROM_BLOCK_SIZE)+(ReadEeprom((i*EEPROM_BLOCK_SIZE)+1)<<8);
+		if(id==block->id){
+			destAddr=i*EEPROM_BLOCK_SIZE;
+			break;
+		}
+		if(id==0xffff && nextFreeBlock==0) nextFreeBlock=i;
+	}
+
+	if(destAddr==0 && nextFreeBlock==0) return EEPROM_ERROR_FULL;
+	if(nextFreeBlock!=0) destAddr=nextFreeBlock*EEPROM_BLOCK_SIZE;
+
+	for(i=0;i<EEPROM_BLOCK_SIZE;i++){
+		c=*srcPtr;
+		WriteEeprom(destAddr++,c);
+		srcPtr++;	
+	}
+	
+	return 0;
+}
+
+/*
+ * Reads a data block in the specified structure.
+ *
+ * Returns: 0 on success or error codes
+ */
+char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
+	unsigned char i;
+	unsigned int destAddr=0,id;
+	unsigned char *destPtr=(unsigned char *)block;
+
+	if(!isEepromFormatted()) return EEPROM_ERROR_NOT_FORMATTED;
+	if(blockId==EEPROM_FREE_BLOCK) return EEPROM_ERROR_INVALID_BLOCK;
+
+	//scan all blocks and get the adress of that block
+	for(i=0;i<32;i++){
+		id=ReadEeprom(i*EEPROM_BLOCK_SIZE)+(ReadEeprom((i*EEPROM_BLOCK_SIZE)+1)<<8);
+		if(id==blockId){
+			destAddr=i*EEPROM_BLOCK_SIZE;
+			break;
+		}
+	}
+
+	if(destAddr==0) return EEPROM_ERROR_BLOCK_NOT_FOUND;			
+
+	for(i=0;i<EEPROM_BLOCK_SIZE;i++){
+		*destPtr=ReadEeprom(destAddr++);
+		destPtr++;	
+	}
+	
+	return 0;
+}

@@ -16,6 +16,19 @@ Two most important files to view if you don't want to read all this!
 1) /kernel/defines.h : Custom compilation options
 2) /kernel/uzebox.h  : All API functions and defines
 
+Rev 2.0 Beta4 Notes (WIP)
+-------------------------
+This revision is still in development. It is stable and you can use it for new games.
+However I can not guarantee backward compatibility with the final release.
+*ONLY THE KERNEL FOLDER IS CHANGING RIGHT NOW*
+
+New Features:
+-New video mode 3: 30x28 Tiles+Sprites using 8x8 tiles & sprites. Scrolling yet to be implemented. Currently, heavy CPU usage requires disabling one or more sound channels.
+-New EEPROM libraries to save game related data (ie: scores, progress, etc).
+-New switchable color correction for the composite output. It's been reported to screw some LCD TV, but for those, use the S-VIDEO output!
+-Support for the SNES mouse
+
+
 Rev 2.0 Beta3 Notes
 -------------------
 -Fixed stutter problem on LCD TVs. Note that NTSC signal is now much more standard. Side effect is that composite usual artifacts are more visible.
