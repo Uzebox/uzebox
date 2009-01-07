@@ -20,7 +20,8 @@ Rev 2.0 Beta4 Notes (WIP)
 -------------------------
 This revision is still in development. It is stable and you can use it for new games.
 However I can not guarantee backward compatibility with the final release.
-*ONLY THE KERNEL FOLDER IS CHANGING RIGHT NOW*
+All demos unser the /demos folder are not working with this code except Whack-a-Mole
+which support both the new video mode3 and the SNES mouse.
 
 New Features:
 -New video mode 3: 30x28 Tiles+Sprites using 8x8 tiles & sprites. Scrolling yet to be implemented. Currently, heavy CPU usage requires disabling one or more sound channels.

@@ -1,0 +1,732 @@
+Archive member included because of file (symbol)
+
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodqi4.o)
+                              uzeboxVideoEngine.o (__udivmodqi4)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodhi4.o)
+                              uzeboxVideoEngine.o (__udivmodhi4)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodhi4.o)
+                              whack-a-mole.o (__divmodhi4)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodsi4.o)
+                              uzeboxVideoEngine.o (__udivmodsi4)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodsi4.o)
+                              whack-a-mole.o (__divmodsi4)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_exit.o)
+                              c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o (exit)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_copy_data.o)
+                              uzeboxCore.o (__do_copy_data)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_clear_bss.o)
+                              uzeboxCore.o (__do_clear_bss)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(rand.o)
+                              whack-a-mole.o (rand)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(random.o)
+                              whack-a-mole.o (random)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_mulsi3.o)
+                              c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(rand.o) (__mulsi3)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_prologue.o)
+                              c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(rand.o) (__prologue_saves__)
+c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_epilogue.o)
+                              c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(rand.o) (__epilogue_restores__)
+
+Allocating common symbols
+Common symbol       size              file
+
+sprites             0x24              uzeboxVideoEngine.o
+songStart           0x2               uzeboxSoundEngine.o
+tracks              0x58              uzeboxSoundEngine.o
+currDeltaTime       0x2               uzeboxSoundEngine.o
+patchPointers       0x2               uzeboxSoundEngine.o
+lastStatus          0x1               uzeboxSoundEngine.o
+ramPatch            0x1               uzeboxSoundEngine.o
+absoluteTime        0x2               uzeboxSoundEngine.o
+moles               0x50              whack-a-mole.o
+my                  0x2               whack-a-mole.o
+masterVolume        0x1               uzeboxSoundEngine.o
+gameOver            0x1               whack-a-mole.o
+nextDeltaTime       0x2               uzeboxSoundEngine.o
+i                   0x2               uzeboxCore.o
+songPos             0x2               uzeboxSoundEngine.o
+snesMouseEnabled    0x1               uzeboxCore.o
+level               0x1               whack-a-mole.o
+ramPatchPtr         0x1               uzeboxSoundEngine.o
+buttons             0xb               whack-a-mole.o
+actionButton        0x2               whack-a-mole.o
+loopStart           0x2               uzeboxSoundEngine.o
+saveGameBlock       0x20              whack-a-mole.o
+mx                  0x2               whack-a-mole.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+text             0x00000000         0x00020000         xr
+data             0x00800060         0x0000ffa0         rw !x
+eeprom           0x00810000         0x00010000         rw !x
+fuse             0x00820000         0x00000400         rw !x
+lock             0x00830000         0x00000400         rw !x
+signature        0x00840000         0x00000400         rw !x
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+Address of section .data set to 0x800100
+LOAD c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o
+LOAD uzeboxVideoEngineCore.o
+LOAD uzeboxCore.o
+LOAD uzeboxSoundEngine.o
+LOAD uzeboxSoundEngineCore.o
+LOAD uzeboxVideoEngine.o
+LOAD whack-a-mole.o
+LOAD c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a
+LOAD c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a
+LOAD c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a
+
+.hash
+ *(.hash)
+
+.dynsym
+ *(.dynsym)
+
+.dynstr
+ *(.dynstr)
+
+.gnu.version
+ *(.gnu.version)
+
+.gnu.version_d
+ *(.gnu.version_d)
+
+.gnu.version_r
+ *(.gnu.version_r)
+
+.rel.init
+ *(.rel.init)
+
+.rela.init
+ *(.rela.init)
+
+.rel.text
+ *(.rel.text)
+ *(.rel.text.*)
+ *(.rel.gnu.linkonce.t*)
+
+.rela.text
+ *(.rela.text)
+ *(.rela.text.*)
+ *(.rela.gnu.linkonce.t*)
+
+.rel.fini
+ *(.rel.fini)
+
+.rela.fini
+ *(.rela.fini)
+
+.rel.rodata
+ *(.rel.rodata)
+ *(.rel.rodata.*)
+ *(.rel.gnu.linkonce.r*)
+
+.rela.rodata
+ *(.rela.rodata)
+ *(.rela.rodata.*)
+ *(.rela.gnu.linkonce.r*)
+
+.rel.data
+ *(.rel.data)
+ *(.rel.data.*)
+ *(.rel.gnu.linkonce.d*)
+
+.rela.data
+ *(.rela.data)
+ *(.rela.data.*)
+ *(.rela.gnu.linkonce.d*)
+
+.rel.ctors
+ *(.rel.ctors)
+
+.rela.ctors
+ *(.rela.ctors)
+
+.rel.dtors
+ *(.rel.dtors)
+
+.rela.dtors
+ *(.rela.dtors)
+
+.rel.got
+ *(.rel.got)
+
+.rela.got
+ *(.rela.got)
+
+.rel.bss
+ *(.rel.bss)
+
+.rela.bss
+ *(.rela.bss)
+
+.rel.plt
+ *(.rel.plt)
+
+.rela.plt
+ *(.rela.plt)
+
+.text           0x00000000     0x9ea6
+ *(.vectors)
+ .vectors       0x00000000       0x70 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o
+                0x00000000                __vectors
+                0x00000000                __vector_default
+ *(.vectors)
+ *(.progmem.gcc*)
+ *(.progmem*)
+ .progmem.data  0x00000070       0x16 uzeboxSoundEngine.o
+                0x00000070                patchCommands
+ .progmem.data  0x00000086     0x650d whack-a-mole.o
+                0x00000d7c                map_startBtnUp
+                0x000044c8                title_tileset
+                0x00006572                strSpeed
+                0x0000657d                strLo
+                0x00006539                strTime
+                0x00000a58                map_main
+                0x00000467                patch07
+                0x00006520                strHighScore
+                0x00006582                strMed
+                0x000004f7                cursor_tileset
+                0x00000db8                map_whack
+                0x00000cfa                map_mole4
+                0x00000432                patch00
+                0x0000043d                patch01
+                0x000054c8                font_tileset2
+                0x0000049d                patches
+                0x00000cc6                map_mole2
+                0x0000652a                strWhacked
+                0x00000086                song_Whacksong
+                0x00000a37                map_cursor
+                0x00000dc8                mole_tileset
+                0x000064c8                map_title
+                0x00006587                strHi
+                0x00000d88                map_startBtnDown
+                0x0000044e                patch05
+                0x00000da4                map_gameOver
+                0x00000d2e                map_mole6
+                0x00006549                strStart
+                0x0000650c                strNotDetected
+                0x00000cac                map_mole1
+                0x00000d94                map_ready
+                0x0000044a                patch03
+                0x00006558                strWeb
+                0x0000048f                patch09
+                0x0000044c                patch04
+                0x00000d48                map_mole7
+                0x000034c8                font_tileset
+                0x00000481                patch08
+                0x00000a4d                map_hammerDown
+                0x0000653f                strCopy
+                0x0000658c                strError
+                0x00000d62                map_hole
+                0x00000456                patch06
+                0x00000448                patch02
+                0x00000d14                map_mole5
+                0x00000a42                map_hammerUp
+                0x00000ce0                map_mole3
+                0x00006594                . = ALIGN (0x2)
+ *fill*         0x00006593        0x1 00
+                0x00006594                __trampolines_start = .
+ *(.trampolines)
+ .trampolines   0x00006594        0x0 linker stubs
+ *(.trampolines*)
+                0x00006594                __trampolines_end = .
+ *(.jumptables)
+ *(.jumptables*)
+ *(.lowtext)
+ *(.lowtext*)
+                0x00006594                __ctors_start = .
+ *(.ctors)
+                0x00006594                __ctors_end = .
+                0x00006594                __dtors_start = .
+ *(.dtors)
+                0x00006594                __dtors_end = .
+ SORT(*)(.ctors)
+ SORT(*)(.dtors)
+ *(.init0)
+ .init0         0x00006594        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o
+                0x00006594                __init
+ *(.init0)
+ *(.init1)
+ *(.init1)
+ *(.init2)
+ .init2         0x00006594        0xc c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o
+ *(.init2)
+ *(.init3)
+ .init3         0x000065a0       0x12 uzeboxCore.o
+                0x000065a0                wdt_init
+ *(.init3)
+ *(.init4)
+ .init4         0x000065b2       0x16 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_copy_data.o)
+                0x000065b2                __do_copy_data
+ .init4         0x000065c8       0x10 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_clear_bss.o)
+                0x000065c8                __do_clear_bss
+ *(.init4)
+ *(.init5)
+ *(.init5)
+ *(.init6)
+ *(.init6)
+ *(.init7)
+ *(.init7)
+ *(.init8)
+ .init8         0x000065d8       0xee uzeboxCore.o
+                0x000065d8                Initialize
+ *(.init8)
+ *(.init9)
+ .init9         0x000066c6        0x8 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o
+ *(.init9)
+ *(.text)
+ .text          0x000066ce        0x4 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o
+                0x000066ce                __vector_22
+                0x000066ce                __vector_1
+                0x000066ce                __vector_24
+                0x000066ce                __vector_12
+                0x000066ce                __bad_interrupt
+                0x000066ce                __vector_6
+                0x000066ce                __vector_3
+                0x000066ce                __vector_23
+                0x000066ce                __vector_25
+                0x000066ce                __vector_11
+                0x000066ce                __vector_17
+                0x000066ce                __vector_19
+                0x000066ce                __vector_7
+                0x000066ce                __vector_27
+                0x000066ce                __vector_5
+                0x000066ce                __vector_4
+                0x000066ce                __vector_9
+                0x000066ce                __vector_2
+                0x000066ce                __vector_21
+                0x000066ce                __vector_15
+                0x000066ce                __vector_8
+                0x000066ce                __vector_26
+                0x000066ce                __vector_14
+                0x000066ce                __vector_10
+                0x000066ce                __vector_16
+                0x000066ce                __vector_18
+                0x000066ce                __vector_20
+ .text          0x000066d2      0x624 uzeboxVideoEngineCore.o
+                0x00006cc2                WaitUs
+                0x00006aaa                SetSpritesTileTable
+                0x00006c0a                BlitSprite
+                0x00006a56                ClearVram
+                0x00006c92                ReadJoypad
+                0x00006a86                SetFont
+                0x00006abe                GetVsyncFlag
+                0x0000691c                __vector_13
+                0x00006caa                ReadJoypadExt
+                0x000066da                test
+                0x00006894                read_joypads
+                0x00006a6a                SetTile
+                0x00006ae8                CopyTileToRam
+                0x00006ce4                ReadEeprom
+                0x00006a84                LoadMap
+                0x00006ab4                SetTileTable
+                0x00006c8c                SetColorBurstOffset
+                0x00006ac4                ClearVsyncFlag
+                0x00006aa4                SetFontTilesIndex
+                0x00006cd0                WriteEeprom
+ .text          0x00006cf6      0x388 uzeboxCore.o
+                0x00006cf8                EnableSnesMouse
+                0x00006f92                SetMouseSensitivity
+                0x00006cf6                SoftReset
+                0x00006ffe                ReadControllers
+                0x00006f4e                GetMouseSensitivity
+                0x00006d2e                EepromReadBlock
+                0x00006ebc                ReadButtons
+                0x00006d02                isEepromFormatted
+                0x00006de4                EepromWriteBlock
+                0x00006d00                logo
+ .text          0x0000707e      0x9b6 uzeboxSoundEngine.o
+                0x0000725c                TriggerNote
+                0x00007114                PatchCommand10
+                0x00007256                PatchCommand02
+                0x000070f8                PatchCommand09
+                0x000070be                PatchCommand06
+                0x000078ae                TriggerFx
+                0x000079de                PatchCommand04
+                0x000073fe                ProcessMusic
+                0x00007130                InitMusicPlayer
+                0x000071b4                RestartSong
+                0x000070dc                PatchCommand07
+                0x000070a0                PatchCommand05
+                0x00007200                ResumeSong
+                0x0000707e                PatchCommand00
+                0x00007a0a                PatchCommand03
+                0x00007250                SetMasterVolume
+                0x0000709a                PatchCommand01
+                0x000079aa                PatchCommand08
+                0x00007166                StartSong
+                0x000071c2                StopSong
+                0x00007208                ReadVarLen
+ *fill*         0x00007a34       0xcc 00
+ .text          0x00007b00      0xe00 uzeboxSoundEngineCore.o
+                0x00007d54                update_sound_buffer_2
+                0x00007d02                update_sound_buffer
+                0x00007b78                SetMixerVolume
+                0x00007b2e                SetMixerNoiseParams
+                0x00007b8e                MixSound
+                0x00007b3e                SetMixerWave
+                0x00007b00                SetMixerNote
+                0x00007e00                waves
+ .text          0x00008900      0x696 uzeboxVideoEngine.o
+                0x00008938                DrawMap2
+                0x00008a52                FontFill
+                0x00008ac8                Print
+                0x000089ec                MoveSprite
+                0x00008c0e                PrintByte
+                0x00008b68                PrintBinaryByte
+                0x00008cec                Fill
+                0x00008b42                PrintHexInt
+                0x00008ba2                PrintInt
+                0x00008ac0                PrintChar
+                0x00008c6e                PrintLong
+                0x00008dfc                ProcessSprites
+                0x00008932                SetSpriteVisibility
+                0x00008a24                WaitVsync
+                0x00008b00                PrintHexByte
+                0x00008990                MapSprite
+                0x00008900                RestoreBackground
+                0x00008d62                DrawMap
+ .text          0x00008f96      0xbfc whack-a-mole.o
+                0x00008f96                WaitKey
+                0x00009766                doStart
+                0x0000983c                menu
+                0x0000938e                processMoles
+                0x00009584                PrintSpeed
+                0x00008fb0                processHammer
+                0x000092bc                createButton
+                0x0000916c                processMouseMovement
+                0x000098e0                main
+                0x000095be                processButtons
+                0x0000932e                DetectControllers
+ .text          0x00009b92        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodqi4.o)
+ .text          0x00009b92        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodhi4.o)
+ .text          0x00009b92        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodhi4.o)
+ .text          0x00009b92        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodsi4.o)
+ .text          0x00009b92        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodsi4.o)
+ .text          0x00009b92        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_exit.o)
+ .text          0x00009b92        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_copy_data.o)
+ .text          0x00009b92        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_clear_bss.o)
+ .text          0x00009b92       0xc2 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(rand.o)
+                0x00009c2e                rand_r
+                0x00009c34                rand
+                0x00009c3e                srand
+ .text          0x00009c54       0xc2 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(random.o)
+                0x00009cfa                random
+                0x00009cf4                random_r
+                0x00009d04                srandom
+ .text          0x00009d16        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_mulsi3.o)
+ .text          0x00009d16        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_prologue.o)
+ .text          0x00009d16        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_epilogue.o)
+                0x00009d16                . = ALIGN (0x2)
+ *(.text.*)
+ .text.libgcc   0x00009d16       0x18 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodqi4.o)
+                0x00009d16                __udivmodqi4
+ .text.libgcc   0x00009d2e       0x28 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodhi4.o)
+                0x00009d2e                __udivmodhi4
+ .text.libgcc   0x00009d56       0x26 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodhi4.o)
+                0x00009d56                __divmodhi4
+                0x00009d56                _div
+ .text.libgcc   0x00009d7c       0x44 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodsi4.o)
+                0x00009d7c                __udivmodsi4
+ .text.libgcc   0x00009dc0       0x36 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodsi4.o)
+                0x00009dc0                __divmodsi4
+ .text.libgcc   0x00009df6        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_exit.o)
+ .text.libgcc   0x00009df6        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc   0x00009df6        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc   0x00009df6       0x3e c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_mulsi3.o)
+                0x00009df6                __mulsi3
+ .text.libgcc   0x00009e34       0x38 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_prologue.o)
+                0x00009e34                __prologue_saves__
+ .text.libgcc   0x00009e6c       0x36 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_epilogue.o)
+                0x00009e6c                __epilogue_restores__
+                0x00009ea2                . = ALIGN (0x2)
+ *(.fini9)
+ .fini9         0x00009ea2        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_exit.o)
+                0x00009ea2                exit
+                0x00009ea2                _exit
+ *(.fini9)
+ *(.fini8)
+ *(.fini8)
+ *(.fini7)
+ *(.fini7)
+ *(.fini6)
+ *(.fini6)
+ *(.fini5)
+ *(.fini5)
+ *(.fini4)
+ *(.fini4)
+ *(.fini3)
+ *(.fini3)
+ *(.fini2)
+ *(.fini2)
+ *(.fini1)
+ *(.fini1)
+ *(.fini0)
+ .fini0         0x00009ea2        0x4 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_exit.o)
+ *(.fini0)
+                0x00009ea6                _etext = .
+
+.data           0x00800100        0xc load address 0x00009ea6
+                0x00800100                PROVIDE (__data_start, .)
+ *(.data)
+ .data          0x00800100        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o
+ .data          0x00800100        0x0 uzeboxVideoEngineCore.o
+ .data          0x00800100        0x0 uzeboxCore.o
+ .data          0x00800100        0x0 uzeboxSoundEngine.o
+ .data          0x00800100        0x0 uzeboxSoundEngineCore.o
+ .data          0x00800100        0x1 uzeboxVideoEngine.o
+                0x00800100                spritesOn
+ .data          0x00800101        0x2 whack-a-mole.o
+                0x00800101                mouseSpeed
+ .data          0x00800103        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodqi4.o)
+ .data          0x00800103        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodhi4.o)
+ .data          0x00800103        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodhi4.o)
+ .data          0x00800103        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodsi4.o)
+ .data          0x00800103        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodsi4.o)
+ .data          0x00800103        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_exit.o)
+ .data          0x00800103        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_copy_data.o)
+ .data          0x00800103        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_clear_bss.o)
+ .data          0x00800103        0x4 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(rand.o)
+ .data          0x00800107        0x4 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(random.o)
+ .data          0x0080010b        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_mulsi3.o)
+ .data          0x0080010b        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_prologue.o)
+ .data          0x0080010b        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_epilogue.o)
+ *(.data*)
+ *(.rodata)
+ *(.rodata*)
+ *(.gnu.linkonce.d*)
+                0x0080010c                . = ALIGN (0x2)
+ *fill*         0x0080010b        0x1 00
+                0x0080010c                _edata = .
+                0x0080010c                PROVIDE (__data_end, .)
+
+.bss            0x0080010c      0xb36 load address 0x00009eb2
+                0x0080010c                PROVIDE (__bss_start, .)
+ *(.bss)
+ .bss           0x0080010c        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5/crtm644.o
+ *fill*         0x0080010c       0x14 00
+ .bss           0x00800120      0x7c0 uzeboxVideoEngineCore.o
+                0x008008bd                vsync_phase
+                0x008008b8                sync_phase
+                0x008008c7                joypad2_status_hi
+                0x008008c3                joypad1_status_hi
+                0x008008bc                curr_frame
+                0x008008be                tile_table_lo
+                0x008008bb                curr_field
+                0x008008b6                sprites_tiletable_lo
+                0x008008b9                sync_pulse
+                0x00800486                ram_tiles
+                0x008008c1                joypad1_status_lo
+                0x00800120                vram
+                0x00800886                ram_tiles_restore
+                0x008008c5                joypad2_status_lo
+                0x008008c9                burstOffset
+ .bss           0x008008e0        0x0 uzeboxCore.o
+ .bss           0x008008e0        0x1 uzeboxSoundEngine.o
+                0x008008e0                playSong
+ .bss           0x008008e1      0x239 uzeboxSoundEngineCore.o
+                0x00800b13                tr4_barrel_hi
+                0x00800b12                tr4_barrel_lo
+                0x00800af2                mixer
+                0x00800b11                tr4_params
+                0x00800aef                mix_bank
+                0x00800aed                mix_pos
+                0x008008e1                mix_buf
+ .bss           0x00800b1a        0x1 uzeboxVideoEngine.o
+                0x00800b1a                free_tile_index
+ .bss           0x00800b1b       0x13 whack-a-mole.o
+                0x00800b1e                playDevice
+                0x00800b1f                playPort
+                0x00800b1b                nextFreeButtonIndex
+                0x00800b27                cnt
+                0x00800b21                molesWhacked
+                0x00800b22                activeMoles
+                0x00800b1c                dx
+                0x00800b20                highScore
+                0x00800b25                lastTime
+                0x00800b23                time
+                0x00800b1d                dy
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodqi4.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodhi4.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodhi4.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_udivmodsi4.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_divmodsi4.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_exit.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_copy_data.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_clear_bss.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(rand.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/../../../../avr/lib/avr5\libc.a(random.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_mulsi3.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_prologue.o)
+ .bss           0x00800b2e        0x0 c:/apps/winavr-20080610/bin/../lib/gcc/avr/4.3.0/avr5\libgcc.a(_epilogue.o)
+ *(.bss*)
+ *(COMMON)
+ COMMON         0x00800b2e        0x3 uzeboxCore.o
+                0x00800b2e                i
+                0x00800b30                snesMouseEnabled
+ COMMON         0x00800b31       0x6a uzeboxSoundEngine.o
+                0x00800b31                songStart
+                0x00800b33                tracks
+                0x00800b8b                currDeltaTime
+                0x00800b8d                patchPointers
+                0x00800b8f                lastStatus
+                0x00800b90                ramPatch
+                0x00800b91                absoluteTime
+                0x00800b93                masterVolume
+                0x00800b94                nextDeltaTime
+                0x00800b96                songPos
+                0x00800b98                ramPatchPtr
+                0x00800b99                loopStart
+ COMMON         0x00800b9b       0x24 uzeboxVideoEngine.o
+                0x00800b9b                sprites
+ COMMON         0x00800bbf       0x83 whack-a-mole.o
+                0x00800bbf                moles
+                0x00800c0f                my
+                0x00800c11                gameOver
+                0x00800c12                level
+                0x00800c13                buttons
+                0x00800c1e                actionButton
+                0x00800c20                saveGameBlock
+                0x00800c40                mx
+                0x00800c42                PROVIDE (__bss_end, .)
+                0x00009ea6                __data_load_start = LOADADDR (.data)
+                0x00009eb2                __data_load_end = (__data_load_start + SIZEOF (.data))
+
+.noinit         0x00800c42        0x0
+                0x00800c42                PROVIDE (__noinit_start, .)
+ *(.noinit*)
+                0x00800c42                PROVIDE (__noinit_end, .)
+                0x00800c42                _end = .
+                0x00800c42                PROVIDE (__heap_start, .)
+
+.eeprom         0x00810000        0x0
+ *(.eeprom*)
+                0x00810000                __eeprom_end = .
+
+.fuse
+ *(.fuse)
+ *(.lfuse)
+ *(.hfuse)
+ *(.efuse)
+
+.lock
+ *(.lock*)
+
+.signature
+ *(.signature*)
+
+.stab
+ *(.stab)
+
+.stabstr
+ *(.stabstr)
+
+.stab.excl
+ *(.stab.excl)
+
+.stab.exclstr
+ *(.stab.exclstr)
+
+.stab.index
+ *(.stab.index)
+
+.stab.indexstr
+ *(.stab.indexstr)
+
+.comment
+ *(.comment)
+
+.debug
+ *(.debug)
+
+.line
+ *(.line)
+
+.debug_srcinfo
+ *(.debug_srcinfo)
+
+.debug_sfnames
+ *(.debug_sfnames)
+
+.debug_aranges  0x00000000       0x90
+ *(.debug_aranges)
+ .debug_aranges
+                0x00000000       0x30 uzeboxCore.o
+ .debug_aranges
+                0x00000030       0x20 uzeboxSoundEngine.o
+ .debug_aranges
+                0x00000050       0x20 uzeboxVideoEngine.o
+ .debug_aranges
+                0x00000070       0x20 whack-a-mole.o
+
+.debug_pubnames
+                0x00000000      0x90c
+ *(.debug_pubnames)
+ .debug_pubnames
+                0x00000000      0x107 uzeboxCore.o
+ .debug_pubnames
+                0x00000107      0x259 uzeboxSoundEngine.o
+ .debug_pubnames
+                0x00000360      0x151 uzeboxVideoEngine.o
+ .debug_pubnames
+                0x000004b1      0x45b whack-a-mole.o
+
+.debug_info     0x00000000     0x2af0
+ *(.debug_info)
+ .debug_info    0x00000000      0x637 uzeboxCore.o
+ .debug_info    0x00000637      0xe13 uzeboxSoundEngine.o
+ .debug_info    0x0000144a      0xa1b uzeboxVideoEngine.o
+ .debug_info    0x00001e65      0xc8b whack-a-mole.o
+ *(.gnu.linkonce.wi.*)
+
+.debug_abbrev   0x00000000      0x7f5
+ *(.debug_abbrev)
+ .debug_abbrev  0x00000000      0x1bc uzeboxCore.o
+ .debug_abbrev  0x000001bc      0x1e7 uzeboxSoundEngine.o
+ .debug_abbrev  0x000003a3      0x25b uzeboxVideoEngine.o
+ .debug_abbrev  0x000005fe      0x1f7 whack-a-mole.o
+
+.debug_line     0x00000000     0x1ccf
+ *(.debug_line)
+ .debug_line    0x00000000      0x54a uzeboxCore.o
+ .debug_line    0x0000054a      0x825 uzeboxSoundEngine.o
+ .debug_line    0x00000d6f      0x598 uzeboxVideoEngine.o
+ .debug_line    0x00001307      0x9c8 whack-a-mole.o
+
+.debug_frame    0x00000000      0x420
+ *(.debug_frame)
+ .debug_frame   0x00000000       0xd0 uzeboxCore.o
+ .debug_frame   0x000000d0      0x160 uzeboxSoundEngine.o
+ .debug_frame   0x00000230      0x130 uzeboxVideoEngine.o
+ .debug_frame   0x00000360       0xc0 whack-a-mole.o
+
+.debug_str      0x00000000      0xcbc
+ *(.debug_str)
+ .debug_str     0x00000000      0x3c1 uzeboxCore.o
+                                0x40c (size before relaxing)
+ .debug_str     0x000003c1      0x382 uzeboxSoundEngine.o
+                                0x54e (size before relaxing)
+ .debug_str     0x00000743      0x189 uzeboxVideoEngine.o
+                                0x2b7 (size before relaxing)
+ .debug_str     0x000008cc      0x3f0 whack-a-mole.o
+                                0x551 (size before relaxing)
+
+.debug_loc      0x00000000     0x195d
+ *(.debug_loc)
+ .debug_loc     0x00000000      0x302 uzeboxCore.o
+ .debug_loc     0x00000302      0x863 uzeboxSoundEngine.o
+ .debug_loc     0x00000b65      0xa68 uzeboxVideoEngine.o
+ .debug_loc     0x000015cd      0x390 whack-a-mole.o
+
+.debug_macinfo
+ *(.debug_macinfo)
+OUTPUT(Whack-a-Mole.elf elf32-avr)
+LOAD linker stubs
+
+.debug_ranges   0x00000000       0xa0
+ .debug_ranges  0x00000000       0x70 uzeboxCore.o
+ .debug_ranges  0x00000070       0x30 uzeboxVideoEngine.o
