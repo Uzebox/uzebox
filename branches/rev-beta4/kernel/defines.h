@@ -261,6 +261,19 @@
 		#define VRAM_ADDR_SIZE 1 //in bytes
 		#define SPRITES_ENABLED 1
 
+	#elif VIDEO_MODE == 4
+		#define TILE_HEIGHT	16
+		#define TILE_WIDTH	16
+		#define VRAM_TILES_H	32
+		#define VRAM_TILES_V	32
+
+		#define SCREEN_TILES_H	18
+		#define SCREEN_TILES_V	12
+		#define FIRST_RENDER_LINE	24
+		#define VRAM_SIZE	(VRAM_TILES_H*VRAM_TILES_V)
+		#define VRAM_ADDR_SIZE	1
+		#define VRAM_H				(SCREEN_TILES_V*TILE_HEIGHT)
+
 	#endif
 
 	#if MIXER_CHAN4_TYPE == 0

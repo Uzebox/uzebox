@@ -84,7 +84,7 @@ extern unsigned char scanline_sprite_buf[];
 extern unsigned char burstOffset;
 extern unsigned char vsync_phase;
 extern volatile unsigned int joypad1_status_lo,joypad2_status_lo,joypad1_status_hi,joypad2_status_hi;
-
+extern unsigned char tileheight, textheight;
 
 bool snesMouseEnabled;
 
@@ -259,6 +259,11 @@ void Initialize(void){
 			sprites[i].y=(SCREEN_TILES_V*TILE_HEIGHT);		
 		}
 
+	#endif
+
+	#if VIDEO_MODE == 4
+	tileheight = 12*16;
+	textheight = 4;
 	#endif
 
 	//set ports
