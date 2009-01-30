@@ -83,7 +83,7 @@ void wdt_init(void)
  */
 void SoftReset(void){        
 	wdt_enable(WDTO_15MS);  
-	while(0);
+	while(1);
 }
 
 void logo(){
