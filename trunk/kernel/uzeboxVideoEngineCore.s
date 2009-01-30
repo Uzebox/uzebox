@@ -2163,6 +2163,10 @@ set_normal_rate_HDRIVE:
 		add XL,r0
 		adc XH,r1
 
+		#if VIDEO_MODE == 3
+			add r20,RAM_TILES_COUNT
+		#endif
+		
 		st X,r20
 
 		clr r1
