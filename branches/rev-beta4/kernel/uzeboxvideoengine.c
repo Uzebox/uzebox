@@ -37,16 +37,14 @@
 	extern void CopyTileToRam(unsigned char romTile,unsigned char ramTile);
 	extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
 
-	unsigned char free_tile_index=0;
+	unsigned char free_tile_index;
 	bool spritesOn=true;
 
 	void RestoreBackground(){
 		unsigned char i;
-		for(i=0;i<free_tile_index;i++){
+		for(i=0;i<free_tile_index;i++){			
 			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
-		}
-	
-		free_tile_index=0;
+		}	
 	}
 
 
@@ -60,7 +58,8 @@
 		unsigned int ramPtr;
 
 
-		RestoreBackground();
+		free_tile_index=0;
+
 
 		if(!spritesOn) return;
 		
@@ -103,7 +102,7 @@
 
 							BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);
 
-							/*	THIS COMMENTED CODE HAS BEEN MOVE TO ASM				
+							/*	THIS COMMENTED CODE HAS BEEN MOVED TO ASM				
 							//blit sprite to RAM tile
 							src=sprites_tiletable_lo+(sprites[i].tileIndex*64);
 							dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH);
@@ -149,6 +148,8 @@
 		}
 
 
+		//restore BG tiles
+		RestoreBackground();
 
 	}
 

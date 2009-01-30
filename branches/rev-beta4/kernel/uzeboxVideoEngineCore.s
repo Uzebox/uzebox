@@ -32,7 +32,8 @@
 #include <avr/io.h>
 #include "defines.h"
 
-
+#define addr 0
+#define tileIndex 2
 
 ;Sprites Struct offsets
 #define sprPosX  0
@@ -226,22 +227,6 @@
 
 
 
-test:
-	ldi XL,0x0
-	ldi XH,0x0
-	ld r18,X
-
-	ldi XH,0x10
-	ld r19,X
-
-	ldi XL,0x80
-	ldi XH,0x2
-	ld r20,X
-
-	ldi XH,0x12
-	ld r21,X
-	ret
-
 
 #if VIDEO_MODE == 3
 
@@ -253,34 +238,57 @@ test:
 sub_video_mode3:
 
 
-	//cause a shift in the color burst phase
-	//on odd frames (NTSC superframe?)
-	lds r16,curr_field
-	cpi r16,1
-	nop
+	;Set ramtiles indexes in VRAM 
+	ldi ZL,lo8(ram_tiles_restore);
+	ldi ZH,hi8(ram_tiles_restore);
+
+	ldi YL,lo8(vram)
+	ldi YH,hi8(vram)
+
+	lds r18,free_tile_index
+
+
+	clr r16
+upd_loop:	
+	ldd XL,Z+0
+	ldd XH,Z+1
 	
-	ldi r24,0//-4
-	brne .+2
-	ldi r24,0 //4
+	add XL,YL
+	adc XH,YH
 
-	lpm
-	lpm
-	nop
+	ld r17,X	;currbgtile
+	std Z+2,r17
+
+	cp r16,r18
+	brsh noov
+	mov r17,r16
+noov:
+	st X,r17
+	
+	adiw ZL,3 ;sizeof(ram_tiles_restore)
+
+	inc r16
+	cpi r16,RAM_TILES_COUNT
+	brlo upd_loop ;23
 
 
-	;waste line to align with next hsync in render function
-	ldi ZL,222-1-1
-mode0_render_delay:
-	lpm
-	nop
-	dec ZL
-	brne mode0_render_delay 
 
-	lpm
-	nop
-	nop
-	nop
+	ldi r16,73 ;222*7 
+	subi r16,RAM_TILES_COUNT
+wait_loop:
+	
+	ldi r17,6
+	dec r17
+	brne .-4
 
+	dec r16
+	brne wait_loop
+
+	;wait more
+	ldi r17,6
+	dec r17
+	brne .-4
+	rjmp .
 
 
 	ldi YL,lo8(vram)
@@ -367,6 +375,7 @@ text_frame_end:
 
 	rcall hsync_pulse ;145
 	
+	call RestoreBackground
 
 	;set vsync flag if beginning of next frame (each two fields)
 	ldi r17,1
@@ -387,6 +396,8 @@ text_frame_end:
 	;clear any pending timer int
 	ldi ZL,(1<<OCF1A)
 	sts _SFR_MEM_ADDR(TIFR1),ZL
+
+
 
 	clr r1
 
@@ -465,24 +476,24 @@ romloop:
 
     lpm r16,Z+
     out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 3
-	cpi r18,RAM_TILES_COUNT
+	cpi r18,RAM_TILES_COUNT		;is tile in RAM or ROM? (RAM tiles have indexes<RAM_TILES_COUNT)
 	in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
 
 
     lpm r16,Z+
     out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
-	brsh .+2	
-	movw r20,r4 ;RAM title table address +row offset	
+	brsh .+2		;skip in next tile is in ROM	
+	movw r20,r4 	;load RAM title table address +row offset	
    
     lpm r16,Z+
     out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 5
-    bst r6,SREG_C
-	add r0,r20    ;add title table address +row offset
+    bst r6,SREG_C	;store carry state in T flag for later branch
+	add r0,r20		;add title table address +row offset lsb
     
     lpm r16,Z+
     out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 6
-	adc r1,r21
-	dec r17
+	adc r1,r21		;add title table address +row offset msb
+	dec r17			;decrement tiles to draw on line
 
    
     lpm r16,Z+
@@ -490,7 +501,7 @@ romloop:
     lpm r16,Z+
 
 	breq end	
-    movw ZL,r0   
+    movw ZL,r0   	;copy next tile adress
 
     out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
     brtc romloop
@@ -2998,6 +3009,10 @@ set_normal_rate_HDRIVE:
 		ldi XH,hi8(vram)
 		add XL,r0
 		adc XH,r1
+		
+		#if VIDEO_MODE == 3
+			add r20,RAM_TILES_COUNT
+		#endif
 
 		st X,r20
 
