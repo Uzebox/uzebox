@@ -93,7 +93,7 @@ data/mypatches.h: PCM sample patch
 #include <avr/io.h>
 #include <stdlib.h>
 #include <avr/pgmspace.h>
-#include "kernel/uzebox.h"
+#include <uzebox.h>
 
 
 //external data
@@ -365,13 +365,6 @@ unsigned char processControls(void){
 		//decrease loop speed
 		mixer.channels.type.wave[3].step-=0x1;
 	}
-
-
-	if(joy&BTN_A){
-		TriggerNote(3,2,35,0xff);
-		while(ReadJoypad(0)!=0);
-	}
-
 
 
 	

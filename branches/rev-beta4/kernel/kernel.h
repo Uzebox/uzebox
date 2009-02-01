@@ -23,6 +23,14 @@
 
 	#include "defines.h"
 
+	#if VRAM_ADDR_SIZE == 1
+		extern unsigned char vram[];  
+	#else
+		extern unsigned int vram[]; 
+	#endif
+
+
+
 	#if  VIDEO_MODE == 2
 		struct SpriteStruct
 		{
@@ -72,6 +80,10 @@
 		unsigned char *vramWrapAdress;
 	};
 
+	#if VIDEO_MODE == 2 ||  VIDEO_MODE == 3
+		extern struct SpriteStruct sprites[];
+		extern struct ScreenSectionStruct screenSections[];
+	#endif
 
 
 	/*
@@ -164,7 +176,10 @@
 	extern unsigned char tr4_barrel_lo;
 	extern unsigned char tr4_barrel_hi;
 	extern unsigned char tr4_params;
-	 
+	
+	extern struct MixerStruct mixer;					//low level sound mixer
+	extern struct TrackStruct tracks[CHANNELS];			//music player tracks
+	extern void ProcessMusic(void);
 
 	struct  PatchStruct{   
    		unsigned char type;

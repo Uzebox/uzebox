@@ -18,6 +18,21 @@ Two most important files to view if you don't want to read all this!
 
 Rev 2.0 Beta4 Notes (WIP)
 -------------------------
+
+Feb 1, 2009
+-----------
+The demos are beign re-aranged to use a 'master' kernel instead of having copies all over the place.
+Here's the changes:
+-Projects now uses custom Makefiles. Define the path of the kernel files and your custom compilation options in there. For the moment the kernel files and objects are still referenced in the game's makefiles. Eventually it will delegate to a kernel makefile.
+-All demos have been converted to use the WIP kernel
+-Added fadein/fadeout functions
+-Added Dave's UART and MMC functions in the kernel
+-Fixed a bug in the SetTile function
+-Cleanup of include files
+
+
+Initial
+-------
 This revision is still in development. It is stable and you can use it for new games.
 However I can not guarantee backward compatibility with the final release.
 All demos unser the /demos folder are not working with this code except Whack-a-Mole

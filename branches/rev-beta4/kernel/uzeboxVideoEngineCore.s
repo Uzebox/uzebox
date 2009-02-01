@@ -67,25 +67,19 @@
 .global LoadMap
 .global ClearVram
 .global CopyTileToRam
-
 .global GetVsyncFlag
 .global ClearVsyncFlag
 .global SetTileTable
 .global SetFontTable
 .global SetTileMap
 .global ReadJoypad
-.global read_joypads
-.global BlitSprite
-.global test
-.global vsync_phase
 .global ReadJoypadExt
-.global joypad1_status_lo
-.global joypad2_status_lo
-.global joypad1_status_hi
-.global joypad2_status_hi
+.global BlitSprite
 .global WriteEeprom
 .global ReadEeprom
 .global WaitUs
+.global SetSpritesTileTable
+.global SetColorBurstOffset
 
 ;Public variables
 .global vram
@@ -96,10 +90,13 @@
 .global tile_table_lo
 .global sprites_tiletable_lo
 .global ram_tiles
-.global SetSpritesTileTable
 .global ram_tiles_restore
-.global SetColorBurstOffset
 .global burstOffset
+.global vsync_phase
+.global joypad1_status_lo
+.global joypad2_status_lo
+.global joypad1_status_hi
+.global joypad2_status_hi
 
 
 #if VIDEO_MODE == 2
@@ -172,13 +169,13 @@
 	#endif
 
 	#if VIDEO_MODE == 4
-	textram:				.space (16 * 36)
-	scroll:					.space 1
-	scroll_hi:				.space 1
-	scroll_v_fine:			.space 1
-	scroll_h_fine:			.space 1
-	tileheight:				.space 1
-	textheight:				.space 1
+		textram:				.space (16 * 36)
+		scroll:					.space 1
+		scroll_hi:				.space 1
+		scroll_v_fine:			.space 1
+		scroll_h_fine:			.space 1
+		tileheight:				.space 1
+		textheight:				.space 1
 	#endif
 
 	sync_phase:  .byte 1 ;0=pre-eq, 1=eq, 2=post-eq, 3=hsync, 4=vsync
@@ -2144,146 +2141,9 @@ do_hsync_delay:
 	call MixSound
 
 not_start_of_frame:
-/*
-	lds ZL,sync_pulse
-	cpi ZL,(SYNC_HSYNC_PULSES-1)
-	brne noshift
-	//cause a shift in the color burst phase
-	//on odd frames (NTSC superframe?)
-	lds ZL,curr_frame
-	cpi ZL,1
-	nop
-	
-	ldi ZH,-4
-	brne .+2
-	ldi ZH,4
 
-	ldi ZL,hi8(HDRIVE_CL) //4
-	sts _SFR_MEM_ADDR(OCR1AH),ZL	
-	
-	ldi ZL,lo8(HDRIVE_CL) //4
-	add ZL,ZH
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
 	ret
 
-noshift:
-	;restore full line size
-	ldi ZL,hi8(HDRIVE_CL)
-	sts _SFR_MEM_ADDR(OCR1AH),ZL	
-	ldi ZL,lo8(HDRIVE_CL)
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
-*/
-	ret
-
-
-;*****************************************
-; READ JOYPADS
-; read 60 time/sec before redrawing screen
-;*****************************************
-
-read_joypads:
-/*
-	//latch data
-	sbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_LATCH_PIN
-	jmp . ; wait ~200ns
-	jmp . ;(6 cycles)
-	cbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_LATCH_PIN
-	
-	//clear button state bits
-	clr r20 //P1
-	clr r21
-
-	clr r22 //P2
-	clr r23
-
-	ldi r24,12 //number of buttons to fetch
-	
-	jmp .
-	jmp .
-	jmp .
-	jmp .
-	jmp .
-	jmp .
-;29
-	
-read_joypads_loop:	
-	;read data pin
-
-	lsl r20
-	rol r21
-	sbic _SFR_IO_ADDR(JOYPAD_IN_PORT),JOYPAD_DATA1_PIN
-	ori r20,1
-	
-	lsl r22
-	rol r23
-	sbic _SFR_IO_ADDR(JOYPAD_IN_PORT),JOYPAD_DATA2_PIN
-	ori r22,1
-	
-
-	;pulse clock pin
-	sbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_CLOCK_PIN
-	jmp . ;wait 6 cycles
-	jmp .
-	cbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_CLOCK_PIN
-
-	jmp .
-	jmp .
-	jmp .
-	jmp .
-
-	dec r24
-	brne read_joypads_loop ;232
-
-	com r20 
-	com r21
-	com r22
-	com r23
-
-#if JOYSTICK == TYPE_NES
-	;Do some bit transposition
-	bst r21,3
-	bld r20,3
-	bst r21,2
-	bld r21,3
-	andi r21,0b00001011
-	andi r20,0b11111000
-
-	bst r23,3
-	bld r22,3
-	bst r23,2
-	bld r23,3
-	andi r23,0b00001011
-	andi r22,0b11111000
-
-#elif JOYSTICK == TYPE_SNES
-	andi r21,0b00001111
-	andi r23,0b00001111
-#endif 
-
-	sts joypad1_status_lo,r20
-	sts joypad1_status_hi,r21
-
-	sts joypad2_status_lo,r22
-	sts joypad2_status_hi,r23
-
-	//check for a reset condition (a+b+select+start)
-	ldi r25,(BTN_B+BTN_START+BTN_SELECT)>>8
-	
-	//player 1
-	cpi r20,BTN_A
-	cpc r21,r25
-	brne no_reset_p1
-	call SoftReset
-no_reset_p1:
-
-	//player 2
-	cpi r22,BTN_A
-	cpc r23,r25
-	brne no_reset_p2
-	call SoftReset
-no_reset_p2:
-*/
-	ret
 
 
 
@@ -2440,49 +2300,6 @@ TIMER1_COMPA_vect:
 	pop ZH
 	reti
 
-;.rept 50
-;fmulsu r20,r20
-;.endr
-
-/*
-;*************************************************
-; Generate a H-Sync pulse - 136 clocks (4.749us)
-; Note: TCNT1 should be equal to 
-; 0x44 on the cbi 
-; 0xcc on the sbi 
-;
-; Cycles: 144
-; Destroys: ZL (r30)
-;*************************************************
-hsync_pulse_new:
-	in ZL,_SFR_IO_ADDR(SYNC_PORT)
-	andi ZL,~SYNC_PIN
-	lds ZH,vsync_phase
-	eor ZL,ZH
-	out _SFR_IO_ADDR(SYNC_PORT),ZL
-	
-	
-	//cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
-	
-	call update_sound_buffer ;36 -> 63
-	
-	ldi ZL,21
-	dec ZL 
-	brne .-4
-
-
-
-	lds ZL,sync_pulse
-	dec ZL
-	sts sync_pulse,ZL
-
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
-
-	nop
-	nop
-
-	ret
-*/
 
 ;***************************************************
 ; Composite SYNC
@@ -2763,6 +2580,7 @@ set_normal_rate_HDRIVE:
 	;***********************************
 	; LOAD Main map
 	;************************************
+	//.section text.LoadMap
 	LoadMap:
 		push r16
 		push r17
@@ -2812,6 +2630,7 @@ set_normal_rate_HDRIVE:
 	; r24=X pos (8 bit)
 	; r22=Y pos (8 bit)
 	;************************************
+	//.section text.RestoreTile
 	RestoreTile:
 		clr r25
 		clr r23
@@ -2862,6 +2681,7 @@ set_normal_rate_HDRIVE:
 	; r22=Y pos (8 bit)
 	; r20=Font tile No (8 bit)
 	;************************************
+	//.section text.SetFont
 	SetFont:
 		clr r25
 		clr r21
@@ -2901,6 +2721,7 @@ set_normal_rate_HDRIVE:
 	; r22=Y pos (8 bit)
 	; r21:r20=Tile No (16 bit)
 	;************************************
+	//.section text.SetTile
 	SetTile:
 		clr r25
 		clr r23	
@@ -2941,6 +2762,7 @@ set_normal_rate_HDRIVE:
 	; C-callable
 	; r25:r24=pointer to tiles map
 	;*****************************
+	//.section text.SetTileMap
 	SetTileMap:
 		//adiw r24,2
 		sts tile_map_lo,r24
@@ -2953,6 +2775,7 @@ set_normal_rate_HDRIVE:
 	; C-callable
 	; r25:r24=pointer to font tiles data
 	;************************************
+	//.section text.SetFontTable
 	SetFontTable:
 		sts font_table_lo,r24
 		sts font_table_hi,r25
@@ -2960,6 +2783,7 @@ set_normal_rate_HDRIVE:
 		ret
 
 #endif
+
 
 #if VRAM_ADDR_SIZE == 1
 	;***********************************
@@ -2987,6 +2811,9 @@ set_normal_rate_HDRIVE:
 
 		ret
 
+	.rept 50
+		fmulsu r20,r20
+	.endr
 		
 	;***********************************
 	; SET TILE 8bit mode
@@ -3011,7 +2838,7 @@ set_normal_rate_HDRIVE:
 		adc XH,r1
 		
 		#if VIDEO_MODE == 3
-			add r20,RAM_TILES_COUNT
+			subi r20,~(RAM_TILES_COUNT-1)
 		#endif
 
 		st X,r20
@@ -3678,6 +3505,8 @@ wms_loop:
 ; r25:r24 - addr
 ; r22 - value to write
 ;****************************
+
+
 WriteEeprom:
    ; Wait for completion of previous write
    sbic _SFR_IO_ADDR(EECR),EEPE
@@ -3695,12 +3524,14 @@ WriteEeprom:
    sei
    ret
 
+
 ;****************************
 ; Read byte from EEPROM
 ; extern unsigned char ReadEeprom(int addr)
 ; r25:r24 - addr
 ; r24 - value read
 ;****************************
+
 ReadEeprom:
    ; Wait for completion of previous write
    sbic _SFR_IO_ADDR(EECR),EEPE
@@ -3715,5 +3546,6 @@ ReadEeprom:
    in r24,_SFR_IO_ADDR(EEDR)
    sei
    ret
+
 
 

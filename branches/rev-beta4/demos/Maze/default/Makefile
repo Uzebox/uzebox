@@ -1,20 +1,27 @@
 ###############################################################################
-# Makefile for the project Maze
+# Makefile for the project SpriteDemo
 ###############################################################################
 
 ## General Flags
 PROJECT = Maze
 MCU = atmega644
-TARGET = maze.elf
-CC = avr-gcc.exe
+TARGET = Maze.elf
+CC = avr-gcc
+
+## Kernel settings
+KERNEL_DIR = ../../../kernel
+KERNEL_OPTIONS  = -DVIDEO_MODE=1 -DINTRO_LOGO=1 -DSOUND_CHANNEL_4_ENABLE=1 -DSOUND_CHANNEL_2_ENABLE=1 -DSOUND_CHANNEL_3_ENABLE=1 -DCENTER_ADJUSTMENT=-6 
+
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99              -DVIDEO_MODE=1     -DF_CPU=28636360UL -Os -fsigned-char
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+CFLAGS += $(KERNEL_OPTIONS)
+
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
@@ -23,7 +30,8 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=maze.map
+LDFLAGS += -Wl,-Map=Maze.map 
+LDFLAGS += -Wl,-gc-sections 
 
 
 ## Intel Hex file production flags
@@ -35,31 +43,35 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = maze.o uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxVideoEngine.o uzeboxSoundEngineCore.o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o Maze.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
 
+## Include Directories
+INCLUDES = -I"$(KERNEL_DIR)" 
+
 ## Build
-all: $(TARGET) maze.hex maze.eep maze.lss size
+all: $(TARGET) Maze.hex Maze.eep Maze.lss size
 
-## Compile
-uzeboxVideoEngineCore.o: ../kernel/uzeboxVideoEngineCore.s
+## Compile Kernel files
+uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
-uzeboxSoundEngineCore.o: ../kernel/uzeboxSoundEngineCore.s
+uzeboxSoundEngineCore.o: $(KERNEL_DIR)/uzeboxSoundEngineCore.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
-maze.o: ../maze.c
+uzeboxCore.o: $(KERNEL_DIR)/uzeboxCore.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-uzeboxCore.o: ../kernel/uzeboxCore.c
+uzeboxSoundEngine.o: $(KERNEL_DIR)/uzeboxSoundEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-uzeboxSoundEngine.o: ../kernel/uzeboxSoundEngine.c
+uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-uzeboxVideoEngine.o: ../kernel/uzeboxVideoEngine.c
+## Compile game sources
+Maze.o: ../Maze.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -82,7 +94,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) maze.elf dep/* maze.hex maze.eep maze.lss maze.map
+	-rm -rf $(OBJECTS) Maze.elf dep/* Maze.hex Make.eep Maze.lss Maze.map
 
 
 ## Other dependencies

@@ -74,6 +74,8 @@
 	};
 #endif
 
+void ReadButtons();
+
 extern unsigned char rotate_spr_no;
 extern unsigned char sync_phase;
 extern unsigned char sync_pulse;
@@ -95,7 +97,6 @@ void wdt_init(void)
 {
     MCUSR = 0;
     wdt_disable();
-
     return;
 }
 
@@ -103,8 +104,8 @@ void wdt_init(void)
  * Performs a software reset
  */
 void SoftReset(void){        
-//	wdt_enable(WDTO_15MS);  
-//	while(0);
+	wdt_enable(WDTO_15MS);  
+	while(1);
 }
 
 /*
@@ -166,12 +167,12 @@ void logo(){
 
 		#endif 
 		
-		WaitVsync(30);
+		WaitVsync(20);
 
 		#if VIDEO_MODE == 2
 			WaitVsync(80);
 		#else
-			WaitVsync(30);
+			WaitVsync(10);
 		#endif
 
 		ClearVram();
@@ -309,6 +310,13 @@ void Initialize(void){
 	joypad1_status_hi=0;
 	joypad2_status_hi=0;
 	snesMouseEnabled=false;
+
+	//enable color correction
+	ReadButtons();
+	if(ReadJoypad(0)&BTN_B){
+		SetColorBurstOffset(4);
+	}
+
 
 	sei();
 

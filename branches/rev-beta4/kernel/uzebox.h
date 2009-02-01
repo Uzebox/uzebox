@@ -28,27 +28,17 @@
 	/*
 	 * Video Engine structures & functions
 	 */
-	#if VRAM_ADDR_SIZE == 1
-		extern unsigned char vram[];  
-	#else
-		extern unsigned int vram[]; 
-	#endif
 
-	#if VIDEO_MODE == 2 ||  VIDEO_MODE == 3
-		extern struct SpriteStruct sprites[];
-		extern struct ScreenSectionStruct screenSections[];
-	#endif
+	extern void FadeIn(unsigned char speed,bool blocking);
+	extern void FadeOut(unsigned char speed,bool blocking);
 
 	extern void SetSpritesOptions(unsigned char params);
 	extern void SetSpritesTileTable(const char *data);
-	extern unsigned char GetVsyncFlag(void);
-	extern void ClearVsyncFlag(void);
 	extern void SetSpriteVisibility(bool visible);
 	extern void MapSprite(unsigned char startSprite,const char *map);
 	extern void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height);
-	extern void RestoreBackground();
 
-	extern void SoftReset(void);
+
 	extern void ClearVram(void);
 	extern void SetTile(char x,char y, unsigned int tileId);
 	extern void SetFont(char x,char y, unsigned char tileId);
@@ -69,18 +59,30 @@
 	extern void PrintLong(int x,int y, unsigned long val);
 	extern void PrintByte(int x,int y, unsigned char val,bool zeropad);
 	extern void PrintChar(int x,int y,char c);
-	extern void WaitVsync(int count);
 	extern void PrintInt(int x,int y, unsigned int,bool zeropad);
 
 	extern void Fill(int x,int y,int width,int height,int tile);
 	extern void FontFill(int x,int y,int width,int height,int tile);
 
+	extern void WaitVsync(int count);
+	extern void ClearVsyncFlag(void);
+	extern unsigned char GetVsyncFlag(void);
+	
 
-	//Access the joypads buttons state
+
+	/*
+	 * Controllers functions
+	 */
 	extern unsigned int ReadJoypad(unsigned char joypadNo);
 	extern unsigned int ReadJoypadExt(unsigned char joypadNo); //use with SNES mouse
+	extern void EnableSnesMouse();
+	extern bool SetMouseSensitivity(unsigned char value);
+	extern unsigned char GetMouseSensitivity();
 
-	//Read/write EEPROM
+
+	/*
+	 * EEPROM functions
+	 */
     extern void WriteEeprom(unsigned int addr,unsigned char value);
     extern unsigned char ReadEeprom(unsigned int addr);
 	extern char EepromWriteBlock(struct EepromBlockStruct *block);
@@ -88,25 +90,21 @@
 	extern bool isEepromFormatted();
 	
 	/*
-	 * Sound Engine defines & functions
+	 * Sound Engine functions
 	 */	
 	extern void SetMasterVolume(unsigned char vol);		//global player volume
-	extern struct MixerStruct mixer;					//low level sound mixer
-	extern struct TrackStruct tracks[CHANNELS];			//music player tracks
-
 	extern void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,unsigned char volume);
 	extern void TriggerFx(unsigned char patch,unsigned char volume, bool retrig); //uses a simple voice stealing algorithm
-	extern void ProcessMusic(void);
 	extern void StopSong();
 	extern void StartSong(const char *midiSong);
 	extern void ResumeSong();
 	extern void InitMusicPlayer(const struct PatchStruct *patchPointersParam);
 
 
-
-
+	/*
+	 * Misc functions
+	 */
 	extern void WaitUs(unsigned int microseconds);
-	extern void EnableSnesMouse();
-	extern bool SetMouseSensitivity(unsigned char value);
-	extern unsigned char GetMouseSensitivity();
+	extern void SoftReset(void);
+
 #endif

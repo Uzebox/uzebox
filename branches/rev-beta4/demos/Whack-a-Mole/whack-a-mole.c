@@ -21,7 +21,7 @@
 #include <avr/io.h>
 #include <stdlib.h>
 #include <avr/pgmspace.h>
-#include "kernel/uzebox.h"
+#include <uzebox.h>
 
 #include "data/Whacksong.inc"
 
@@ -127,6 +127,10 @@ int main(){
 	InitMusicPlayer(patches);
 	SetMouseSensitivity(mouseSpeed);
 
+	
+	menu();
+
+
 	srand(TCNT1);
 
     SetTileTable(mole_tileset);
@@ -218,7 +222,6 @@ int main(){
 		
 		}
 
-		RestoreBackground();
 		DrawMap2(11,FIELD_TOP+7+4,map_gameOver);
 
 		if(molesWhacked>highScore){
@@ -391,7 +394,6 @@ void processMoles(){
 				}
 
 				if(ptr!=NULL){				
-					RestoreBackground();
 					DrawMap2((x*6)+4,(y*4)+FIELD_TOP+3,ptr);
 				}
 
@@ -428,7 +430,6 @@ void doStart(){
 
 		//check if we have pressed the start button
 		if(buttons[btnId].clicked){
-			RestoreBackground();
 			DrawMap2(10,FIELD_TOP+3,map_hole);
 			DrawMap2(16,FIELD_TOP+3,map_hole);
 			MapSprite(0,map_hammerUp);
@@ -443,11 +444,9 @@ void doStart(){
 				processHammer();
 
 				if(frame==40 || frame==110){
-					RestoreBackground();
 					DrawMap2(10,FIELD_TOP+3+4+4,map_hole);
 					DrawMap2(16,FIELD_TOP+3+4+4,map_hole);
 				}else if(frame==50){
-					RestoreBackground();
 					DrawMap2(12,FIELD_TOP+7+4,map_whack);
 				}
 
@@ -475,7 +474,6 @@ void processButtons(){
 	for(i=0;i<nextFreeButtonIndex;i++){
 		if(tx>=buttons[i].x && tx<(buttons[i].x+buttons[i].width) && ty>=buttons[i].y && ty<(buttons[i].y+buttons[i].height)){
 			if(joy&actionButton && buttons[i].state==BUTTON_UNPRESSED){
-				RestoreBackground();
 				DrawMap2(buttons[i].x,buttons[i].y,buttons[i].pushedMapPtr);
 				buttons[i].state=BUTTON_PRESSED;
 			}
@@ -484,7 +482,6 @@ void processButtons(){
 				//button clicked!
 				buttons[i].state=BUTTON_UNPRESSED;
 				buttons[i].clicked=true;
-				RestoreBackground();
 				DrawMap2(buttons[i].x,buttons[i].y,buttons[i].normalMapPtr);
 			}			
 		}else{
@@ -493,7 +490,6 @@ void processButtons(){
 				//button clicked!
 				buttons[i].state=BUTTON_UNPRESSED;
 				buttons[i].clicked=false;
-				RestoreBackground();
 				DrawMap2(buttons[i].x,buttons[i].y,buttons[i].normalMapPtr);
 			}
 
@@ -525,7 +521,6 @@ char createButton(unsigned char x,unsigned char y,const char *normalMapPtr,const
 		buttons[nextFreeButtonIndex].width=pgm_read_byte(&(normalMapPtr[0]));
 		buttons[nextFreeButtonIndex].height=pgm_read_byte(&(normalMapPtr[1]));
 		buttons[nextFreeButtonIndex].clicked=false;
-		RestoreBackground();
 		DrawMap2(x,y,normalMapPtr);
 		id=nextFreeButtonIndex;
 		nextFreeButtonIndex++;

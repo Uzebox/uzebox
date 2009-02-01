@@ -52,7 +52,7 @@ quite the idea. Program, have fun and don't care about CPU power, theres plenty 
 #include <avr/io.h>
 #include <stdlib.h>
 #include <avr/pgmspace.h>
-#include "kernel/uzebox.h"
+#include <uzebox.h>
 
 struct tetraminoStruct {
 				  char size;

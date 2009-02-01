@@ -1,20 +1,27 @@
 ###############################################################################
-# Makefile for the project Music Demo
+# Makefile for the project SpriteDemo
 ###############################################################################
 
 ## General Flags
-PROJECT = Music Demo
+PROJECT = MusicDemo
 MCU = atmega644
-TARGET = musicDemo.elf
-CC = avr-gcc.exe
+TARGET = MusicDemo.elf
+CC = avr-gcc
+
+## Kernel settings
+KERNEL_DIR = ../../../kernel
+KERNEL_OPTIONS  = -DVIDEO_MODE=1 -DINTRO_LOGO=1 -DMIDI_IN=1
+
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99              -DVIDEO_MODE=1    -DMIDI_IN=1     -DF_CPU=28636360UL -Os -fsigned-char
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+CFLAGS += $(KERNEL_OPTIONS)
+
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
@@ -23,7 +30,8 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=musicDemo.map
+LDFLAGS += -Wl,-Map=MusicDemo.map 
+LDFLAGS += -Wl,-gc-sections 
 
 
 ## Intel Hex file production flags
@@ -35,31 +43,35 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o musicDemo.o uzeboxVideoEngineCore.o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o MusicDemo.o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
 
+## Include Directories
+INCLUDES = -I"$(KERNEL_DIR)" 
+
 ## Build
-all: $(TARGET) musicDemo.hex musicDemo.eep musicDemo.lss size
+all: $(TARGET) MusicDemo.hex MusicDemo.eep MusicDemo.lss size
 
-## Compile
-uzeboxSoundEngineCore.o: ../kernel/uzeboxSoundEngineCore.s
+## Compile Kernel files
+uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
-uzeboxVideoEngineCore.o: ../kernel/uzeboxVideoEngineCore.s
+uzeboxSoundEngineCore.o: $(KERNEL_DIR)/uzeboxSoundEngineCore.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
-uzeboxCore.o: ../kernel/uzeboxCore.c
+uzeboxCore.o: $(KERNEL_DIR)/uzeboxCore.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-uzeboxSoundEngine.o: ../kernel/uzeboxSoundEngine.c
+uzeboxSoundEngine.o: $(KERNEL_DIR)/uzeboxSoundEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-uzeboxVideoEngine.o: ../kernel/uzeboxVideoEngine.c
+uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-musicDemo.o: ../musicDemo.c
+## Compile game sources
+MusicDemo.o: ../MusicDemo.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -82,7 +94,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) musicDemo.elf dep/* musicDemo.hex musicDemo.eep musicDemo.lss musicDemo.map
+	-rm -rf $(OBJECTS) MusicDemo.elf dep/* MusicDemo.hex MusicDemo.eep MusicDemo.lss MusicDemo.map
 
 
 ## Other dependencies

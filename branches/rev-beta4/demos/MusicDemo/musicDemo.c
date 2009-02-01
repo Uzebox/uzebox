@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
-#include "kernel/uzebox.h"
+#include <uzebox.h>
 
 
 void drawVuMeter(unsigned char x, unsigned char y, unsigned char channel);
@@ -33,7 +33,7 @@ extern unsigned char volatile tr1_step_hi;
 //import tunes
 #include "data/Korobeiniki-3tracks.inc"
 #include "data/ghost.inc"
-#include "data/mario.inc"
+#include "data/drmario_main.inc"
 #include "data/nsmb.inc"
 #include "data/ending.inc"
 
@@ -57,7 +57,7 @@ const char tetris3[] PROGMEM ="TETRIS 3";
 const char tetris4[] PROGMEM ="TETRIS 4";
 
 const char ghost[] PROGMEM ="GHOST & GOBLINS";
-const char mario[] PROGMEM ="SUPER MARIO BROS.";
+const char mario[] PROGMEM ="DR.MARIO";
 const char nsmb[] PROGMEM ="NEW SUPER MARIO BROS.";
 
 
@@ -106,11 +106,11 @@ int main(){
 
 	Print(x+1,y+0,tetris1);
 	Print(x+1,y+1,tetris2);
-	Print(x+1,y+2,tetris3);
-	Print(x+1,y+3,tetris4);
-	Print(x+1,y+4,mario);
-	Print(x+1,y+5,nsmb);
-	Print(x+1,y+6,ghost);
+	//Print(x+1,y+2,tetris3);
+	//Print(x+1,y+3,tetris4);
+	Print(x+1,y+2,mario);
+	Print(x+1,y+3,nsmb);
+	Print(x+1,y+4,ghost);
 
 
 	Print(6,10+6,playingStr);
@@ -186,11 +186,11 @@ int main(){
 			}else{
 				if(y==5)StartSong(song_korobeiniki);
 				if(y==6)StartSong(song_testrisnt);
-				if(y==7)StartSong(song_testrisnt_fast);
-				if(y==8)StartSong(song_ending);
-				if(y==9)StartSong(song_mario);
-				if(y==10)StartSong(song_nsmb);
-				if(y==11)StartSong(song_ghost);
+				//if(y==7)StartSong(song_testrisnt_fast);
+				//if(y==8)StartSong(song_ending);
+				if(y==7)StartSong(song_drmario_main);
+				if(y==8)StartSong(song_nsmb);
+				if(y==9)StartSong(song_ghost);
 
 			}
 			playing=!playing;
@@ -205,7 +205,7 @@ int main(){
 			}
 			while((ReadJoypad(0)&BTN_UP)!=0);
 		}else if(joy&BTN_DOWN){
-			if(y<11){
+			if(y<9){
 				TriggerFx(1,0x90,true);
 				y++;
 				MoveCursor(x,y);

@@ -43,8 +43,10 @@
 	 * 1 = 40x28 Tile-only. 'Unlimited' tiles per frame (16 bit VRAM). 6x8 tiles.
 	 * 2 = 22x26 Tiles+Sprites, full-screen scrolling with split screens. Max 256 background tiles. 6x8 tiles & sprites.
 	 * 3 = 30x28 Tiles+Sprites (currently no scrolling). Max 256 background tiles. 8x8 tiles. 
-	 */
-	#define VIDEO_MODE 3
+	 */	
+	#ifndef VIDEO_MODE 
+		#define VIDEO_MODE 1
+	#endif
 
 	/*
 	 * Enable horizontal scrolling for video mode 2.
@@ -54,7 +56,9 @@
 	 * 0 = no
 	 * 1 = yes
 	 */	
-	#define MODE2_HORIZONTAL_SCROLLING 1
+	#ifndef MODE2_HORIZONTAL_SCROLLING
+		#define MODE2_HORIZONTAL_SCROLLING 1
+	#endif
 
 
 	/*
@@ -63,7 +67,9 @@
 	 * 1 = with "bling" sound
 	 * 2 = with "uzebox" synth voice (PCM required, MIXER_CHAN4_TYPE must == 1)
 	 */
-	#define INTRO_LOGO 0
+	#ifndef INTRO_LOGO
+		#define INTRO_LOGO 1
+	#endif
 
 	/*
 	 * Joystick type used on the board.
@@ -72,7 +78,9 @@
 	 * 0 = SNES
 	 * 1 = NES
 	 */
-	#define JOYSTICK 0
+	#ifndef JOYSTICK
+		#define JOYSTICK 0
+	#endif
 
 	/*
 	 * Activates the MIDI-IN support. 
@@ -81,7 +89,9 @@
 	 * 0 = no
 	 * 1 = yes
 	 */
-	#define MIDI_IN 0
+	#ifndef MIDI_IN
+		#define MIDI_IN 0
+	#endif
 
 	/*
 	 * Screen center adjustment for mode 1 only.
@@ -90,14 +100,18 @@
 	 *
 	 * Center = 0
 	 */
-	#define CENTER_ADJUSTMENT 0
+	#ifndef CENTER_ADJUSTMENT
+		#define CENTER_ADJUSTMENT 0
+	#endif
 
 	
 	/*
 	 * Number of screen sections to allocate memory for
 	 * Min=1, Max=SCREEN_TILES_V*TILE_HEIGHT
 	 */
-	#define SCREEN_SECTIONS_COUNT 1
+	#ifndef SCREEN_SECTIONS_COUNT
+		#define SCREEN_SECTIONS_COUNT 1
+	#endif
 
 
 	/*
@@ -106,17 +120,27 @@
 	 * 0=LFSR noise
 	 * 1=PCM
 	 */
-	#define MIXER_CHAN4_TYPE 0
+	#ifndef MIXER_CHAN4_TYPE
+		#define MIXER_CHAN4_TYPE 0
+	#endif
 
 
 	/*
-	 * Include wavetable
+	 * Define wavetable
 	 *
-	 * 0=dont' include (saves ~2.3K flash)
-	 * 1=include waves
+	 * Specify the location of the wave table
 	 */
-	#define INCLUDE_DEFAULT_WAVES 1
+	#ifndef MIXER_WAVES
+		#define MIXER_WAVES "data/sounds.inc"
+	#endif
 
+
+	/*
+	 * Include default mixer waves (takes ~2.5K of flash)
+	 */
+	#ifndef INCLUDE_DEFAULT_WAVES
+		#define INCLUDE_DEFAULT_WAVES 1
+	#endif
 
 	/*
 	 * These are are temp fix when using video mode 3.
@@ -131,16 +155,35 @@
 	 * 0=disable
 	 * 1=enable
 	 */
-	#define SOUND_CHANNEL_2_ENABLE 1
-	#define SOUND_CHANNEL_3_ENABLE 1
-	#define SOUND_CHANNEL_4_ENABLE 0
+	#ifndef SOUND_CHANNEL_2_ENABLE
+		#define SOUND_CHANNEL_2_ENABLE 1
+	#endif
 
+	#ifndef SOUND_CHANNEL_3_ENABLE
+		#define SOUND_CHANNEL_3_ENABLE 1
+	#endif
+	
+	#ifndef SOUND_CHANNEL_4_ENABLE
+		#define SOUND_CHANNEL_4_ENABLE 1
+	#endif
+
+	
+	/*
+	 * Define the ammount of memory to allocate
+	 * for ramtiles (used in video mode 3)
+	 */
+	#ifndef RAM_TILES_COUNT
+		#define RAM_TILES_COUNT 0
+	#endif
+
+	#ifndef MAX_SPRITES
+		#define MAX_SPRITES 32
+	#endif
 
 
 	/*
 	 * Kernel Internal settings, do not modify
 	 */
-
 
 	//Pin used to enable the AD723
 	#define VIDEOCE_PIN PB4
@@ -152,22 +195,6 @@
 	//Applies to both NES & SNES gamepads.
 	#define TYPE_SNES 0
 	#define TYPE_NES 1
-
-/*
-	#define BTN_SR	   1
-	#define BTN_SL	   2
-	#define BTN_X	   4
-	#define BTN_A	   8
-	#define BTN_RIGHT  16
-	#define BTN_LEFT   32
-	#define BTN_DOWN   64
-	#define BTN_UP     128
-	#define BTN_START  256
-	#define BTN_SELECT 512
-	#define BTN_Y      1024 
-	#define BTN_B      2048 
-*/
-
 
 	#define BTN_SR	   2048
 	#define BTN_SL	   1024
@@ -216,12 +243,13 @@
 		#define TILE_HEIGHT 8
 		#define TILE_WIDTH 6	
 		#define VRAM_TILES_H 40 
-		#define VRAM_TILES_V 28
+		#ifndef VRAM_TILES_V
+			#define VRAM_TILES_V 28
+		#endif
 		#define SCREEN_TILES_H 40
 		#define SCREEN_TILES_V 28
 		#define FIRST_RENDER_LINE 20
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V*2
-		#define RAM_TILES_COUNT 0
 		#define VRAM_ADDR_SIZE 2 //in bytes
 		#define SPRITES_ENABLED 0
 
@@ -229,18 +257,18 @@
 		#define TILE_HEIGHT 8
 		#define TILE_WIDTH 6
 		#define VRAM_TILES_H  32
-		#define VRAM_TILES_V 32
+		#ifndef VRAM_TILES_V
+			#define VRAM_TILES_V 32
+		#endif
 		#define SCREEN_TILES_H 22
 		#define SCREEN_TILES_V 26
 		#define FIRST_RENDER_LINE 24
-		#define MAX_SPRITES 32
 		#define MAX_SPRITES_PER_LINE 5
 		#define SPRITE_STRUCT_SIZE 3
 		#define SCREEN_SECTION_STRUCT_SIZE 15
 		#define TRANSLUCENT_COLOR 0xfe	
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 		#define X_SCROLL_WRAP VRAM_TILES_H*TILE_WIDTH
-		#define RAM_TILES_COUNT 0
 		#define VRAM_ADDR_SIZE 1 //in bytes		
 		#define SPRITES_ENABLED 1
 	
@@ -248,27 +276,28 @@
 		#define TILE_HEIGHT 8
 		#define TILE_WIDTH 8
 		#define VRAM_TILES_H 30
-		#define VRAM_TILES_V 29		
+		#ifndef VRAM_TILES_V
+			#define VRAM_TILES_V 29		
+		#endif
 		#define SCREEN_TILES_H 30
 		#define SCREEN_TILES_V 28
 		#define FIRST_RENDER_LINE 20	
-		#define MAX_SPRITES 9
 		#define SPRITE_STRUCT_SIZE 4
 		#define TRANSLUCENT_COLOR 0xfe	
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 		#define X_SCROLL_WRAP VRAM_TILES_H*TILE_WIDTH
-		#define RAM_TILES_COUNT 16
 		#define VRAM_ADDR_SIZE 1 //in bytes
 		#define SPRITES_ENABLED 1
 
 	#elif VIDEO_MODE == 4
 		#define TILE_HEIGHT	16
 		#define TILE_WIDTH	16
-		#define VRAM_TILES_H	32
-		#define VRAM_TILES_V	32
-
-		#define SCREEN_TILES_H	18
-		#define SCREEN_TILES_V	12
+		#define VRAM_TILES_H 32
+		#ifndef VRAM_TILES_V
+			#define VRAM_TILES_V 32
+		#endif
+		#define SCREEN_TILES_H 18
+		#define SCREEN_TILES_V 12
 		#define FIRST_RENDER_LINE	24
 		#define VRAM_SIZE	(VRAM_TILES_H*VRAM_TILES_V)
 		#define VRAM_ADDR_SIZE	1

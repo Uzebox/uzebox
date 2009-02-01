@@ -19,7 +19,7 @@
 */
 
 #include <avr/io.h>
-#include "defines.h"
+#include <defines.h>
 
 .global InitSound
 .global update_sound_buffer
@@ -288,6 +288,8 @@ MixSound:
 	sei ;must enable ints for hsync pulses
 	clr r1
 	
+	call ProcessFading
+
 #if VIDEO_MODE == 2 || VIDEO_MODE == 3
 	//this call should not be here. Temp fix.
  
@@ -346,6 +348,7 @@ end_set_bank:
 	;mix channels
 
 #if SOUND_CHANNEL_4_ENABLE == 1
+
 	#if MIXER_CHAN4_TYPE == 0	
 		lds r21,tr4_vol
 		lds r22,tr4_barrel_lo
@@ -394,8 +397,6 @@ end_set_bank:
 
 	#endif
 #endif
-
-
 
 
 
@@ -749,8 +750,9 @@ usb2:
 .align 8
 waves:
 #if INCLUDE_DEFAULT_WAVES == 1
-	#include "data/sounds.inc"
+	#include MIXER_WAVES
 #endif
+
 
 steptable:
 #include "data/steptable.inc"

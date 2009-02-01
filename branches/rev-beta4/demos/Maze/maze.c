@@ -21,7 +21,8 @@
 #include <avr/io.h> 
 #include <stdlib.h> 
 #include <avr/pgmspace.h> 
-#include "kernel/uzebox.h" 
+#include <uzebox.h>
+
 #include "data/fonts.pic.inc" // UZEBOX 'console' font, as seen in Megatris
 #include "data/mazetiles.c" 		  // Graphics made specifically for maze game
 
