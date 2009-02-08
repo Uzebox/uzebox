@@ -835,7 +835,7 @@ void avr8::write_io(u8 addr,u8 value)
 	}
 	else if (addr == ports::PORTC)
 	{
-		pixel = palette[value];
+		pixel = palette[value & DDRC];
 	}
 #endif	// GUI
 	else
@@ -2204,6 +2204,14 @@ int main(int argc,char **argv)
 	avr8 uzebox;
 	bool disasmOnly = true;
 
+#if defined(__GNUC__) && defined(__WIN32__)
+	// There's also some code in here to cope with the pre-compiled libraries for SDL 
+	// under minGW - apparently, it comes pre-configured to send stdout and stderr to 
+	// text files instead of the console. - Eric (aka Pragma)
+	freopen( "CON", "wt", stdout );
+	freopen( "CON", "wt", stderr );
+#endif
+
 #if GUI
 	uzebox.sdl_flags = SDL_DOUBLEBUF | SDL_SWSURFACE;
 #endif
@@ -2264,7 +2272,7 @@ int main(int argc,char **argv)
 		now = SDL_GetTicks() - now;
 
 		char caption[128];
-		sprintf(caption,"uzebox emulator v1.08 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
+		sprintf(caption,"uzebox emulator v1.09 (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 		if (uzebox.fullscreen)
 			puts(caption);
 		else
