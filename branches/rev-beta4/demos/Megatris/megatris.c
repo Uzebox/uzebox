@@ -368,7 +368,7 @@ int randomSeed=0;
 int f=0; 					//active field
 bool vsMode=false; 			//two player mode
 unsigned char P1Level=20;	//Player 1 level
-unsigned char P2Level=1;	//Player 2 level
+unsigned char P2Level=20;	//Player 2 level
 unsigned char songNo=0;		//default song
 unsigned char maxSongNo=2;	//maximum number of songs
 
