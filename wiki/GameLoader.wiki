@@ -1,0 +1,12 @@
+#summary Add SD/MMC support to our bootloader so that games can be loaded from the memory card.
+
+= Introduction =
+
+Currently, we have to plug uzebox to a PC to load games using an USBserial interface. The feature proposal described in this page aims at making it possible to save game roms in an SD/MMC card and load them without having to plug uzebox to a PC.
+
+= details =
+== FAT read support ==
+FAT read support would be precompiled in the bootloader with its functions made available for the games that need it.
+
+== FAT write support ==
+FAT write support should be optionally compiled by the games that need it. We dont need FAT write in the bootloader, so we should save some flash memory space.
