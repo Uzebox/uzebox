@@ -9,7 +9,7 @@ TARGET = VectorDemo.elf
 CC = avr-gcc
 
 ## Kernel settings
-KERNEL_DIR = ../../../kernel-3d
+KERNEL_DIR = ../../../kernel-vector
 KERNEL_OPTIONS = -DUZEBOX -DVIDEO_MODE=6 -DINTRO_LOGO=0  -DRAM_TILES_COUNT=255
 
 
