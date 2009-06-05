@@ -25,6 +25,7 @@ extern char vram[];
 extern void ClearVram(void);
 extern volatile unsigned int joypad_status;
 extern volatile unsigned char vsync_flag;
+extern volatile unsigned char wave_vol;
 
 #define TEST_SIZE 0
 #define FONT_TYPE 0
@@ -86,7 +87,7 @@ void drawCursor(unsigned char x,unsigned char y,unsigned char len,unsigned char 
 
 }
 
-extern void InitVideo();
+
 
 int main(){
 
@@ -112,6 +113,8 @@ int main(){
 	Print(3,18,strGame14,0);
 
 
+//	wave_vol=255;
+//	WaitVsync(20);	
 
 	unsigned char col=1,dir=1,x=2,y=5;
 
@@ -130,6 +133,7 @@ int main(){
 			if(y>5){
 				drawCursor(x,y,37,0);
 				y--;
+				wave_vol=255;
 			}
 		}
 	
@@ -137,6 +141,7 @@ int main(){
 			if(y<18){
 				drawCursor(x,y,37,0);
 				y++;
+				wave_vol=255;
 			}
 		}
 

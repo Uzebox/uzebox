@@ -71,6 +71,9 @@
 .global vram
 .global vsync_flag
 .global InitVideo
+.global wave_vol
+.global wave_pos
+
 
 .section .bss
 	//vram is organized as 16 bit per tile index: 
@@ -87,6 +90,9 @@
 	;last read results of joypads	
 	joypad_status:		.word 1
 
+	wave_pos:		.byte 1
+	wave_vol:		.byte 1
+	wave_vol_frac:	.byte 1
 
 .section .init8
 	call InitVideo
@@ -111,12 +117,11 @@
 sub_video_mode1:
 
 	;waste time to align with next hsync in render function ;1554
-	ldi r24,lo8(390-32)
-	ldi r25,hi8(390-32)
+	ldi r24,lo8(390-32-4)
+	ldi r25,hi8(390-32-4)
 	sbiw r24,1
 	brne .-4
-	//rjmp .
-
+	lpm
 	
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
@@ -127,50 +132,41 @@ sub_video_mode1:
 next_tile_line:	
 	rcall hsync_pulse 
 
-	ldi r19,30+7
+	ldi r19,30+7+1
 	dec r19			
 	brne .-4
 
 	;***Render scanline***
 	call render_tile_line
 
-	ldi r19,27-7
+	ldi r19,27-7+1+1
 	dec r19			
 	brne .-4
-	nop
+	rjmp .
 
 	dec r23
 	breq text_frame_end
 	
-	lpm	;3 nop
 	inc r22
-
 	cpi r22,8 ;last line of a tile? 1
 	breq next_tile_row 
 	
 	;wait to align with next_tile_row instructions (+1 cycle for the breq)
-	ldi r19,3
-	dec r19
-	brne .-4
-	nop
-
+	lpm
+	rjmp .
+	
 	rjmp next_tile_line	
 
 next_tile_row:
 	clr r22		;current char line			;1	
-
 	ldi r19,VRAM_TILES_H*2
 	add YL,r19
 	adc YH,r22
-
-	lpm ;3 nop
-	rjmp .
-
 	rjmp next_tile_line
 
 text_frame_end:
 
-	ldi r19,5
+	ldi r19,4
 	dec r19
 	brne .-4
 	rjmp .
@@ -215,12 +211,10 @@ render_tile_line:
 	ldi r21,TILE_HEIGHT ;TILE_WIDTH*TILE_HEIGHT
 
 	;Pre-calculate tile table base+tile row offset
-	ldi r16,1 ;TILE_WIDTH ;tile width in pixels
-	mul r22,r16 
 	ldi ZL,lo8(fontram)
 	ldi ZH,hi8(fontram)
-	add ZL,r0	;add tile row offset
-	adc ZH,r1   ;add tile row offset
+	add ZL,r22	;add tile row offset
+	adc ZH,r16  ;add tile row offset
 	
 	movw r24,ZL	;save for use in loop
 
@@ -235,9 +229,6 @@ render_tile_line:
 
 	;draw 30 tiles wide (6x8), 6 clocks/pixel -->1440
 	ldi r17,40
-
-	
-
 
 m1_rtl_loop:
 	mov r18,r2
@@ -285,6 +276,13 @@ m1_rtl_loop:
 	ret
 
 
+;r30
+delay:
+	dec r30
+	brne .-4
+	rjmp .	
+	ret
+
 
 ;************
 ; HSYNC
@@ -310,7 +308,6 @@ do_hsync:
 
 	ldi ZL,SYNC_PHASE_PRE_EQ
 	ldi ZH,SYNC_PRE_EQ_PULSES
-
 	rcall update_sync_phase
 
 	sbrs ZL,0
@@ -623,29 +620,12 @@ do_post_eq:
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
 
-	nop
-
 	ldi ZL,SYNC_PHASE_HSYNC
 	ldi ZH,SYNC_HSYNC_PULSES
 	rcall update_sync_phase
 
 	ret
 
-;*******
-;delay loop used in sync subs
-;*******
-wait63cycles:
-	;output mute sound byte to keep the
-	;emulator at the good speed
-	ldi ZL,0x80
-	sts _SFR_MEM_ADDR(OCR2A),ZL 
-	
-	ldi ZL,18
-	dec ZL
-	brne .-4
-	rjmp .
-
-	ret
 
 
 
@@ -732,16 +712,6 @@ SetFont:
 
 	ret
 
-/*
-init_table:
-	.byte TCCR1B,0
-	.byte TCCR0B,0
-	.byte DDRC,0xff
-	.byte DDRB,0xff
-	.byte DDRD,0x80
-	.byte DDRA,SYNC_PHASE_PRE_EQ
-*/
-
 ;****************************************************
 ; INITIALIZATION
 ;****************************************************
@@ -752,8 +722,11 @@ InitVideo:
 	
 	cli
 
-	;stop timers
 	clr r20
+
+	sts wave_vol,r20
+
+	;stop timers	
 	sts _SFR_MEM_ADDR(TCCR1B),r20
 	sts _SFR_MEM_ADDR(TCCR0B),r20
 	
@@ -872,6 +845,47 @@ loop3:
 
 	clr r1
 	ret
+
+
+;*******************************************
+; delay loop used in sync subs & basic sound
+; sound is a simple ramp/sawtooth
+;*******************************************
+wait63cycles:
+	push r16
+	push r17
+
+	ldi ZL,9
+	dec ZL
+	brne .-4
+	nop
+
+	lds r16,wave_pos
+	lds r17,wave_vol
+	lds r30,wave_vol_frac
+
+	mulsu r16,r17
+	
+	clr r0
+	subi r16,-90
+
+	subi r30,0x50
+	cpse r17,r0
+	sbci r17,0	
+		
+	sts wave_pos,r16
+	sts wave_vol,r17
+	sts wave_vol_frac,r30
+	
+	ldi r16,128
+	sub r1,r16	;convert to signed	
+
+	sts _SFR_MEM_ADDR(OCR2A),r1
+
+	pop r17
+	pop r16
+	ret
+
 
 
 fonts:
