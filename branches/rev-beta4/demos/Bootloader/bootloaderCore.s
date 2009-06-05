@@ -44,11 +44,11 @@
 #define DATA_PORT PORTC
 
 #define TILE_HEIGHT 8
-#define TILE_WIDTH 8
+#define TILE_WIDTH 6
 
-#define VRAM_TILES_H 30 
+#define VRAM_TILES_H 40 
 #define VRAM_TILES_V 28
-#define SCREEN_TILES_H 30
+#define SCREEN_TILES_H 40
 #define SCREEN_TILES_V 28
 
 #define FIRST_RENDER_LINE 20
@@ -61,6 +61,8 @@
 #define JOYPAD_DATA1_PIN PA0
 #define JOYPAD_DATA2_PIN PA1
 
+#define FONT_SIZE 63 //91
+
 ;Public methods
 .global TIMER1_COMPA_vect
 .global SetFont
@@ -68,12 +70,13 @@
 .global joypad_status
 .global vram
 .global vsync_flag
+.global InitVideo
 
 .section .bss
 	//vram is organized as 16 bit per tile index: 
 	//byte0=tile index,byte1=background color
 	vram: 	  	.space VRAM_SIZE 
-	fontram:	.space 64*8 ;8*8*30
+	fontram:	.space FONT_SIZE*8 ;unpacked size
 
 
 	sync_phase:  .byte 1 ;0=pre-eq, 1=eq, 2=post-eq, 3=hsync, 4=vsync
@@ -89,7 +92,9 @@
 	call InitVideo
 
 .section .text
-	fontshade:  		.byte 91,164,246,255,246,164,91,82
+	fontshade:  		.byte 91,164,246,246,246,164,91,82
+	//fontshade:  		.byte 91,164,246,255,246,164,91,82
+//	fontshade:  		.byte 164,164,164,164,164,164,164,164
 
 	sync_func_vectors:	.word pm(do_pre_eq)
 						.word pm(do_eq)
@@ -100,7 +105,7 @@
 
 ;***************************************************
 ; Video Mode 1: Tiles-Only
-; Process video frame in tile mode (40*28)
+; Process video frame in tile mode 6x7 pixel tiles (40*28) 
 ;***************************************************	
 
 sub_video_mode1:
@@ -122,14 +127,14 @@ sub_video_mode1:
 next_tile_line:	
 	rcall hsync_pulse 
 
-	ldi r19,30
+	ldi r19,30+7
 	dec r19			
 	brne .-4
 
 	;***Render scanline***
 	call render_tile_line
 
-	ldi r19,27 
+	ldi r19,27-7
 	dec r19			
 	brne .-4
 	nop
@@ -225,11 +230,11 @@ render_tile_line:
 	add ZL,r0	
 	adc ZH,r1   
 
-	ld r2,X+	;load next tile bg color
-	ld r16,Z	;load first tile pixels
+	ld r2,X+	;load first tile bg color
+	ld r16,Z	;load first tile row pixels
 
-	;draw 30 tiles wide (8x8), 6 clocks/pixel -->1440
-	ldi r17,30
+	;draw 30 tiles wide (6x8), 6 clocks/pixel -->1440
+	ldi r17,40
 
 	
 
@@ -259,33 +264,18 @@ m1_rtl_loop:
 	mov r18,r4
 	out _SFR_IO_ADDR(DATA_PORT),r18	
 	movw ZL,r0
-	mov r15,r16
+	dec r17
 	
 	mov r18,r2
-	sbrc r15,3
+	sbrc r16,3
 	mov r18,r4
 	out _SFR_IO_ADDR(DATA_PORT),r18	
 	ld r16,Z	;load tile's row of pixels
 	
 	mov r18,r2
-	sbrc r15,2
-	mov r18,r4
-	out _SFR_IO_ADDR(DATA_PORT),r18	
-	ld r3,X+	;load next tile bg color
-	
-	mov r18,r2
-	sbrc r15,1
-	mov r18,r4
-	out _SFR_IO_ADDR(DATA_PORT),r18		
-	mov r18,r2
-	sbrc r15,0
-
-	mov r18,r4
-	dec r17
-	mov r2,r3
-	out _SFR_IO_ADDR(DATA_PORT),r18
+	ld r2,X+	;load next tile bg color
+	out _SFR_IO_ADDR(DATA_PORT),r18	;6th pixel always background
 	brne m1_rtl_loop
-
 
 	;end set last pix to zero
 	lpm ;3 nops
@@ -311,7 +301,11 @@ do_hsync:
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;136
 
-	rcall set_normal_rate_HDRIVE
+	//set_normal_rate_HDRIVE
+	ldi ZL,hi8(HDRIVE_CL)
+	sts _SFR_MEM_ADDR(OCR1AH),ZL	
+	ldi ZL,lo8(HDRIVE_CL)
+	sts _SFR_MEM_ADDR(OCR1AL),ZL
 
 
 	ldi ZL,SYNC_PHASE_PRE_EQ
@@ -325,8 +319,6 @@ do_hsync:
 	sbrs ZL,0
 	rjmp not_start_of_frame
 
-
-	;call sound mixing if first vsync pulse
 
 	sei ;must enable ints for hsync pulses
 	call read_joypads
@@ -573,13 +565,17 @@ do_pre_eq:
 	call wait63cycles
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
-	nop
+	;nop
 
 	ldi ZL,SYNC_PHASE_EQ
 	ldi ZH,SYNC_EQ_PULSES
 	rcall update_sync_phase
 
-	rcall set_double_rate_HDRIVE
+	//set_double_rate_HDRIVE
+	ldi ZL,hi8(HDRIVE_CL_TWICE)
+	sts _SFR_MEM_ADDR(OCR1AH),ZL	
+	ldi ZL,lo8(HDRIVE_CL_TWICE)
+	sts _SFR_MEM_ADDR(OCR1AL),ZL
 
 	ret
 
@@ -635,12 +631,14 @@ do_post_eq:
 
 	ret
 
+;*******
+;delay loop used in sync subs
+;*******
 wait63cycles:
 	;output mute sound byte to keep the
 	;emulator at the good speed
 	ldi ZL,0x80
 	sts _SFR_MEM_ADDR(OCR2A),ZL 
-
 	
 	ldi ZL,18
 	dec ZL
@@ -680,32 +678,6 @@ update_sync_phase:
 
 	ret
 
-;**************************************
-; Set HDRIVE to double rate during VSYNC
-;**************************************
-set_double_rate_HDRIVE:
-
-	ldi ZL,hi8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AH),ZL
-	
-	ldi ZL,lo8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
-
-	ret
-
-;**************************************
-; Set HDRIVE to normal rate
-;**************************************
-set_normal_rate_HDRIVE:
-
-	ldi ZL,hi8(HDRIVE_CL)
-	sts _SFR_MEM_ADDR(OCR1AH),ZL
-	
-	ldi ZL,lo8(HDRIVE_CL)
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
-
-	ret
-
 
 ;***********************************
 ; CLEAR VRAM
@@ -714,8 +686,8 @@ set_normal_rate_HDRIVE:
 ;************************************
 ClearVram:
 	//init vram		
-	ldi r30,lo8(VRAM_TILES_H*VRAM_TILES_V)
-	ldi r31,hi8(VRAM_TILES_H*VRAM_TILES_V)
+	ldi r30,lo8(VRAM_SIZE)
+	ldi r31,hi8(VRAM_SIZE)
 
 	ldi XL,lo8(vram)
 	ldi XH,hi8(vram)
@@ -760,6 +732,15 @@ SetFont:
 
 	ret
 
+/*
+init_table:
+	.byte TCCR1B,0
+	.byte TCCR0B,0
+	.byte DDRC,0xff
+	.byte DDRB,0xff
+	.byte DDRD,0x80
+	.byte DDRA,SYNC_PHASE_PRE_EQ
+*/
 
 ;****************************************************
 ; INITIALIZATION
@@ -852,19 +833,39 @@ InitVideo:
 	out _SFR_IO_ADDR(SYNC_PORT),r20	;set sync line to hi
 
 
-	;copy font in RAM
+	;Unpack font in RAM
 	ldi ZL,lo8(fonts)
 	ldi ZH,hi8(fonts)
 	ldi XL,lo8(fontram)
 	ldi XH,hi8(fontram)
 
-	ldi r24,lo8(64*8)
-	ldi r25,hi8(64*8)
-il1:
-	lpm r0,Z+
-	st X+,r0
-	sbiw r24,1
-	brne il1
+	ldi r24,FONT_SIZE ;62
+loop1:
+	lpm r16,Z+ ;read the packed letter(8 rows * 5 bits)
+	lpm r17,Z+
+	lpm r18,Z+
+	lpm r19,Z+
+	lpm r20,Z+
+	
+	ldi r23,8
+loop2:
+	st X+,r16
+	ldi r22,5
+loop3:	
+	;shift left 5 bits
+	rol r20
+	rol r19
+	rol r18
+	rol r17
+	rol r16
+	dec r22
+	brne loop3
+
+	dec r23
+	brne loop2
+
+	dec r24
+	brne loop1
 
 
 	sei
@@ -875,5 +876,4 @@ il1:
 
 fonts:
 ;font size=512 bytes
-#include "fonts8x8.pic.inc" 
-
+#include "fonts.inc" 

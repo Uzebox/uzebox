@@ -6,7 +6,7 @@
 PROJECT = Bootloader
 MCU = atmega644
 TARGET = Bootloader.elf
-CC = avr-gcc.exe
+CC = avr-gcc
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
@@ -27,7 +27,7 @@ LDFLAGS +=  -Wl,-Map=Bootloader.map
 
 
 ## Intel Hex file production flags
-HEX_FLASH_FLAGS = -R .eeprom
+HEX_FLASH_FLAGS = -R .eeprom -R .fuse -R .lock -R .signature
 
 HEX_EEPROM_FLAGS = -j .eeprom
 HEX_EEPROM_FLAGS += --set-section-flags=.eeprom="alloc,load"
