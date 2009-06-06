@@ -39,8 +39,9 @@ Uze
 #include <stdlib.h>
 #include <math.h>
 #include <avr/pgmspace.h>
-#include <uzebox.h>
 #include <avr/interrupt.h>
+#include <uzebox.h>
+#include <videoMode3.h>
 
 //external data
 #include "data/smb.map.inc"
@@ -50,6 +51,8 @@ Uze
 #include "data/mario_sprites.map.inc"
 #include "data/mario_sprites.pic.inc"
 
+#include "data/nsmb.inc"
+#include "data/patches.inc"
 
 unsigned char sx=0,sy=0, anim=0,frame=0,action=0,stopFrame,sprDir,jmpPos,g,i, active=1,mode=0;
 char dx=1,dy=0;
@@ -77,22 +80,69 @@ unsigned char goombaSpr[4];
 unsigned char goombaSprIndex[4];
 
 
+//extern unsigned char ScreenScrollX;
+//extern unsigned char ScreenScrollY;
+
+
 int main(){	
 	
-	
-	SetTileTable(smb_tileset);
+	InitMusicPlayer(patches);
+	StartSong(song_nsmb);
+
 	SetSpritesTileTable(mario_sprites_tileset);
+	SetFontTilesIndex(SMB_TILESET_SIZE);
 	//ClearVram();
 	//SetColorBurstOffset(4);
 
+	screenSections[0].scrollX=0;
+	screenSections[0].scrollY=0;
+
+	SetTileTable(smb_tileset); //TODO: remove in sprite blitter
+	
+	screenSections[0].tileTableAdress=smb_tileset;
+	screenSections[0].height=32;
+	screenSections[0].vramBaseAdress=vram;
+	screenSections[0].wrapLine=224;
+	
+	screenSections[1].tileTableAdress=smb_tileset;
+	screenSections[1].height=192-16-32;
+	screenSections[1].vramBaseAdress=vram+(VRAM_TILES_H*4);
+	screenSections[1].wrapLine=224;
+
+
+	screenSections[2].tileTableAdress=smb_tileset;
+	screenSections[2].height=32;
+	screenSections[2].vramBaseAdress=vram+(VRAM_TILES_H*24);
+
+
 	DrawMap2(0,0,map_main);
+
+
+
+
+	sei();
+
 	DrawMap2(13,15,map_opt0);
 
+//	for(unsigned char y=0;y<14;y++){
+//		DrawMap2(28,y*2,map_opt1);
+//		DrawMap2(30,y*2,map_opt2);
+//	}
 
+
+	for(i=0;i<7;i++){
+		vram[(0*32)+i+22]=13+25;
+		vram[(1*32)+i+22]=13+25;
+		vram[(2*32)+i+22]=13+25;
+		vram[(3*32)+i+22]=13+25;
+	}
+
+
+	//PrintByte(10,10,VRAM_TILES_H,false);
 
 	dx=0;
 	sx=100;
-	sy=169;
+	sy=169-16;
 	sprDir=1;
 
 	goombaX[0]=17; //159;
@@ -117,18 +167,35 @@ int main(){
 	MapSprite(0,map_rwalk1);
 	MapSprite(6,map_lgoomba1);
 	MapSprite(10,map_rgoomba2);
-	MapSprite(14,map_rgoomba2);
+//	MapSprite(14,map_rgoomba2);
 
 	g=0;
 	MoveSprite(0,161,sy+dy,2,3);
 
 	MoveSprite(goombaSprIndex[0],goombaX[0],176,2,2);
 	MoveSprite(goombaSprIndex[1],goombaX[1],176,2,2);
-	MoveSprite(goombaSprIndex[2],goombaX[2],176,2,2);
+//	MoveSprite(goombaSprIndex[2],goombaX[2],176,2,2);
 
-
+	//screenSections[0].scrollX=200;
+	screenSections[0].scrollY=0;
+	unsigned char delay=0;
+	
 	while(1){
 		WaitVsync(1);
+	
+		if(delay==1){
+			screenSections[1].scrollX+=1;
+		}
+		delay^=1;
+
+		//screenSections[0].scrollY+=1;
+		//if(screenSections[0].scrollY>=screenSections[0].wrapLine)screenSections[0].scrollY=0;
+
+		screenSections[2].scrollX+=1;
+
+//	ScreenScrollY+=ScreenScrollYDir;
+	//	if(ScreenScrollY>=20 || ScreenScrollY==0) ScreenScrollYDir=-ScreenScrollYDir;
+
 
 		processControls();
 
@@ -149,14 +216,14 @@ int main(){
 
 
 		//animate goombas
-		for(g=0;g<3;g++){
+		for(g=0;g<2;g++){
 		
 
-				if(goombaX[g]<=15 && goombaDir[g]==-1){
+				if(goombaX[g]<=0 && goombaDir[g]==-1){
 					goombaDir[g]=1;
 				}
 		
-				if(goombaX[g] >= 215 && goombaDir[g]==1){
+				if(goombaX[g] >= (215+15) && goombaDir[g]==1){
 					goombaDir[g]=-1;
 			
 				}
@@ -183,7 +250,7 @@ int main(){
 						MapSprite(goombaSprIndex[g],map_lgoomba2);
 					}
 				}
-				MoveSprite(goombaSprIndex[g],goombaX[g],176,2,2);
+				MoveSprite(goombaSprIndex[g],goombaX[g],176-16,2,2);
 			
 
 		}
@@ -345,13 +412,18 @@ unsigned char processControls(void){
 			jmpPos=0;
 		}
 	
-	}else if(joy&BTN_UP){
-		//sy--;
+	}else if(joy&BTN_SR){
+//		ScreenScrollX++;
+		while(ReadJoypad(0)!=0);
 	
-	}else if(joy&BTN_DOWN){
-		//sy++;
+	}else if(joy&BTN_SL){
+//		ScreenScrollX--;
+		while(ReadJoypad(0)!=0);
 	
 	}else if(joy&BTN_LEFT){
+		
+		//ScreenScrollX--;
+		//while(ReadJoypad(0)!=0);
 		
 		if(action==ACTION_IDLE){
 			action=ACTION_WALK;
@@ -362,8 +434,13 @@ unsigned char processControls(void){
 			lastWalkDir=BTN_LEFT;
 			sprDir=-1;
 		}
+		
 
 	}else if(joy&BTN_RIGHT){
+
+		//ScreenScrollX++;
+		//while(ReadJoypad(0)!=0);
+
 		
 		if(action==ACTION_IDLE){
 			action=ACTION_WALK;
@@ -373,7 +450,8 @@ unsigned char processControls(void){
 			walkFrame=0;
 			lastWalkDir=BTN_RIGHT;
 			sprDir=1;
-		}		
+		}
+		
 		
 	}else if(joy&BTN_SELECT){
 		mode++;
