@@ -1,3 +1,19 @@
+;Screen Sections Struct offsets
+#define scrollX				0
+#define scrollY				1
+#define sectionHeight		2
+#define vramBaseAdressLo	3
+#define vramBaseAdressHi	4
+#define tileTableAdressLo	5
+#define tileTableAdressHi	6
+#define wrapLine			7
+#define flags				8
+#define scrollXcoarse		9
+#define scrollXfine			10		
+#define vramRenderAdressLo	11
+#define vramRenderAdressHi	12
+#define vramWrapAdressLo	13
+#define vramWrapAdressHi	14
 
 ;***************************************************
 ; Mode 2: Tile & Sprites Video Mode

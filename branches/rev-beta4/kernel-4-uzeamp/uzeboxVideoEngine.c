@@ -29,7 +29,7 @@
 
 #if VIDEO_MODE == 3
 	extern unsigned char ram_tiles[];
-	struct SpriteStruct sprites[MAX_SPRITES];
+	extern struct SpriteStruct sprites[];
 	extern unsigned char *sprites_tiletable_lo;
 	extern unsigned char *tile_table_lo;
 	extern struct BgRestoreStruct ram_tiles_restore[];

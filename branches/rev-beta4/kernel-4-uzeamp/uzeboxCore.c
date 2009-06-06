@@ -26,7 +26,8 @@
 #include <avr/wdt.h>
 #include "uzebox.h"
 
-
+		extern struct SpriteStruct sprites[];
+		extern struct ScreenSectionStruct screenSections[];
 
 
 #define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
@@ -255,11 +256,27 @@ void Initialize(void){
 	#endif
 	
 	#if VIDEO_MODE == 3
+
+
 		//clear srpites
 		for(i=0;i<MAX_SPRITES;i++){
 			sprites[i].y=(SCREEN_TILES_V*TILE_HEIGHT);		
 		}
 
+		//set defaults for main screen section
+		for(i=0;i<SCREEN_SECTIONS_COUNT;i++){
+			screenSections[i].scrollX=0;
+			screenSections[i].scrollY=0;
+		
+			if(i==0){
+				screenSections[i].height=SCREEN_TILES_V*TILE_HEIGHT;
+			}else{
+				screenSections[i].height=0;
+			}
+			screenSections[i].vramBaseAdress=vram;
+			screenSections[i].wrapLine=0;
+			screenSections[i].flags=SCT_PRIORITY_SPR;
+		}
 	#endif
 
 

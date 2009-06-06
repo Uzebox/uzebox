@@ -298,7 +298,7 @@ skip:
 	call ProcessFading
 	call ReadControllers
 	//uncomment for UZEAMP
-	call mmc_processMixer
+	//call mmc_processMixer
 #endif
 	
 
@@ -316,7 +316,7 @@ skip:
 
 
 
-//	call ProcessMusic
+ 	call ProcessMusic
 
 	push r2
 	push r3
@@ -355,7 +355,7 @@ end_set_bank:
 	
 	ldi r16,2
 	sts mix_block,r16	
-/*
+
 	;mix channels
 
 #if SOUND_CHANNEL_4_ENABLE == 1
@@ -441,12 +441,12 @@ end_set_bank:
 	ldi r25,0xff 
 mix_loop:
 
-//	#if MIXER_CHAN4_TYPE == 1 && SOUND_CHANNEL_4_ENABLE == 1
+	#if MIXER_CHAN4_TYPE == 1 && SOUND_CHANNEL_4_ENABLE == 1
 		ld 28,X
 		clr r29	;sign extend
 		sbrc r28,7
 		ser r29
-//	#endif
+	#endif
 
 	;channel 1 - 12 cycles/sample
 	add	r6,r2	;add step to fractional part of sample pos
@@ -541,7 +541,7 @@ mix_loop:
 
 
 	subi r28,128	;convert to unsigned		
-	//st X+,r28
+	st X+,r28
 
 
 	dec r25
@@ -577,7 +577,7 @@ mix_loop:
 	sts tr4_pos_frac,r24
 
 #endif
-*/
+
 	pop r29
 	pop r28
 	pop r17
@@ -619,7 +619,7 @@ mix_loop:
 
 	ret
 
-/*
+
 ;**********************************
 ; Optimized sound output (cannot be called during double rate sync)
 ; NO MIDI
@@ -649,8 +649,8 @@ update_sound_buffer_fast:
 	sts mix_pos,ZL
 	sts mix_pos+1,ZH		
 
-	ret ;20+4=25
-*/
+	ret ;20+4=24
+
 
 ;************************
 ; Regular sound output used during hblanks.

@@ -54,36 +54,42 @@
 
 	#endif
 
-	//	unsigned char scrollX: x displacement
-	//	unsigned char scrollY: y displacement
-	//	unsigned char height: section height in scanlines
-	//	unsigned char *vramBaseAdress: location in vram where this section starts rendering
-	//	unsigned char *tileTableAdress: tile set to use when rendering this section
-	//	unsigned char wrapLine: Define at what Y scroll within that section Y-wrap will happen (Normally Y-Wrap happens at 0xff). So
-	//                          instead of wrapping each 32 tiles you can wrap each 12 or 12 tiles+ 3 lines, etc.
-	//	unsigned char flags: 1=sprites will be drawn on top of this section. 0=sprites will be under.
-	struct ScreenSectionStruct
-	{
-		//user defined
-		unsigned char scrollX;
-		unsigned char scrollY;
-		unsigned char height;
-		unsigned char *vramBaseAdress;
-		const char *tileTableAdress;
-		unsigned char wrapLine;
-		unsigned char flags;
+	#if VIDEO_MODE == 2 || VIDEO_MODE == 3
 
-		//calculated (don't write to)
-		unsigned char scrollXcoarse;
-		unsigned char scrollXfine;		
-		unsigned char *vramRenderAdress;
-		unsigned char *vramWrapAdress;
-	};
+		//	unsigned char scrollX: x displacement
+		//	unsigned char scrollY: y displacement
+		//	unsigned char height: section height in scanlines
+		//	unsigned char *vramBaseAdress: location in vram where this section starts rendering
+		//	unsigned char *tileTableAdress: tile set to use when rendering this section
+		//	unsigned char wrapLine: Define at what Y scroll within that section Y-wrap will happen (Normally Y-Wrap happens at 0xff). So
+		//                          instead of wrapping each 32 tiles you can wrap each 12 or 12 tiles+ 3 lines, etc.
+		//							IMPORTANT: insure scrollY is always < wrapLine or the screen will get trashed (perform Y scroll clipping).
+		//	unsigned char flags: 1=sprites will be drawn on top of this section. 0=sprites will be under.
+		struct ScreenSectionStruct
+		{
+			//user defined
+			unsigned char scrollX;
+			unsigned char scrollY;
+			unsigned char height;
+			unsigned char *vramBaseAdress;
+			const char *tileTableAdress;
+			unsigned char wrapLine;
+			unsigned char flags;
 
-	#if VIDEO_MODE == 2 ||  VIDEO_MODE == 3
+			//calculated (don't write to)
+			unsigned char scrollXcoarse;
+			unsigned char scrollXfine;		
+			unsigned char *vramRenderAdress;
+			unsigned char *vramWrapAdress;
+		};
+
+		
 		extern struct SpriteStruct sprites[];
 		extern struct ScreenSectionStruct screenSections[];
+
+
 	#endif
+
 
 
 	/*

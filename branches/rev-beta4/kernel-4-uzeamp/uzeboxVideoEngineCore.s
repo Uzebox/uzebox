@@ -41,27 +41,13 @@
 #define sprTileIndex 2
 #define sprFlags 3
 
-;Screen Sections Struct offsets
-#define scrollX				0
-#define scrollY				1
-#define sectionHeight		2
-#define vramBaseAdressLo	3
-#define vramBaseAdressHi	4
-#define tileTableAdressLo	5
-#define tileTableAdressHi	6
-#define wrapLine			7
-#define flags				8
-#define scrollXcoarse		9
-#define scrollXfine			10		
-#define vramRenderAdressLo	11
-#define vramRenderAdressHi	12
-#define vramWrapAdressLo	13
-#define vramWrapAdressHi	14
+
 
 
 
 ;Public methods
 .global TIMER1_COMPA_vect
+.global TIMER1_COMPB_vect
 .global SetTile
 .global SetFont
 .global RestoreTile
@@ -90,8 +76,6 @@
 .global curr_field
 .global tile_table_lo
 .global sprites_tiletable_lo
-.global ram_tiles
-.global ram_tiles_restore
 .global burstOffset
 .global vsync_phase
 .global joypad1_status_lo
@@ -99,6 +83,7 @@
 .global joypad1_status_hi
 .global joypad2_status_hi
 .global line_buffer
+
 
 #if VIDEO_MODE == 2
 .global rotate_spr_no
@@ -166,12 +151,21 @@
 	#endif
 
 	#if VIDEO_MODE == 3
-		ram_tiles:			.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
-		ram_tiles_restore:  .space RAM_TILES_COUNT*3 ;vram addr|Tile
-		sprites_tiletable_lo: .byte 1
-		sprites_tiletable_hi: .byte 1	
 
 	#endif
+
+/*
+	#if VIDEO_MODE == 3
+		ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
+		ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
+		sprites_tiletable_lo: 	.byte 1
+		sprites_tiletable_hi: 	.byte 1	
+		ScreenScrollX:			.byte 1
+		ScreenScrollY:			.byte 1
+		lastTileFirstPixel:		.byte 1
+		vram_linear_buf:		.space 32*2
+	#endif
+*/
 
 	#if VIDEO_MODE == 4
 		textram:				.space (16 * 36)
@@ -399,6 +393,10 @@ render_end:
 	pop ZL
 	ret
 
+
+
+
+
 ;***************************************************************************
 ; Video sync interrupt
 ; 4 cycles to invoke 
@@ -484,6 +482,26 @@ sync:
 	pop r0
 	ret
 
+;*************************************************
+; Interrupt that set the sync signal back to .3v
+;*************************************************
+TIMER1_COMPB_vect:
+	push ZL
+
+	;save flags & status register
+	in ZL,_SFR_IO_ADDR(SREG);1
+	push ZL ;2	
+
+	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
+	lds ZL, _SFR_MEM_ADDR(TIMSK1)
+	andi ZL,~(1<<OCIE1B)
+	sts _SFR_MEM_ADDR(TIMSK1),ZL ;stop generate interrupt on match
+	
+	pop ZL
+	out _SFR_IO_ADDR(SREG),ZL	
+	
+	pop ZL
+	reti
 
 ;*************************************************
 ; Generate a H-Sync pulse - 136 clocks (4.749us)
@@ -503,8 +521,6 @@ hsync_pulse:
 	dec ZL 
 	brne .-4
 
-
-
 	lds ZL,sync_pulse
 	dec ZL
 	sts sync_pulse,ZL
@@ -512,16 +528,21 @@ hsync_pulse:
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
 
 
-
-
-
-	nop
-	nop
+	;set sync generator counter on TIMER1
+	;ldi ZH,hi8(0x90+63)
+	;ldi ZL,lo8(0x90+63)
+	;rjmp up_pulse
 
 	ret
 
-
-
+up_pulse:
+	;set sync generator counter on TIMER1
+	sts _SFR_MEM_ADDR(OCR1BH),ZH
+	sts _SFR_MEM_ADDR(OCR1BL),ZL	
+	lds ZL,_SFR_MEM_ADDR(TIMSK1) ;generate interrupt on match
+	ori ZL,(1<<OCIE1B)
+	sts _SFR_MEM_ADDR(TIMSK1),ZL ;generate interrupt on match
+	ret
 
 ;**************************
 ; PRE_EQ pulse
@@ -572,7 +593,12 @@ do_eq_delay:
 	ldi ZH,SYNC_POST_EQ_PULSES
 	ldi ZL,SYNC_PHASE_POST_EQ
 	rcall update_sync_phase
-		
+
+	;set sync generator counter on TIMER1
+	;ldi ZH,hi8(0x90+704)
+	;ldi ZL,lo8(0x90+704)
+	;rjmp up_pulse
+			
 	ret
 
 ;************
@@ -1383,206 +1409,6 @@ ClearVsyncFlag:
 	clr r1
 	sts vsync_flag,r1
 	ret
-
-
-;*****************************
-; Sets CPU speed to 14.3Mhz
-;*****************************
-SetLowSpeed:
-	ldi r24,0x80
-	ldi r25,1
-	sts _SFR_MEM_ADDR(CLKPR),r24
-	sts _SFR_MEM_ADDR(CLKPR),r25
-	ret
-
-;*****************************
-; Sets CPU speed to normal 
-;*****************************
-SetFullSpeed:
-	ldi r24,0x80
-	ldi r25,0
-	sts _SFR_MEM_ADDR(CLKPR),r24
-	sts _SFR_MEM_ADDR(CLKPR),r25
-	ret
-
-#if VIDEO_MODE == 3
-	;***********************************
-	; SET TILE 8bit mode
-	; C-callable
-	; r24=ROM tile index
-	; r22=RAM tile index
-	;************************************
-	CopyTileToRam:
-	/*
-		src=tile_table_lo+((bt&0x7f)*64);
-		dest=ram_tiles+(free_tile_index*TILE_HEIGHT*TILE_WIDTH);
-
-		ram_tiles_restore[free_tile_index].addr=ramPtr;//(by*VRAM_TILES_H)+bx+x;
-		ram_tiles_restore[free_tile_index].tileIndex=bt;
-
-		for(j=0;j<64;j++){
-			px=pgm_read_byte(src++);
-			*dest++=px;
-		}
-	*/
-
-		ldi r18,TILE_HEIGHT*TILE_WIDTH
-
-		;compute source adress
-		lds ZL,tile_table_lo
-		lds ZH,tile_table_hi
-		;andi r24,0x7f
-		subi r24,RAM_TILES_COUNT
-		mul r24,r18
-		add ZL,r0
-		adc ZH,r1
-
-		;compute destination adress
-		ldi XL,lo8(ram_tiles)
-		ldi XH,hi8(ram_tiles)
-		mul r22,r18
-		add XL,r0
-		adc XH,r1
-
-		clr r0
-		;copy data (fastest possible)
-	.rept TILE_HEIGHT*TILE_WIDTH
-		lpm r0,Z+	
-		st X+,r0
-	.endr
-
-
-		clr r1
-		ret
-
-
-
-
-	;***********************************
-	; SET TILE 8bit mode
-	; C-callable
-	; r24=SpriteNo
-	; r22=RAM tile index (bt)
-	; r21:r20=Y:X
-	; r19:r18=DY:DX
-	;************************************
-	BlitSprite:
-	
-		;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
-		ldi r25,SPRITE_STRUCT_SIZE
-		mul r24,r25
-	
-		ldi ZL,lo8(sprites)	
-		ldi ZH,hi8(sprites)	
-		add ZL,r0
-		adc ZH,r1
-		ldd r24,Z+sprTileIndex
-
-		lds ZL,sprites_tiletable_lo
-		lds ZH,sprites_tiletable_hi
-		ldi r25,TILE_WIDTH*TILE_HEIGHT
-		mul r24,r25
-		add ZL,r0	;src
-		adc ZH,r1
-
-		;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
-		ldi XL,lo8(ram_tiles)	
-		ldi XH,hi8(ram_tiles)
-		mul r22,r25
-		add XL,r0
-		adc XH,r1
-
-		;if(x==0){
-		;	dest+=dx;
-		;	xdiff=dx;
-		;}else{
-		;	src+=(8-dx);
-		;	xdiff=(8-dx);
-		;}	
-		clr r1
-		cpi r20,0
-		brne x_2nd_tile
-		add XL,r18
-		adc XH,r1
-		mov r24,r18	;xdiff
-		rjmp x_check_end
-	x_2nd_tile:
-		ldi r24,8
-		sub r24,r18	;xdiff
-		add ZL,r24
-		adc ZH,r1	
-	x_check_end:
-
-		;if(y==0){
-		;	dest+=(dy*TILE_WIDTH);
-		;	ydiff=dy;
-		;}else{
-		;	src+=((8-dy)*TILE_WIDTH);
-		;	ydiff=(8-dy);
-		;}
-		cpi r21,0
-		brne y_2nd_tile
-		ldi r25,TILE_WIDTH
-		mul r25,r19
-		add XL,r0
-		adc XH,r1
-		mov r25,r19	;ydiff
-		rjmp y_check_end
-	y_2nd_tile:
-		ldi r25,TILE_HEIGHT
-		sub r25,r19	;ydiff
-		ldi r21,TILE_WIDTH
-		mul r21,r25
-		add ZL,r0
-		adc ZH,r1	
-	y_check_end:	
-	
-	/*
-		for(y2=ydiff;y2<TILE_HEIGHT;y2++){
-			for(x2=xdiff;x2<TILE_WIDTH;x2++){
-								
-				px=pgm_read_byte(src++);
-				if(px!=TRANSLUCENT_COLOR){
-					*dest=px;
-				}
-				dest++;
-
-			}		
-			src+=xdiff;
-			dest+=xdiff;
-
-		}
-	*/
-
-		clr r1
-		ldi r19,TRANSLUCENT_COLOR
-
-		ldi r21,8
-		sub r21,r25 ;y2
-
-	y2_loop:
-		ldi r20,8
-		sub r20,r24 ;x2
-	x2_loop:
-		lpm r18,Z+
-		cpse r18,r19
-		st X,r18
-		adiw XL,1
-		dec r20
-		brne x2_loop
-
-		add ZL,r24
-		adc ZH,r1
-		add XL,r24
-		adc XH,r1
-
-		dec r21
-		brne y2_loop
-
-		clr r1
-
-		ret
-#endif
 
 
 ;***********************************

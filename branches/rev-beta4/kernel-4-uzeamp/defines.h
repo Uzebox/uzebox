@@ -265,21 +265,22 @@
 		#define FIRST_RENDER_LINE 24
 		#define MAX_SPRITES_PER_LINE 5
 		#define SPRITE_STRUCT_SIZE 3
-		#define SCREEN_SECTION_STRUCT_SIZE 15
 		#define TRANSLUCENT_COLOR 0xfe	
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 		#define X_SCROLL_WRAP VRAM_TILES_H*TILE_WIDTH
 		#define VRAM_ADDR_SIZE 1 //in bytes		
 		#define SPRITES_ENABLED 1
-	
+		#define SCREEN_SECTION_STRUCT_SIZE 15
+
 	#elif VIDEO_MODE == 3
+	
 		#define TILE_HEIGHT 8
 		#define TILE_WIDTH 8
 		#define VRAM_TILES_H 32
 		#ifndef VRAM_TILES_V
-			#define VRAM_TILES_V 28		
+			#define VRAM_TILES_V 32		
 		#endif
-		#define SCREEN_TILES_H 30
+		#define SCREEN_TILES_H 29
 		#ifndef SCREEN_TILES_V
 			#define SCREEN_TILES_V 28
 		#endif
@@ -290,8 +291,10 @@
 		#define SPRITE_STRUCT_SIZE 4
 		#define TRANSLUCENT_COLOR 0xfe	
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
-		#define X_SCROLL_WRAP VRAM_TILES_H*TILE_WIDTH
 		#define VRAM_ADDR_SIZE 1 //in bytes
+		
+		#define SCREEN_SECTION_STRUCT_SIZE 15
+		
 		#define SPRITES_ENABLED 1
 
 	#elif VIDEO_MODE == 4
