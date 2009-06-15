@@ -26,15 +26,18 @@ import org.apache.log4j.Logger;
 public class MidiConvert {
 	static Logger logger = Logger.getLogger(MidiConvert.class);
 
-	protected static final int CONTROLER_TREMOLO=92;
-	protected static final int CONTROLER_TREMOLO_RATE=100;
-	protected static final int CONTROLER_VOL=7;
-	protected static final int CONTROLER_EXPRESSION=11;
+	private final static double DEFAULT_SPEED_FACTOR=30;
+	private final static String DEFAULT_VARIABLE_NAME="midisong";
+	
+	private static final int CONTROLER_TREMOLO=92;
+	private static final int CONTROLER_TREMOLO_RATE=100;
+	private static final int CONTROLER_VOL=7;
+	private static final int CONTROLER_EXPRESSION=11;
 	
 	private File inputFile=null;
 	private File outputFile=null;
-	private String variableName="midisong";
-	private double speedFactor=30;
+	private String variableName=DEFAULT_VARIABLE_NAME;
+	private double speedFactor=DEFAULT_SPEED_FACTOR;
 	private int loopStartTick=-1,loopEndTick=-1;
 	private boolean includeNoteOff=false;
 	
@@ -46,10 +49,10 @@ public class MidiConvert {
 		
 		try{
 			Options options = new Options();
-			options.addOption("v", true, "variable name used in the include file. Defaults to 'midisong'.");
+			options.addOption("v", true, "variable name used in the include file. Defaults to '"+DEFAULT_VARIABLE_NAME+"'");
 			options.addOption("s", true, "Force a loop start (specified in tick). Any existing loop start in the input will be discarded.");
-			options.addOption("e", true, "Force a loop end (specified in tick). Creates two meta markers 'S' and 'E' and ignores any meta marker in the input file.");
-			options.addOption("f", true, "Speed correction factor (double). Defaults to 60.0");
+			options.addOption("e", true, "Force a loop end (specified in tick). Any existing loop end in the input will be discarded.");
+			options.addOption("f", true, "Speed correction factor (double). Defaults to "+DEFAULT_SPEED_FACTOR);
 			options.addOption("o", false, "Include note off messages. Note off can be explicit note-off or note-on with zero volume.");
 			options.addOption("h", false, "Prints this screen.");
 			options.addOption("d", false, "Prints debug info.");
@@ -73,10 +76,10 @@ public class MidiConvert {
 			}
 			
 			MidiConvert converter=new MidiConvert();		
-			converter.setVariableName(cmd.getOptionValue("v","midisong"));
+			converter.setVariableName(cmd.getOptionValue("v",DEFAULT_VARIABLE_NAME));
 			converter.setLoopStartTick(Integer.parseInt(cmd.getOptionValue("s", "-1")));
 			converter.setLoopEndTick(Integer.parseInt(cmd.getOptionValue("e", "-1")));
-			converter.setSpeedFactor(Double.parseDouble(cmd.getOptionValue("f","30")));
+			converter.setSpeedFactor(Double.parseDouble(cmd.getOptionValue("f",Double.toString(DEFAULT_SPEED_FACTOR))));
 			if(cmd.hasOption("o"))converter.setIncludeNoteOff(true);
 			
 
@@ -115,7 +118,7 @@ public class MidiConvert {
 		HelpFormatter formatter = new HelpFormatter();
 		formatter.printHelp("midiconv [options] inputfile outputfile", 
 							"Converts a MIDI song in format 0 to a Uzebox MIDI stream outputted as a C include file.\r\n",options,
-							"Ex: midiconv -s58 -vmy_song -ls200 -le22340 c:\\mysong.mid c:\\mysong.inc \r\n" );			
+							"Ex: midiconv -s32 -vmy_song -ls200 -le22340 c:\\mysong.mid c:\\mysong.inc \r\n" );			
 	}
 	
 	/**
