@@ -258,9 +258,9 @@ void Initialize(void){
 	#if VIDEO_MODE == 3
 
 
-		//clear srpites
+		//disable sprites
 		for(i=0;i<MAX_SPRITES;i++){
-			sprites[i].y=(SCREEN_TILES_V*TILE_HEIGHT);		
+			sprites[i].x=(SCREEN_TILES_H*TILE_WIDTH);		
 		}
 
 		//set defaults for main screen section

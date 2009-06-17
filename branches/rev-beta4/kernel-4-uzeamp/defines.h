@@ -225,6 +225,9 @@
 	#define SPR_OVERFLOW_CLIP   0
 	#define SPR_OVERFLOW_ROTATE 1
 
+	#define SPR_FLIP_X 1
+	#define SPR_FLIP_Y 2
+
 	//Patch commands
 	#define PC_ENV_SPEED	0
 	#define PC_NOISE_PARAMS	1
@@ -276,11 +279,16 @@
 	
 		#define TILE_HEIGHT 8
 		#define TILE_WIDTH 8
-		#define VRAM_TILES_H 32
+
+		#ifndef VRAM_TILES_H
+			#define VRAM_TILES_H 32
+		#endif
+
 		#ifndef VRAM_TILES_V
 			#define VRAM_TILES_V 32		
 		#endif
-		#define SCREEN_TILES_H 29
+
+		#define SCREEN_TILES_H 28
 		#ifndef SCREEN_TILES_V
 			#define SCREEN_TILES_V 28
 		#endif
@@ -288,7 +296,7 @@
 		#ifndef FIRST_RENDER_LINE
 			#define FIRST_RENDER_LINE 20	
 		#endif
-		#define SPRITE_STRUCT_SIZE 4
+		#define SPRITE_STRUCT_SIZE 5
 		#define TRANSLUCENT_COLOR 0xfe	
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 		#define VRAM_ADDR_SIZE 1 //in bytes

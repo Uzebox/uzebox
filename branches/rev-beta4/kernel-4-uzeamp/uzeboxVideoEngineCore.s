@@ -150,22 +150,7 @@
 		rotate_spr_no:		.byte 1	
 	#endif
 
-	#if VIDEO_MODE == 3
 
-	#endif
-
-/*
-	#if VIDEO_MODE == 3
-		ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
-		ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
-		sprites_tiletable_lo: 	.byte 1
-		sprites_tiletable_hi: 	.byte 1	
-		ScreenScrollX:			.byte 1
-		ScreenScrollY:			.byte 1
-		lastTileFirstPixel:		.byte 1
-		vram_linear_buf:		.space 32*2
-	#endif
-*/
 
 	#if VIDEO_MODE == 4
 		textram:				.space (16 * 36)

@@ -45,6 +45,7 @@
 			unsigned char y;
 			unsigned char tileIndex;
 			unsigned char flags;
+			unsigned char screenSection;
 		};			
 		
 		struct BgRestoreStruct{

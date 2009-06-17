@@ -55,35 +55,51 @@
 
 	void ProcessSprites(){
 
-		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1;
+		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy,sx,sy;
 		unsigned int ramPtr;
 
 
 		free_tile_index=0;
 
+		
+
 
 		if(!spritesOn) return;
 		
 		for(i=0;i<MAX_SPRITES;i++){
-			by=sprites[i].y;
-			if(by<(SCREEN_TILES_V*TILE_HEIGHT)){
+			bx=sprites[i].x;
+
+			if(bx!=(SCREEN_TILES_H*TILE_WIDTH)){
+				//get tile's screen section offsets
+				//sx=sprites[i].x + screenSections[sprites[i].screenSection].scrollX;
+				//sy=sprites[i].y + screenSections[sprites[i].screenSection].scrollY;
+				sx=sprites[i].x + screenSections[0].scrollX;
+				sy=sprites[i].y + screenSections[0].scrollY;				
+
 				tx=1;
 				ty=1;
+
 				//get the BG tiles that are overlapped by the sprite
-				bx=sprites[i].x>>3;
-				dx=sprites[i].x&0x7;
+				bx=sx>>3;
+				dx=sx&0x7;
 				if(dx>0) tx++;
 
-				by=sprites[i].y>>3;			
-				dy=sprites[i].y&0x7;		
+				by=sy>>3;			
+				dy=sy&0x7;		
 				if(dy>0) ty++;			
 
 				for(y=0;y<ty;y++){
 
 					for(x=0;x<tx;x++){
+						wy=by+y;
+						wx=bx+x;
 
-						ramPtr=((by+y)*VRAM_TILES_H)+bx+x;
-						bt=vram[ramPtr];
+						//process X-Y wrapping
+						if(wy>=32)wy=0;
+						if(wx>=32)wx=0;
+
+						ramPtr=(wy*VRAM_TILES_H)+wx;
+						bt=vram[ramPtr];						
 
 						if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
 
@@ -110,7 +126,7 @@
 					}//end for X
 				}//end for Y
 		
-			}//	if(by<(SCREEN_TILES_V*TILE_HEIGHT))		
+			}//	if(bx<(SCREEN_TILES_H*TILE_WIDTH))		
 		}
 
 

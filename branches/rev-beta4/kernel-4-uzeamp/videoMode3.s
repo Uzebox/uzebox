@@ -139,8 +139,8 @@ wait_loop:
 
 
 	;wait 873 cycles
-	ldi r26,lo8(204)
-	ldi r27,hi8(204)
+	ldi r26,lo8(204-1)
+	ldi r27,hi8(204-1)
 	sbiw r26,1
 	brne .-4	
 	nop
@@ -193,7 +193,13 @@ next_text_line:
 	;***draw scanline***
 	call render_tile_line
 
+	ldi r18,4
+	dec r18
+	brne .-4
+
 	nop
+	nop
+	rjmp .
 
 	inc r11
 	inc r22
@@ -321,7 +327,11 @@ text_frame_end:
 	sts vsync_flag,ZL
 	
 	cli 
-	
+
+	lds r20,sync_pulse
+	subi r20,SCREEN_TILES_V*TILE_HEIGHT
+	sts sync_pulse,r20
+		
 	;clear any pending timer int
 	ldi ZL,(1<<OCF1A)
 	sts _SFR_MEM_ADDR(TIFR1),ZL
@@ -355,8 +365,12 @@ render_tile_line:
 	push YH
 	push r22
 	push r19
+	push r13
+	push r12
+	
 
-	;fill the linear line buffer with 30 tiles
+
+	;fill the linear line buffer with 29 tiles
 	mov r19,YL
 	andi r19,0xe0 ;restore bits mask
 	ldi XL,lo8(vram_linear_buf)
@@ -373,13 +387,11 @@ render_tile_line:
 	or YL,r19 ;restore hi bits
 .endr
 
-	;rjmp .
 	ld r18,Y
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
 
-.rept 14
-	;ld r18,Y
+.rept 13
 	st X+,r18
 	inc YL
 	andi YL,31
@@ -387,11 +399,12 @@ render_tile_line:
 	ld r18,Y
 .endr
 
-	;ld r18,Y
 	st X+,r18
 
 
-
+	ldi r18,12
+	dec r18
+	brne .-4
 
 	;--------------------------
 	; Rendering 
@@ -433,13 +446,14 @@ render_tile_line:
 	sei			;some trailing pixel to draw (hack, see end: )
 
 	;get first pixel of last tile in ROM (for ROM tiles fine scroll)
+	;and adress of next pixel
 	ldd r18,Y+SCREEN_TILES_H
 	mul r18,r19 	;tile*width*height
     add r0,r2    ;add ROM title table address +row offset
     adc r1,r3
 	movw ZL,r0
-	lpm r9,Z	;hold until end 
-
+	lpm r9,Z+	;hold first pixel until end 
+	movw r12,ZL ;hold second pixel adress until end
 
 	;compute first tile adress
     ld r18,Y+     	;load next tile # from VRAM
@@ -491,7 +505,7 @@ ram_fine_scroll:
 	adc r23,r1
 	push r22
 	push r23	
-	ret 
+	ret ;jump into ram_fine_scroll_loop
 ram_fine_scroll_loop:
 	.rept 8
 		ld r16,X+
@@ -546,13 +560,13 @@ romloop:
 
     lpm r16,Z+
     out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
-	brsh .+2		;skip in next tile is in ROM	
+	brsh .+2		;skip if next tile is in ROM	
 	movw r20,r4 	;load RAM title table address +row offset	
    
     lpm r16,Z+
     out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 5
     bst r6,SREG_C	;store carry state in T flag for later branch
-	add r0,r20		;add title table address +row offset lsb
+	add r0,r20		;add tile table address +row offset lsb
     
     lpm r16,Z+
     out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 6
@@ -625,12 +639,21 @@ ramloop:
 end:
 	out _SFR_IO_ADDR(DATA_PORT),r16  	;pixel 8
 	brid end_fine_scroll				;hack: interrupt flag=0 => no fine offset pixel to draw
-	brts end_ram_fine_scroll_loop
+	brtc end_rom_fine_scroll_loop
+
+/***END RAM LOOP***/
+	movw ZL,r0
+end_ram_fine_scroll_loop:
+	ld r16,Z+
+	out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 
+	dec r14
+	brne end_ram_fine_scroll_loop
+	rjmp end_fine_scroll_ram
 
 /***END ROM LOOP***/
 end_rom_fine_scroll_loop:
-	movw ZL,r0
-	adiw ZL,1
+	movw ZL,r12
+	nop
 	out _SFR_IO_ADDR(DATA_PORT),r9        ;output saved 1st pixel
 	dec r14
 	breq end_fine_scroll_rom
@@ -641,25 +664,18 @@ end_rom_fine_scroll_loop:
 	dec r14
 	breq end_fine_scroll_rom
 .endr
-	
-/***END RAM LOOP***/
-end_ram_fine_scroll_loop:
-	ld r16,Z+
-	out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 
-	dec r14
-	brne end_ram_fine_scroll_loop
 
 end_fine_scroll:	
 	nop
 end_fine_scroll_rom:
-	clr r16	
 	nop
+end_fine_scroll_ram:
+	clr r16	
 	out _SFR_IO_ADDR(DATA_PORT),r16   
 
 
-	lds ZL,sync_pulse
-	dec ZL
-	sts sync_pulse,ZL
+	pop r12
+	pop r13
 
 	pop r19
 	pop r22
@@ -849,3 +865,66 @@ end_fine_scroll_rom:
 
 		ret
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+romloop:
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 1
+    ld r18,Y+     ;load next tile # from VRAM
+
+
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 2
+	mul r18,r19 ;tile*width*height
+
+
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 3
+	cpi r18,RAM_TILES_COUNT		;is tile in RAM or ROM? (RAM tiles have indexes<RAM_TILES_COUNT)
+	in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
+
+
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
+	brsh .+2		;skip if next tile is in ROM	
+	movw r20,r4 	;load RAM title table address +row offset	
+   
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 5    
+	add r0,r20		;add tile table address +row offset lsb
+    adc r1,r21		;add title table address +row offset msb
+
+    lpm r16,Z+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 6
+	lpm r16,Z+
+
+	dec r17			;decrement tiles to draw on line
+	movw ZL,r0   	;copy next tile adress   
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 7   
+    lpm r16,Z+
+
+	breq end	    
+	bst r6,SREG_C	;store carry state in T flag for later branch
+
+    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
+    brtc romloop
+	
+	rjmp .
+
+	*/

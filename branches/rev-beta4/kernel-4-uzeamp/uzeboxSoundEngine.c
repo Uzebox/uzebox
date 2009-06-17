@@ -71,9 +71,7 @@ const char *songStart;
 const char *loopStart;
 unsigned char masterVolume;
 
-//int debug=0;
-//bool doit=false;
-//InstrumentPtr *inst;
+
 
 
 /*
