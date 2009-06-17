@@ -51,7 +51,8 @@ Uze
 #include "data/mario_sprites.map.inc"
 #include "data/mario_sprites.pic.inc"
 
-#include "data/nsmb.inc"
+//#include "data/nsmb.inc"
+#include "data/nsmb_test.inc"
 #include "data/patches.inc"
 
 unsigned char sx=0,sy=0, anim=0,frame=0,action=0,stopFrame,sprDir,jmpPos,g,i, active=1,mode=0;
@@ -83,14 +84,14 @@ unsigned char goombaSprIndex[4];
 //extern unsigned char ScreenScrollX;
 //extern unsigned char ScreenScrollY;
 
-
+	unsigned char delay=0;
 int main(){	
 	
 	InitMusicPlayer(patches);
-	StartSong(song_nsmb);
+//	StartSong(song_nsmb);
 
 	SetSpritesTileTable(mario_sprites_tileset);
-	SetFontTilesIndex(SMB_TILESET_SIZE);
+	//SetFontTilesIndex(SMB_TILESET_SIZE);
 	//ClearVram();
 	//SetColorBurstOffset(4);
 
@@ -100,49 +101,51 @@ int main(){
 	SetTileTable(smb_tileset); //TODO: remove in sprite blitter
 	
 	screenSections[0].tileTableAdress=smb_tileset;
-	screenSections[0].height=32;
-	screenSections[0].vramBaseAdress=vram;
-	screenSections[0].wrapLine=224;
+	//screenSections[0].height=32;
+	//screenSections[0].vramBaseAdress=vram;
+	screenSections[0].wrapLine=0;
 	
-	screenSections[1].tileTableAdress=smb_tileset;
-	screenSections[1].height=192-16-32;
-	screenSections[1].vramBaseAdress=vram+(VRAM_TILES_H*4);
-	screenSections[1].wrapLine=224;
+	//screenSections[1].tileTableAdress=smb_tileset;
+	//screenSections[1].height=224;
+	//screenSections[1].vramBaseAdress=vram+(VRAM_TILES_H*4);
+	//screenSections[1].wrapLine=224-32;
+	
 
-
-	screenSections[2].tileTableAdress=smb_tileset;
-	screenSections[2].height=32;
-	screenSections[2].vramBaseAdress=vram+(VRAM_TILES_H*24);
+//	screenSections[2].tileTableAdress=smb_tileset;
+//	screenSections[2].height=32;
+//	screenSections[2].vramBaseAdress=vram+(VRAM_TILES_H*24);
 
 
 	DrawMap2(0,0,map_main);
 
 
+	for(i=0;i<MAX_SPRITES;i++){
+		sprites[i].screenSection=1;		
+	}
 
+	//sei();
 
-	sei();
-
-	DrawMap2(13,15,map_opt0);
+	//DrawMap2(13,15,map_opt0);
 
 //	for(unsigned char y=0;y<14;y++){
 //		DrawMap2(28,y*2,map_opt1);
 //		DrawMap2(30,y*2,map_opt2);
 //	}
 
-
+/*
 	for(i=0;i<7;i++){
 		vram[(0*32)+i+22]=13+25;
 		vram[(1*32)+i+22]=13+25;
 		vram[(2*32)+i+22]=13+25;
 		vram[(3*32)+i+22]=13+25;
 	}
-
+*/
 
 	//PrintByte(10,10,VRAM_TILES_H,false);
 
 	dx=0;
-	sx=100;
-	sy=169-16;
+	sx=50;
+	sy=169;
 	sprDir=1;
 
 	goombaX[0]=17; //159;
@@ -167,10 +170,16 @@ int main(){
 	MapSprite(0,map_rwalk1);
 	MapSprite(6,map_lgoomba1);
 	MapSprite(10,map_rgoomba2);
-//	MapSprite(14,map_rgoomba2);
+	MapSprite(14,map_rgoomba2);
 
 	g=0;
-	MoveSprite(0,161,sy+dy,2,3);
+ 	MoveSprite(0,161,sy+dy,2,3);
+
+//	while(1){
+//		WaitVsync(1);
+//		screenSections[0].scrollY++;
+//		screenSections[0].scrollX++;
+//	}
 
 	MoveSprite(goombaSprIndex[0],goombaX[0],176,2,2);
 	MoveSprite(goombaSprIndex[1],goombaX[1],176,2,2);
@@ -178,20 +187,20 @@ int main(){
 
 	//screenSections[0].scrollX=200;
 	screenSections[0].scrollY=0;
-	unsigned char delay=0;
+
 	
 	while(1){
 		WaitVsync(1);
 	
-		if(delay==1){
-			screenSections[1].scrollX+=1;
-		}
-		delay^=1;
+	//	if(delay==1){
+	//		screenSections[1].scrollX+=1;
+	//	}
+	//	delay^=1;
 
 		//screenSections[0].scrollY+=1;
 		//if(screenSections[0].scrollY>=screenSections[0].wrapLine)screenSections[0].scrollY=0;
 
-		screenSections[2].scrollX+=1;
+	//	screenSections[2].scrollX+=1;
 
 //	ScreenScrollY+=ScreenScrollYDir;
 	//	if(ScreenScrollY>=20 || ScreenScrollY==0) ScreenScrollYDir=-ScreenScrollYDir;
@@ -250,7 +259,7 @@ int main(){
 						MapSprite(goombaSprIndex[g],map_lgoomba2);
 					}
 				}
-				MoveSprite(goombaSprIndex[g],goombaX[g],176-16,2,2);
+				MoveSprite(goombaSprIndex[g],goombaX[g],176,2,2);
 			
 
 		}
@@ -274,8 +283,9 @@ void PerformActions(){
 	}
 
 	sdx=dx;
+	if(dx==1 && sx>=110) sdx=0;
 	if(dx==-1 && sx<=10) sdx=0;
-	if(dx==1 && sx>=220) sdx=0;
+	//if(dx==1 && sx>=220) sdx=0;
 
 	switch(action){
 		case ACTION_WALK:
@@ -412,15 +422,53 @@ unsigned char processControls(void){
 			jmpPos=0;
 		}
 	
+	}else if(joy&BTN_X){
+		screenSections[0].scrollY+=1;
+	//	if(screenSections[0].scrollY>=224)screenSections[1].scrollY=0;
+			
+
+
+		//while(ReadJoypad(0)!=0);
+	
+	}else if(joy&BTN_Y){
+
+		//while(ReadJoypad(0)!=0);
+	//	if(screenSections[0].scrollY==0){
+	//		screenSections[0].scrollY=223;
+		//}else{
+			screenSections[0].scrollY-=1;
+	//	}
+
+
+
+
 	}else if(joy&BTN_SR){
-//		ScreenScrollX++;
-		while(ReadJoypad(0)!=0);
+		screenSections[0].scrollX+=1;
+
+		if(delay==1){
+			screenSections[1].scrollX+=1;
+		}
+		delay^=1;
+
+
+		//while(ReadJoypad(0)!=0);
 	
 	}else if(joy&BTN_SL){
-//		ScreenScrollX--;
-		while(ReadJoypad(0)!=0);
+		screenSections[0].scrollX-=1;
+		//while(ReadJoypad(0)!=0);
+
+		if(delay==1){
+			screenSections[1].scrollX-=1;
+		}
+		delay^=1;
+	}else if(joy&BTN_UP){
+		sy--;
+	}else if(joy&BTN_DOWN){
+		sy++;
 	
-	}else if(joy&BTN_LEFT){
+	}
+	
+	if(joy&BTN_LEFT){
 		
 		//ScreenScrollX--;
 		//while(ReadJoypad(0)!=0);
@@ -435,6 +483,9 @@ unsigned char processControls(void){
 			sprDir=-1;
 		}
 		
+		if(sx<=110){
+			//screenSections[0].scrollX-=1;
+		}
 
 	}else if(joy&BTN_RIGHT){
 
@@ -452,25 +503,11 @@ unsigned char processControls(void){
 			sprDir=1;
 		}
 		
-		
-	}else if(joy&BTN_SELECT){
-		mode++;
-		if(mode==3) mode=0;
-
-		if(mode==0){
-			SetColorBurstOffset(0);
-			DrawMap2(13,15,map_opt0);
-		}else if(mode==1){
-			SetColorBurstOffset(3);
-			DrawMap2(13,15,map_opt1);
-		}else if(mode==2){
-			SetColorBurstOffset(4);
-			DrawMap2(13,15,map_opt2);
+		if(sx>=110){
+			screenSections[0].scrollX+=1;
 		}
 
-
-		while(ReadJoypad(0)!=0);
-
+	
 	}
 
 	if(stopping==true && stopFrame==1){

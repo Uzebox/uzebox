@@ -11,14 +11,14 @@ CC = avr-gcc
 ## Kernel settings
 KERNEL_DIR = ../../../kernel-4-uzeamp
 KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSOUND_CHANNEL_4_ENABLE=0
-KERNEL_OPTIONS += -DMAX_SPRITES=24 -DRAM_TILES_COUNT=25 -DSCREEN_SECTIONS_COUNT=3 -DSCREEN_TILES_V=26 -DFIRST_RENDER_LINE=28
+KERNEL_OPTIONS += -DMAX_SPRITES=24 -DRAM_TILES_COUNT=28 -DSCREEN_SECTIONS_COUNT=3 -DSCREEN_TILES_V=26 -DFIRST_RENDER_LINE=28
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections 
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -O0 -fsigned-char -ffunction-sections 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
