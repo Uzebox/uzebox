@@ -3,12 +3,13 @@
 ; Process video frame in tile mode (30*28)
 ;***************************************************	
 
-.global ScreenScrollX
-.global ScreenScrollY
+;.global ScreenScrollX
+;.global ScreenScrollY
 .global ram_tiles
 .global ram_tiles_restore
-.global screenSections
 .global sprites
+.global overlay_vram
+.global Screen
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -27,17 +28,34 @@
 #define vramWrapAdressLo	13
 #define vramWrapAdressHi	14
 
-.section .bss
-	.align 1
+;Sprites Struct offsets
+#define sprPosX  0
+#define sprPosY  1
+#define sprTileIndex_lo 2
+#define sprTileIndex_hi 3
+#define sprFlags 4
 
+
+
+
+.section .bss
+	.align 5
+	vram: 	  				.space VRAM_SIZE ;MUST be aligned to 32 bytes
+	overlay_vram:			.space VRAM_TILES_H*OVERLAY_LINES
+
+	.align 1
 	sprites:				.space SPRITE_STRUCT_SIZE*MAX_SPRITES
 	ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
 	ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
 	sprites_tiletable_lo: 	.byte 1
 	sprites_tiletable_hi: 	.byte 1	
 	vram_linear_buf:		.space 30
-	screenSections:			.space SCREEN_SECTIONS_COUNT*SCREEN_SECTION_STRUCT_SIZE
 
+	;ScreenType struct members
+Screen:
+	overlay_height:			.byte 1
+	screen_scrollX:			.byte 1
+	screen_scrollY:			.byte 1
 
 .section .text
 
@@ -47,13 +65,21 @@ sub_video_mode3:
 	ldi ZL,(0<<OCIE1A)
 	sts _SFR_MEM_ADDR(TIMSK1),ZL
 
+	;wait 873 cycles
+	ldi r26,lo8(204-2)
+	ldi r27,hi8(204-2)
+	sbiw r26,1
+	brne .-4		
+	nop
+
 
 	
 	;**********************
 	; This block updates the ram_tiles_restore buffer
 	; with the actual VRAM. This is required because since the time
 	; the process_sprite is executed at VSYNC, the main program may 
-	; have altered the vram (TODO: better explain)
+	; have altered the vram and wrong/old bakground tiles could
+	; be restored.
 	;***********************
 
 	;Set ramtiles indexes in VRAM 
@@ -112,7 +138,7 @@ wait_loop:
 	ldi YH,hi8(vram)
 
 	//add X scroll (coarse)
-	lds r18,screenSections+scrollX
+	lds r18,screen_scrollX ;ScreenScrollX
 	mov r25,r18
 	lsr r18
 	lsr r18
@@ -121,12 +147,13 @@ wait_loop:
 	add YL,r18
 	adc YH,r17
 
-
-	//add Y scroll (corse)
-	lds r22,screenSections+scrollY
+	;save wrap adress
+	movw r12,YL
 	
 
-	mov r16,r22	
+	//add Y scroll (corse)
+	lds r16,screen_scrollY ;ScreenScrollY
+	mov r22,r16
 	lsr r16
 	lsr r16
 	lsr r16 ;/8
@@ -137,148 +164,83 @@ wait_loop:
 	andi r22,0x7	;fine Y scrolling
 
 
+	ldi r17,VRAM_TILES_V
+	sub r17,r16
+	mov r15,r17	;Y tiles to draw before wrapping
 
-	;wait 873 cycles
-	ldi r26,lo8(204-1)
-	ldi r27,hi8(204-1)
-	sbiw r26,1
-	brne .-4	
-	nop
 
-	
-	lds r20,screenSections+tileTableAdressLo
-	lds r21,screenSections+tileTableAdressHi
+	lds r20,tile_table_lo
+	lds r21,tile_table_hi
 	out _SFR_IO_ADDR(GPIOR1),r20 ;store for later
 	out _SFR_IO_ADDR(GPIOR2),r21
 
-	lds r19,screenSections+wrapLine
-	lds r15,screenSections+sectionHeight
-	lds r11,screenSections+scrollY
+	;save main section value	
+	movw r10,YL
+	mov r23,r22
+	mov r24,r15
+	mov r9,r25
 
-	clr r8 ;current section no
-	
-	lds r12,screenSections+vramBaseAdressLo
-	lds r13,screenSections+vramBaseAdressHi
-	add r12,r18	;add X scroll coarse
-	adc r13,r8
-	
-	;compute vram render start address
-	mov r16,r11
-	lsr r16
-	lsr r16
-	lsr r16
-	mul r16,r17
-	movw YL,r12
-	add YL,r0
-	adc YH,r1
+	;load value for overlay if it's activated (overlay_height>0)
+	lds r19,overlay_height	
+	cpi r19,0
+	in r0, _SFR_IO_ADDR(SREG)
 
+	sbrs r0,SREG_Z
+	clr r22
+	sbrs r0,SREG_Z
+	ldi YL,lo8(overlay_vram)
+	sbrs r0,SREG_Z
+	ldi YH,hi8(overlay_vram)
+	sbrs r0,SREG_Z
+	ldi r24,OVERLAY_LINES
+	sbrs r0,SREG_Z
+	clr r9
 
 	ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw (28*8)
-	mov r10,r16
+	mov r8,r16
 
 
 ;*************************************************************
 ; Rendering main loop starts here
 ;*************************************************************
-;r8  = Current section No
-;r10 = total scanlines to draw
-;r11 = Section current scroll line
-;r12:r13 = section Y wrap adress
-;r15 = Section height
-;r19 = Section wrap line 
-;r22 = section current tile row
-;r25 = scrollX
+;r8      = Total scanlines to draw
+;r9      = Current section scrollX
+;r10:r11 = Main area begin address
+;r12:r13 = Main area Y wrap adress
+;r15 = Main Y tiles to draw before wrapping
+;r19 = Overlay tiles to draw
+;r22 = Current section tile row
+;r23 = Main section tile row
+;r24 = Current Y tiles to draw before wrapping
+;r25 = Main section scrollX
 
 next_text_line:	
 	;***draw scanline***
 	call render_tile_line
 
-	ldi r18,4
+	ldi r18,4+11
 	dec r18
 	brne .-4
-
+	
 	nop
 	nop
 	rjmp .
+	nop
+	rjmp .
 
-	inc r11
+
+
 	inc r22
-
-	;Process split screen sections (33 cycles)
-	;----------------------------------
-	dec r15	;end of screen section?
-	brne no_split
-	
-	inc r8	;increment section No
-
-	ldi r16,SCREEN_SECTION_STRUCT_SIZE
-	mul r8,r16
-	movw ZL,r0
-	subi ZL,lo8(-(screenSections))	
-	sbci ZH,hi8(-(screenSections))
-
-	ldd r0,Z+tileTableAdressLo
-	ldd r1,Z+tileTableAdressHi
-	out _SFR_IO_ADDR(GPIOR1),r0 ;store for later use
-	out _SFR_IO_ADDR(GPIOR2),r1
-
-
-	ldd r19,Z+wrapLine
-	ldd r15,Z+sectionHeight
-	ldd r11,Z+scrollY
-	ldd r25,Z+scrollX
-
-	clr r0
-	ldi r17,VRAM_TILES_H
-
-	;vramWrapAdress=vramBaseAdress+(scrollX/8)
-	ldd r12,Z+vramBaseAdressLo
-	ldd r13,Z+vramBaseAdressHi
-	mov r16,r25
-	lsr r16
-	lsr r16
-	lsr r16
-	add r12,r16	;add X scroll coarse
-	adc r13,r0
-
-	;vramRenderAdress=vramWrapAdress+((scrollY/8)*VRAM_TILES_H);	
-	movw YL,r12
-	mov r16,r11
-	lsr r16
-	lsr r16
-	lsr r16
-	mul r16,r17
-	add YL,r0
-	adc YH,r1
-
-
-	mov r22,r11
-	andi r22,0x7	;tile offset (fine Y scrolling)
-	rjmp end_split
-no_split:
-
-	ldi r16,15
-	dec r16
-	brne .-4 ;27
-	
-end_split:	
-
-	cp r11,r19 	;wrap Y?
-	brne .+2 	
-	movw YL,r12	;load wrap adress
-	brne .+2
-	clr r11		;reset Y scroll line
-	brne .+2	
-	clr r22		;reset tile row
-
-
-
-	dec r10
+	dec r8
 	breq text_frame_end
 
 	cpi r22,8 ;last char line? 1
 	breq next_text_row 
-	
+
+	ldi r16,4
+	dec r16
+	brne .-4 ;27
+		
 	;wait to align with next_tile_row instructions (+1 cycle for the breq)
 	rjmp .
 	rjmp .
@@ -288,7 +250,23 @@ next_text_row:
 
 	clr r22		;current char line			;1	
 	adiw YL,VRAM_TILES_H 	;process next line in VRAM ;2
+
+	dec r24		;wrap section?
+	brne .+2
+	movw YL,r12
+
+	dec r19
+	brne .+2
+	mov r22,r23	;section tile row
+	brne .+2
+	movw YL,r10 ;vram adress
+	brne .+2
+	mov r24,r15 ;Y wrapping
+	brne .+2
+	mov r9,r25  ;scrollX
+			
 	rjmp next_text_line
+
 
 
 
@@ -308,6 +286,7 @@ text_frame_end:
 
 	rcall hsync_pulse ;145
 	
+	clr r1
 	call RestoreBackground
 
 	;set vsync flag if beginning of next frame (each two fields)
@@ -331,17 +310,18 @@ text_frame_end:
 	lds r20,sync_pulse
 	subi r20,SCREEN_TILES_V*TILE_HEIGHT
 	sts sync_pulse,r20
-		
-	;clear any pending timer int
-	ldi ZL,(1<<OCF1A)
-	sts _SFR_MEM_ADDR(TIFR1),ZL
 
 	;re-activate sync timer interrupts
 	ldi ZL,(1<<OCIE1A)
 	sts _SFR_MEM_ADDR(TIMSK1),ZL
+			
+	;clear any pending timer int
+	ldi ZL,(1<<OCF1A)
+	sts _SFR_MEM_ADDR(TIFR1),ZL
 
 
-	clr r1
+
+
 
 
 	ret
@@ -363,10 +343,12 @@ text_frame_end:
 render_tile_line:
 	push YL
 	push YH
+	push r23
 	push r22
 	push r19
 	push r13
 	push r12
+	push r9
 	
 
 
@@ -438,7 +420,7 @@ render_tile_line:
 
 	;handle fine scroll offset
 	;lds r22,screenSections+scrollX
-	mov r22,r25
+	mov r22,r9
 	andi r22,0x7		
 	mov r14,r22	;pixels to draw on last tile	
 	cli			;no trailing pixel to draw (hack, see end: )
@@ -673,12 +655,12 @@ end_fine_scroll_ram:
 	clr r16	
 	out _SFR_IO_ADDR(DATA_PORT),r16   
 
-
+	pop r9
 	pop r12
 	pop r13
-
 	pop r19
 	pop r22
+	pop r23
 	pop YH
 	pop YL
 
@@ -749,7 +731,8 @@ end_fine_scroll_ram:
 	; r19:r18=DY:DX
 	;************************************
 	BlitSprite:
-	
+
+
 		;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
 		ldi r25,SPRITE_STRUCT_SIZE
 		mul r24,r25
@@ -758,18 +741,37 @@ end_fine_scroll_ram:
 		ldi ZH,hi8(sprites)	
 		add ZL,r0
 		adc ZH,r1
-		ldd r24,Z+sprTileIndex
 
+		/*
+		ldd r24,Z+sprTileIndex	
 		lds ZL,sprites_tiletable_lo
 		lds ZH,sprites_tiletable_hi
 		ldi r25,TILE_WIDTH*TILE_HEIGHT
 		mul r24,r25
 		add ZL,r0	;src
 		adc ZH,r1
+		*/
+
+
+		;8x16 multiply
+		ldd r24,Z+sprTileIndex_lo
+		ldd r25,Z+sprTileIndex_hi
+		ldi r30,TILE_WIDTH*TILE_HEIGHT
+		mul r24,r30
+		movw r26,r0
+		mul r25,r30
+		add r27,r0
+		lds ZL,sprites_tiletable_lo
+		lds ZH,sprites_tiletable_hi
+		add ZL,r26	;src
+		adc ZH,r27
+
+
 
 		;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
 		ldi XL,lo8(ram_tiles)	
 		ldi XH,hi8(ram_tiles)
+		ldi r25,TILE_WIDTH*TILE_HEIGHT
 		mul r22,r25
 		add XL,r0
 		adc XH,r1
@@ -862,7 +864,7 @@ end_fine_scroll_ram:
 		brne y2_loop
 
 		clr r1
-
+	
 		ret
 #endif
 

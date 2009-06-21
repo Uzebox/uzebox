@@ -27,6 +27,10 @@
 	-Use of conditionals (see defines.h)
 	-Many small improvements
 
+	V3 Changes:
+	-Mode 3 scrolling
+	-EEPROM functions
+
 */
 
 #include <avr/io.h>
@@ -35,11 +39,6 @@
 #define addr 0
 #define tileIndex 2
 
-;Sprites Struct offsets
-#define sprPosX  0
-#define sprPosY  1
-#define sprTileIndex 2
-#define sprFlags 3
 
 
 
@@ -109,8 +108,7 @@
 		;Currently this is done by putting this object as first in the linking phase and results in location 0x100
 		;For some reasons, adding a .align 8 before actually cause following variables in .data to
 		;be aligned on 0x200 hence wasting precious bytes.
-		;Do align with using a custom makefile, remove all source file from project then add *first* uzeboxVideoEngineCore.s
-		;then the other files.
+		;Do align by using a custom makefile and add *first* uzeboxVideoEngineCore.s, then the other files to the build list.
 		scanline_sprite_buf:.space (SCREEN_TILES_H+2)*TILE_WIDTH ;+2 to account for left+right clipping
 	
 
@@ -130,8 +128,8 @@
 
 
 
-	.align 5
-	vram: 	  				.space VRAM_SIZE ;MUST be aligned to 32 bytes
+	//.align 5
+	//vram: 	  				.space VRAM_SIZE ;MUST be aligned to 32 bytes
 	
 
 .section .bss

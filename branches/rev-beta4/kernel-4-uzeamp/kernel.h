@@ -43,15 +43,25 @@
 		{
 			unsigned char x;
 			unsigned char y;
-			unsigned char tileIndex;
-			unsigned char flags;
-			unsigned char screenSection;
+			unsigned int tileIndex;
+			unsigned char flags;		
 		};			
 		
 		struct BgRestoreStruct{
 			unsigned int addr;
 			unsigned char tileIndex;
 		};
+
+		typedef struct {
+			unsigned char overlayHeight;
+			unsigned char scrollX;
+			unsigned char scrollY;
+		} ScreenType;
+
+		extern ScreenType Screen;
+		//extern unsigned char ScreenScrollX;
+		//extern unsigned char ScreenScrollY;
+		
 
 	#endif
 

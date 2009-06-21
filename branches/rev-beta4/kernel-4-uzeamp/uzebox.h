@@ -37,7 +37,7 @@
 	extern void SetSpriteVisibility(bool visible);
 	extern void MapSprite(unsigned char startSprite,const char *map);
 	extern void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height);
-
+	extern void Scroll(char sx,char sy);
 
 	extern void ClearVram(void);
 	extern void SetTile(char x,char y, unsigned int tileId);

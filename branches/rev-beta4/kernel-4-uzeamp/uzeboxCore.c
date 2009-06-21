@@ -92,7 +92,7 @@ extern unsigned char tileheight, textheight;
 extern unsigned char line_buffer[];
 extern unsigned char render_start;
 extern unsigned char playback_start;
-
+extern unsigned char overlay_vram[];
 
 bool snesMouseEnabled=false;
 
@@ -263,7 +263,11 @@ void Initialize(void){
 			sprites[i].x=(SCREEN_TILES_H*TILE_WIDTH);		
 		}
 
+		for(i=0;i<(OVERLAY_LINES*VRAM_TILES_H);i++){
+			overlay_vram[i]=RAM_TILES_COUNT;
+		}
 		//set defaults for main screen section
+		/*
 		for(i=0;i<SCREEN_SECTIONS_COUNT;i++){
 			screenSections[i].scrollX=0;
 			screenSections[i].scrollY=0;
@@ -277,6 +281,7 @@ void Initialize(void){
 			screenSections[i].wrapLine=0;
 			screenSections[i].flags=SCT_PRIORITY_SPR;
 		}
+		*/
 	#endif
 
 

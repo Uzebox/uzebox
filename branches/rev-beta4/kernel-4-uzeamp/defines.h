@@ -181,6 +181,10 @@
 	#endif
 
 
+	#ifndef ENABLE_SOUND
+		#define ENABLE_SOUND 1
+	#endif
+
 	/*
 	 * Kernel Internal settings, do not modify
 	 */
@@ -280,9 +284,11 @@
 		#define TILE_HEIGHT 8
 		#define TILE_WIDTH 8
 
-		#ifndef VRAM_TILES_H
-			#define VRAM_TILES_H 32
+		#ifndef OVERLAY_LINES
+			#define OVERLAY_LINES 0
 		#endif
+
+		#define VRAM_TILES_H 32
 
 		#ifndef VRAM_TILES_V
 			#define VRAM_TILES_V 32		
@@ -301,7 +307,7 @@
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 		#define VRAM_ADDR_SIZE 1 //in bytes
 		
-		#define SCREEN_SECTION_STRUCT_SIZE 15
+	//	#define SCREEN_SECTION_STRUCT_SIZE 15
 		
 		#define SPRITES_ENABLED 1
 

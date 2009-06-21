@@ -1,6 +1,6 @@
 /*
  *  Uzebox Kernel
- *  Copyright (C) 2008  Alec Bourque
+ *  Copyright (C) 2008-2009  Alec Bourque
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,9 +41,13 @@
 	bool spritesOn=true;
 
 	void RestoreBackground(){
-		unsigned char i;
+		unsigned char i,j;
+		unsigned int a;
 		for(i=0;i<free_tile_index;i++){			
-			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+			a=ram_tiles_restore[i].addr;
+			j=ram_tiles_restore[i].tileIndex;
+			vram[a]=j;
+			//vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
 		}	
 	}
 
@@ -52,18 +56,13 @@
 		spritesOn=visible;
 	}
 
-
+	unsigned char xx=0;
 	void ProcessSprites(){
-
-		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy,sx,sy;
-		unsigned int ramPtr;
-
-
-		free_tile_index=0;
-
 		
+		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy;
+		unsigned int ramPtr,ssx,ssy;
 
-
+		free_tile_index=0;	
 		if(!spritesOn) return;
 		
 		for(i=0;i<MAX_SPRITES;i++){
@@ -71,21 +70,18 @@
 
 			if(bx!=(SCREEN_TILES_H*TILE_WIDTH)){
 				//get tile's screen section offsets
-				//sx=sprites[i].x + screenSections[sprites[i].screenSection].scrollX;
-				//sy=sprites[i].y + screenSections[sprites[i].screenSection].scrollY;
-				sx=sprites[i].x + screenSections[0].scrollX;
-				sy=sprites[i].y + screenSections[0].scrollY;				
-
+				ssx=sprites[i].x+Screen.scrollX;
+				ssy=sprites[i].y+Screen.scrollY;
 				tx=1;
 				ty=1;
 
 				//get the BG tiles that are overlapped by the sprite
-				bx=sx>>3;
-				dx=sx&0x7;
+				bx=ssx>>3;
+				dx=ssx&0x7;
 				if(dx>0) tx++;
 
-				by=sy>>3;			
-				dy=sy&0x7;		
+				by=ssy>>3;			
+				dy=ssy&0x7;		
 				if(dy>0) ty++;			
 
 				for(y=0;y<ty;y++){
@@ -95,8 +91,12 @@
 						wx=bx+x;
 
 						//process X-Y wrapping
-						if(wy>=32)wy=0;
-						if(wx>=32)wx=0;
+						if(wy>=(VRAM_TILES_V*2)){
+							wy-=(VRAM_TILES_V*2);
+						}else if(wy>=VRAM_TILES_V){
+							wy-=VRAM_TILES_V;
+						}
+						if(wx>=VRAM_TILES_H)wx-=VRAM_TILES_H; //should always be 32
 
 						ramPtr=(wy*VRAM_TILES_H)+wx;
 						bt=vram[ramPtr];						
@@ -116,6 +116,7 @@
 						}
 					
 						if(bt<RAM_TILES_COUNT){
+					
 
 							BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);
 
@@ -132,6 +133,75 @@
 
 		//restore BG tiles
 		RestoreBackground();
+
+	}
+
+	//Scroll the screen by the relative amount specified (+/-)
+	//This function handles screen wrapping on the Y axis if VRAM_TILES_V is less than 32
+ 	void Scroll(char dx,char dy){
+		Screen.scrollY+=dy;
+		Screen.scrollX+=dx;
+
+		if(VRAM_TILES_V<32){
+
+			if(Screen.scrollY>=(VRAM_TILES_V*8)){
+				if(dy>=0){	
+					Screen.scrollY=(Screen.scrollY-(VRAM_TILES_V*8));
+				}else{
+					Screen.scrollY=((VRAM_TILES_V*8)-1)-(0xff-Screen.scrollY);
+				}			
+			}
+			
+		}
+		
+ 	}
+	
+	//position the scrolling is absolute value
+	void SetScrolling(char sx,char sy){
+
+		Screen.scrollX=sx;
+
+		if(VRAM_TILES_V<32){
+			if(sy<(VRAM_TILES_V*8)){
+				Screen.scrollY=sy;
+			}
+		}else{
+			Screen.scrollY=sy;
+		}
+	}
+
+	void MapSprite(unsigned char startSprite,const char *map){
+		unsigned char tile;
+		unsigned char mapWidth=pgm_read_byte(&(map[0]));
+		unsigned char mapHeight=pgm_read_byte(&(map[1]));
+
+		for(unsigned char dy=0;dy<mapHeight;dy++){
+			for(unsigned char dx=0;dx<mapWidth;dx++){
+			
+			 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
+				sprites[startSprite++].tileIndex=tile ;
+			}
+		}
+
+	}
+
+	void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height){
+	
+		for(unsigned char dy=0;dy<height;dy++){
+			for(unsigned char dx=0;dx<width;dx++){
+				
+				sprites[startSprite].x=x+(8*dx);
+				
+				if((VRAM_TILES_V<32) && (y+(8*dy))>(VRAM_TILES_V*8)){
+					unsigned char tmp=(y+(8*dy))-(VRAM_TILES_V*8);
+					sprites[startSprite].y=tmp;
+				}else{
+					sprites[startSprite].y=y+(8*dy);
+				}
+				
+				startSprite++;
+			}
+		}	
 
 	}
 
@@ -185,7 +255,33 @@
 
 	}
 
+	void MapSprite(unsigned char startSprite,const char *map){
+		unsigned char tile;
+		unsigned char mapWidth=pgm_read_byte(&(map[0]));
+		unsigned char mapHeight=pgm_read_byte(&(map[1]));
 
+		for(unsigned char dy=0;dy<mapHeight;dy++){
+			for(unsigned char dx=0;dx<mapWidth;dx++){
+			
+			 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
+				sprites[startSprite++].tileIndex=tile ;
+			}
+		}
+
+	}
+
+	void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height){
+	
+		for(unsigned char dy=0;dy<height;dy++){
+			for(unsigned char dx=0;dx<width;dx++){
+				
+				sprites[startSprite].x=x+(8*dx);
+				sprites[startSprite].y=y+(8*dy);
+				startSprite++;
+			}
+		}	
+
+	}
 #endif
 
 
@@ -415,36 +511,6 @@ void WaitVsync(int count){
 	}
 }
 
-#if SPRITES_ENABLED == 1
-
-	void MapSprite(unsigned char startSprite,const char *map){
-		unsigned char tile;
-		unsigned char mapWidth=pgm_read_byte(&(map[0]));
-		unsigned char mapHeight=pgm_read_byte(&(map[1]));
-
-		for(unsigned char dy=0;dy<mapHeight;dy++){
-			for(unsigned char dx=0;dx<mapWidth;dx++){
-			
-			 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
-				sprites[startSprite++].tileIndex=tile ;
-			}
-		}
-
-	}
-
-	void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height){
-	
-		for(unsigned char dy=0;dy<height;dy++){
-			for(unsigned char dx=0;dx<width;dx++){
-				
-				sprites[startSprite].x=x+(8*dx);
-				sprites[startSprite].y=y+(8*dy);
-				startSprite++;
-			}
-		}	
-
-	}
-#endif
 
 //Fade table created by tim1724 
 #define FADER_STEPS 12
