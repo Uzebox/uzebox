@@ -43,6 +43,8 @@
 #define SYNC_PORT PORTB
 #define DATA_PORT PORTC
 
+#define VIDEOCE_PIN PB4 //Pin used to enable the AD723 on the Fuzebox & AVCore
+
 #define TILE_HEIGHT 8
 #define TILE_WIDTH 6
 
@@ -589,7 +591,7 @@ do_eq:
 	//call update_sound_buffer_2 ;36 -> 63
 	call wait63cycles
 
-	ldi ZL,181-9+4
+	ldi ZL,176
 do_eq_delay:
 	nop
 	dec ZL
@@ -802,7 +804,7 @@ InitVideo:
 	ldi r20,(1<<CS20)  ;enable timer, no pre-scaler
 	sts _SFR_MEM_ADDR(TCCR2B),r20
 
-	ldi r20,(1<<SYNC_PIN)
+	ldi r20,(1<<SYNC_PIN)+(1<<VIDEOCE_PIN)
 	out _SFR_IO_ADDR(SYNC_PORT),r20	;set sync line to hi
 
 
