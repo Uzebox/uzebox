@@ -44,6 +44,9 @@
 #define DATA_PORT PORTC
 
 #define VIDEOCE_PIN PB4 //Pin used to enable the AD723 on the Fuzebox & AVCore
+#define AUDIO_OUT_PIN PD7
+#define LED_PIN PD4
+#define RESET_SWITCH_PIN PD2
 
 #define TILE_HEIGHT 8
 #define TILE_WIDTH 6
@@ -98,6 +101,7 @@
 
 .section .init8
 	call InitVideo
+
 
 .section .text
 	fontshade:  		.byte 91,164,246,246,246,164,91,82
@@ -739,8 +743,10 @@ InitVideo:
 	out _SFR_IO_ADDR(DDRC),r20 ;video dac
 	out _SFR_IO_ADDR(DDRB),r20 ;h-sync for ad725
 
-	ldi r20,0x80
-	out _SFR_IO_ADDR(DDRD),r20 ;audio-out, midi-in
+	ldi r20,(1<<AUDIO_OUT_PIN)+(1<<LED_PIN)
+	out _SFR_IO_ADDR(DDRD),r20 ;audio-out + led
+
+
 
 	;setup port A for joypads
 	ldi r20,_SFR_IO_ADDR(DDRA)
@@ -805,7 +811,7 @@ InitVideo:
 	sts _SFR_MEM_ADDR(TCCR2B),r20
 
 	ldi r20,(1<<SYNC_PIN)+(1<<VIDEOCE_PIN)
-	out _SFR_IO_ADDR(SYNC_PORT),r20	;set sync line to hi
+	out _SFR_IO_ADDR(SYNC_PORT),r20	;set sync line to hi & enable AD723
 
 
 	;Unpack font in RAM
@@ -842,6 +848,16 @@ loop3:
 	dec r24
 	brne loop1
 
+	#if BOOTLOADER_ADDR != 0 
+		in r16, _SFR_IO_ADDR(MCUCR)
+		mov r17, r16
+		; Enable change of Interrupt Vectors
+		ori r16, (1<<IVCE)
+		out _SFR_IO_ADDR(MCUCR), r16
+		; Move interrupts to Boot Flash section
+		ldi r17, (1<<IVSEL)
+		out _SFR_IO_ADDR(MCUCR), r17
+	#endif
 
 	sei
 

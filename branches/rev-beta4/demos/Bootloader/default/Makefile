@@ -7,13 +7,15 @@ PROJECT = Bootloader
 MCU = atmega644
 TARGET = Bootloader.elf
 CC = avr-gcc
+#BOOTLOAD_ADDRESS = 0
+BOOTLOAD_ADDRESS = 0xF000
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99          -DF_CPU=28636360UL -O0 -fsigned-char
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -DBOOTLOADER_ADDR=$(BOOTLOAD_ADDRESS)
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -23,7 +25,8 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=Bootloader.map
+LDFLAGS += -Wl,-Map=Bootloader.map
+LDFLAGS += -Wl,--section-start=.text=$(BOOTLOAD_ADDRESS) 
 
 
 ## Intel Hex file production flags

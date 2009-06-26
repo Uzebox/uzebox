@@ -5,6 +5,8 @@
 /*
  * Joystick constants & functions
  */
+
+
 #define BTN_SR	   1
 #define BTN_SL	   2
 #define BTN_X	   4
@@ -17,6 +19,7 @@
 #define BTN_SELECT 512
 #define BTN_Y      1024 
 #define BTN_B      2048 
+
 
 
 extern void WaitVsync(int count);
@@ -133,7 +136,7 @@ int main(){
 			if(y>5){
 				drawCursor(x,y,37,0);
 				y--;
-				wave_vol=255;
+				wave_vol=90;
 			}
 		}
 	
@@ -141,12 +144,25 @@ int main(){
 			if(y<18){
 				drawCursor(x,y,37,0);
 				y++;
-				wave_vol=255;
+				wave_vol=90;
 			}
 		}
 
 		if(joypad_status&BTN_SELECT){
 			while(joypad_status!=0);
+		}
+
+		if(joypad_status&BTN_START){
+			while(joypad_status!=0);
+
+			asm("cli");
+			/* Get MCUCR*/
+			unsigned char temp = MCUCR;
+			/* Enable change of Interrupt Vectors */
+			MCUCR = temp|(1<<IVCE);
+			/* Move interrupts to Start of Flash */
+			MCUCR = temp&~(1<<IVSEL);
+			asm("jmp 0");
 		}
 
 	}
