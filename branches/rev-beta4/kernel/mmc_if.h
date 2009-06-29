@@ -2,6 +2,7 @@
 /* ***********************************************************************
 **
 **  Copyright (C) 2006  Jesper Hansen <jesper@redegg.net> 
+**  Contributions: Eric Anderton <eric.t.anderton@gmail.com>, Roland Riegel <feedback@roland-riegel.de>
 **
 **
 **  Interface functions for MMC/SD cards
@@ -169,5 +170,15 @@ int mmc_readsector(uint32_t lba, uint8_t *buffer);
 	\return 0 on success, other values on error 
 */
 uint8_t mmc_init(void);
+
+extern void mmc_send_command(uint8_t command, uint16_t px, uint16_t py);
+extern int mmc_readNextSector(uint8_t *buffer);
+extern void mmc_clock_and_release(void);
+extern uint8_t mmc_datatoken(void);
+
+/*
+    reciprocal operation for mmc_readsector
+*/
+int mmc_writesector(uint32_t lba, uint8_t *buffer);
 
 #endif

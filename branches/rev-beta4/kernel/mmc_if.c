@@ -1,7 +1,8 @@
 
 /* ***********************************************************************
 **
-**  Copyright (C) 2006  Jesper Hansen <jesper@redegg.net> 
+**  Copyright (C) 2006-2009  Jesper Hansen <jesper@redegg.net> 
+**  Contributions: Eric Anderton <eric.t.anderton@gmail.com>, Roland Riegel <feedback@roland-riegel.de>
 **
 **
 **  Interface functions for MMC/SD cards
@@ -165,6 +166,56 @@ int mmc_readsector(uint32_t lba, uint8_t *buffer)
 }
 
 
+//used in multi sector read
+int mmc_readNextSector(uint8_t *buffer)
+{
+	uint16_t i;
+
+	if (mmc_datatoken() != 0xfe)	// if no valid token
+	{
+	    mmc_clock_and_release();	// cleanup and	
+   		return -1;					// return error code
+	}
+
+	for (i=0;i<512;i++)				// read sector data
+    	*buffer++ = spi_byte(0xff);
+
+	spi_byte(0xff);					// ignore dummy checksum
+	spi_byte(0xff);					// ignore dummy checksum
+
+
+	return 0;						// return success		
+}
+
+/** Write MMC/SD sector.
+ 	Write to a single 512 byte sector of the MMC/SD card
+	\param lba	Logical sectornumber to write
+	\param buffer	Pointer to buffer for data to be written
+	\return 0 on success, -1 on error
+*/
+int mmc_writesector(uint32_t lba, uint8_t *buffer)
+{
+	// send read command and logical sector address
+	mmc_send_command(24,(lba>>7) & 0xffff, (lba<<9) & 0xffff);
+
+	if (mmc_datatoken() != 0xfe)	// if no valid token
+	{
+	    mmc_clock_and_release();	// cleanup and	
+   		return -1;					// return error code
+	}
+ 
+	for (uint16_t i=0; i<512; ++i){
+    	spi_byte(*buffer++);	// write sector data
+	}
+ 
+	// send dummy checksum
+	spi_byte(0xff);
+	spi_byte(0xff);
+ 
+    mmc_clock_and_release();		// cleanup
+ 
+	return 0;						// return success		
+}
 
 
 
