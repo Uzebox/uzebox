@@ -18,6 +18,7 @@
 
 
 #include <avr/io.h>
+#include "defines.h"
 
 ;Line rate timer delay: 15.73426 kHz*2 = 1820/2 = 910
 ;2x is to account for vsync equalization & serration pulse that are at 2x line rate
@@ -51,13 +52,7 @@
 #define TILE_HEIGHT 8
 #define TILE_WIDTH 6
 
-#define VRAM_TILES_H 40 
-#define VRAM_TILES_V 28
-#define SCREEN_TILES_H 40
-#define SCREEN_TILES_V 28
-
 #define FIRST_RENDER_LINE 20
-#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V*2
 
 #define JOYPAD_OUT_PORT PORTA
 #define JOYPAD_IN_PORT PINA
@@ -78,6 +73,7 @@
 .global InitVideo
 .global wave_vol
 .global wave_pos
+.global WaitVSync
 
 
 .section .bss
@@ -904,7 +900,32 @@ wait63cycles:
 	pop r16
 	ret
 
+;
+; WaitVSync(r20:count) - waits a 'count' screen cycles, then returns
+;
+; USES: r16,r17,r20,X
 
+WaitVSync:
+    ldi XL,lo8(vsync_flag)
+    ldi XH,hi8(vsync_flag)
+WaitVSync_wait:
+    ; wait for flag
+    ld r17,X
+    cpi r17,0
+    breq WaitVSync_wait
+    
+    ; reset flag
+    clr r17
+    st X,r17
+    
+    ; check, decrement and do it again if needed
+    cpi r20,0
+    brne WaitVSync_done
+    dec r20
+    rjmp WaitVSync_wait
+    
+WaitVSync_done:
+    ret
 
 fonts:
 ;font size=512 bytes
