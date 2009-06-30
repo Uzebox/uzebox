@@ -52,7 +52,7 @@ main_loop:
     call menucursor
     
     ;mimic a selection
-    call menushowinfo
+    ;call menushowinfo
     
     rjmp main_loop
     

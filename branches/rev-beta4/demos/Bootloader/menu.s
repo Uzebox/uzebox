@@ -8,6 +8,7 @@
 .global getmenudata
 .global rendermenu
 .global menucursor
+.global menushowinfo
 
 .section .bss
     menuStartDirEntry:              .space 2
