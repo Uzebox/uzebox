@@ -64,7 +64,7 @@ void showHelp(char* programName){
     printerr("Uzebox Emulator " VERSION "\n");
     printerr("- Runs an Uzebox game file in either .hex or .uze format.\n");
     printerr("Usage:\n");
-    printerr("\t%s [OPTIONS] HEXFILE\n",programName);
+    printerr("\t%s [OPTIONS] GAMEFILE\n",programName);
     printerr("Options:\n");
     printerr("\t--help -h           Show this help screen\n");
     printerr("\t--bp -k <addr>      Set breakpoint address\n");

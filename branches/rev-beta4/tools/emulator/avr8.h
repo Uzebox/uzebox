@@ -433,6 +433,12 @@ struct avr8
     #define SPI_DEBUG(...)
 #endif
 
+#ifdef USE_EEPROM_DEBUG 
+    #define EEPROM_DEBUG(...) printf(__VA_ARGS__)
+#else
+    #define EEPROM_DEBUG(...)
+#endif
+
 #ifdef USE_PORT_PRINT
 #else
 #endif
