@@ -174,7 +174,6 @@ int main(int argc,char **argv)
         }
         else{
             heximage = argv[i];
-            printf("using hex image: %s\n",argv[i]);
         }
     }
     
@@ -207,6 +206,7 @@ int main(int argc,char **argv)
     if(heximage){
         unsigned char* buffer = (unsigned char*)(uzebox.progmem);
         if(isUzeromFile(heximage)){
+            printf("-- Loading UzeROM Image --\n");
             if(!loadUzeImage(heximage,&uzeRomHeader,buffer)){
                 printerr("Error: cannot load UzeRom file '%s'.\n\n",heximage);
                 showHelp(argv[0]);
@@ -219,10 +219,13 @@ int main(int argc,char **argv)
             }
         }
        // else if(!load_hex(heximage,(unsigned char*)(uzebox.progmem))){
-        else if(!loadHex(heximage,buffer)){
-            printerr("Error: cannot load HEX image '%s'.\n\n",heximage);
-            showHelp(argv[0]);
-            return 1;
+        else{
+            printf("-- Loading Hex Image --\n");
+            if(!loadHex(heximage,buffer)){
+                printerr("Error: cannot load HEX image '%s'.\n\n",heximage);
+                showHelp(argv[0]);
+                return 1;
+            }
         }
     }
     
