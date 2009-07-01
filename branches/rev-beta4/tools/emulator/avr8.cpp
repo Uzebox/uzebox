@@ -2028,12 +2028,12 @@ void avr8::SDMapDrive(const char* driveLetter){
     char drivePath[] = "\\\\.\\X:";
         
     if(hDisk != INVALID_HANDLE_VALUE){
-        printf("SD drive already specified.");
+        printf("Error: SD drive already specified.");
         shutdown(1);
     }
     
     if(strlen(driveLetter)>1){
-        printf("Invalid Drive letter: %s\n",driveLetter);
+        printf("Error: Invalid Drive letter: %s\n",driveLetter);
         shutdown(1);
     }
     
@@ -2057,9 +2057,11 @@ void avr8::SDMapDrive(const char* driveLetter){
     __int64 totalSize = sectors*sectorSize;
     __int64 i;
 
-    printf("Cylinders %lld\nTracks Per Cylinder: %d\nSectors Per Track %d\nSector Size: %d\n",cylinders,disk.TracksPerCylinder,disk.SectorsPerTrack,sectorSize);
-    printf("Total Sectors: %lld\n",sectors);
-    printf("Media Size: %lld\n",totalSize);
+    #ifdef USE_SPI_DEBUG
+        printf("Cylinders %lld\nTracks Per Cylinder: %d\nSectors Per Track %d\nSector Size: %d\n",cylinders,disk.TracksPerCylinder,disk.SectorsPerTrack,sectorSize);
+        printf("Total Sectors: %lld\n",sectors);
+        printf("Media Size: %lld\n",totalSize);
+    #endif
             
     SDPartitionEntry entry;    
     
@@ -2078,15 +2080,17 @@ void avr8::SDMapDrive(const char* driveLetter){
     entry.sectorOffset = partition.HiddenSectors;
     entry.sectorCount = (*(__int64*)(&partition.PartitionLength))/sectorSize;
     
-    printf("----------\n");
-    printf("state: %0.4X\n",entry.state);
-    // printf("startHead: %0.4X\n",entry.startHead);
-    // printf("startCylinder: %0.4X\n",entry.startCylinder);
-    printf("type: %0.2X\n",entry.type);
-    //  printf("endHead: %0.4X\n",entry.endHead);
-    //  printf("endCylinder: %0.4X\n",entry.endCylinder);
-    printf("sectorCount: %0.8X\n",entry.sectorCount);
-    printf("sectorOffset: %0.8X\n",entry.sectorOffset);
+    #ifdef USE_SPI_DEBUG
+        printf("----------\n");
+        printf("state: %0.4X\n",entry.state);
+        // printf("startHead: %0.4X\n",entry.startHead);
+        // printf("startCylinder: %0.4X\n",entry.startCylinder);
+        printf("type: %0.2X\n",entry.type);
+        //  printf("endHead: %0.4X\n",entry.endHead);
+        //  printf("endCylinder: %0.4X\n",entry.endCylinder);
+        printf("sectorCount: %0.8X\n",entry.sectorCount);
+        printf("sectorOffset: %0.8X\n",entry.sectorOffset);
+    #endif
     
     SDBuildMBR(&entry);
     
