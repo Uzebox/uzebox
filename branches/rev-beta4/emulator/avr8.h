@@ -412,7 +412,6 @@ struct avr8
     void spi_calculateClock();    
 	void update_hardware(int cycles);    
     void update_spi();
-	u16 load_hex(const char *filename,u16 ofset);    
     void SDLoadImage(char *filename);    
     void SDBuildMBR(SDPartitionEntry* entry);    
 #if defined(__WIN32__)
@@ -428,4 +427,12 @@ struct avr8
 #endif
 
 // undefine the following to disable SPI debug messages
-#define DEBUG_SPI(...) printf(__VA_ARGS__)
+#ifdef USE_SPI_DEBUG 
+    #define SPI_DEBUG(...) printf(__VA_ARGS__)
+#else
+    #define SPI_DEBUG(...)
+#endif
+
+#ifdef USE_PORT_PRINT
+#else
+#endif

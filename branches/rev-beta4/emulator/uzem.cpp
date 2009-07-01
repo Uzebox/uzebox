@@ -26,7 +26,10 @@ THE SOFTWARE.
 */
 #include "uzem.h"
 #include "avr8.h"
+#include "uzerom.h"
 #include <getopt.h>
+
+//TODO: support for .uze files
 
 static const struct option longopts[] ={
     { "help"       , no_argument      , NULL, 'h' },
@@ -42,7 +45,7 @@ static const struct option longopts[] ={
     { "mbr"        , no_argument      , NULL, 'r' },
     { "eeprom"     , required_argument, NULL, 'e' },
     { "pgm"        , required_argument, NULL, 'p' },
-    { "boot"       , required_argument, NULL, 'b' },
+    { "boot"       , no_argument,       NULL, 'b' },
     #if defined(__WIN32__)
         { "sd"     , required_argument, NULL, 's' },
     #endif 
@@ -55,28 +58,34 @@ static const struct option longopts[] ={
     static const char* shortopts = "hb:nhxim2i:r";
 #endif
 
+#define printerr(...) fprintf(stderr,__VA_ARGS__)
+
 void showHelp(char* programName){
-    fprintf(stderr,"Uzebox Emulator " VERSION "\n");
-    fprintf(stderr,"Usage:\n");
-    fprintf(stderr,"\t%s [OPTIONS] HEXFILE\n",programName);
-    fprintf(stderr,"Options:\n");
-    fprintf(stderr,"\t--help -h           Show this help screen\n");
-    fprintf(stderr,"\t--bp -k <addr>      Set breakpoint address\n");
-    fprintf(stderr,"\t--nosound  -n       Disable sound playback\n");
-    fprintf(stderr,"\t--fullscreen -f     Enable full screen\n");
-    fprintf(stderr,"\t--hwsurface -w      Use SDL hardware surface (probably slower)\n");
-    fprintf(stderr,"\t--nodoublebuf -x    No double buffering\n");
-    fprintf(stderr,"\t--interlaced -i     Turn on interlaced rendering\n");
-    fprintf(stderr,"\t--mouse -m          Start with emulated mouse enabled\n");
-    fprintf(stderr,"\t--2p -2             Start with snes 2p mode enabled\n");
-    fprintf(stderr,"\t--img -g <file>     SD card emulation w/image file\n");
-    fprintf(stderr,"\t--mbr -r            Enable MBR emulation (use w/--img for images w/o MBR)\n");
-    fprintf(stderr,"\t--eeprom -e <file>  Use following file for EEPRROM data on start/stop.\n");
-    fprintf(stderr,"\t--boot -b <file>    Bootloader hex file. Must be 1k, 2k, 4k, or 8k in size\n");
+    printerr("Uzebox Emulator " VERSION "\n");
+    printerr("- Runs an Uzebox game file in either .hex or .uze format.\n");
+    printerr("Usage:\n");
+    printerr("\t%s [OPTIONS] HEXFILE\n",programName);
+    printerr("Options:\n");
+    printerr("\t--help -h           Show this help screen\n");
+    printerr("\t--bp -k <addr>      Set breakpoint address\n");
+    printerr("\t--nosound  -n       Disable sound playback\n");
+    printerr("\t--fullscreen -f     Enable full screen\n");
+    printerr("\t--hwsurface -w      Use SDL hardware surface (probably slower)\n");
+    printerr("\t--nodoublebuf -x    No double buffering\n");
+    printerr("\t--interlaced -i     Turn on interlaced rendering\n");
+    printerr("\t--mouse -m          Start with emulated mouse enabled\n");
+    printerr("\t--2p -2             Start with snes 2p mode enabled\n");
+    printerr("\t--img -g <file>     SD card emulation w/image file\n");
+    printerr("\t--mbr -r            Enable MBR emulation (use w/--img for images w/o MBR)\n");
+    printerr("\t--eeprom -e <file>  Use following file for EEPRROM data on start/stop.\n");
+    printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
     #if defined(__WIN32__)
-        fprintf(stderr,"\t--sd -s <letter>    Map drive letter as SD device\n");
+        printerr("\t--sd -s <letter>    Map drive letter as SD device\n");
     #endif
 }
+
+// header for use with UzeRom files
+RomHeader uzeRomHeader;
 
 int main(int argc,char **argv)
 {
@@ -92,8 +101,8 @@ int main(int argc,char **argv)
     // init basic flags before parsing args
 	uzebox.sdl_flags = SDL_DOUBLEBUF | SDL_SWSURFACE;
 
-    fprintf(stderr,"\nNOTE THIS IS AN EXPERIMENTAL BRANCH OF THE UZEBOX EMULATOR\n");
-    fprintf(stderr,"PLEASE SEE THE FORUM FOR MORE DETAILS:  http://uzebox.org/forums\n\n");
+    printerr("\nNOTE THIS IS AN EXPERIMENTAL BRANCH OF THE UZEBOX EMULATOR\n");
+    printerr("PLEASE SEE THE FORUM FOR MORE DETAILS:  http://uzebox.org/forums\n\n");
 
     if(argc == 1) {
         showHelp(argv[0]);
@@ -105,7 +114,6 @@ int main(int argc,char **argv)
     char* sdimage = NULL;
     char* sddrive = NULL;
     char* eepromFile = NULL;
-    char* hexboot = NULL;
     int bootsize = 0;
     
     while((opt = getopt_long(argc, argv,shortopts,longopts,NULL)) != -1) {
@@ -152,7 +160,7 @@ int main(int argc,char **argv)
             eepromFile = optarg;
             break;
         case 'b':
-            hexboot = optarg;
+            uzebox.pc = 0xF000; //set start for boot image
             break;
         }
 	}
@@ -160,18 +168,19 @@ int main(int argc,char **argv)
     // get leftovers
     for (int i = optind; i < argc; ++i) {
         if(heximage){
-            fprintf(stderr,"Error: HEX file already specified (too many arguments?).\n\n",heximage);
+            printerr("Error: HEX file already specified (too many arguments?).\n\n",heximage);
             showHelp(argv[0]);
             return 1;
         }
         else{
             heximage = argv[i];
+            printf("using hex image: %s\n",argv[i]);
         }
     }
     
     // establish SD emulation if selected
     if(sdimage && sddrive){
-        fprintf(stderr,"Error: Cannot specify both an SD image file and an SD drive letter.\n\n");
+        printerr("Error: Cannot specify both an SD image file and an SD drive letter.\n\n");
         showHelp(argv[0]);
         return 1;
     }
@@ -188,34 +197,38 @@ int main(int argc,char **argv)
     }
     
     // attempt to load the hex image
-    if(!heximage && !hexboot){
-        fprintf(stderr,"Error: No HEX program or boot file specified.\n\n");
+    if(!heximage){
+        printerr("Error: No HEX program or boot file specified.\n\n");
         showHelp(argv[0]);
         return 1;
     }
-    
-    // write boot image
-    if(hexboot){
-        if(!uzebox.load_hex(hexboot,0xEFFF)){
-            fprintf(stderr,"Error: cannot load HEX image '%s'.\n\n",heximage);
+        
+     // write hex image
+    if(heximage){
+        unsigned char* buffer = (unsigned char*)(uzebox.progmem);
+        if(isUzeromFile(heximage)){
+            if(!loadUzeImage(heximage,&uzeRomHeader,buffer)){
+                printerr("Error: cannot load UzeRom file '%s'.\n\n",heximage);
+                showHelp(argv[0]);
+                return 1;
+            }
+            // enable mouse support if required
+            if(uzeRomHeader.mouse){
+                uzebox.pad_mode = avr8::SNES_MOUSE;
+                printf("Mouse support enabled\n");
+            }
+        }
+       // else if(!load_hex(heximage,(unsigned char*)(uzebox.progmem))){
+        else if(!loadHex(heximage,buffer)){
+            printerr("Error: cannot load HEX image '%s'.\n\n",heximage);
             showHelp(argv[0]);
             return 1;
         }
-        else{
-            uzebox.pc = 0xEFFF; // set program counter to bootloader start
-        }
-    }
-    
-     // write hex image
-    if(heximage && !uzebox.load_hex(heximage,0x0000)){
-        fprintf(stderr,"Error: cannot load HEX image '%s'.\n\n",heximage);
-        showHelp(argv[0]);
-        return 1;
     }
     
     // init the GUI
 	if (!uzebox.init_gui()){
-        fprintf(stderr,"Error: Failed to init GUI.\n\n");
+        printerr("Error: Failed to init GUI.\n\n");
         showHelp(argv[0]);
 		return 1;
     }

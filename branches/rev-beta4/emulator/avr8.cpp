@@ -249,7 +249,7 @@ void avr8::spi_calculateClock(){
         spiClockDivider = spiClockDivider >> 1; // double the speed
     }
     spiCycleWait = spiClockDivider*8;
-    DEBUG_SPI("SPI divider set to : %d (%d cycles per byte)\n",spiClockDivider,spiCycleWait);
+    SPI_DEBUG("SPI divider set to : %d (%d cycles per byte)\n",spiClockDivider,spiCycleWait);
 }
         
 void avr8::write_io(u8 addr,u8 value)
@@ -405,19 +405,19 @@ void avr8::write_io(u8 addr,u8 value)
             spiClock = spiCycleWait;
             spiTransfer = 1;
             SPSR ^= 0x80; // clear interrupt
-            //DEBUG_SPI("spiClock: %0.2X\n",spiClock);
+            //SPI_DEBUG("spiClock: %0.2X\n",spiClock);
         }
-        //DEBUG_SPI("SPDR: %0.2X\n",value);
+        //SPI_DEBUG("SPDR: %0.2X\n",value);
         io[addr] = value;
     }
     else if(addr == ports::SPCR)
     {
-        DEBUG_SPI("SPCR: %0.2X\n",value);
+        SPI_DEBUG("SPCR: %0.2X\n",value);
         if(SD_ENABLED()) spi_calculateClock();
         io[addr] = value;
     }
     else if(addr == ports::SPSR){
-        DEBUG_SPI("SPSR: %0.2X\n",value);
+        SPI_DEBUG("SPSR: %0.2X\n",value);
         if(SD_ENABLED()) spi_calculateClock();
         io[addr] = value;
     }
@@ -453,6 +453,8 @@ void avr8::write_io(u8 addr,u8 value)
         //printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
 		io[addr] = value;
     }
+    #ifdef USE_PORT_PRINT
+    
     else if(addr == ports::res3A){
         // emulator-only whisper support
         printf("%c",value);
@@ -461,6 +463,7 @@ void avr8::write_io(u8 addr,u8 value)
         // emulator-only whisper support
         printf("%0.2X",value);
     }
+    #endif
 	else
 		io[addr] = value;
 }
@@ -1679,7 +1682,7 @@ void avr8::update_hardware(int cycles)
         
         if(spiTransfer && (cycles > 0)){
             if(spiClock <= cycles){
-                //DEBUG_SPI("SPI transfer complete\n");
+                //SPI_DEBUG("SPI transfer complete\n");
                 update_spi();
                 spiClock = 0;
                 spiTransfer = 0;
@@ -1750,7 +1753,7 @@ void avr8::update_hardware(int cycles)
 
 static u8 dummy_sector[512];
 
-#ifdef DEBUG_SPI
+#ifdef SPI_DEBUG
 char ascii(unsigned char ch){
     if(ch >= 32 && ch <= 127){
         return ch;
@@ -1762,8 +1765,8 @@ char ascii(unsigned char ch){
 
 void avr8::update_spi(){
     // SPI state machine
-    //DEBUG_SPI("byte: %0.2x\n",spiByte);
-    //DEBUG_SPI("state: %d\n",spiState);
+    //SPI_DEBUG("byte: %0.2x\n",spiByte);
+    //SPI_DEBUG("state: %d\n",spiState);
     switch(spiState){
     case SPI_IDLE_STATE:
         if(spiByte == 0xff){
@@ -1775,31 +1778,31 @@ void avr8::update_spi(){
         spiState = SPI_ARG_X_HI;
         break;
     case SPI_ARG_X_HI:
-        DEBUG_SPI("x hi: %0.2X\n",spiByte);
+        SPI_DEBUG("x hi: %0.2X\n",spiByte);
         spiArgXhi = spiByte;
         SPDR = 0x00;
         spiState = SPI_ARG_X_LO;
         break;
     case SPI_ARG_X_LO:
-        DEBUG_SPI("x lo: %0.2X\n",spiByte);
+        SPI_DEBUG("x lo: %0.2X\n",spiByte);
         spiArgXlo = spiByte;
         SPDR = 0x00;
         spiState = SPI_ARG_Y_HI;
         break;
     case SPI_ARG_Y_HI:
-        DEBUG_SPI("y hi: %0.2X\n",spiByte);
+        SPI_DEBUG("y hi: %0.2X\n",spiByte);
         spiArgYhi = spiByte;
         SPDR = 0x00;
         spiState = SPI_ARG_Y_LO;
         break;
     case SPI_ARG_Y_LO:
-        DEBUG_SPI("y lo: %0.2X\n",spiByte);
+        SPI_DEBUG("y lo: %0.2X\n",spiByte);
         spiArgYlo = spiByte;
         SPDR = 0x00;
         spiState = SPI_ARG_CRC;
         break;
     case SPI_ARG_CRC:
-        DEBUG_SPI("SPI - CMD%d (%0.2X) X:%0.4X Y:%0.4X CRC: %0.2X\n",spiCommand^0x40,spiCommand,spiArgX,spiArgY,spiByte);
+        SPI_DEBUG("SPI - CMD%d (%0.2X) X:%0.4X Y:%0.4X CRC: %0.2X\n",spiCommand^0x40,spiCommand,spiArgX,spiArgY,spiByte);
         // ignore CRC and process commands
         switch(spiCommand){
         case 0x40: //CMD0 =  RESET / GO_IDLE_STATE
@@ -1865,7 +1868,7 @@ void avr8::update_spi(){
         break;
     case SPI_RESPOND_SINGLE:
         SPDR = *spiResponsePtr;
-        DEBUG_SPI("SPI - Respond: %0.2X\n",SPDR);
+        SPI_DEBUG("SPI - Respond: %0.2X\n",SPDR);
         spiResponsePtr++;
         if(spiResponsePtr == spiResponseEnd){
             if(spiByteCount != 0){
@@ -1878,7 +1881,7 @@ void avr8::update_spi(){
         break;
     case SPI_READ_SINGLE_BLOCK:
         SPDR = SDReadByte();
-        #ifdef DEBUG_SPI
+        #ifdef USE_SPI_DEBUG
             // output a nice display to see sector data
             int i = 512-spiByteCount;
             int ofs = i&0x000F;
@@ -1888,7 +1891,7 @@ void avr8::update_spi(){
                 for(int j=0; j<16; j++) printf("%0.2X ",buf[j]);
                 printf("| ");
                 for(int j=0; j<16; j++) printf("%c",ascii(buf[j]));
-                DEBUG_SPI("\n");
+                SPI_DEBUG("\n");
             }
             buf[ofs] = SPDR;
         #endif
@@ -1903,7 +1906,7 @@ void avr8::update_spi(){
         break;
     case SPI_RESPOND_MULTI:
         SPDR = *spiResponsePtr;
-        DEBUG_SPI("SPI - Respond: %0.2X\n",SPDR);
+        SPI_DEBUG("SPI - Respond: %0.2X\n",SPDR);
         spiResponsePtr++;
         if(spiResponsePtr == spiResponseEnd){
             spiState = SPI_READ_MULTIPLE_BLOCK;
@@ -1922,7 +1925,7 @@ void avr8::update_spi(){
         else{
             SPDR = SDReadByte();
         }
-        DEBUG_SPI("SPI - Data[%d]: %0.2X\n",512-spiByteCount,SPDR);
+        SPI_DEBUG("SPI - Data[%d]: %0.2X\n",512-spiByteCount,SPDR);
         spiByteCount--;
         if(spiByteCount == 0){
             spiResponseBuffer[0] = 0x00; //CRC
@@ -1938,7 +1941,7 @@ void avr8::update_spi(){
         break;
     case SPI_WRITE_SINGLE:
         SPDR = *spiResponsePtr;
-        DEBUG_SPI("SPI - Respond: %0.2X\n",SPDR);
+        SPI_DEBUG("SPI - Respond: %0.2X\n",SPDR);
         spiResponsePtr++;
         if(spiResponsePtr == spiResponseEnd){
             if(spiByteCount != 0){
@@ -1951,7 +1954,7 @@ void avr8::update_spi(){
         break;    
     case SPI_WRITE_SINGLE_BLOCK:
         SDWriteByte(SPDR);
-        DEBUG_SPI("SPI - Data[%d]: %0.2X\n",spiByteCount,SPDR);
+        SPI_DEBUG("SPI - Data[%d]: %0.2X\n",spiByteCount,SPDR);
         SPDR = 0xFF;
         spiByteCount--;
         if(spiByteCount == 0){
@@ -1987,67 +1990,6 @@ static int parse_hex_word(const char *s)
 {
 	return (parse_hex_nibble(s[0])<<12) | (parse_hex_nibble(s[1]) << 8) |
 		(parse_hex_nibble(s[2])<<4) | parse_hex_nibble(s[3]);
-}
-
-u16 avr8::load_hex(const char *filename,u16 offset)
-{
-	/*
-	http://en.wikipedia.org/wiki/.hex
-
-	(I've added the spaces for clarity, they don't exist in the real files)
-	:10 65B0 00 661F771F881F991F1A9469F760957095 59
-	:10 65C0 00 809590959B01AC01BD01CF010895F894 91
-	:02 65D0 00 FFCF FB
-	:02 65D2 00 0100 C6
-	:00 0000 01 FF [EOF marker]
-
-	First field is the byte count. Second field is the 16-bit address. Third field is the record type; 
-	00 is data, 01 is EOF.	For record type zero, next "wide" field is the actual data, followed by a 
-	checksum.
-	*/
-	FILE *f = fopen(filename,"r");
-
-	if (!f)
-		return false;
-
-	char line[128];
-	int lineNumber = 1;
-    int finalAddr;
-	while (fgets(line, sizeof(line), f) && line[0]==':')
-	{
-		int bytes = parse_hex_byte(line+1);
-		int addr = parse_hex_word(line+3);
-		int recordType = parse_hex_byte(line+7);
-		if (recordType == 0)
-		{
-			char *lp = line + 9;
-			while (bytes > 0)
-			{
-                //u16 finalAddr = offset + (addr & (progSize-1)) >> 1);
-                finalAddr = offset + (addr >> 1);
-                if(finalAddr > progSize){
-                    fprintf(stderr,"Error: Not enough room to write hex image - address out of bounds.\n");
-                    shutdown(1);
-                    return false;
-                }
-				progmem[finalAddr] = parse_hex_byte(lp) | (parse_hex_byte(lp+2)<<8);
-				addr += 2;
-				lp += 4;
-				bytes -= 2;
-			}
-		}
-		else if (recordType == 1)
-		{
-			break;
-		}
-		else
-			fprintf(stderr,"ignoring unknown record type %d in line %d of %s\n",recordType,lineNumber,filename);
-
-		++lineNumber;
-	}
-
-	fclose(f);
-	return true;
 }
 
 void avr8::SDLoadImage(char* filename){
