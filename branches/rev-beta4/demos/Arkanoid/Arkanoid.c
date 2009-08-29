@@ -39,7 +39,7 @@ kernel/defines.h: Global defines, constants & compilation options
 
 
 */
-#define TITLE
+//#define TITLE
 
 #include <stdbool.h>
 #include <avr/io.h>
@@ -228,8 +228,10 @@ int main(){
 
 	while(1){
 		
-		
-		title();
+		#ifdef TITLE		
+			title();
+		#endif
+
 		intro();
 		
 
@@ -358,16 +360,19 @@ int main(){
 
 
 void doEnd(){
-	SetTileTable(arkanoidTile_tileset);
+//	SetTileTable(arkanoidTile_tileset);
 	ClearVram();
-	SetFontTilesIndex(ARKANOIDTILE_TILESET_SIZE);
+//	SetFontTilesIndex(ARKANOIDTILE_TILESET_SIZE);
 
 	Print2(8,10,strEnd1);
 	Print2(4,11,strEnd2);
 	FadeIn(2,true);
 
 	while(ReadJoypad(0)==0);
-	SoftReset();
+	while(ReadJoypad(0)!=0);
+	//SoftReset();
+	cli();
+	asm("jmp 0");
 }
 /*
 void DebugField(){
