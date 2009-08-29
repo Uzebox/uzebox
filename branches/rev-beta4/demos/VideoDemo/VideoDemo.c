@@ -33,8 +33,14 @@ extern unsigned char sync_phase;
 extern unsigned char sync_pulse;
 char init();
 extern unsigned int data_delay;
-unsigned char sector[512]; //sd sector buffer
-File files[16];
+//unsigned char sector[512]; //sd sector buffer
+
+union SectorData {
+	unsigned char buffer[512];
+	DirectoryTableEntry files[16];
+} sector;
+
+//File files[16];
 
 unsigned long fileSector;
 
@@ -51,9 +57,35 @@ int main(){
 
 	init();
 
-	LoadRootDirectory(sector);
-	LoadFiles(sector,files);
-	fileSector=files[0].firstSector;
+	LoadRootDirectory(sector.buffer);
+	//LoadFiles(sector.buffer,files);
+
+	//find the first .uzm file
+
+	for(unsigned char i=0;i<16;i++){
+		if((sector.files[i].fileAttributes & (FAT_ATTR_HIDDEN|FAT_ATTR_SYSTEM|FAT_ATTR_VOLUME|FAT_ATTR_DIRECTORY|FAT_ATTR_DEVICE))==0){
+			if((sector.files[i].filename[0]!=0) && (sector.files[i].filename[0]!=0xe5) && (sector.files[i].filename[0]!=0x05) && (sector.files[i].filename[0]!=0x2e)){									
+				
+				if(sector.files[i].extension[0]=='U' && sector.files[i].extension[1]=='Z' && sector.files[i].extension[2]=='M'){
+
+					fileSector=GetFileSector(&sector.files[i]);
+					break;
+
+				}
+						
+			}				
+		}
+	}
+
+
+
+
+
+
+
+
+
+	//fileSector=files[0].firstSector;
 
 	// send the multiple block read command and logical sector address
 	mmc_send_command(18,(fileSector>>7) & 0xffff, (fileSector<<9) & 0xffff);	
@@ -92,7 +124,7 @@ char init(){
 	timeout=0;
 
 	do {
-		temp = mmc_readsector(0, sector);
+		temp = mmc_readsector(0, sector.buffer);
    	//	Print(20,26,temp? PSTR("FIRST READ FAILED") : PSTR("FIRST READ GOOD   ")); 
 		//timeout++;
 		//if(timeout>6000){

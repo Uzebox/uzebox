@@ -5,8 +5,9 @@
 ## General Flags
 PROJECT = VideoDemo
 MCU = atmega644
-TARGET = VideoDemo.elf
+TARGET = $(PROJECT).elf
 CC = avr-gcc
+INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel-4-uzeamp
@@ -30,7 +31,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS += -Wl,-Map=VideoDemo.map 
+LDFLAGS += -Wl,-Map=$(PROJECT).map 
 LDFLAGS += -Wl,-gc-sections 
 
 
@@ -52,7 +53,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) VideoDemo.hex VideoDemo.eep VideoDemo.lss size
+all: $(TARGET) $(PROJECT).hex $(PROJECT).eep $(PROJECT).lss $(PROJECT).uze size
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -93,6 +94,9 @@ $(TARGET): $(OBJECTS)
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@
 
+%.uze: $(TARGET)
+	packrom $(PROJECT).hex $@ $(INFO)
+	
 size: ${TARGET}
 	@echo
 	@avr-size -C --mcu=${MCU} ${TARGET}
@@ -100,7 +104,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) VideoDemo.elf dep/* VideoDemo.hex VideoDemo.eep VideoDemo.lss VideoDemo.map
+	-rm -rf $(OBJECTS) $(PROJECT).* dep/*
 
 
 ## Other dependencies
