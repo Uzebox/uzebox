@@ -4,9 +4,11 @@
 
 ## General Flags
 PROJECT = Megatris
+GAME = Megatris
 MCU = atmega644
-TARGET = Megatris.elf
+TARGET = $(GAME).elf
 CC = avr-gcc
+INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
@@ -30,7 +32,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS += -Wl,-Map=Megatris.map 
+LDFLAGS += -Wl,-Map=$(GAME).map 
 LDFLAGS += -Wl,-gc-sections 
 
 
@@ -43,7 +45,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o Megatris.o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -52,7 +54,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) Megatris.hex Megatris.eep Megatris.lss size
+all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -71,7 +73,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-Megatris.o: ../Megatris.c
+$(GAME).o: ../Megatris.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -87,6 +89,9 @@ $(TARGET): $(OBJECTS)
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@
 
+%.uze: $(TARGET)
+	-packrom $(GAME).hex $@ $(INFO)
+
 size: ${TARGET}
 	@echo
 	@avr-size -C --mcu=${MCU} ${TARGET}
@@ -94,7 +99,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) Megatris.elf dep/* Megatris.hex Make.eep Megatris.lss Megatris.map
+	-rm -rf $(OBJECTS) $(GAME).* dep/*
 
 
 ## Other dependencies

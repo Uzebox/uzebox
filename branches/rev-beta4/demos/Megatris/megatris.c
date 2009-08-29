@@ -263,6 +263,7 @@ bool doGameContinue(void);
 void DrawLogo(void);
 void DrawMainMenu(void);
 void OptionsMenu(void);
+void restoreFields(void);
 
 bool updateFieldsEvent(void);
 void processAnimations(unsigned char f);
@@ -348,6 +349,9 @@ const char strUseGhostBlock[] PROGMEM="GHOST BLOCK:";
 const char strYes[] PROGMEM = "YES";
 const char strNo[] PROGMEM = "NO ";
 
+const char strContinue[] PROGMEM ="RESUME";
+const char strRestart[] PROGMEM ="RESTART";
+
 //import tunes
 #include "data/Korobeiniki-3tracks.inc"
 #include "data/testrisnt.inc"
@@ -367,6 +371,8 @@ const char strNo[] PROGMEM = "NO ";
 int randomSeed=0;
 int f=0; 					//active field
 bool vsMode=false; 			//two player mode
+bool restart=false;			//user choose to restart level
+bool goMenu=false;			//user choose to go back to menu
 unsigned char P1Level=20;	//Player 1 level
 unsigned char P2Level=20;	//Player 2 level
 unsigned char songNo=0;		//default song
@@ -502,7 +508,7 @@ void OptionsMenu(){
 	while(1){
 		c=ReadJoypad(0);
 		
-		if(c&BTN_A || c&BTN_B || c&BTN_START){
+		if(c&(BTN_START|BTN_A|BTN_B)){
 			
 			while(ReadJoypad(0)!=0); //wait for key release
 			
@@ -619,45 +625,51 @@ void game(void){
 
 
 	do{
-		LoadMap();
-		initFields();	
 
-		SetTile(15,25,8);
-		SetTile(16,25,20);
-		PrintHexByte(17,25,0);
+		do{
 
-		SetTile(23,25,8);
-		SetTile(24,25,20);
-		PrintHexByte(25,25,0);
+			LoadMap();
+			initFields();	
 
-		StartSongNo(songNo);
+			SetTile(15,25,8);
+			SetTile(16,25,20);
+			PrintHexByte(17,25,0);
 
-		fields[0].currentState=0;
-	 	fields[1].currentState=0;
+			SetTile(23,25,8);
+			SetTile(24,25,20);
+			PrintHexByte(25,25,0);
 
+			StartSongNo(songNo);
 
-		while(fields[0].gameOver==false && fields[1].gameOver==false){
-			//syncronize gameplay on vsync (30 hz)	
-			if(GetVsyncFlag()){
+			fields[0].currentState=0;
+		 	fields[1].currentState=0;
+			restart=false;
+			goMenu=false;
 
-				ClearVsyncFlag();
+			while(fields[0].gameOver==false && fields[1].gameOver==false){
+				//syncronize gameplay on vsync (30 hz)	
+				if(GetVsyncFlag()){
 
-				f=0;
-				runStateMachine();
-				processAnimations(0);
+					ClearVsyncFlag();
 
-				if(vsMode){
-					f=1;
+					f=0;
 					runStateMachine();
-					processAnimations(1);
+					processAnimations(0);
+
+					if(vsMode){
+						f=1;
+						runStateMachine();
+						processAnimations(1);
+					}
+
+					//debugInfo(false);
+
 				}
-
-				//debugInfo(false);
-
 			}
-		}
 
-	}while(doGameContinue());
+		}while(restart);
+
+	}while(!goMenu && doGameContinue());
 
 
 
@@ -668,8 +680,10 @@ bool doGameContinue(void){
 	unsigned char option=0,cx=fields[0].left+2,cy=15;
 	unsigned int c;
 
-	restore(fields[0].left,fields[0].top+2,FIELD_WIDTH,FIELD_HEIGHT-2);
-	restore(fields[1].left,fields[1].top+2,FIELD_WIDTH,FIELD_HEIGHT-2);
+
+	restoreFields();
+	//restore(fields[0].left,fields[0].top+2,FIELD_WIDTH,FIELD_HEIGHT-2);
+	//restore(fields[1].left,fields[1].top+2,FIELD_WIDTH,FIELD_HEIGHT-2);
 
 	Print(cx+1,cy,strPlay);
 	Print(cx+1,cy+1,strMenu);
@@ -678,7 +692,7 @@ bool doGameContinue(void){
 	while(1){
 		c=ReadJoypad(0);
 	
-		if(c&BTN_START){
+		if(c&(BTN_START|BTN_A|BTN_B)){
 		
 			while(ReadJoypad(0)!=0); //wait for key release
 		
@@ -1286,9 +1300,98 @@ void hold(void){
 	}
 }
 
+void restoreFields(){
+	restore(fields[0].left,fields[0].top+2,FIELD_WIDTH,FIELD_HEIGHT-2);
+	restore(fields[1].left,fields[1].top+2,FIELD_WIDTH,FIELD_HEIGHT-2);
+}
+
+
 void pause(){
+	unsigned char option=0,cx=fields[0].left+1,cy=15;
+	unsigned int c;
+
+
 	StopSong();
+
+	restoreFields();
+
+	Print(cx+1,cy,strContinue);
+	Print(cx+1,cy+1,strRestart);
+	Print(cx+1,cy+2,strMenu);
+
+	while((ReadJoypad(0)&BTN_START));
+
+	SetTile(cx,cy+option,CURSOR_TILE); //draw new cursor
+
+	while(1){
+		c=ReadJoypad(0);
 	
+		if(c&(BTN_START|BTN_A|BTN_B)){
+		
+			while(ReadJoypad(0)!=0); //wait for key release
+		
+			if(option==0){
+				restoreFields();
+	
+				for(cy=2;cy<FIELD_HEIGHT;cy++){
+					for(cx=0;cx<FIELD_WIDTH;cx++){
+						if(fields[0].surface[cy][cx]!=0){
+							SetTile(fields[0].left+cx,fields[0].top+cy,fields[0].surface[cy][cx]);
+						}
+						if(fields[1].surface[cy][cx]!=0){
+							SetTile(fields[1].left+cx,fields[1].top+cy,fields[1].surface[cy][cx]);
+						}
+					}				
+				}
+				
+				f=1;
+				updateGhostPiece(false);
+				f=0;
+				updateGhostPiece(false);
+
+				ResumeSong();
+				return;
+			}else if(option==1){
+				fields[0].gameOver=true;
+				restart=true;
+				return;
+			}else{
+				fields[0].gameOver=true;
+				goMenu=true;
+				return;
+			}		
+		}
+	
+
+		if(c&BTN_UP || c&BTN_DOWN || c&BTN_SELECT){
+			RestoreTile(cx,cy+option); //erase old cursor
+			TriggerFx(1,0x90,true);
+
+			if(c&BTN_UP){
+				if(option==0){
+					option=2;
+				}else{
+					option--;
+				}
+
+			}else if(c&BTN_DOWN || c&BTN_SELECT){
+				if(option==2){
+					option=0;
+				}else{
+					option++;
+				}
+			}
+		
+			SetTile(cx,cy+option,CURSOR_TILE); //draw new cursor
+			while(ReadJoypad(0)!=0); //wait for key release
+		}	
+	}
+
+
+
+
+
+	/*
 	//wait for key release
 	while((ReadJoypad(0)&BTN_START));
 
@@ -1306,6 +1409,7 @@ void pause(){
 
 
 	ResumeSong();
+	*/
 }
 
 unsigned char processControls(void){
@@ -1903,7 +2007,7 @@ unsigned char waitKey(){
 
 void doGameOver(void){
 	unsigned char y,t,f2,tile,a,temp;
-	unsigned int joy;
+//	unsigned int joy;
 	
 	f2=f^1;
 
@@ -1984,10 +2088,10 @@ void doGameOver(void){
 	while(1){
 		
 		WaitVsyncAndProcessAnimations(2);
-		joy=ReadJoypad(0);
+		//joy=ReadJoypad(0);
 		
 
-		if(t&BTN_A || t&BTN_B || t&BTN_START){
+		if(ReadJoypad(0)&(BTN_A|BTN_B|BTN_START)){
 			
 			while(ReadJoypad(0)!=0); //wait for key release			
 			return;			
