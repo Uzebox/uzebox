@@ -106,7 +106,8 @@
 	} sector;
 */
 	typedef struct{
-		unsigned char filename[13]; //filename+'.'+ext+0
+		unsigned char filename[8]; //filename+'.'+ext+0
+		unsigned char extension[3];
 		unsigned long firstSector;
 		unsigned long fileSize;	
 	} File;

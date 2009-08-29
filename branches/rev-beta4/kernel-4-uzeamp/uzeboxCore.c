@@ -26,9 +26,10 @@
 #include <avr/wdt.h>
 #include "uzebox.h"
 
+#if VIDEO_MODE == 3 
 		extern struct SpriteStruct sprites[];
 		extern struct ScreenSectionStruct screenSections[];
-
+#endif
 
 #define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
 #define Wait100ns() asm volatile("lpm\n\t");
@@ -303,7 +304,8 @@ void Initialize(void){
 	DDRC=0xff; //video dac
 	DDRB=0xff; //h-sync for ad725
 	DDRD=(1<<PD7)+(1<<PD4)+(1<<PD3); //audio-out, midi-in +led + switch
-	//DDRD=0x80; //audio-out, midi-in
+	PORTD|=(1<<PD4); //turn on led
+
 
 	//setup port A for joypads
 	DDRA =0b00001100; //set only control lines as outputs

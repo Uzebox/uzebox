@@ -76,6 +76,7 @@
 mixer:	
 mixerStruct:
 
+
 tr1_vol:		 .byte 1
 tr1_step_lo:	 .byte 1
 tr1_step_hi:	 .byte 1
@@ -133,6 +134,7 @@ tr3_loop_end_hi: .byte 1
 	tr4_loop_end_hi: .byte 1
 
 #endif
+
 
 .section .text
 	
@@ -271,6 +273,7 @@ SetMixerVolume:
 
 MixSound:
 
+
 	push r18
 	push r19
 	push r20
@@ -297,14 +300,13 @@ skip:
 #else
 	call ProcessFading
 	call ReadControllers
-	//uncomment for UZEAMP
-	//call mmc_processMixer
+
+	#ifdef UZEAMP	
+		call mmc_processMixer
+	#endif
+
 #endif
 	
-
-//	call ProcessFading
-//
-//	call ReadControllers
 
 #if VIDEO_MODE == 2 || VIDEO_MODE == 3
 	//this call should not be here. Temp fix.
@@ -314,10 +316,32 @@ skip:
 #endif
 
 
-
-
+#if ENABLE_MIXER==1
  	call ProcessMusic
+#endif
 
+
+	;Flip mix bank & set target bank adress for mixing
+	lds r0,mix_bank
+	tst r0
+	brne set_hi_bank
+	ldi XL,lo8(mix_buf)
+	ldi XH,hi8(mix_buf)
+	rjmp end_set_bank
+set_hi_bank:
+	ldi XL,lo8(mix_buf+MIX_BANK_SIZE)
+	ldi XH,hi8(mix_buf+MIX_BANK_SIZE)
+end_set_bank:
+
+	ldi r18,1
+	eor	r0,r18
+	sts mix_bank,r0
+	
+	ldi r18,2
+	sts mix_block,r18	
+
+
+#if ENABLE_MIXER==1
 	push r2
 	push r3
 	push r4
@@ -337,24 +361,6 @@ skip:
 	push r28
 	push r29
 
-	;set target bank adress
-	lds r0,mix_bank
-	tst r0
-	brne set_hi_bank
-	ldi XL,lo8(mix_buf)
-	ldi XH,hi8(mix_buf)
-	rjmp end_set_bank
-set_hi_bank:
-	ldi XL,lo8(mix_buf+MIX_BANK_SIZE)
-	ldi XH,hi8(mix_buf+MIX_BANK_SIZE)
-end_set_bank:
-
-	ldi r16,1
-	eor	r0,r16
-	sts mix_bank,r0
-	
-	ldi r16,2
-	sts mix_block,r16	
 
 	;mix channels
 
@@ -597,6 +603,7 @@ mix_loop:
 	pop r3
 	pop r2
 
+#endif //end SOUND_ENABLE
 
 	clr r25
 	lds r24,sync_phase

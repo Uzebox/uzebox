@@ -29,7 +29,12 @@
 		extern unsigned int vram[]; 
 	#endif
 
-
+	typedef unsigned char u8;
+	typedef signed char s8;
+	typedef unsigned int u16;
+	typedef signed int s16;
+	typedef unsigned long u32;
+	typedef signed long s32;
 
 	#if  VIDEO_MODE == 2
 		struct SpriteStruct
@@ -276,8 +281,11 @@
 		//1=shorten line 	
 		unsigned char colorCorrectionType;	
 
+		//used by the bootloader to know the currently flashed game
+		unsigned long currentGameCrc32;
+
 		//for future expansion
-		unsigned char reserved[14];		
+		unsigned char reserved[10];		
 	};
 
 	struct EepromBlockStruct{

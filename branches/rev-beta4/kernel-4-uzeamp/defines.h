@@ -167,7 +167,15 @@
 		#define SOUND_CHANNEL_4_ENABLE 1
 	#endif
 
-	
+	/*
+	 * Completely remove all the sound mixer & repalyer code.
+	 * The ring buffer & basic sound functionality is preserved for 
+	 * the emulator and application that fills themselves the buffer.
+	 */
+	#ifndef INCLUDE_MIXER
+		#define INCLUDE_MIXER 1
+	#endif
+		
 	/*
 	 * Define the ammount of memory to allocate
 	 * for ramtiles (used in video mode 3)
@@ -180,10 +188,6 @@
 		#define MAX_SPRITES 32
 	#endif
 
-
-	#ifndef ENABLE_SOUND
-		#define ENABLE_SOUND 1
-	#endif
 
 	/*
 	 * Kernel Internal settings, do not modify
@@ -302,6 +306,11 @@
 		#ifndef FIRST_RENDER_LINE
 			#define FIRST_RENDER_LINE 20	
 		#endif
+		
+		#ifndef FRAME_LINES
+			#define FRAME_LINES SCREEN_TILES_V*TILE_HEIGHT
+		#endif
+
 		#define SPRITE_STRUCT_SIZE 5
 		#define TRANSLUCENT_COLOR 0xfe	
 		#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
@@ -333,10 +342,20 @@
 		#define SCREEN_TILES_H 40
 		#define SCREEN_TILES_V 28 
 		#define FIRST_RENDER_LINE 20
-		#define VRAM_SIZE 1 ;(VRAM_TILES_H*VRAM_TILES_V)
+		#define VRAM_SIZE 1 
 		#define VRAM_ADDR_SIZE 1
 		#define FRAME_LINES 228
 	
+	#elif VIDEO_MODE == 8
+		#define SCREEN_WIDTH 120
+		#define SCREEN_HEIGHT 96
+		#define FIRST_RENDER_LINE 36
+		#define FRAME_LINES SCREEN_HEIGHT
+		
+		#define VRAM_SIZE (SCREEN_WIDTH*SCREEN_HEIGHT)/4
+		#define VRAM_ADDR_SIZE 1
+
+		#define VRAM_TILES_H 15			
 	#endif
 
 	#if MIXER_CHAN4_TYPE == 0

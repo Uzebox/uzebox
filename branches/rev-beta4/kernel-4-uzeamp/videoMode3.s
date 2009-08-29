@@ -371,6 +371,7 @@ render_tile_line:
 
 	ld r18,Y
 
+
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
 
 .rept 13

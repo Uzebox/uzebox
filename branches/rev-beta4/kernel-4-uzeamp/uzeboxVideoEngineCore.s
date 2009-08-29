@@ -127,7 +127,7 @@
 
 
 
-
+	//NOTE: VRAM now defined in video mode source files
 	//.align 5
 	//vram: 	  				.space VRAM_SIZE ;MUST be aligned to 32 bytes
 	
@@ -227,6 +227,10 @@
 	#include "videoMode7.s"
 #endif
 
+#if VIDEO_MODE == 8
+	#include "videoMode8.s"
+#endif
+
 
 ;************
 ; HSYNC
@@ -276,11 +280,10 @@ render:
 	lds ZL,sync_pulse
 	cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE
 	brsh render_end
-#if VIDEO_MODE == 7
+
 	cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE-FRAME_LINES
-#else
-	cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE-(SCREEN_TILES_V*TILE_HEIGHT)
-#endif
+	;cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE-(SCREEN_TILES_V*TILE_HEIGHT)
+
 	brlo render_end
 
 	
@@ -334,6 +337,8 @@ render:
 		call sub_video_mode6
 	#elif VIDEO_MODE == 7
 		call sub_video_mode7
+	#elif VIDEO_MODE == 8
+		call sub_video_mode8
 	#endif
 
 
@@ -957,8 +962,8 @@ set_normal_rate_HDRIVE:
 	;************************************
 	ClearVram:
 		//init vram		
-		ldi r30,lo8(VRAM_TILES_H*VRAM_TILES_V)
-		ldi r31,hi8(VRAM_TILES_H*VRAM_TILES_V)
+		ldi r30,lo8(VRAM_SIZE)
+		ldi r31,hi8(VRAM_SIZE)
 
 		ldi XL,lo8(vram)
 		ldi XH,hi8(vram)
@@ -1396,16 +1401,13 @@ ClearVsyncFlag:
 
 ;***********************************
 ; Offset the color burst per field
+; Optimal value is 4
 ; C-callable
 ; r24=burst offset in clock cycles
 ;************************************
 SetColorBurstOffset:
 	sts burstOffset,r24
-
 	ret
-
-
-
 
 ;*****************************
 ; Return joypad 1 or 2 buttons status
@@ -1513,6 +1515,7 @@ ReadEeprom:
 
 
 .global internal_spi_byte
+
 internal_spi_byte:
 
 	out _SFR_IO_ADDR(SPDR),r24
@@ -1524,4 +1527,8 @@ internal_spi_byte:
 
 
 	ret
+
+
+
+
 
