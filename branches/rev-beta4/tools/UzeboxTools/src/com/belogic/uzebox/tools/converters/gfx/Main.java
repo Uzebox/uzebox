@@ -18,27 +18,18 @@
 package com.belogic.uzebox.tools.converters.gfx;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-
-import javax.sound.midi.MetaMessage;
-import javax.sound.midi.MidiEvent;
-import javax.sound.midi.MidiFileFormat;
-import javax.sound.midi.MidiSystem;
-import javax.sound.midi.Sequence;
-import javax.sound.midi.ShortMessage;
-import javax.sound.midi.Track;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
-
-import com.belogic.uzebox.tools.converters.midi.Command;
-import com.belogic.uzebox.tools.converters.midi.MetaEvent;
 
 
 
@@ -50,15 +41,14 @@ public class Main {
 	static Logger logger = Logger.getLogger(Main.class);
 	
 
-	protected static final int CONTROLER_TREMOLO=92;
-	protected static final int CONTROLER_TREMOLO_RATE=100;
-	protected static final int CONTROLER_VOL=7;
+
 	
 	protected static final int TILE_X_POS=6;
 	protected static final int TILE_Y_POS=7;
 	protected static final int DATA_START_POS=8;
-	private static String path="C:\\Documents and Settings\\Admin\\My Documents\\projet\\atmel\\uzebox2\\";
-	
+	//private static String path="C:\\Documents and Settings\\Admin\\My Documents\\projet\\atmel\\uzebox2\\";
+	private static String path="c:\\work\\uzebox\\sources\\rev4-beta\\";
+		
 	final static byte R16 =0; 
 	final static byte R17 =1;
 	final static byte R18 =2;
@@ -100,10 +90,16 @@ public class Main {
 			new TileMap("uzeboxlogo2",0,4,6,3),
 		};
 		
+		TileMap[] uzeboxlogoMaps8x8={
+				new TileMap("uzeboxlogo",0,0,5,4),
+				new TileMap("uzeboxlogo2",0,4,5,3),
+			};
+		
+		
 		TileMap[] composerMaps={
 					new TileMap("title",1,1,24,3)
 					};
-		
+		/*
 		TileMap[] arkanoidMaps={
 				//new TileMap("main",0,1,22,26),
 				//new TileMap("frame",0,27,22,3),
@@ -111,20 +107,274 @@ public class Main {
 				new TileMap("logo",0,30,22,5),
 				new TileMap("bar",21,30,1,5)
 		};
-		
+		*/
 		TileMap[] colorMaps={
 				new TileMap("colorbars",0,0,40,28)
 				};
+		
+		TileMap[] gameMaps={
+				new TileMap("main",0,0,22,26)
+				};
+		
+		TileMap[] smbMaps={
+				new TileMap("hud",0,0,32,4),
+				new TileMap("main",0,4,32,28)
+				//new TileMap("opt0",0,0,2,2),
+				//new TileMap("opt1",2,0,2,2),
+				//new TileMap("opt2",4,0,2,2)
+				};
+	
+		TileMap[] smbMapsLong={
+				new TileMap("hud",0,0,28,4),
+				new TileMap("main",0,4,640,22)
+				};
+		
+		TileMap[] smbSprMaps={
+				new TileMap("rwalk1",0,0,2,3),
+				new TileMap("rwalk2",2,0,2,3),
+				new TileMap("rskid",4,0,2,3),
+				new TileMap("rjump1",6,0,2,3),
+				new TileMap("rjump2",8,0,2,3),
+				
+				new TileMap("lwalk1",10,0,2,3),
+				new TileMap("lwalk2",12,0,2,3),
+				new TileMap("lskid",14,0,2,3),
+				new TileMap("ljump1",16,0,2,3),
+				new TileMap("ljump2",18,0,2,3),
+				
+				new TileMap("lgoomba1",20,0,2,2),
+				new TileMap("lgoomba2",22,0,2,2),
+				new TileMap("rgoomba1",24,0,2,2),
+				new TileMap("rgoomba2",26,0,2,2),
+
+		};
+		
+
+		TileMap[] arkanoidMaps={				
+				new TileMap("wall",0,3,1,27),
+				new TileMap("ceiling",0,2,28,1),
+				
+				new TileMap("bg1",1,3,8,4),
+				new TileMap("bg2",1,7,8,4),
+				new TileMap("bg3",1,11,8,4),
+				new TileMap("bg4",1,15,8,4),
+				
+				new TileMap("smallVaus",23,0,2,1),
+				
+				new TileMap("brick0",1,0,2,1),
+				new TileMap("brick1",3,0,2,1),
+				new TileMap("brick2",5,0,2,1),
+				new TileMap("brick3",7,0,2,1),
+				new TileMap("brick4",9,0,2,1),
+				new TileMap("brick5",11,0,2,1),
+				new TileMap("brick6",13,0,2,1),
+				new TileMap("brick7",15,0,2,1),
+				new TileMap("brick8",17,0,2,1),
+				new TileMap("brick9",19,0,2,1),
+				new TileMap("brick10",21,0,2,1),
+				
+				new TileMap("brick0Anim1",0,1,2,1),
+				new TileMap("brick0Anim2",2,1,2,1),
+				new TileMap("brick0Anim3",4,1,2,1),
+				new TileMap("brick0Anim4",6,1,2,1),
+				new TileMap("brick0Anim5",8,1,2,1),
+				
+				new TileMap("brick1Anim1",10,1,2,1),
+				new TileMap("brick1Anim2",12,1,2,1),
+				new TileMap("brick1Anim3",14,1,2,1),
+				new TileMap("brick1Anim4",16,1,2,1),
+				new TileMap("brick1Anim5",18,1,2,1),	
+				
+				new TileMap("warpAnim1",10,3,1,5),
+				new TileMap("warpAnim2",12,3,1,5),
+				new TileMap("warpAnim3",14,3,1,5),
+				new TileMap("warpAnim4",16,3,1,5),
+				new TileMap("warpAnim5",18,3,1,5),
+				
+				
+		};
+
+		TileMap[] arkanoidTitleMaps={
+				new TileMap("title",0,0,25,6)
+		};
+		
+		TileMap[] arkanoidSpritesMaps={
+				new TileMap("vaus1",0,1,5,2),
+				new TileMap("vaus2",5,1,5,2),
+				new TileMap("vaus3",10,1,5,2),
+				new TileMap("vaus4",15,1,5,2),	
+				
+				new TileMap("vausLong1",0,7,7,2),
+				new TileMap("vausLong2",7,7,7,2),
+				new TileMap("vausLong3",14,7,7,2),
+				new TileMap("vausLong4",21,7,7,2),
+				
+				new TileMap("vausdie1",0,3,5,2),
+				new TileMap("vausdie2",5,3,5,2),
+				new TileMap("vausdie3",10,3,5,2),
+				new TileMap("vausdie4",15,3,5,2),
+				new TileMap("vausdie5",21,3,5,2),
+				new TileMap("vausdie6",27,3,5,2),
+				
+				new TileMap("vauswarp1",0,5,5,2),
+				new TileMap("vauswarp2",5,5,5,2),
+				new TileMap("vauswarp3",10,5,5,2),
+				new TileMap("vauswarp4",15,5,5,2),
+				new TileMap("vauswarp5",20,5,5,2),
+				new TileMap("vauswarp6",25,5,5,2),
+				
+				new TileMap("vausLeftHalf",0,1,2,2),
+				new TileMap("vausRightHalf",2,1,3,2),
+				new TileMap("vausMiddle",2,1,1,2),
+				
+				new TileMap("vausTransformLaser1",0,9,5,2),
+				new TileMap("vausTransformLaser2",5,9,5,2),
+				new TileMap("vausTransformLaser3",10,9,5,2),
+				new TileMap("vausTransformLaser4",15,9,5,2),
+				new TileMap("vausTransformLaser5",20,9,5,2),
+				
+				new TileMap("vausLaser1",0,11,5,2),
+				new TileMap("vausLaser2",5,11,5,2),
+				new TileMap("vausLaser3",10,11,5,2),
+				new TileMap("vausLaser4",15,11,5,2),
+				
+				new TileMap("round",15,0,5,1),
+				new TileMap("ready",20,0,5,1),
+				
+				new TileMap("s_powerup1",0,13,2,1),
+				new TileMap("s_powerup2",2,13,2,1),
+				new TileMap("s_powerup3",4,13,2,1),
+				new TileMap("s_powerup4",6,13,2,1),
+				
+				new TileMap("e_powerup1",8,13,2,1),
+				new TileMap("e_powerup2",10,13,2,1),
+				new TileMap("e_powerup3",12,13,2,1),
+				new TileMap("e_powerup4",14,13,2,1),
+
+				new TileMap("d_powerup1",16,13,2,1),
+				new TileMap("d_powerup2",18,13,2,1),
+				new TileMap("d_powerup3",20,13,2,1),
+				new TileMap("d_powerup4",22,13,2,1),
+
+				new TileMap("l_powerup1",24,13,2,1),
+				new TileMap("l_powerup2",26,13,2,1),
+				new TileMap("l_powerup3",28,13,2,1),
+				new TileMap("l_powerup4",30,13,2,1),
+
+				new TileMap("c_powerup1",0,14,2,1),
+				new TileMap("c_powerup2",2,14,2,1),
+				new TileMap("c_powerup3",4,14,2,1),
+				new TileMap("c_powerup4",6,14,2,1),
+
+				new TileMap("b_powerup1",8,14,2,1),
+				new TileMap("b_powerup2",10,14,2,1),
+				new TileMap("b_powerup3",12,14,2,1),
+				new TileMap("b_powerup4",14,14,2,1),
+
+				new TileMap("p_powerup1",16,14,2,1),
+				new TileMap("p_powerup2",18,14,2,1),
+				new TileMap("p_powerup3",20,14,2,1),
+				new TileMap("p_powerup4",22,14,2,1)
+
+
+				
+		};
+		
+		TileMap[] yiearMaps={
+				new TileMap("main",0,0,30,28)
+		};
+		
+		/*
+		TileMap[] arkanoidIntroMaps={
+				new TileMap("introMap",0,6,28,28),
+				new TileMap("trustersAnim1",1,0,12,6),
+				new TileMap("trustersAnim2",3,25,12,6)
+		};
+		*/
+		TileMap[] arkanoidIntroMaps={
+				new TileMap("introMap",0,0,14,10)				
+		};
+		
+		TileMap[] cursorMaps={
+				new TileMap("cursor",0,0,3,3),
+				new TileMap("hammerUp",3,0,3,3),
+				new TileMap("hammerDown",6,0,3,3)
+		};
+		
+		TileMap[] mouseMaps={
+				new TileMap("mouse",0,0,20,9)
+		};
+		
+		TileMap[] moleMaps={
+				new TileMap("main",1,9,27,22),
+				new TileMap("mole1",1,0,6,4),
+				new TileMap("mole2",7,0,6,4),
+				new TileMap("mole3",13,0,6,4),
+				new TileMap("mole4",19,0,6,4),
+				new TileMap("mole5",1,4,6,4),
+				new TileMap("mole6",7,4,6,4),
+				new TileMap("mole7",13,4,6,4),
+				new TileMap("hole",19,4,6,4),
+				new TileMap("startBtnUp",25,0,5,2),
+				new TileMap("startBtnDown",25,2,5,2),
+				new TileMap("ready",25,4,7,2),
+				new TileMap("gameOver",34,4,9,2),
+				new TileMap("whack",25,6,7,2)
+		};
+		TileMap[] moleTitleMaps={
+				new TileMap("title",1,0,22,3)
+		};
+		
+		TileMap[] uzeampMaps={
+				new TileMap("main",0,0,30,27),
+				new TileMap("digitSep",3,4,1,3),
+				new TileMap("digit0",4,4,2,3),
+				new TileMap("digit1",6,4,2,3),
+				new TileMap("digit2",8,4,2,3),
+				new TileMap("digit3",10,4,2,3),
+				new TileMap("digit4",12,4,2,3),
+				new TileMap("digit5",14,4,2,3),
+				new TileMap("digit6",16,4,2,3),
+				new TileMap("digit7",18,4,2,3),
+				new TileMap("digit8",20,4,2,3),
+				new TileMap("digit9",22,4,2,3),
+				new TileMap("digitBlank",24,4,2,3),
+				
+				new TileMap("btnPrevNormal",0,28,3,2),
+				new TileMap("btnPrevPushed",15,28,3,2),
+				
+				new TileMap("btnPlayNormal",3,28,3,2),
+				new TileMap("btnPlayPushed",18,28,3,2),
+				
+				new TileMap("btnPauseNormal",6,28,3,2),
+				new TileMap("btnPausePushed",21,28,3,2),
+				
+				new TileMap("btnStopNormal",9,28,3,2),
+				new TileMap("btnStopPushed",24,28,3,2),
+				
+				new TileMap("btnNextNormal",12,28,3,2),
+				new TileMap("btnNextPushed",27,28,3,2)
+				
+		};
+		
+		TileMap[] uzeampSpritesMaps={
+				new TileMap("hCursor",0,0,2,1),
+				new TileMap("vCursor",2,0,1,1),
+				new TileMap("mouse",4,0,1,2)
+		};
 		
 		/*
 		 * The following commented calls are examples to build tile sets and convert
 		 * MIDI files for the uzebox.
 		 * 
 		 */	
+		
+		convertRawToIncludeFile(path+"demos\\BitmapDemo\\data","sprite",2,16,30);
+		
 		//doPictureToTiles(path+"tetris\\tetris-tiles.raw","tetrisTiles",40,46,6,8,tetrisMaps,16);
 		//doPictureToTiles(path+"gfx\\fonts_full.raw","fontsFull",91,1,6,8,null,8);
 		//doPictureToTiles(path+"composer\\composer_6x8.raw","composerTiles",28,6,6,8,composerMaps,16);		
-		//doPictureToTiles(path+"gfx\\uzeboxlogo.raw","uzeboxlogo",6,7,6,8,uzeboxlogoMaps,16);
+		
 		//doPictureToTiles(path+"gfx\\sprite_test.raw","spr",17,1,6,8,null,16);
 		//doPictureToTiles(path+"gfx\\arkanoid-tiles.raw","arkanoid",22,35,6,8,arkanoidMaps,8);	
 //		convertSprites(path+"gfx\\arkanoid-sprites.raw","arkanoid_sprites",22,2,6,8,null,8);
@@ -132,27 +382,83 @@ public class Main {
 		
 	//	convertRawToIncludeFile("uzeboxbeat","PCM sample");
 			
-		//convertRawToIncludeFile("voice","PCM sample");
+		//convertRawToIncludeFile("spark","PCM sample");
+		//convertRawToIncludeFile("bomb","PCM sample");
 	//	convertRawToIncludeFile("hat_tite","PCM sample");
+	
+		//doPictureToTiles(path+"gfx\\game.raw","game",22,26,6,8,gameMaps,8);
 		
 		
-		//doPictureToTiles(path+"gfx\\cubes.raw","cubes",29,2,6,8,null,8);
+		//doPictureToTiles(path+"demos\\MouseTest\\data\\fonts_8x8.raw", path+"demos\\MouseTest\\data\\fonts_8x8","font_tileset",16,4,8,8,null,8);
+		//doPictureToTiles(path+"demos\\MouseTest\\data\\uzeboxlogo_8x8.raw", path+"demos\\MouseTest\\data\\uzeboxlogo_8x8","logo_tileset",5,7,8,8,uzeboxlogoMaps8x8,8);
+
+		//doPictureToTiles(path+"demos\\Uzeamp\\data\\font8x8_blue_small.raw", path+"demos\\Uzeamp\\data\\font8x8blue","font_tileset_blue",16,4,8,8,null,8);
+		//doPictureToTiles(path+"demos\\Uzeamp\\data\\font8x8.raw", path+"demos\\Uzeamp\\data\\font8x8","font_tileset",32,2,8,8,null,8);
+		//doPictureToTiles(path+"demos\\Uzeamp\\data\\main.raw",path+"demos\\Uzeamp\\data\\main","main_tileset",30,30,8,8,uzeampMaps,8);
+		//doPictureToTiles(path+"demos\\Uzeamp\\data\\sprites.raw",path+"demos\\Uzeamp\\data\\sprites","sprites_tileset",6,2,8,8,uzeampSpritesMaps,8);
+		
+		//convertRawToIncludeFile(path+"demos\\VideoDemo\\data\\frame64b","frame");
+		 //convertRawToMovieFrame(path+"demos\\VideoDemo\\data\\fram170");
+		
+		 //convertRawToMovieFrame("F:\\temp\\badluck_export\\raw\\Sequence","F:\\temp\\badluck_export\\raw\\Sequence.raw","f:\\badluck.uzm",9615); 
+		// convertRawToMovieFrame("F:\\temp\\output\\matrix","F:\\temp\\export\\Sequence01.raw","f:\\matrix.uzm",4316); 
+		 
+		//doPictureToTiles(path+"demos\\Arkanoid\\data\\map.raw",path+"demos\\Arkanoid\\data\\map","arkanoid_tileset",28,30,8,8,arkanoidMaps,8);
+		//doPictureToTiles(path+"demos\\Arkanoid\\data\\title.raw",path+"demos\\Arkanoid\\data\\title","arkanoidTile_tileset",25,6,8,8,arkanoidTitleMaps,8);
+		//doPictureToTiles(path+"demos\\Arkanoid\\data\\sprites.raw",path+"demos\\Arkanoid\\data\\sprites","arkanoidSprites_tileset",34,15,8,8,arkanoidSpritesMaps,8);
+		//doPictureToTiles(path+"demos\\Arkanoid\\data\\intro2.raw",path+"demos\\Arkanoid\\data\\intro","intro_tileset",14,10,8,8,arkanoidIntroMaps,8);
+		//doPictureToTiles(path+"demos\\Arkanoid\\data\\font.raw",path+"demos\\Arkanoid\\data\\font","font_tileset",16,3,8,8,null,8);
+		
+		//doPictureToTiles(path+"demos\\MouseTest\\data\\cursor.raw",path+"demos\\MouseTest\\data\\cursor","cursor_tileset",16,16,8,8,cursorMaps,8);
+		//doPictureToTiles(path+"demos\\MouseTest\\data\\tiles.raw",path+"demos\\MouseTest\\data\\tiles","tiles_tileset",20,9,8,8,mouseMaps,8);
+	
+		//doPictureToTiles(path+"demos\\MouseTest\\data\\mole.raw",path+"demos\\MouseTest\\data\\mole","mole_tileset",43,31,8,8,moleMaps,8);
+		//doPictureToTiles(path+"demos\\MouseTest\\data\\title.raw",path+"demos\\MouseTest\\data\\title","title_tileset",23,3,8,8,moleTitleMaps,8);
+		//convertSong("\\demos\\MouseTest\\data\\Whacksong\\Whacksong.mid","\\demos\\MouseTest\\data\\Whacksong.inc","song_Whacksong",34);
+		
+		//doPictureToTiles(path+"demos\\Arkanoid\\data\\yiear.raw",path+"demos\\Arkanoid\\data\\yiear","yiear_tileset",30,28,8,8,yiearMaps,8);
+		
+		//doPictureToTiles(path+"demos\\SuperMarioDemo\\data\\marioworld_map_long.raw",path+"demos\\SuperMarioDemo\\data\\smb","smb_tileset",640,26,8,8,smbMapsLong,8);
+		//doPictureToTiles(path+"demos\\SuperMarioDemo\\data\\marioworld_map.raw",path+"demos\\SuperMarioDemo\\data\\smb","smb_tileset",32,32,8,8,smbMaps,8);
+		//doPictureToTiles(path+"demos\\NewEngine\\data\\smw_sprites.raw",path+"demos\\NewEngine\\data\\mario_sprites","mario_sprites_tileset",36,3,8,8,smbSprMaps,8);
+		
 		//doPictureToTiles(path+"gfx\\arkanoid-sprites.raw","arkanoid_sprites",22,2,6,8,null,8);
 		//convertSprites(path+"gfx\\arkanoid-sprites.raw","arkanoid_sprites",22,2,6,8,null,8);
 		
 //		doMonoPictureToTilesAsm(path+"gfx\\fonts_8x8.raw","fonts8x8",16,4,8,8,0,0);
 	//	doPictureToTilesAsm(path+"gfx\\fonts_8x8_reduced.raw","fonts8x8reduced",44,1,8,8,0,0);
 		 
-		//convertSong("tetris\\Korobeiniki-3tracks.mid","include\\Korobeiniki-3tracks.inc","song_korobeiniki",60);
+		//convertSong("demos\\Megatris\\data\\Korobeiniki-3tracks.mid","demos\\Megatris\\data\\Korobeiniki-3tracks.inc","song_korobeiniki",29);
+		//convertSong("demos\\Megatris\\data\\testrisnt__0.mid","demos\\Megatris\\data\\testrisnt.inc","song_testrisnt",33);
+		//convertSong("demos\\Megatris\\data\\ending2.mid","demos\\Megatris\\data\\ending.inc","song_ending",30);
 		
-		convertSong("music\\pumpkin_f1b.mid","data\\pumpkin.inc","song_pumpkin",160);
+		//convertSong("demos\\MusicDemo\\data\\tetrisnt_fast.mid","demos\\MusicDemo\\data\\testrisnt_fast.inc","song_testrisnt_fast",30,false);
+		//convertSong("demos\\MusicDemo\\data\\ghost.mid","demos\\MusicDemo\\data\\ghost.inc","song_ghost",29,true);
+		//convertSong("demos\\MusicDemo\\data\\dr_mario_03_uzebox_final.mid","demos\\MusicDemo\\data\\drmario_main.inc","song_drmario_main",30,true);
+		//convertSong("demos\\MusicDemo\\data\\NSMB.mid","demos\\MusicDemo\\data\\nsmb.inc","song_nsmb",30,true);		
 		
-		//convertSong("music\\ghost.mid","include\\ghost.inc","song_ghost",60);
-		//convertSong("music\\mario.mid","include\\mario.inc","song_mario",65);
-		//convertSong("music\\NSMB.mid","include\\nsmb.inc","song_nsmb",62);		
-		//convertSong("music\\testrisnt__0.mid","include\\testrisnt.inc","song_testrisnt",70);
-		//convertSong("music\\tetrisnt_fast.mid","include\\testrisnt_fast.inc","song_testrisnt_fast",60);
-		//convertSong("music\\ending2.mid","include\\ending.inc","song_ending",64);
+		//convertSong("music\\pumpkin_f1b.mid","data\\pumpkin.inc","song_pumpkin",160);
+		
+		//convertSong("\\demos\\Arkanoid\\data\\arkanoid1_converted.mid","\\demos\\Arkanoid\\data\\arkanoid1_converted.inc","song_arkanoid1",29);
+		//convertSong("\\demos\\Arkanoid\\data\\arkanoid2_converted.mid","\\demos\\Arkanoid\\data\\arkanoid2_converted.inc","song_arkanoid2",30);
+		
+		//convertSong("\\demos\\pacman-sound\\music\\newgame2.mid","\\demos\\pacman-sound\\music\\newgame.inc","song_newgame",32 ,true);
+		//convertSong("\\demos\\pacman-sound\\music\\intermission.mid","\\demos\\pacman-sound\\music\\intermission.inc","song_intermission",30 ,true);
+		
+		//convertSong("\\demos\\MusicDemo\\data\\moonpatrol.mid","\\demos\\MusicDemo\\data\\moonpatrol.inc","song_moonpatrol",72);
+		
+		//convertSong("\\_music\\dr_mario_03_uzebox_final.mid","\\demos\\MusicDemo\\data\\drmario_main.inc","song_drmario_main",60);
+		
+		//convertSong("sound\\sparkfun_0.mid","include\\sparkfun.inc","sparkfun_song",60);
+		
+		//convertWave(path+"\\kernel\\waves\\sample-10.raw", path+"\\kernel\\waves\\sample-10.inc","3 octaves square wave");
+		
+
+		
+	//	convertFont("d:\\temp\\fonts.raw","C:\\work\\uzebox\\sources\\rev4-beta\\demos\\Bootloader\\fonts.inc",63 );
+		//convertFont("d:\\temp\\fonts_full.raw","C:\\work\\uzebox\\sources\\rev4-beta\\demos\\Bootloader\\fonts_full.inc",91 ); 
+		
+		//doSdTestFile();
 		
 		/*
 		 * Those ones should be used only for kernel stuff. 
@@ -166,6 +472,28 @@ public class Main {
 		//doPicture("vidtest2");
 	}
 	
+	
+	private static void doBitmap(){
+		
+	}
+	
+	private static void doSdTestFile() {
+		File dataFile=new File("f:\\work\\uzebox\\sd\\test.bin");
+		byte[] data=new byte[512*256];
+		
+		for(int i=0;i<256;i++){
+			for(int j=0;j<512;j++){
+				data[(i*512)+j]=(byte)(i&0xff);
+			}			
+		}
+		
+		try {
+			FileUtils.writeByteArrayToFile(dataFile, data);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	private static void convertSprites(String inFilename,String outFilename,int horizontalTiles,int verticalTiles,int tileWidth,int tileHeight,TileMap[] maps,int mapPointersSize) throws Exception {
 		File picFile=new File(path+"data\\"+outFilename+".pic.inc");
 		File mapFile=new File(path+"data\\"+outFilename+".map.inc");
@@ -362,164 +690,6 @@ public class Main {
 	}
 	
 
-	
-	/**
-	 * Converts a multi track MIDI song to a single track song and remove useless events. 
-	 * 
-	 * @param filename
-	 * @param outFile
-	 * @throws Exception
-	 */
-	private static void convertSong(String filename,String outFile,String variableName,double speedFactor) throws Exception{	
-		
-		//define the supported commands
-		Map<Integer,Command> commands=new HashMap<Integer,Command>();
-		commands.put(new Integer(0x90),new Command("Note On",true));
-		commands.put(new Integer(0xb0),new Command("Controller",true));
-		commands.put(new Integer(0xc0),new Command("Program Change",true));
-		commands.put(new Integer(0xe0),new Command("Pitch Bend",false));
-
-		//define meta events
-		Map<Integer,MetaEvent> metaEvents=new HashMap<Integer,MetaEvent>();
-		metaEvents.put(new Integer(0x2),new MetaEvent("Copyright",false));
-		metaEvents.put(new Integer(0x3),new MetaEvent("Track Name",false));
-		metaEvents.put(new Integer(0x6),new MetaEvent("Marker",true));
-		metaEvents.put(new Integer(0x2f),new MetaEvent("End of Track",true));
-		metaEvents.put(new Integer(0x51),new MetaEvent("Tempo",true));
-		metaEvents.put(new Integer(0x58),new MetaEvent("Time Signature",false));
-		metaEvents.put(new Integer(0x59),new MetaEvent("Key Signature",false));
-		
-		//create in/out files
-		File inFile=new File(path+filename);
-		
-		MidiFileFormat format=MidiSystem.getMidiFileFormat(inFile);
-		
-		if(format.getType()!=0){
-			throw new RuntimeException("Unsupported file format "+format.getType()+". Only MIDI file format 0 (all events in one track) is supported.");
-		}
-		
-		Sequence inSequence=MidiSystem.getSequence(inFile);		
-		
-		Sequence seq=new Sequence(format.getDivisionType(),format.getResolution(),1);
-		Track outTrack=seq.getTracks()[0];
-		
-		long tempo=60000000/format.getResolution();
-		int resolution=format.getResolution();
-		//if(resolution!=120){
-			//throw new RuntimeException("MIDI file resolution must be 120. Currently:"+resolution);
-		//}
-
-		Track track=inSequence.getTracks()[0];
-
-		for(int e=0;e<track.size();e++){
-			MidiEvent event=track.get(e);				
-			
-			if(event.getMessage() instanceof MetaMessage){
-				MetaMessage m=(MetaMessage)event.getMessage();
-				if(metaEvents.containsKey(m.getType()) && metaEvents.get(m.getType()).supported){
-					if(m.getType()==6 &&  m.getLength()>4)
-						throw new RuntimeException("META markers text size must by only one character: "+new String(m.getData()));
-					
-					if(m.getType()==0x51){ //tempo
-						byte[] t=m.getData();
-						long tmp=(t[0]<<16)+(t[1]<<8)+t[2];
-						tempo=tmp;
-					}else{
-						addEvent(e,outTrack,event,tempo,speedFactor);
-						logger.debug("META: tick="+event.getTick()+",type="+Integer.toHexString(m.getType())+":"+metaEvents.get(m.getType()).name);
-					}
-				}else{
-					String name="";
-					if(metaEvents.get(m.getType())!=null) name=metaEvents.get(m.getType()).name;
-					//logger.warn("META: tick="+tick+",type="+Integer.toHexString(m.getType())+":"+name+": UNSUPPORTED");
-				}
-			}else if(event.getMessage() instanceof ShortMessage){
-				ShortMessage m=(ShortMessage)event.getMessage();
-				if(m.getChannel()==9){
-					ShortMessage newMessage =new ShortMessage();
-					newMessage.setMessage(m.getCommand(), 3, m.getData1(),m.getData2());
-					event=new MidiEvent(newMessage,event.getTick());	
-					m=(ShortMessage)event.getMessage();
-				}
-				
-				
-				if(commands.containsKey(m.getCommand()) && commands.get(m.getCommand()).supported){
-					if(m.getCommand()==0xb0){ //controllers
-						if(m.getData1()==CONTROLER_VOL || m.getData1()==CONTROLER_TREMOLO || m.getData1()==CONTROLER_TREMOLO_RATE){
-							addEvent(e,outTrack,event,tempo,speedFactor);
-							logger.debug("MIDI:tick="+event.getTick()+",channel="+m.getChannel()+",command=0x"+Integer.toHexString(m.getCommand())+":"	+commands.get(m.getCommand()).name+"type="+m.getData1());								
-						}else{
-							//logger.debug("MIDI:tick="+tick+",channel="+m.getChannel()+",command=0x"+Integer.toHexString(m.getCommand())+":"	+commands.get(m.getCommand()).name+"type="+m.getData1()+": UNSUPPORTED");
-						}
-					}else if(m.getCommand()==0x90 && m.getData2()==0){ //note off
-						//logger.debug("MIDI:tick="+event.getTick()+",channel="+m.getChannel()+",command=0x"+Integer.toHexString(m.getCommand())+":Note Off: IGNORED");
-					}else{
-						addEvent(e,outTrack,event,tempo,speedFactor);
-						logger.debug("MIDI:tick="+event.getTick()+",channel="+m.getChannel()+",command=0x"+Integer.toHexString(m.getCommand())+":"	+commands.get(m.getCommand()).name);
-					}
-				}else{
-					String name="";
-					if(commands.get(m.getCommand())!=null) name=commands.get(m.getCommand()).name;
-					//logger.warn("MIDI:tick="+tick+",channel="+m.getChannel()+",command=0x"+Integer.toHexString(m.getCommand())+":"+name+": UNSUPPORTED");
-				}
-			}else{
-				//logger.warn("SYSEX: tick="+tick+": UNSUPPORTED");
-			}
-
-		}
-
-	
-        File temp = File.createTempFile("~mid", ".tmp");        
-        temp.deleteOnExit();
-        MidiSystem.write(seq, 0, temp);
-        
-        byte data[]=FileUtils.readFileToByteArray(temp);
-        
-        //output track data skipping headers
-		StringBuffer out=new StringBuffer();
-		out.append("//*********************************//\r\n");
-		out.append("// MIDI file: "+path+filename+"\r\n");
-		out.append("//*********************************//\r\n");
-
-		out.append("const char "+variableName+"[] PROGMEM ={\r\n");
-		int totalSize=0; 
-		
-		int b;
-		for(int k=(14+8);k<data.length;k++){
-			b=(int)(data[k]&0xff);
-			if(b<=0xf){
-				out.append("0x0"+Integer.toHexString(b));
-			}else{
-				out.append("0x"+Integer.toHexString(b));
-			}				
-			out.append(",");
-			totalSize++;
-			if(totalSize%32==0)out.append("\r\n");
-		}       
-        
-		out.setCharAt(out.length()-1,' '); //remove traling comma	
-		out.append("};\r\n");			
-		
-		FileUtils.writeStringToFile(new File(path+outFile), out.toString());
-		System.out.println("Outputting file: "+path+outFile);
-		System.out.println("Size:"+totalSize+" bytes");
-		
-	}
-	
-	static long tickDiff=0;	
-	static boolean first=true;
-	private static void addEvent(int currentEvent,Track track, MidiEvent event,double tempo,double speedFactor){
-
-		if(first && event.getTick()!=0)tickDiff=event.getTick();
-		Double scaled=new Double(event.getTick()-tickDiff);
-
-		double factor=speedFactor/(60000000/tempo);
-		scaled=scaled * factor; 
-		long l=scaled.longValue();
-		event.setTick(l);	
-		track.add(event);
-		first=false;
-	}
 	
 	
 	
@@ -842,14 +1012,15 @@ public class Main {
 	    System.out.println("Total Size="+totalSize/8+" bytes");
 	}
 	
-	private static void doPictureToTiles(String inFilename,String outFilename,int horizontalTiles,int verticalTiles,int tileWidth,int tileHeight,TileMap[] maps,int mapPointersSize) throws Exception {
-		File picFile=new File(path+"data\\"+outFilename+".pic.inc");
-		File mapFile=new File(path+"data\\"+outFilename+".map.inc");
+	private static void doPictureToTiles(String inFilename,String outFilename,String tilsetName, int horizontalTiles,int verticalTiles,int tileWidth,int tileHeight,TileMap[] maps,int mapPointersSize) throws Exception {
+		File picFile=new File(outFilename+".pic.inc");
+		File mapFile=new File(outFilename+".map.inc");
 		File inFile=new File(inFilename);
 		
 		System.out.println("Processing file "+inFile.getName()+"...");
 		
-		byte[] in=FileUtils.readFileToByteArray(inFile);
+		//byte[] in=FileUtils.readFileToByteArray(inFile);
+		byte[] in=getBytesFromFile(inFile);
 		
 		StringBuffer str=new StringBuffer("//picture: "+ inFile.getName() +"\r\n");
 		str.append("//Horizontal Tiles="+horizontalTiles+"\r\n");
@@ -905,8 +1076,8 @@ public class Main {
 		}
 		
 		//build tile files from unique tiles
-		str.append("#define "+outFilename.toUpperCase()+"_TILESET_SIZE "+uniqueTiles.size()+"\r\n\r\n");
-		str.append("const unsigned char "+outFilename+"_tileset[] PROGMEM ={\r\n");
+		str.append("#define "+tilsetName.toUpperCase()+"_SIZE "+uniqueTiles.size()+"\r\n\r\n");
+		str.append("const char "+tilsetName+"[] PROGMEM ={\r\n");
 		int c=0,t=0;
 		for(Iterator it=uniqueTiles.iterator();it.hasNext();){
 			byte[] tile=(byte[])it.next();
@@ -937,10 +1108,13 @@ public class Main {
 			
 			for(int m=0;m<maps.length;m++){
 				TileMap map=maps[m];
+				mapStr.append("#define MAP_"+map.getName().toUpperCase()+"_WIDTH "+map.getWidth()+"\r\n");
+				mapStr.append("#define MAP_"+map.getName().toUpperCase()+"_HEIGHT "+map.getHeight()+"\r\n");
+				mapStr.append("const char map_"+map.getName()+"[] PROGMEM ={\r\n");
 				
-				mapStr.append("const unsigned char map_"+map.getName()+"[] PROGMEM ={\r\n");
 				mapStr.append(Integer.toString(map.getWidth())+",");
 				mapStr.append(Integer.toString(map.getHeight()));
+				
 				c=0;
 				for(int y=map.getY();y<(map.getY()+map.getHeight());y++){
 					for(int x=map.getX();x<map.getX()+map.getWidth();x++){
@@ -964,7 +1138,7 @@ public class Main {
 						
 					}
 				}
-				mapStr.append("};\r\n");
+				mapStr.append("};\r\n\r\n");
 			
 			}
 			
@@ -995,28 +1169,60 @@ public class Main {
 
 	
 	//converts a raw bitmap to an include file
-	private static void convertRawToIncludeFile(String file,String type) throws Exception {
-		File inFile=new File(path+"data\\"+file+".raw");
-		File outFile=new File(path+"data\\"+file+".inc");		
+	private static void convertRawToIncludeFile(String path,String name,int bbp,int width,int height) throws Exception {
+		if(!path.endsWith(File.separator))path+=File.separator;
+			
+		File inFile=new File(path+name+".raw");
+		File outFile=new File(path+name+".inc");		
 				
 		byte[] in=FileUtils.readFileToByteArray(inFile);
 		
-		StringBuffer str=new StringBuffer("//"+type+": "+ inFile.getName() +"\r\n");
-		str.append("#define sizeof_"+file+" "+in.length+"\r\n\r\n");
-		str.append("const char "+file+"[] PROGMEM ={\r\n");
+		StringBuffer str=new StringBuffer("//"+name+": "+ inFile.getName() +"\r\n");
+
 		
-		for(int i=0;i<in.length;i++){
-			int o=in[i] & 0xff ;
-			if(o<=0xf){
-				str.append("0x0"+Integer.toHexString(o));
-			}else{
-				str.append("0x"+Integer.toHexString(o));
-			}
+		if(bbp==8){
+			str.append("#define sizeof_"+name+" "+in.length+"\r\n\r\n");
+			str.append("const char "+name+"[] PROGMEM ={\r\n");
 			
-			if(i<(in.length-1))str.append(",");
-		
-			if((i%16)==0)str.append("\r\n");
-					
+			for(int i=0;i<in.length;i++){
+				int o=in[i] & 0xff ;
+				if(o<=0xf){
+					str.append("0x0"+Integer.toHexString(o));
+				}else{
+					str.append("0x"+Integer.toHexString(o));
+				}		
+				if(i<(in.length-1))str.append(",");				
+				if((i%16)==0)str.append("\r\n");
+			}
+		}else{
+			str.append("#define sizeof_"+name+" "+in.length/4 +"\r\n");
+			str.append("#define "+name+"_width "+width +"\r\n");
+			str.append("#define "+name+"_height "+height +"\r\n\r\n");
+			
+			List palette=new LinkedList();
+			for(int i=0;i<in.length;i++){
+				if(!palette.contains(in[i])){
+					palette.add(in[i]);
+				}
+			}
+			if(palette.size()>4)throw new RuntimeException("Too many colors in source bitmap. Max 4, found:"+palette.size());
+			str.append("const char "+name+"_palette[] PROGMEM ={");
+			str.append(palette.get(0)+","+palette.get(1)+","+palette.get(2)+","+palette.get(3));
+			str.append("};\r\n");
+			
+			
+			str.append("const char "+name+"[] PROGMEM ={\r\n");
+			for(int i=0;i<in.length;i+=4){
+				byte pix1=(byte) palette.indexOf(in[i+0]);
+				byte pix2=(byte) palette.indexOf(in[i+1]);
+				byte pix3=(byte) palette.indexOf(in[i+2]);
+				byte pix4=(byte) palette.indexOf(in[i+3]);
+				str.append((pix1<<6)|(pix2<<4)|(pix3<<2)|(pix4<<0));
+				
+				if(i<(in.length-4))str.append(",");				
+				if((i%16)==0)str.append("\r\n");
+			}
+
 		}
 		
 		
@@ -1026,6 +1232,67 @@ public class Main {
 	   System.out.println("Processing file "+inFile.getName()+"...Done!");
 		
 	}
+	
+	//converts a raw bitmap to an include file
+	private static void convertRawToMovieFrame2(String file) throws Exception {
+		
+		File outFile=new File("f:\\matrix.uzm");	
+		if(outFile.exists()){
+			outFile.delete();
+		}
+			
+		FileOutputStream fs=FileUtils.openOutputStream(outFile);
+		
+		
+		byte[] out=new byte[512*38];
+		byte[] in;
+		
+		for(int f=1;f<4317;f++){
+			for(int t=0;t<2;t++){ //double field
+				File inFile=new File("f:\\temp\\output\\matrix"+pad(f)+".raw");
+				in=FileUtils.readFileToByteArray(inFile);
+				
+				
+				int inPos=0;
+				int outPos=0;
+				for(int i=0;i<in.length;i++){
+					out[outPos++]=in[i];
+					inPos++;
+					if(inPos==510){
+						inPos=0;
+						out[outPos++]=0;
+						out[outPos++]=0;
+					}
+				}
+				IOUtils.write(out, fs);
+			}
+			
+			System.out.println("Processing frame: "+f);
+		}
+		
+		fs.flush();
+		fs.close();
+		
+	   //FileUtils.writeByteArrayToFile(outFile, out);
+	   System.out.println("Processing file "+file+"...Done!");
+		
+	}
+	
+	private static String pad(int i){
+		
+		if(i<10){
+			return "000"+i;
+		}else if(i<100){
+			return "00"+i;
+		}else if(i<1000){
+			return "0"+i;
+		}else{
+			return ""+i;
+		}
+		
+		
+	}
+	
 	
 	/**
 	 * Generate the UZEBOX palette. File format is Photoshop palette (.act) 
@@ -1201,5 +1468,158 @@ public class Main {
 	}
 	
 	
-}
+	
+	
+	private static void convertRawToMovieFrame(String framesPath,String audioPath,String outPath,int frameCount) throws Exception {
+		//String outFileName="f:\\badluck.uzm";
+		String outFileName=outPath;
+		
+		File outFile=new File(outFileName);	
+		if(outFile.exists()){
+			outFile.delete();
+		}
+			
+		FileOutputStream fs=FileUtils.openOutputStream(outFile);
+		
+//		byte[] audio=FileUtils.readFileToByteArray(new File("F:\\temp\\badluck_export\\raw\\Sequence.raw"));
+		byte[] audio=FileUtils.readFileToByteArray(new File(audioPath));
+		//byte[] audioChunk=new byte[512];
+		     
+		byte[] out=new byte[512*39];
+		byte[] in;
+		int audioPos=0;
+		
+		for(int f=1;f<frameCount;f++){
+		
+			for(int t=0;t<2;t++){ //double field
 
+				//write audio chunk for field
+				for(int c=0;c<262;c++){
+					out[c]=audio[audioPos++];	
+				}
+				
+				//File inFile=new File("F:\\temp\\badluck_export\\raw\\Sequence"+pad(f)+".raw");
+				File inFile=new File(framesPath+pad(f)+".raw");
+				in=FileUtils.readFileToByteArray(inFile);
+				
+				
+				int inPos=0;
+				int outPos=512;
+				for(int i=0;i<in.length;i++){
+					out[outPos++]=in[i];
+					inPos++;
+					if(inPos==510){
+						inPos=0;
+						out[outPos++]=0;
+						out[outPos++]=0;
+					}
+				}
+				IOUtils.write(out, fs);
+			}
+			
+			System.out.println("Processing frame: "+f);
+		}
+		
+		fs.flush();
+		fs.close();
+		
+	   //FileUtils.writeByteArrayToFile(outFile, out);
+	   System.out.println("Done processing file: "+outFileName+" !");
+		
+	}
+	
+	
+	
+	private static void convertFont(String inFile,String destFile, int widthInChar) throws Exception{
+
+		byte[] in=FileUtils.readFileToByteArray(new File(inFile));		
+		File outFile=new File(destFile);	
+		
+		StringBuffer str=new StringBuffer(";5x8 packed monochrome font for the bootloader\r\n");
+		//str.append("#define FONT_SIZE "+widthInChar+"\r\n\r\n");
+		
+		//int l=(in.length/48)-1;
+		for(int i=0;i<widthInChar;i++){
+			
+			str.append(".byte ");
+			
+			String pack="";
+			
+			for(int k=0;k<8;k++){
+					
+				byte b=0;
+				int shift=7;
+				for(int j=0;j<5;j++){
+					if(in[(i*6)+(k*widthInChar*6)+j]!=0){
+						b|=(1<<shift);
+					}
+					shift--;	
+				}
+		
+				pack+=toBin(b);
+			}
+
+			System.out.println(pack);
+			
+			str.append("0b"+pack.substring(0,8)+",");
+			str.append("0b"+pack.substring(8,16)+",");
+			str.append("0b"+pack.substring(16,24)+",");
+			str.append("0b"+pack.substring(24,32)+",");
+			str.append("0b"+pack.substring(32,40));
+
+			
+			str.append(" ; #"+i+" = " +Character.toString((char)(i+32)));
+			
+			str.append("\r\n");
+		}
+		str.append(".align 2 ;insure remaining code is aligned on a word");
+		
+	   FileUtils.writeStringToFile(outFile, str.toString());
+	     
+	   System.out.println("Processing file "+inFile+"...Done!");
+		
+	}
+	
+	private static String toBin(byte b){
+		int i=(b&0xff);
+		String s=Integer.toBinaryString(i);
+		int l=8-s.length();
+		for(int j=0;j<l;j++)s="0"+s;
+		//System.out.println(s);
+		s=s.substring(0, 5);
+		System.out.println(s);
+		return s;
+	}
+	
+    public static byte[] getBytesFromFile(File file) throws IOException {
+        InputStream is = new FileInputStream(file);
+    
+        // Get the size of the file
+        long length = file.length();
+    
+        if (length > Integer.MAX_VALUE) {
+            // File is too large
+        }
+    
+        // Create the byte array to hold the data
+        byte[] bytes = new byte[(int)length];
+    
+        // Read in the bytes
+        int offset = 0;
+        int numRead = 0;
+        while (offset < bytes.length
+               && (numRead=is.read(bytes, offset, bytes.length-offset)) >= 0) {
+            offset += numRead;
+        }
+    
+        // Ensure all the bytes have been read in
+        if (offset < bytes.length) {
+            throw new IOException("Could not completely read file "+file.getName());
+        }
+    
+        // Close the input stream and return bytes
+        is.close();
+        return bytes;
+    }
+	
+}
