@@ -1,1 +1,1 @@
-<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA644"/><Files/></AVRWorkspace>
+<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA644"/><Files><File00000 Name="C:\work\uzebox\sources\rev4-beta\demos\Megatris\megatris.c" Position="228 115 1278 611" LineCol="0 0" State="Maximized"/><File00001 Name="C:\work\uzebox\sources\rev4-beta\demos\Megatris\default\Makefile" Position="224 85 1454 855" LineCol="0 0" State="Maximized"/></Files></AVRWorkspace>
