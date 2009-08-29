@@ -108,7 +108,6 @@ int main()
    SetFontTable(fonts);  // this tells Print___() commands what font to use
    ClearVram();          // clears out display memory (like a 'clear screen')
 
-
   DDRD &= 0xF7; // These are used by the "power" switch and LED on the "Gamer" baseboard that 
   PORTD|= 0x08; // is paired with the AVCore.  The 'power' button is used to switch mazes for now.
 
