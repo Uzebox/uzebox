@@ -24,7 +24,6 @@
 
 #include "data/fonts.pic.inc"
 
-
 int main(){
 
 	//Set the font and tiles to use.
@@ -38,7 +37,7 @@ int main(){
 	//that tells the compiler to store the string in flash.
 	Print(8,12,PSTR("HELLO WORLD FROM THE UZEBOX!"));
 
-	//In embedded applications, never exit main() or the program will crash.
+
 	while(1);
 
 } 
