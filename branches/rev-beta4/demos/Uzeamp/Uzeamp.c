@@ -34,6 +34,7 @@
 #include "data/main.map.inc"
 #include "data/sprites.map.inc"
 
+void DrawMap3(unsigned char x,unsigned char y,const char *map);
 
 extern void mmc_mixerStart(uint32_t lba);
 extern void mmc_mixerStop();
@@ -145,7 +146,8 @@ union SectorData {
 
 
 typedef struct{
-	unsigned char filename[13]; //filename+'.'+ext+0
+	unsigned char filename[9]; //8+ 0 terminator 
+	unsigned char extension[3]; 
 	unsigned long firstSector;
 	unsigned long fileSize;	
 } File;
@@ -182,6 +184,7 @@ void forwardSong();
 #define BTN_FORWARD 4
 #define BTN_FILES 5
 
+#define LEFT -1
 
 unsigned char infoTemp[48]; 
 unsigned char infoSong[104];
@@ -241,7 +244,7 @@ void flipSkin(){
 }
 
 int main(){
-	unsigned char c,sliderX=16,sliderY=76;
+	unsigned char c,sliderX=8,sliderY=76;
 	unsigned int joy,i,j,k,pos,actionButton;
 	long loc=0,newLoc=0;
 
@@ -265,20 +268,20 @@ int main(){
 //	SetMouseSensitivity(MOUSE_SENSITIVITY_HIGH);
 	actionButton=GetActionButton();
 
-	DrawMap2(0,0,map_main);
+	DrawMap3(0,0,map_main);
 	
-	createButton(&buttons[BTN_REWIND],2,11,map_btnPrevNormal,map_btnPrevPushed);
-	createButton(&buttons[BTN_PLAY],5,11,map_btnPlayNormal,map_btnPlayPushed);
-	createButton(&buttons[BTN_PAUSE],8,11,map_btnPauseNormal,map_btnPausePushed);
-	createButton(&buttons[BTN_STOP],11,11,map_btnStopNormal,map_btnStopPushed);
-	createButton(&buttons[BTN_FORWARD],14,11,map_btnNextNormal,map_btnNextPushed);
-	createAreaButton(&buttons[BTN_FILES], 2,13,26,14);
+	createButton(&buttons[BTN_REWIND],1,11,map_btnPrevNormal,map_btnPrevPushed);
+	createButton(&buttons[BTN_PLAY],4,11,map_btnPlayNormal,map_btnPlayPushed);
+	createButton(&buttons[BTN_PAUSE],7,11,map_btnPauseNormal,map_btnPausePushed);
+	createButton(&buttons[BTN_STOP],10,11,map_btnStopNormal,map_btnStopPushed);
+	createButton(&buttons[BTN_FORWARD],13,11,map_btnNextNormal,map_btnNextPushed);
+	createAreaButton(&buttons[BTN_FILES], 1,13,26,14);
 	registerButtonHandler(buttonHandler,buttons);
 
 
 
 	for(i=0;i<11;i++){
-		DrawMap2(3+(i*2),4,map_digitBlank);
+		DrawMap2(2+(i*2),4,map_digitBlank);
 	}
 
 	
@@ -289,11 +292,11 @@ int main(){
 	
 	if(!cardDetected) noCard();
 
-	Print(20,4,PSTR("SECTOR"));
+	Print(19,4,PSTR("SECTOR"));
 	LoadRootDirectory(sector.buffer);
 	
 
-	x=3;y=14;cur=0;
+	x=2;y=14;cur=0;
 	MapSprite(SPR_SONG_CUR,map_hCursor);
 	SetFontTilesIndex(MAIN_TILESET_SIZE);
 
@@ -302,31 +305,38 @@ int main(){
 		if((sector.files[i].fileAttributes & (FAT_ATTR_HIDDEN|FAT_ATTR_SYSTEM|FAT_ATTR_VOLUME|FAT_ATTR_DIRECTORY|FAT_ATTR_DEVICE))==0){
 			if((sector.files[i].filename[0]!=0) && (sector.files[i].filename[0]!=0xe5) && (sector.files[i].filename[0]!=0x05) && (sector.files[i].filename[0]!=0x2e)){									
 				
-				pos=0;
-				for(j=0;j<8;j++){
-					c=sector.files[i].filename[j];
-					if(c==0x20)break;
-					if(c=='~')c='_';
-					files[fileCount].filename[pos++]=c;
-				}
-				files[fileCount].filename[pos++]='.';
-				for(k=0;k<3;k++){
-					c=sector.files[i].extension[k];
-					if(c==0x20)break;
-					files[fileCount].filename[pos++]=c;
-				}
-				files[fileCount].filename[pos]=0;
+				if(sector.files[i].extension[0]=='W' && sector.files[i].extension[1]=='A' && sector.files[i].extension[2]=='V'){
 
-				files[fileCount].fileSize=sector.files[i].fileSize;				
-				files[fileCount].firstSector=GetFileSector(&sector.files[i]);	
+					pos=0;
+					for(j=0;j<8;j++){
+						c=sector.files[i].filename[j];
+						if(c==0x20)break;
+						if(c=='~')c='_';
+						files[fileCount].filename[pos++]=c;
+					}
+					files[fileCount].filename[pos]=0;
+
+					//files[fileCount].filename[pos++]='.';
+					for(k=0;k<3;k++){
+						c=sector.files[i].extension[k];
+						//if(c==0x20)break;
+						files[fileCount].extension[k]=c;
+					}
+					
+
+					files[fileCount].fileSize=sector.files[i].fileSize;				
+					files[fileCount].firstSector=GetFileSector(&sector.files[i]);	
 				
-				PrintRam(x,y+fileCount,files[fileCount].filename);
-				//PrintLong(x+21,y+fileCount,files[fileCount].fileSize);
-				printFileTime(x+16,y+fileCount,(files[fileCount].fileSize/512));
+					PrintRam(x,y+fileCount,files[fileCount].filename);
+					//PrintLong(x+21,y+fileCount,files[fileCount].fileSize);
+					printFileTime(x+16,y+fileCount,(files[fileCount].fileSize/512));
 
 				
-				fileCount++;
-				if(fileCount==15) break; //can't fit more than 13 for now			
+					fileCount++;
+					if(fileCount==13) break; //can't fit more than 13 for now	
+
+				}
+						
 			}				
 		}
 	}
@@ -351,7 +361,7 @@ int main(){
 
 
 		animateTextLine(false);
-		PrintHexLong(19,5,sectorNo);
+		PrintHexLong(18,5,sectorNo);
 		SetFontTilesIndex(MAIN_TILESET_SIZE);
 
 
@@ -422,7 +432,7 @@ int main(){
 
 			if(joy&BTN_DOWN){
 				PrintChar(x-1,y+cur,' ');
-				if(cur<fileCount)cur++;
+				if(cur<(fileCount-1))cur++;
 				while(ReadJoypad(0)!=0);
 			}
 
@@ -740,8 +750,8 @@ void animateTextLine(bool reset){
 		pos=0;
 		curPos=0;
 		if(infoSongLen<=24){
-			for(char i=0;i<24;i++)PrintChar(3+i,7,' ');
-			PrintRam(3,7,infoSong);
+			for(char i=0;i<24;i++)PrintChar(2+i,7,' ');
+			PrintRam(2,7,infoSong);
 		}
 		wait=20;
 	}
@@ -755,7 +765,7 @@ void animateTextLine(bool reset){
 				}else{
 					c=infoSong[curPos];
 				}
-				PrintChar(i+3,7,c);
+				PrintChar(i+2,7,c);
 				curPos++;
 				if(curPos>=(infoSongLen+4)) curPos=0;
 			}
@@ -772,7 +782,7 @@ void animateTextLine(bool reset){
 
 void printDigits(unsigned long currentSectorNo,unsigned long songSize ){
 	unsigned long hours,minutes,seconds,temp;
-	unsigned char digit1, digit2,x=3;
+	unsigned char digit1, digit2,x=2;
 	//15734 bytes/sec @ 512bytes/sector
 	//31 sectors/sec
 	//1844 sectors/min
@@ -899,4 +909,25 @@ char init(){
 	return 0;
 }
 
+
+//Draws a map of tile at the specified position using an X offset in the map (cheap hack) 
+//because the map was initially created with mode3 at 30 tile wide. The new one is only 28 wide.
+
+void DrawMap3(unsigned char x,unsigned char y,const char *map){
+	unsigned char i;
+	unsigned char mapWidth=pgm_read_byte(&(map[0]));
+	unsigned char mapHeight=pgm_read_byte(&(map[1]));
+
+	for(unsigned char dy=0;dy<mapHeight;dy++){
+		for(unsigned char dx=0;dx<28;dx++){
+			
+			i=pgm_read_byte(&(map[(dy*mapWidth)+dx+1+2]));
+			
+			vram[((y+dy)*VRAM_TILES_H)+x+dx]=(i + RAM_TILES_COUNT) ;
+			
+		
+		}
+	}
+
+}
 

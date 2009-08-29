@@ -4,14 +4,17 @@
 
 ## General Flags
 PROJECT = Uzeamp
+GAME = Uzeamp
 MCU = atmega644
-TARGET = Uzeamp.elf
+TARGET = $(GAME).elf
 CC = avr-gcc
+INFO=../gameinfo.properties
 
 ## Kernel settings
 ## Notes: SCREEN_TILES_V=27 is required to recover some CPU because with the mouse & sprites, it would randomly crash
 KERNEL_DIR = ../../../kernel-4-uzeamp
-KERNEL_OPTIONS = -DUZEBOX -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DRAM_TILES_COUNT=12 -DMAX_SPRITES=4 -DSCREEN_TILES_V=27 -DVRAM_TILES_V=27 -DFIRST_RENDER_LINE=24
+KERNEL_OPTIONS  = -DUZEBOX -DUZEAMP -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DRAM_TILES_COUNT=12 
+KERNEL_OPTIONS += -DMAX_SPRITES=4 -DSCREEN_TILES_V=27 -DVRAM_TILES_V=27 -DFIRST_RENDER_LINE=24 -DINCLUDE_MIXER=0
 
 
 ## Options common to compile, link and assembly rules
@@ -31,7 +34,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS += -Wl,-Map=Uzeamp.map 
+LDFLAGS += -Wl,-Map=$(GAME).map 
 LDFLAGS += -Wl,-gc-sections 
 
 
@@ -44,7 +47,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o mmc_if.o Uzeamp.o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o mmc_if.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -53,7 +56,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) Uzeamp.hex Uzeamp.eep Uzeamp.lss size
+all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -75,7 +78,7 @@ mmc_if.o: $(KERNEL_DIR)/mmc_if.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-Uzeamp.o: ../Uzeamp.c
+$(GAME).o: ../Uzeamp.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -91,6 +94,9 @@ $(TARGET): $(OBJECTS)
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@
 
+%.uze: $(TARGET)
+	packrom $(GAME).hex $@ $(INFO)
+
 size: ${TARGET}
 	@echo
 	@avr-size -C --mcu=${MCU} ${TARGET}
@@ -98,7 +104,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) Uzeamp.elf dep/* Uzeamp.hex Uzeamp.eep Uzeamp.lss Uzeamp.map
+	-rm -rf $(OBJECTS) $(GAME).* dep/*
 
 
 ## Other dependencies
