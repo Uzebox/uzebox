@@ -4,14 +4,16 @@
 
 ## General Flags
 PROJECT = SuperMarioDemo
+GAME = SuperMarioDemo
 MCU = atmega644
-TARGET = SuperMarioDemo.elf
+TARGET = $(GAME).elf
 CC = avr-gcc
+INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel-4-uzeamp
 KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSOUND_CHANNEL_4_ENABLE=0 
-KERNEL_OPTIONS += -DMAX_SPRITES=14 -DRAM_TILES_COUNT=31 -DSCREEN_TILES_V=26 -DFIRST_RENDER_LINE=28 -DOVERLAY_LINES=4 -DVRAM_TILES_V=26
+KERNEL_OPTIONS += -DMAX_SPRITES=14 -DRAM_TILES_COUNT=30 -DSCREEN_TILES_V=27 -DFIRST_RENDER_LINE=24 -DOVERLAY_LINES=4 -DVRAM_TILES_V=26
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
@@ -30,7 +32,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS += -Wl,-Map=SuperMarioDemo.map 
+LDFLAGS += -Wl,-Map=$(GAME).map 
 LDFLAGS += -Wl,-gc-sections 
 
 
@@ -43,7 +45,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o SuperMarioDemo.o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -52,7 +54,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) SuperMarioDemo.hex SuperMarioDemo.eep SuperMarioDemo.lss size
+all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -71,7 +73,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-SuperMarioDemo.o: ../SuperMarioDemo.c
+$(GAME).o: ../SuperMarioDemo.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -87,6 +89,9 @@ $(TARGET): $(OBJECTS)
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@
 
+%.uze: $(TARGET)
+	-packrom $(GAME).hex $@ $(INFO)
+
 size: ${TARGET}
 	@echo
 	@avr-size -C --mcu=${MCU} ${TARGET}
@@ -94,7 +99,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) SuperMarioDemo.elf dep/* SuperMarioDemo.hex SuperMarioDemo.eep SuperMarioDemo.lss SuperMarioDemo.map
+	-rm -rf $(OBJECTS) $(GAME).* dep/*
 
 
 ## Other dependencies

@@ -101,10 +101,10 @@ int main(){
 	DrawMap2(0,VRAM_TILES_V,map_hud);
 	
 	unsigned char c;
-	for(int y=0;y<22;y++){
+	for(int y=0;y<23;y++){
 		for(int x=0;x<30;x++){
 			c=pgm_read_byte(&(map_main[(y*MAP_MAIN_WIDTH)+x+2]));
-			SetTile(x,y,c);
+			SetTile(x,y+1,c);
 		}	
 	}
 
@@ -115,7 +115,7 @@ int main(){
 
 	dx=0;
 	sx=50;
-	sy=169-32;
+	sy=169-32+8;
 	sprDir=1;
 
 	goombaX[0]=17; //159;
@@ -205,7 +205,7 @@ int main(){
 						MapSprite(goombaSprIndex[g],map_lgoomba2);
 					}
 				}
-				MoveSprite(goombaSprIndex[g],goombaX[g],176-32,2,2);
+				MoveSprite(goombaSprIndex[g],goombaX[g],176-32+8,2,2);
 			
 
 		}
@@ -219,8 +219,8 @@ void loadNextStripe(){
 	static unsigned int srcX=30;
 	static unsigned char destX=30;
 
-	for(int y=0;y<22;y++){
-		SetTile(destX,y,pgm_read_byte(&(map_main[(y*MAP_MAIN_WIDTH)+srcX+2])));		
+	for(int y=0;y<23;y++){
+		SetTile(destX,y+1,pgm_read_byte(&(map_main[(y*MAP_MAIN_WIDTH)+srcX+2])));		
 	}
 
 	srcX++;
