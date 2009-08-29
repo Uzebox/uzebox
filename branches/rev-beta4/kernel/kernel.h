@@ -240,8 +240,11 @@
 		//1=shorten line 	
 		unsigned char colorCorrectionType;	
 
+		//used by the bootloader to know the currently flashed game
+		unsigned long currentGameCrc32;
+
 		//for future expansion
-		unsigned char reserved[14];		
+		unsigned char reserved[10];		
 	};
 
 	struct EepromBlockStruct{

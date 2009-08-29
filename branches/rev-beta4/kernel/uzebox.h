@@ -92,7 +92,7 @@
 	/*
 	 * Sound Engine functions
 	 */	
-	extern void SetMasterVolume(unsigned char vol);		//global player volume
+	extern void SetMasterVolume(unsigned char vol);	//global player volume, default=0x6f
 	extern void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,unsigned char volume);
 	extern void TriggerFx(unsigned char patch,unsigned char volume, bool retrig); //uses a simple voice stealing algorithm
 	extern void StopSong();
