@@ -515,11 +515,7 @@ hsync_pulse:
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
 
-
-	;set sync generator counter on TIMER1
-	;ldi ZH,hi8(0x90+63)
-	;ldi ZL,lo8(0x90+63)
-	;rjmp up_pulse
+	rjmp .
 
 	ret
 
