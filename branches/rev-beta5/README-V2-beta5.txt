@@ -28,8 +28,8 @@ Rev 2.0 Beta5 Notes
 	-Packrom tool to make .uze file
 	-SD card game loader/bootloader!
 	-Various code cleanup & optimizations
-
-
+	-Video mode 3 now has a -DSCROLLING=1 to enable XY scrolling.
+	-SD/MMC low level functions ported to assembler to cut on flash utilization
 
 Rev 2.0 Beta4 Notes
 -------------------------
