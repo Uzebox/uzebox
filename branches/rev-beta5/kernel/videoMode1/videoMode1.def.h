@@ -21,7 +21,7 @@
 /** 
  * ==============================================================================
  *
- * This file contains global defines for video mode 2
+ * This file contains global defines for video mode 1
  *
  * ===============================================================================
  */
@@ -47,4 +47,10 @@
 
 #ifndef FRAME_LINES
 	#define FRAME_LINES SCREEN_TILES_V*TILE_HEIGHT
+#endif
+
+//In mode 1, vsync flag is set only each frame (30Hz)
+//set to MODE1_FAST_VSYNC=1 to sync on fields (60Hz) like other video modes
+#ifndef MODE1_FAST_VSYNC
+	#define MODE1_FAST_VSYNC 0
 #endif

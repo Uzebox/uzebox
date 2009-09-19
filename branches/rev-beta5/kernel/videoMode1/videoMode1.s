@@ -121,7 +121,11 @@ text_frame_end:
 	lds r16,curr_field
 	eor r16,r17
 	sts curr_field,r16
-	sbrs r16,0
+
+	#if MODE1_FAST_VSYNC == 0
+		sbrs r16,0
+	#endif
+	
 	sts vsync_flag,r17
 
 	;clear any pending timer int
