@@ -184,6 +184,7 @@
 		}
 	#endif
 
+	
 	void MapSprite(unsigned char startSprite,const char *map){
 		unsigned char tile;
 		unsigned char mapWidth=pgm_read_byte(&(map[0]));
@@ -198,6 +199,36 @@
 		}
 
 	}
+
+
+	void MapSprite2(unsigned char startSprite,const char *map,u8 spriteFlags){	
+		unsigned char tile;
+		unsigned char mapWidth=pgm_read_byte(&(map[0]));
+		unsigned char mapHeight=pgm_read_byte(&(map[1]));
+
+		
+		
+		if(spriteFlags & SPRITE_FLIP_X){
+			for(unsigned char dy=0;dy<mapHeight;dy++){
+				for(s8 dx=(mapWidth-1);dx>=0;dx--){
+				 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
+					sprites[startSprite].tileIndex=tile ;
+					sprites[startSprite++].flags=spriteFlags;
+				}			
+			}
+		}else{
+			for(unsigned char dy=0;dy<mapHeight;dy++){
+				for(unsigned char dx=0;dx<mapWidth;dx++){
+				 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
+					sprites[startSprite].tileIndex=tile;
+					sprites[startSprite++].flags=spriteFlags;
+				}			
+			}
+		}
+	
+
+	}
+
 
 	void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height){
 

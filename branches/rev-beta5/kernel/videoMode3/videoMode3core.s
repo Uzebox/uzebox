@@ -19,11 +19,13 @@
 */
 
 ;***************************************************
-; TEXT MODE VIDEO PROCESSING
-; Process video frame in tile+sprites mode.
+; Video Mode 3: 28x28 (224x224 pixels) using 8x8 tiles
+; with overlay & sprites X flipping.
+;
 ; If the SCROLLING build parameter=0, the scrolling 
-; is disabled and the screen resolution is 30*28.
-; otherwise the screen resolution is 28*28.
+; code is removed and the screen resolution 
+; increase to 30*28 tiles.
+; 
 ;***************************************************	
 
 .global vram
@@ -58,7 +60,7 @@
 #define sprTileIndex_hi 3
 #define sprFlags 4
 
-
+#define SPRITE_FLIP_X_BIT 0
 
 
 .section .bss
@@ -1110,7 +1112,8 @@ CopyTileToRam:
 ; r19:r18=DY:DX
 ;************************************
 BlitSprite:
-
+	push r16
+	push r17
 
 	;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
 	ldi r25,SPRITE_STRUCT_SIZE
@@ -1121,16 +1124,7 @@ BlitSprite:
 	add ZL,r0
 	adc ZH,r1
 
-	/*
-	ldd r24,Z+sprTileIndex	
-	lds ZL,sprites_tiletable_lo
-	lds ZH,sprites_tiletable_hi
-	ldi r25,TILE_WIDTH*TILE_HEIGHT
-	mul r24,r25
-	add ZL,r0	;src
-	adc ZH,r1
-	*/
-
+	ldd r16,Z+sprFlags
 
 	;8x16 multiply
 	ldd r24,Z+sprTileIndex_lo
@@ -1144,8 +1138,6 @@ BlitSprite:
 	lds ZH,sprites_tiletable_hi
 	add ZL,r26	;src
 	adc ZH,r27
-
-
 
 	;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
 	ldi XL,lo8(ram_tiles)	
@@ -1163,18 +1155,49 @@ BlitSprite:
 	;	xdiff=(8-dx);
 	;}	
 	clr r1
+
 	cpi r20,0
 	brne x_2nd_tile
+	
 	add XL,r18
 	adc XH,r1
-	mov r24,r18	;xdiff
+	mov r24,r18	;xdiff for dest
+	mov r17,r18	;xdiff for src
+
+	sbrs r16,SPRITE_FLIP_X_BIT
 	rjmp x_check_end
+
+	adiw ZL,7
+	ldi r17,16
+	sub r17,r18	;xdiff for src
+	rjmp x_check_end
+
+
 x_2nd_tile:
 	ldi r24,8
-	sub r24,r18	;xdiff
+	sub r24,r18	;8-DX = xdiff for dest
+
+	sbrc r16,SPRITE_FLIP_X_BIT
+	rjmp x2_flip_x
+
+	mov r17,r24	;xdiff for src
 	add ZL,r24
 	adc ZH,r1	
+	rjmp x_check_end
+
+x2_flip_x:
+	ldi r17,8
+	add r17,r18	;xdiff for src
+	
+	add ZL,r18
+	adc ZH,r1
+	sbiw ZL,1
+
 x_check_end:
+
+
+
+
 
 	;if(y==0){
 	;	dest+=(dy*TILE_WIDTH);
@@ -1220,12 +1243,20 @@ y_check_end:
 	clr r1
 	ldi r19,TRANSLUCENT_COLOR
 
+	clt
+	sbrc r16,SPRITE_FLIP_X_BIT
+	set
+
 	ldi r21,8
 	sub r21,r25 ;y2
 
 y2_loop:
 	ldi r20,8
 	sub r20,r24 ;x2
+
+	brts x2_loop_flip
+
+	;normal X loop (11 cycles)
 x2_loop:
 	lpm r18,Z+
 	cpse r18,r19
@@ -1233,17 +1264,33 @@ x2_loop:
 	adiw XL,1
 	dec r20
 	brne x2_loop
+	rjmp x2_loop_end
 
-	add ZL,r24
+	;flipped X loop (13 cycles)
+x2_loop_flip:
+	lpm r18,Z
+	sbiw ZL,1
+	cpse r18,r19
+	st X,r18
+	adiw XL,1
+	dec r20
+	brne x2_loop_flip
+
+x2_loop_end:
+	add ZL,r17
 	adc ZH,r1
 	add XL,r24
 	adc XH,r1
-
 	dec r21
 	brne y2_loop
 
+
+
+
 	clr r1
 
+	pop r17
+	pop r16
 	ret
 
 

@@ -77,6 +77,7 @@
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 #define VRAM_ADDR_SIZE 1 //in bytes
 
-
-
 #define SPRITES_ENABLED 1
+
+#define SPRITE_FLIP_X 1
+
