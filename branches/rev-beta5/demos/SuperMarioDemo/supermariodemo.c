@@ -26,7 +26,7 @@ About this program:
 This program demonstrates the latest sprites engine with video mode 3. This mode uses
 'ramtiles' to display sprites. Search the forums for more info on theses.
 
-Full screen scrolling & overlay are supported. use the Screen object to set scrolling and control 
+Full screen scrolling, overlay and sprites horizontal flipping are supported. use the Screen object to set scrolling and control 
 the visibility & height of the overlay.
 
 */
@@ -85,7 +85,7 @@ int main(){
 
 	ClearVram();
 	InitMusicPlayer(patches);
-	//StartSong(song_nsmb);
+	StartSong(song_nsmb);
 
 	SetSpritesTileTable(mario_sprites_tileset);
 	SetFontTilesIndex(SMB_TILESET_SIZE);
@@ -103,10 +103,6 @@ int main(){
 			SetTile(x,y+1,c);
 		}	
 	}
-
-
-
-
 
 
 	dx=0;
@@ -127,22 +123,22 @@ int main(){
 	goombaSprIndex[1]=10;
 
 
-	MapSprite(0,map_rwalk1);
-	MapSprite(6,map_lgoomba1);
-	MapSprite(10,map_rgoomba2);
+	MapSprite2(0,map_rwalk1,0);
+	MapSprite2(6,map_rgoomba1,SPRITE_FLIP_X);
+	MapSprite2(10,map_rgoomba2,0);
+
+
 
 	g=0;
- 	
 	MoveSprite(0,sx,sy,2,3);
 	Scroll(0,-1);
-
 
 	MoveSprite(goombaSprIndex[0],goombaX[0],176,2,2);
 	MoveSprite(goombaSprIndex[1],goombaX[1],176,2,2);
 
-
 	Screen.scrollY=0;
 	Screen.overlayHeight=OVERLAY_LINES;
+
 	
 	while(1){
 		WaitVsync(1);
@@ -152,14 +148,7 @@ int main(){
 
 		if((active&1)!=0){
 			PerformActions();
-
-			
-
-
 			MoveSprite(0,sx,sy+dy,2,3);
-
-
-
 		}else{
 			MoveSprite(0,sx,230,2,3);
 		}
@@ -187,20 +176,12 @@ int main(){
 					goombaAnim[g]=0;
 				}
 
-				if(goombaDir[g]==1){
-					if(goombaSpr[g]==0){
-						MapSprite(goombaSprIndex[g],map_rgoomba1);
-					}else{
-						MapSprite(goombaSprIndex[g],map_rgoomba2);
-					}
-	
+				if(goombaSpr[g]==0){
+					MapSprite2(goombaSprIndex[g],map_rgoomba1,goombaDir[g]!=1?SPRITE_FLIP_X:0);
 				}else{
-					if(goombaSpr[g]==0){
-						MapSprite(goombaSprIndex[g],map_lgoomba1);
-					}else{
-						MapSprite(goombaSprIndex[g],map_lgoomba2);
-					}
+					MapSprite2(goombaSprIndex[g],map_rgoomba2,goombaDir[g]!=1?SPRITE_FLIP_X:0);
 				}
+
 				MoveSprite(goombaSprIndex[g],goombaX[g],176-32+8,2,2);
 			
 
@@ -227,14 +208,10 @@ void loadNextStripe(){
 }
 
 void PerformActions(){
-	char sdx;
+	char sdx,sprFlags=(sprDir!=1?SPRITE_FLIP_X:0);
 
 	if(stopping==true && walkFrame<=5){
-		if(sprDir==1){
-			MapSprite(0,map_rwalk1);
-		}else{
-			MapSprite(0,map_lwalk1);
-		}
+		MapSprite2(0,map_rwalk1,sprFlags);
 		dy=0;
 		stopFrame++;
 		return;
@@ -249,22 +226,14 @@ void PerformActions(){
 		case ACTION_WALK:
 			
 			if(frame==0){
-				if(sprDir==1){
-					MapSprite(0,map_rwalk2);
-				}else{
-					MapSprite(0,map_lwalk2);
-				}
+				MapSprite2(0,map_rwalk2,sprFlags);
 				dy=-1;				
 			}else if(frame>0 && frame<=5){
 				sx+=sdx;
 			}else if(frame==6){
 				sx+=(sdx*2);
 			}else if(frame==7){
-				if(sprDir==1){
-					MapSprite(0,map_rwalk1);
-				}else{
-					MapSprite(0,map_lwalk1);
-				}
+				MapSprite2(0,map_rwalk1,sprFlags);
 				dy=0;
 				sx+=(sdx*2);
 
@@ -275,11 +244,7 @@ void PerformActions(){
 			}else if(frame>7 && frame<=11){
 				sx+=sdx;
 			}else if(frame==12){
-				if(sprDir==1){
-					MapSprite(0,map_rwalk2);
-				}else{
-					MapSprite(0,map_lwalk2);
-				}
+				MapSprite2(0,map_rwalk2,sprFlags);
 				dy=-1;	
 				sx+=(sdx*2);
 			}else if(frame>12 && frame<=15){
@@ -290,11 +255,7 @@ void PerformActions(){
 				break;	
 			}else if(frame==17){
 				dy=0;
-				if(sprDir==1){
-					MapSprite(0,map_lskid);
-				}else{
-					MapSprite(0,map_rskid);
-				}
+				MapSprite2(0,map_lskid,sprFlags);
 				sx+=sdx;
 			}else if(frame==18){
 				sx+=sdx;
@@ -317,12 +278,8 @@ void PerformActions(){
 
 
 			if(frame==0){
-				if(sprDir==1){
-					MapSprite(0,map_rjump1);
-				}else{
-					MapSprite(0,map_ljump1);
-				}
-				
+				MapSprite2(0,map_rjump1,sprFlags);
+
 				sx+=sdx;
 
 
@@ -334,14 +291,8 @@ void PerformActions(){
 
 
 			}else if(frame==21){
-				if(sprDir==1){
-					MapSprite(0,map_rjump2);
-				}else{
-					MapSprite(0,map_ljump2);
-				}
+				MapSprite2(0,map_rjump2,sprFlags);
 				sx+=sdx;
-			
-
 
 			}else if(frame>21 && frame<=42){
 				
@@ -350,14 +301,8 @@ void PerformActions(){
 			
 				sx+=sdx;
 				dy=0;
-				//if(dx==0){
-				
-					if(sprDir==1){			
-						MapSprite(0,map_rwalk1);
-					}else{
-						MapSprite(0,map_lwalk1);								
-					}
-					action=ACTION_IDLE;
+				MapSprite2(0,map_rwalk1,sprFlags);
+				action=ACTION_IDLE;
 				
 			}
 			
