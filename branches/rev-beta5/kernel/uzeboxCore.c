@@ -306,6 +306,10 @@ void ReadButtons(){
 	joypad1_status_lo=p1ButtonsLo;
 	joypad2_status_lo=p2ButtonsLo;
 
+	if(joypad1_status_lo==(BTN_START+BTN_SELECT+BTN_Y+BTN_B) || joypad2_status_lo==(BTN_START+BTN_SELECT+BTN_Y+BTN_B)){
+		SoftReset();
+	}
+
 }
 
 void ReadControllers(){
@@ -342,6 +346,8 @@ void ReadControllers(){
 		joypad2_status_hi=p2ButtonsHi;
 
 	}
+
+
 
 }
 
