@@ -69,6 +69,21 @@ extern unsigned char playback_start;
 
 bool snesMouseEnabled=false;
 
+u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,
+								   (u8)(EEPROM_SIGNATURE>>8),
+								   EEPROM_HEADER_VER,
+								   EEPROM_BLOCK_SIZE,
+								   EEPROM_HEADER_SIZE,
+								   1,			//hardwareVersion
+								   0,			//hardwareRevision
+								   0x38,0x8, 	//standard uzebox & fuzebox features
+								   0,			//extended features
+								   0,0,0,0,0,0, //MAC
+								   0,			//colorCorrectionType
+								   0,0,0,0 		//game CRC
+								   };
+
+
 void wdt_init(void) __attribute__((naked)) __attribute__((section(".init3")));
 void Initialize(void) __attribute__((naked)) __attribute__((section(".init8")));
 
@@ -162,9 +177,10 @@ void logo(){
 int i;
 void Initialize(void){
 
+	if(!isEepromFormatted()) FormatEeprom();
 
 	cli();
-
+	
 	//Initialize the mixer buffer
 	for(i=0;i<MIX_BANK_SIZE*2;i++){
 		mix_buf[i]=0x80;
@@ -254,7 +270,7 @@ void Initialize(void){
 	if(ReadJoypad(0)&BTN_B){
 		SetColorBurstOffset(4);
 	}
-
+	
 	InitializeVideoMode();
 
 	sei();
@@ -709,9 +725,49 @@ void processButtons(){
 
 
 
+	
+// Format eeprom, wiping all data to zero
+void FormatEeprom(void) {
 
+   // Set sig. so we don't format next time
+   for (u8 i = 0; i < sizeof(eeprom_format_table); i++) {
+	 WriteEeprom(i,pgm_read_byte(&eeprom_format_table[i]));
+   }
+   
+   // Write free blocks IDs
+   for (u16 i = (EEPROM_BLOCK_SIZE*EEPROM_HEADER_SIZE); i < (64*EEPROM_BLOCK_SIZE); i+=EEPROM_BLOCK_SIZE) {
+	  WriteEeprom(i,(u8)EEPROM_FREE_BLOCK);
+	  WriteEeprom(i+1,(u8)(EEPROM_FREE_BLOCK>>8));
+   }
+   
+}
 
+// Format eeprom, saving data specified in ids
+void FormatEeprom2(u16 *ids, u8 count) {
+   u8 j;
+   u16 id;
 
+   // Set sig. so we don't format next time
+   for (u8 i = 0; i < 8; i++) {
+	 WriteEeprom(i,pgm_read_byte(&eeprom_format_table[i]));
+   }
+
+   // Paint unreserved free blocks
+   for (int i = 2; i < 64; i++) {
+	  id=ReadEeprom(i*EEPROM_BLOCK_SIZE)+(ReadEeprom((i*EEPROM_BLOCK_SIZE)+1)<<8);
+
+	  for (j = 0; j < count; j++) {
+		 if (id == ids[j])
+			break;
+	  }
+
+	  if (j == count) {
+		 WriteEeprom(i*EEPROM_BLOCK_SIZE,(u8)EEPROM_FREE_BLOCK);
+		 WriteEeprom(i*EEPROM_BLOCK_SIZE+1,(u8)(EEPROM_FREE_BLOCK>>8));
+	  }
+   }
+}
+	
 //returns true if the EEPROM has been setup to work with the kernel.
 bool isEepromFormatted(){
 	unsigned id;

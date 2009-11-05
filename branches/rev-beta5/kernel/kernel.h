@@ -161,6 +161,7 @@
 
 
 	//EEPROM Kernel structs
+	#define EEPROM_HEADER_VER 1
 	struct EepromHeaderStruct
 	{
 		//special identifier/magic number to determine if the EEPROM 

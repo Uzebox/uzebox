@@ -113,7 +113,9 @@
 	extern char EepromWriteBlock(struct EepromBlockStruct *block);
 	extern char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block);
 	extern bool isEepromFormatted();
-	
+	extern void FormatEeprom(void);
+	extern void FormatEeprom2(u16 *ids, u8 count);
+
 	/*
 	 * Sound Engine functions
 	 */	
