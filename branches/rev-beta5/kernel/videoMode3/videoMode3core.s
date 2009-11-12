@@ -101,12 +101,11 @@
 		ldi ZL,(0<<OCIE1A)
 		sts _SFR_MEM_ADDR(TIMSK1),ZL
 
-		;wait 873 cycles
-		ldi r26,lo8(204-2)
-		ldi r27,hi8(204-2)
+		;wait cycles
+		ldi r26,lo8(204-2-5)
+		ldi r27,hi8(204-2-5)
 		sbiw r26,1
 		brne .-4		
-		nop
 
 
 	
@@ -393,6 +392,7 @@
 		andi r19,0xe0 ;restore bits mask
 		ldi XL,lo8(vram_linear_buf)
 		ldi XH,hi8(vram_linear_buf)
+
 
 		cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2	
 		rcall update_sound_buffer_fast ;27 (destroys Z, r16,r17)
@@ -747,8 +747,8 @@
 
 
 
-		ldi r16,73 ;222*7 
-		subi r16,RAM_TILES_COUNT
+		ldi r16,73-RAM_TILES_COUNT ;222*7 
+		//subi r16,RAM_TILES_COUNT
 	wait_loop:
 	
 		ldi r17,6
@@ -758,11 +758,7 @@
 		dec r16
 		brne wait_loop
 
-		;wait more
-		ldi r17,6
-		dec r17
-		brne .-4
-		rjmp .
+	
 
 
 		ldi YL,lo8(vram)
