@@ -319,8 +319,13 @@ void ReadButtons(){
 
 	}
 
-	joypad1_status_lo=p1ButtonsLo;
-	joypad2_status_lo=p2ButtonsLo;
+	#if JOYSTICK==TYPE_SNES
+		joypad1_status_lo=p1ButtonsLo;
+		joypad2_status_lo=p2ButtonsLo;
+	#else
+		joypad1_status_lo=p1ButtonsLo&0xff;
+		joypad2_status_lo=p2ButtonsLo&0xff;	
+	#endif
 
 	if(joypad1_status_lo==(BTN_START+BTN_SELECT+BTN_Y+BTN_B) || joypad2_status_lo==(BTN_START+BTN_SELECT+BTN_Y+BTN_B)){
 		SoftReset();

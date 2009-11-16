@@ -238,18 +238,34 @@
 	#define TYPE_SNES 0
 	#define TYPE_NES 1
 
-	#define BTN_SR	   2048
-	#define BTN_SL	   1024
-	#define BTN_X	   512
-	#define BTN_A	   256
-	#define BTN_RIGHT  128
-	#define BTN_LEFT   64
-	#define BTN_DOWN   32
-	#define BTN_UP     16
-	#define BTN_START  8
-	#define BTN_SELECT 4
-	#define BTN_Y      2
-	#define BTN_B      1
+	#if JOYSTICK == TYPE_SNES
+		#define BTN_SR	   2048
+		#define BTN_SL	   1024
+		#define BTN_X	   512
+		#define BTN_A	   256
+		#define BTN_RIGHT  128
+		#define BTN_LEFT   64
+		#define BTN_DOWN   32
+		#define BTN_UP     16
+		#define BTN_START  8
+		#define BTN_SELECT 4
+		#define BTN_Y      2
+		#define BTN_B      1
+	#elif JOYSTICK == TYPE_NES
+		#define BTN_SR	   2048 //unused
+		#define BTN_SL	   1024 //unused		
+		#define BTN_X	   512 //unused
+		#define BTN_Y      256 //unused
+
+		#define BTN_RIGHT  128
+		#define BTN_LEFT   64
+		#define BTN_DOWN   32
+		#define BTN_UP     16
+		#define BTN_START  8
+		#define BTN_SELECT 4
+		#define BTN_B      2
+		#define BTN_A      1
+	#endif 
 
 	#define BTN_MOUSE_LEFT 512
 	#define BTN_MOUSE_RIGHT 256
