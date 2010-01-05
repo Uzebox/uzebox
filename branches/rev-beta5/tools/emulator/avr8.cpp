@@ -25,11 +25,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+#include <algorithm>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "avr8.h"
 
+#include "avr8.h"
+#include "gdbserver.h"
 
 #define X		((XL)|(XH<<8))
 #define DEC_X	(XL-- || XH--)
@@ -305,10 +308,11 @@ void avr8::write_io(u8 addr,u8 value)
                         handle_key_up(event);
                     else if (event.type == SDL_QUIT)
                     {
-                        printf("user abort (closed window).\n");
+                        printf("User abort (closed window).\n");
                         shutdown(0);
                     }
                 }
+
                 if (pad_mode == SNES_MOUSE) 
                 {
                     // http://www.repairfaq.org/REPAIR/F_SNES.html
@@ -370,7 +374,7 @@ void avr8::write_io(u8 addr,u8 value)
 			latched_buttons[1] >>= 1;
 			if ((latched_buttons[1] < 0xFFFFF) && !new_input_mode)
 			{
-				printf("new input routines detected, switching emulation method.\n");
+				printf("New input routines detected, switching emulation method.\n");
 				new_input_mode = true;
 			}
 		}
@@ -412,12 +416,12 @@ void avr8::write_io(u8 addr,u8 value)
     }
     else if(addr == ports::SPCR)
     {
-        SPI_DEBUG("SPCR: %0.2X\n",value);
+        SPI_DEBUG("SPCR: %02X\n",value);
         if(SD_ENABLED()) spi_calculateClock();
         io[addr] = value;
     }
     else if(addr == ports::SPSR){
-        SPI_DEBUG("SPSR: %0.2X\n",value);
+        SPI_DEBUG("SPSR: %02X\n",value);
         if(SD_ENABLED()) spi_calculateClock();
         io[addr] = value;
     }
@@ -461,7 +465,7 @@ void avr8::write_io(u8 addr,u8 value)
     }    
     else if(addr == ports::res39){
         // emulator-only whisper support
-        printf("%0.2X",value);
+        printf("%02x",value);
     }
     #endif
 	else
@@ -494,12 +498,34 @@ u8 avr8::read_io(u8 addr)
 
 u8 avr8::exec(bool disasmOnly,bool verbose)
 {
-	if (pc == breakpoint)
-		singleStep = nextSingleStep = true;
 
+	if (enableGdb == true)
+	{
+		gdb->exec();
+	
+		// Check if the next instruction match a GDB breakpoint
+		Breakpoints::iterator ii;
+  		if ((ii= find(gdb->BP.begin(), gdb->BP.end(), pc)) != gdb->BP.end())
+		{
+			gdbBreakpointFound = true;
+			return 0;
+		}
+	}
+
+	if (state == CPU_STOPPED)
+		return 0;
+
+#if DISASM
+	// Built-in breakpoints
+	if (pc == breakpoint)
+	{
+		singleStep = nextSingleStep = true;
+		return 0;
+	}	
 	// set a breakpoint on the printf to halt at a given address.
 	// if (pc == 0x33d3)
 	//	printf("hit\n");
+#endif
 
 	u16 lastpc = pc;
 	u16 insn = progmem[pc++];	
@@ -1382,7 +1408,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		}
 	}
 #endif
-
 	update_hardware(cycles);
 
 	return cycles;
@@ -1570,6 +1595,9 @@ void avr8::handle_key_down(SDL_Event &ev)
 				puts("step.");
 				break;
 #endif
+			default:
+				// Makes the compiler happy
+				break;
 	}
 }
 
@@ -1765,7 +1793,7 @@ char ascii(unsigned char ch){
 
 void avr8::update_spi(){
     // SPI state machine
-    //SPI_DEBUG("byte: %0.2x\n",spiByte);
+    //SPI_DEBUG("byte: %02x\n",spiByte);
     //SPI_DEBUG("state: %d\n",spiState);
     switch(spiState){
     case SPI_IDLE_STATE:
@@ -1778,31 +1806,31 @@ void avr8::update_spi(){
         spiState = SPI_ARG_X_HI;
         break;
     case SPI_ARG_X_HI:
-        SPI_DEBUG("x hi: %0.2X\n",spiByte);
+        SPI_DEBUG("x hi: %02X\n",spiByte);
         spiArgXhi = spiByte;
         SPDR = 0x00;
         spiState = SPI_ARG_X_LO;
         break;
     case SPI_ARG_X_LO:
-        SPI_DEBUG("x lo: %0.2X\n",spiByte);
+        SPI_DEBUG("x lo: %02X\n",spiByte);
         spiArgXlo = spiByte;
         SPDR = 0x00;
         spiState = SPI_ARG_Y_HI;
         break;
     case SPI_ARG_Y_HI:
-        SPI_DEBUG("y hi: %0.2X\n",spiByte);
+        SPI_DEBUG("y hi: %02X\n",spiByte);
         spiArgYhi = spiByte;
         SPDR = 0x00;
         spiState = SPI_ARG_Y_LO;
         break;
     case SPI_ARG_Y_LO:
-        SPI_DEBUG("y lo: %0.2X\n",spiByte);
+        SPI_DEBUG("y lo: %02X\n",spiByte);
         spiArgYlo = spiByte;
         SPDR = 0x00;
         spiState = SPI_ARG_CRC;
         break;
     case SPI_ARG_CRC:
-        SPI_DEBUG("SPI - CMD%d (%0.2X) X:%0.4X Y:%0.4X CRC: %0.2X\n",spiCommand^0x40,spiCommand,spiArgX,spiArgY,spiByte);
+        SPI_DEBUG("SPI - CMD%d (%02X) X:%04X Y:%04X CRC: %02X\n",spiCommand^0x40,spiCommand,spiArgX,spiArgY,spiByte);
         // ignore CRC and process commands
         switch(spiCommand){
         case 0x40: //CMD0 =  RESET / GO_IDLE_STATE
@@ -1868,7 +1896,7 @@ void avr8::update_spi(){
         break;
     case SPI_RESPOND_SINGLE:
         SPDR = *spiResponsePtr;
-        SPI_DEBUG("SPI - Respond: %0.2X\n",SPDR);
+        SPI_DEBUG("SPI - Respond: %02X\n",SPDR);
         spiResponsePtr++;
         if(spiResponsePtr == spiResponseEnd){
             if(spiByteCount != 0){
@@ -1882,18 +1910,20 @@ void avr8::update_spi(){
     case SPI_READ_SINGLE_BLOCK:
         SPDR = SDReadByte();
         #ifdef USE_SPI_DEBUG
+	{
             // output a nice display to see sector data
             int i = 512-spiByteCount;
             int ofs = i&0x000F;
             static unsigned char buf[16];
             if(i > 0 && (ofs == 0)){
-                printf("%0.4X: ",i-16);
-                for(int j=0; j<16; j++) printf("%0.2X ",buf[j]);
+                printf("%04X: ",i-16);
+                for(int j=0; j<16; j++) printf("%02X ",buf[j]);
                 printf("| ");
                 for(int j=0; j<16; j++) printf("%c",ascii(buf[j]));
                 SPI_DEBUG("\n");
             }
             buf[ofs] = SPDR;
+	}
         #endif
         spiByteCount--;
         if(spiByteCount == 0){
@@ -1906,7 +1936,7 @@ void avr8::update_spi(){
         break;
     case SPI_RESPOND_MULTI:
         SPDR = *spiResponsePtr;
-        SPI_DEBUG("SPI - Respond: %0.2X\n",SPDR);
+        SPI_DEBUG("SPI - Respond: %02X\n",SPDR);
         spiResponsePtr++;
         if(spiResponsePtr == spiResponseEnd){
             spiState = SPI_READ_MULTIPLE_BLOCK;
@@ -1925,7 +1955,7 @@ void avr8::update_spi(){
         else{
             SPDR = SDReadByte();
         }
-        SPI_DEBUG("SPI - Data[%d]: %0.2X\n",512-spiByteCount,SPDR);
+        SPI_DEBUG("SPI - Data[%d]: %02X\n",512-spiByteCount,SPDR);
         spiByteCount--;
         if(spiByteCount == 0){
             spiResponseBuffer[0] = 0x00; //CRC
@@ -1941,7 +1971,7 @@ void avr8::update_spi(){
         break;
     case SPI_WRITE_SINGLE:
         SPDR = *spiResponsePtr;
-        SPI_DEBUG("SPI - Respond: %0.2X\n",SPDR);
+        SPI_DEBUG("SPI - Respond: %02X\n",SPDR);
         spiResponsePtr++;
         if(spiResponsePtr == spiResponseEnd){
             if(spiByteCount != 0){
@@ -1954,7 +1984,7 @@ void avr8::update_spi(){
         break;    
     case SPI_WRITE_SINGLE_BLOCK:
         SDWriteByte(SPDR);
-        SPI_DEBUG("SPI - Data[%d]: %0.2X\n",spiByteCount,SPDR);
+        SPI_DEBUG("SPI - Data[%d]: %02X\n",spiByteCount,SPDR);
         SPDR = 0xFF;
         spiByteCount--;
         if(spiByteCount == 0){
@@ -2082,14 +2112,14 @@ void avr8::SDMapDrive(const char* driveLetter){
     
     #ifdef USE_SPI_DEBUG
         printf("----------\n");
-        printf("state: %0.4X\n",entry.state);
+        printf("state: %04X\n",entry.state);
         // printf("startHead: %0.4X\n",entry.startHead);
         // printf("startCylinder: %0.4X\n",entry.startCylinder);
-        printf("type: %0.2X\n",entry.type);
+        printf("type: %02X\n",entry.type);
         //  printf("endHead: %0.4X\n",entry.endHead);
         //  printf("endCylinder: %0.4X\n",entry.endCylinder);
-        printf("sectorCount: %0.8X\n",entry.sectorCount);
-        printf("sectorOffset: %0.8X\n",entry.sectorOffset);
+        printf("sectorCount: %08X\n",entry.sectorCount);
+        printf("sectorOffset: %08X\n",entry.sectorOffset);
     #endif
     
     SDBuildMBR(&entry);
@@ -2221,7 +2251,8 @@ void avr8::LoadEEPROMFile(char* filename){
             size = eepromSize;
         }
         memset(eeprom,0,eepromSize);
-        fread(eeprom,size,1,f);
+        if (fread(eeprom,size,1,f) != size)
+		printf("Warning: fread in %s returned an unxpected value.\n", __FUNCTION__);
         fclose(f);
     }
     else{
@@ -2252,3 +2283,18 @@ void avr8::shutdown(int errcode){
     }
     exit(errcode);
 }
+
+/* This function is called from GDB while the cpu is stopped */
+void avr8::idle(void){
+    SDL_Event event;
+    
+    while (SDL_PollEvent(&event)) {
+	if ((event.type == SDL_QUIT) || (event.key.keysym.sym == SDLK_ESCAPE)) {
+            printf("User abort.\n");
+            shutdown(0);
+        }
+    }
+
+    SDL_Delay(5);
+}
+

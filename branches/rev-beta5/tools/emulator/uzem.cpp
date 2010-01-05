@@ -26,8 +26,10 @@ THE SOFTWARE.
 */
 #include "uzem.h"
 #include "avr8.h"
+#include "gdbserver.h"
 #include "uzerom.h"
 #include <getopt.h>
+#include <limits.h>
 
 //TODO: support for .uze files
 
@@ -46,6 +48,8 @@ static const struct option longopts[] ={
     { "eeprom"     , required_argument, NULL, 'e' },
     { "pgm"        , required_argument, NULL, 'p' },
     { "boot"       , no_argument,       NULL, 'b' },
+    { "gdbserver"  , no_argument,       NULL, 'd' },
+    { "port"       , required_argument, NULL, 't' },
     #if defined(__WIN32__)
         { "sd"     , required_argument, NULL, 's' },
     #endif 
@@ -53,12 +57,12 @@ static const struct option longopts[] ={
 };
 
 #if defined(__WIN32__)
-    static const char* shortopts = "hb:nhxim2i:rs:";
+    static const char* shortopts = "hb:dt:nhxim2i:rs:";
 #else
-    static const char* shortopts = "hb:nhxim2i:r";
+    static const char* shortopts = "hb:dt:nhxim2i:r";
 #endif
 
-#define printerr(...) fprintf(stderr,__VA_ARGS__)
+#define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
 
 void showHelp(char* programName){
     printerr("Uzebox Emulator " VERSION "\n");
@@ -79,6 +83,8 @@ void showHelp(char* programName){
     printerr("\t--mbr -r            Enable MBR emulation (use w/--img for images w/o MBR)\n");
     printerr("\t--eeprom -e <file>  Use following file for EEPRROM data on start/stop.\n");
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
+    printerr("\t--gdbserver -d      Debug mode. Start the built-in gdb support.\n");
+    printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
     #if defined(__WIN32__)
         printerr("\t--sd -s <letter>    Map drive letter as SD device\n");
     #endif
@@ -162,8 +168,18 @@ int main(int argc,char **argv)
         case 'b':
             uzebox.pc = 0xF000; //set start for boot image
             break;
+	case 'd':
+            uzebox.enableGdb = true;
+            break;
+	case 't':
+            long port = strtol(optarg,NULL,10);
+            if ((port == LONG_MAX) || (port == LONG_MIN) || (port < 0) || port > 65535)
+            	uzebox.gdbPort = 0;
+	    else
+            	uzebox.gdbPort = port;
+            break;
         }
-	}
+    }
     
     // get leftovers
     for (int i = optind; i < argc; ++i) {
@@ -177,6 +193,12 @@ int main(int argc,char **argv)
         }
     }
     
+    if (uzebox.gdbPort == 0) {
+        printerr("Error: invalid port address.\n\n",uzebox.gdbPort);
+        showHelp(argv[0]);
+        return 1;
+    }
+
     // establish SD emulation if selected
     if(sdimage && sddrive){
         printerr("Error: Cannot specify both an SD image file and an SD drive letter.\n\n");
@@ -184,7 +206,12 @@ int main(int argc,char **argv)
         return 1;
     }
     else if(sddrive){
+#if defined(__WIN32__)
         uzebox.SDMapDrive(sddrive);
+#else
+	printerr("Error: Using SD Drive is not implemented for this platform.\n\n");
+        return 1;
+#endif
     }
     else if(sdimage){
         uzebox.SDLoadImage(sdimage);
@@ -220,7 +247,7 @@ int main(int argc,char **argv)
         }
        // else if(!load_hex(heximage,(unsigned char*)(uzebox.progmem))){
         else{
-            printf("-- Loading Hex Image --\n");
+            printf("Loading Hex Image...\n");
             if(!loadHex(heximage,buffer)){
                 printerr("Error: cannot load HEX image '%s'.\n\n",heximage);
                 showHelp(argv[0]);
@@ -229,12 +256,22 @@ int main(int argc,char **argv)
         }
     }
     
-    // init the GUI
+	// init the GUI
 	if (!uzebox.init_gui()){
         printerr("Error: Failed to init GUI.\n\n");
         showHelp(argv[0]);
 		return 1;
-    }
+    	}
+
+   	if (uzebox.enableGdb == true) {
+#if defined(USE_GDBSERVER_DEBUG)
+            uzebox.gdb = new GdbServer(&uzebox, uzebox.gdbPort, true, true);
+#else
+            uzebox.gdb = new GdbServer(&uzebox, uzebox.gdbPort, false, true);
+#endif
+	}
+        else
+            uzebox.state = CPU_RUNNING;
 
 	while (true)
 	{
@@ -243,16 +280,17 @@ int main(int argc,char **argv)
 		int now = SDL_GetTicks();
 		while (left > 0)
 			left -= uzebox.exec(disasmOnly,false);
+		
 		now = SDL_GetTicks() - now;
 
 		char caption[128];
 		sprintf(caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 		if (uzebox.fullscreen){
 			puts(caption);
-        }
+        	}
 		else{
 			SDL_WM_SetCaption(caption, NULL);
-        }
+        	}
 		uzebox.exec(disasmOnly,false);
 	}
 

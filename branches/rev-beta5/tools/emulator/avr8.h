@@ -27,13 +27,18 @@ THE SOFTWARE.
 #ifndef AVR8_H
 #define AVR8_H
 
+#include <vector>
 #include <stdint.h>
 
+#include "gdbserver.h"
+
 #if defined(__WIN32__)
-    #include <windows.h> // win32 memory mapped I/O
+    #include <windows.h> // Win32 memory mapped I/O
     #include <winioctl.h>
+#elif defined(LINUX)
+    #include <sys/mman.h> // Linux memory mapped I/O
 #else
-    #include <sys/mmap.h> // unix memory mapped I/O
+    #include <sys/mmap.h> // Unix memory mapped I/O
 #endif
 
 #ifndef GUI
@@ -121,6 +126,16 @@ typedef uint16_t u16;
 typedef int16_t s16;
 typedef uint32_t u32;
 
+using namespace std;
+
+enum cpu_state {
+	CPU_RUNNING,
+	CPU_STOPPED,
+	CPU_SINGLE_STEP
+};
+
+class GdbServer;
+
 //SPI state machine states
 enum{
     SPI_IDLE_STATE,
@@ -204,7 +219,7 @@ struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0), new_input_mode(false), 
+		prevWDR(0), frameCounter(0), new_input_mode(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
         spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),
     #if defined(__WIN32__)
         hDisk(INVALID_HANDLE_VALUE),
@@ -218,7 +233,9 @@ struct avr8
 		memset(progmem,0,progSize);
 
 		PIND = 8;
-        spiTransfer = 0;
+		SPL = (SRAMBASE+sramSize-1) & 0x00ff;
+		SPH = (SRAMBASE+sramSize-1) >> 8;
+        	spiTransfer = 0;
 #if GUI
 		pad_mode = SNES_PAD;
 #endif
@@ -227,6 +244,14 @@ struct avr8
 	u16 progmem[progSize/2];
 	u16 pc;
 	u16 breakpoint;
+
+	GdbServer *gdb;
+	bool enableGdb;
+	bool gdbBreakpointFound;
+	bool gdbInvalidOpcode;
+	int gdbPort;
+	cpu_state state;
+
 	u8 TEMP;				// for 16-bit timers
 	u32 cycleCounter, prevPortB, prevWDR;
 	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
@@ -423,6 +448,7 @@ struct avr8
     void SDCommit();
     void LoadEEPROMFile(char* filename);    
     void shutdown(int errcode);
+    void idle(void);
 };
 #endif
 

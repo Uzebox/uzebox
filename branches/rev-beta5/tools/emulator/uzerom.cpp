@@ -33,14 +33,20 @@ typedef unsigned short u16;
 typedef signed short s16;
 typedef unsigned long u32;
 
+#define MAGIC_SIZE	6
+
 const unsigned char magic[7] = "UZEBOX";
 
 bool isUzeromFile(char* in_filename){
-    unsigned char test[6];
+    unsigned char test[MAGIC_SIZE];
     FILE* f = fopen(in_filename,"rb");
     if(f){
-        fread(test,1,6,f);
-        for(int i=0; i<6; i++){
+        if (fread(test,1,MAGIC_SIZE,f) != MAGIC_SIZE) {
+            printf("Erro: failed to read the file %s.\n", in_filename);
+            return false;
+        }
+
+        for(int i=0; i<MAGIC_SIZE; i++){
             if(test[i] != magic[i]) return false;
         }
         fclose(f);
@@ -53,7 +59,10 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
 
     FILE* f = fopen(in_filename,"rb");
     if(f){
-        fread(header,512,1,f);
+        if (fread(header,512,1,f) != 512) {
+            printf("Erro: failed to read the file %s.\n", in_filename);
+            return false;
+	}
                
         if(header->version != HEADER_VERSION){
             printf("Error: cannot parse version %d UzeROM files.\n",header->version);
@@ -72,7 +81,10 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
         }
         printf("\n");
         
-        fread(buffer,header->progSize,1,f);        
+        if (fread(buffer,header->progSize,1,f) != header->progSize) {
+            printf("Erro: failed to read the file %s.\n", in_filename);
+            return false;
+	}
         fclose(f);
         return true;
     }    

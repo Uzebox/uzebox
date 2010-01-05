@@ -1,10 +1,10 @@
 ###############################################################################
-# Makefile for the project SpriteDemo
+# Makefile for the project Arkanoid
 ###############################################################################
 
 ## General Flags
 PROJECT = Arkanoid
-GAME= arkanoid
+GAME= Arkanoid
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
@@ -21,20 +21,20 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections 
+CFLAGS += -Wall -gstabs -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
-ASMFLAGS += $(CFLAGS)
-ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
+ASMFLAGS += $(KERNEL_OPTIONS)
+ASMFLAGS += -x assembler-with-cpp -Wa,--gstabs
 
 ## Linker flags
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=$(GAME).map 
-LDFLAGS += -Wl,-gc-sections 
+LDFLAGS += -Wl,-gc-sections
 
 
 ## Intel Hex file production flags
@@ -59,22 +59,28 @@ all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
+	@echo
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
 uzeboxSoundEngineCore.o: $(KERNEL_DIR)/uzeboxSoundEngineCore.s
+	@echo
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
 uzeboxCore.o: $(KERNEL_DIR)/uzeboxCore.c
+	@echo
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 uzeboxSoundEngine.o: $(KERNEL_DIR)/uzeboxSoundEngine.c
+	@echo
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
+	@echo
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
 $(GAME).o: ../Arkanoid.c
+	@echo
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -82,15 +88,19 @@ $(TARGET): $(OBJECTS)
 	 $(CC) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)
 
 %.hex: $(TARGET)
+	@echo
 	avr-objcopy -O ihex $(HEX_FLASH_FLAGS)  $< $@
 
 %.eep: $(TARGET)
+	@echo
 	-avr-objcopy $(HEX_EEPROM_FLAGS) -O ihex $< $@ || exit 0
 
 %.lss: $(TARGET)
+	@echo
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
+	@echo
 	-packrom $(GAME).hex $@ $(INFO)
 
 size: ${TARGET}
