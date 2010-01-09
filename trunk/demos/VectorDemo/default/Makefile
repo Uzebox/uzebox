@@ -8,6 +8,7 @@ GAME= VectorDemo
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
+PACKROM = ../../../tools/packrom/packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings
@@ -91,7 +92,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-packrom $(GAME).hex $@ $(INFO)
+	$(PACKROM) $(GAME).hex $@ $(INFO)
 
 size: ${TARGET}
 	@echo

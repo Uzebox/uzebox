@@ -7,6 +7,7 @@ PROJECT = VideoDemo
 MCU = atmega644
 TARGET = $(PROJECT).elf
 CC = avr-gcc
+PACKROM = ../../../tools/packrom/packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings
@@ -95,7 +96,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-packrom $(PROJECT).hex $@ $(INFO)
+	$(PACKROM) $(PROJECT).hex $@ $(INFO)
 	
 size: ${TARGET}
 	@echo
