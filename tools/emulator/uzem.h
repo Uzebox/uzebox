@@ -30,6 +30,6 @@ THE SOFTWARE.
 // force application for GUI mode
 #define GUI 1 
 
-#define VERSION "v1.08"
+#define VERSION "v1.10"
 
 #endif
