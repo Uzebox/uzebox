@@ -7,6 +7,7 @@ PROJECT = BitmapDemo
 MCU = atmega644
 TARGET = $(PROJECT).elf
 CC = avr-gcc
+PACKROM = ../../../tools/packrom/packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings
@@ -56,7 +57,7 @@ INCLUDES = -I"$(KERNEL_DIR)"
 all: $(TARGET) $(PROJECT).hex $(PROJECT).eep $(PROJECT).lss $(PROJECT).uze size
 
 ## Compile Kernel files
-uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.S
+uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
 uzeboxSoundEngineCore.o: $(KERNEL_DIR)/uzeboxSoundEngineCore.s
@@ -89,7 +90,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-packrom $(PROJECT).hex $@ $(INFO)
+	$(PACKROM) $(PROJECT).hex $@ $(INFO)
 	
 size: ${TARGET}
 	@echo

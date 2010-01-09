@@ -4,10 +4,11 @@
 
 ## General Flags
 PROJECT = DrMario
-GAME = drmario
+GAME = DrMario
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
+PACKROM = ../../../tools/packrom/packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings
@@ -73,7 +74,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../drmario.c
+$(GAME).o: ../DrMario.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -90,7 +91,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-packrom $(GAME).hex $@ $(INFO)
+	$(PACKROM) $(GAME).hex $@ $(INFO)
 
 size: ${TARGET}
 	@echo

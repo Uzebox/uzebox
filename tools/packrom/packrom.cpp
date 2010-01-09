@@ -1,4 +1,4 @@
-#include<iostream>
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,9 +6,10 @@
 
 #define HEADER_VERSION 1
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 0
+#define VERSION_MINOR 1
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
+#define MARKER_SIZE 6
 
 #if defined (_MSC_VER) && _MSC_VER >= 1400
 // don't whine about sprintf and fopen.
@@ -27,7 +28,7 @@ typedef unsigned long u32;
 #pragma pack( 1 )
 typedef struct{
 	/*Header fields*/
-	u8 marker[6];	//'UZEBOX'
+	u8 marker[MARKER_SIZE];	//'UZEBOX'
 	u8 version;		//header version
 	u8 target;		//AVR target (ATmega644=0, ATmega1284=1)
 	u32 progSize;	//program memory size in bytes
@@ -206,9 +207,9 @@ int main(int argc,char **argv)
 
 	if (argc!=4)
 	{
-		fprintf(stderr,"rompack ver %i.%i -- Packs a HEX file to binary and adds a header.\n",VERSION_MAJOR,VERSION_MINOR);
-		fprintf(stderr,"usage: rompack <input.hex> <ouput.uze> <gameinfo.properties>\n",argv[0]);
-		fprintf(stderr,"example: rompack halloween.hex halloween.uze gameinfo.properties\n",argv[0]);
+		fprintf(stderr,"%s ver %i.%i -- Packs a HEX file to binary and adds a header.\n",argv[0],VERSION_MAJOR,VERSION_MINOR);
+		fprintf(stderr,"usage: %s <input.hex> <ouput.uze> <gameinfo.properties>\n",argv[0]);
+		fprintf(stderr,"example: %s halloween.hex halloween.uze gameinfo.properties\n",argv[0]);
 		return 1;
 	}
 
@@ -257,13 +258,13 @@ int main(int argc,char **argv)
 	}
 
 
-	strcpy((char*)rom.header.marker,"UZEBOX");
+	memcpy(rom.header.marker,"UZEBOX",MARKER_SIZE);
 	rom.header.version=HEADER_VERSION;
 	rom.header.target=0;
 	rom.header.crc32=chksum_crc32(rom.progmem+HEADER_SIZE, rom.header.progSize);
 
 	fprintf(stderr,"\tCRC32: 0x%lx\n", rom.header.crc32);
-	fprintf(stderr,"\tProgram size: %i \n",rom.header.progSize);
+	fprintf(stderr,"\tProgram size: %li \n",rom.header.progSize);
 
 	//write the output file
 	FILE *out_file = fopen(argv[2],"wb");

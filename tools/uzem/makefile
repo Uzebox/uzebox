@@ -161,7 +161,7 @@ SDCardDemo:
 	make -C ../demos/SDCardDemo all
 	cp ../demos/SDCardDemo/SDCardDemo.hex .
     
-debug-sd: emulator SDCardDemo
+debug-sd: all SDCardDemo
 	$(DEBUG_NAME) --sd $(SDCARDDRIVE) SDCardDemo/SDCardDemo.hex
 
 .PHONY: clean    

@@ -4,10 +4,12 @@
 
 ## General Flags
 PROJECT = SpriteDemo
-GAME = spritedemo
+GAME = SpriteDemo
 MCU = atmega644
 TARGET = SpriteDemo.elf
 CC = avr-gcc
+PACKROM = ../../../tools/packrom/packrom
+INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
@@ -54,7 +56,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) SpriteDemo.hex SpriteDemo.eep SpriteDemo.lss size
+all: $(TARGET) SpriteDemo.hex SpriteDemo.eep SpriteDemo.lss $(GAME).uze size
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -89,6 +91,10 @@ $(TARGET): $(OBJECTS)
 %.lss: $(TARGET)
 	avr-objdump -h -S $< > $@
 
+%.uze: $(TARGET)
+	@echo
+	$(PACKROM) $(GAME).hex $@ $(INFO)
+
 size: ${TARGET}
 	@echo
 	@avr-size -C --mcu=${MCU} ${TARGET}
@@ -96,7 +102,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) SpriteDemo.elf dep/* SpriteDemo.hex SpriteDemo.eep SpriteDemo.lss SpriteDemo.map
+	-rm -rf $(OBJECTS) SpriteDemo.elf dep/* SpriteDemo.hex SpriteDemo.eep SpriteDemo.lss SpriteDemo.map SpriteDemo.uze
 
 
 ## Other dependencies
