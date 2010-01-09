@@ -12,6 +12,12 @@
 	    All sources and content is licenced under the GNU GPL V3
 
 
+Current  Notes
+-------------------------
+	-Created new Makefile to build all tools and demos from the base directory
+	-Created Makefile for the tool packrom
+	-Fixed buffer overflow in packrom
+	-Changes in some demos filenames and Makefiles to build in Linux machines
 
 Rev 3.0 Notes 
 -------------------------
