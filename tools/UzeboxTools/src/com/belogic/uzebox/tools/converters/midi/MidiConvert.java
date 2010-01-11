@@ -99,7 +99,7 @@ public class MidiConvert {
 				
 				System.out.print("Invalid command arguments. Loop end & loop start but both be specified.");
 				System.exit(0);				
-			}else if(converter.getLoopStartTick()>=converter.getLoopEndTick()){
+			}else if((converter.getLoopStartTick()>=converter.getLoopEndTick()) && converter.getLoopEndTick()!=-1 && converter.getLoopStartTick()!=-1){
 				System.out.print("Invalid command arguments. Loop start must be smaller than loop end.");
 				System.exit(0);
 			}
