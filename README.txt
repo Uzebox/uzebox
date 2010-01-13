@@ -23,6 +23,7 @@ Current  Notes
 	-Fixed the missing '.exe' when building Uzem in Windows.
 	-Added support for Uzem to define the SDL directory when building for Windows. By default the build system will look in C:\SDL\. This is good because you don't need to copy files from SDL inside MinGW making both hard to update.
 	-Changes in some demos filenames and Makefiles to build in Linux machines
+	-Removed binary files from Bootloader_pragma
 
 Rev 3.0 Notes 
 -------------------------

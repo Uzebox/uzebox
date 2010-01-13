@@ -3,7 +3,7 @@
 ###############################################################################
 
 ## General Flags
-PROJECT = Bootloader
+PROJECT = Bootloader_Pragma
 MCU = atmega644
 TARGET = ${PROJECT}.elf
 CC = avr-gcc
