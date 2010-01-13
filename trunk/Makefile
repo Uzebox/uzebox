@@ -16,6 +16,11 @@ TOOLS += uzem
 TOOLS += packrom
 
 ######################################
+# Tools used to build demos
+######################################
+TOOLS_DEP += packrom
+
+######################################
 # Demos
 ######################################
 DEMOS += Arkanoid
@@ -31,41 +36,45 @@ DEMOS += SpriteDemo
 DEMOS += Uzeamp
 DEMOS += VideoDemo
 DEMOS += SDCardDemo
+DEMOS += Bootloader
+DEMOS += Bootloader_Pragma
 
 ######################################
 # Disabled
 ######################################
-#Unittest
-#Bootloader
-#Bootloader_Pragma
+#DEMOS += Unittest Fix Makefile
 
+######################################
+# Tools
+######################################
+RM := rm -rf
+CP := cp
+
+######################################
+# Directories
+######################################
 TOOLS_DIR := tools
-DEMOS_DIR := demos
+DEMOS_DIR = demos
 BIN_DIR := bin
+
+######################################
+# Handling options and flags
+######################################
+ifeq (clean,$(MAKECMDGOALS))
+    CLEAN := clean
+endif
+DEST_FLAG = DEST_DIR=$(BIN_DIR)
 
 ALL_TARGETS_TOOLS = $(patsubst %,$(TOOLS_DIR)/%,$(TOOLS))
 ALL_TARGETS_DEMOS = $(patsubst %,$(DEMOS_DIR)/%/default,$(DEMOS))
 
 ALL_TARGETS = $(ALL_TARGETS_TOOLS) $(ALL_TARGETS_DEMOS)
 
-######################################
-# Options
-######################################
-ifneq ($(ARCH),)
-    ARCH_FLAG := $(ARCH)
-endif
-ifeq (clean,$(MAKECMDGOALS))
-    CLEAN := clean
+ifeq ($(CLEAN),)
+    ALL_TARGETS_TOOLS_DEP = $(patsubst %,$(TOOLS_DIR)/%,$(TOOLS_DEP))
 endif
 
-
-######################################
-# Tools
-######################################
 UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
-PLATFORM = Unknown
-RM := rm -rf
-CP := cp
 
 ## Windows ###########################
 ifneq (,$(findstring MINGW,$(UNAME)))
@@ -85,13 +94,13 @@ tools: $(ALL_TARGETS_TOOLS)
 
 .PHONY: $(ALL_TARGETS_TOOLS)
 $(ALL_TARGETS_TOOLS):
-	$(MAKE) -C $@ $(CLEAN) $(ARCH_FLAG)
+	$(MAKE) -C $@ $(CLEAN) $(DEST_FLAG)
 ifeq ($(CLEAN),)
 	$(CP) $@/$(patsubst $(TOOLS_DIR)/%,%,$@)$(OS_EXTENSION) $(BIN_DIR)
 endif
 
 .PHONY: $(ALL_TARGETS_DEMOS)
-$(ALL_TARGETS_DEMOS):
+$(ALL_TARGETS_DEMOS): $(ALL_TARGETS_TOOLS_DEP)
 	@echo ===================================
 	@echo Building demo: $@
 	@echo ===================================
@@ -116,6 +125,9 @@ help:
 	@echo \'make demos\' - Build only the demos and copy the iHex files to \'bin\' directory
 	@echo \'make clean\' - clean all the generated files
 	@echo \'make help\' - This help :-\)
+	@echo Flags:
+	@echo ------
+	@echo If the tools or demos can accept flags you can pass from the command line. E.g: \'make tools ARCH=i686\'
 	@echo Tips:
 	@echo -----
 	@echo If you have a multiprocessor system, use \'-j N\', e.g.: \'make release -j 3\'
