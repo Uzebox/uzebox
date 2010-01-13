@@ -21,24 +21,23 @@ SRCS := uzem.cpp avr8.cpp uzerom.cpp gdbserver.cpp
 ######################################
 # Architecture
 ######################################
-ifeq ($(ARCH),)
-    ARCH := native
-    MTUNE := -mtune=native
+ifneq ($(ARCH),)
+    CPPFLAGS += -march=$(ARCH)
+    ifeq ($(TUNE),y)
+        CPPFLAGS += -mtune=$(ARCH)
+    endif
 endif
 
 ######################################
 # Global Flags
 ######################################
-CPPFLAGS = -march=$(ARCH) $(MTUNE)
 CPPFLAGS += $(SDL_FLAGS) -D$(OS) -D_GNU_SOURCE=1 -DGUI=1
 # TODO: fix warnings before enable 'CPPFLAGS += -Wall'
-
-LDFLAGS +=  -lSDLmain -lSDL 
 
 ######################################
 # Release definitions
 ######################################
-RELEASE_NAME := uzem
+RELEASE_NAME = uzem$(OS_EXTENSION)
 RELEASE_OBJ_DIR := Release
 RELEASE_DEFINES := USE_PORT_PRINT=1
 RELEASE_CPPFLAGS = $(CPPFLAGS) -O3
@@ -46,7 +45,7 @@ RELEASE_CPPFLAGS = $(CPPFLAGS) -O3
 ######################################
 # Debug definitions
 ######################################
-DEBUG_NAME := uzemdbg
+DEBUG_NAME = uzemdbg$(OS_EXTENSION)
 DEBUG_OBJ_DIR := Debug
 DEBUG_DEFINES := USE_PORT_PRINT=1 USE_SPI_DEBUG=1 USE_EEPROM_DEBUG=1 USE_GDBSERVER_DEBUG=1
 DEBUG_CPPFLAGS = $(CPPFLAGS) -g
@@ -70,6 +69,7 @@ ifeq ($(UNAME),Linux)
 OS := LINUX
 PLATFORM := Unix
 SDL_FLAGS := $(shell sdl-config --cflags)
+LDFLAGS += $(shell sdl-config --libs)
 CC := g++
 MKDIR := mkdir -p
 RM := rm -rf
@@ -81,6 +81,7 @@ ifeq ($(UNAME),Darwin)
 OS := MACOSX
 PLATFORM := Unix
 SDL_FLAGS := $(shell sdl-config --cflags)
+LDFLAGS += $(shell sdl-config --libs)
 CPPFLAG += -framework Cocoa
 CC := g++
 MKDIR := mkdir -p
@@ -91,11 +92,41 @@ endif
 ## Windows ###########################
 ifneq (,$(findstring MINGW,$(UNAME)))
 PLATFORM := Windows
-LDFLAGS += -lws2_32 -Wl,-u,_WinMain@16
-SDL_FLAGS = -IC:/MinGW/include/SDL
+OS_EXTENSION := .exe
+
+# First check in C:/SDL
+SDL_BASE_DIR := C:/SDL
+SDL_DIR_ENTRIES = $(wildcard C:/SDL/*)
+ifeq ($(findstring include,$(SDL_DIR_ENTRIES)),include)
+    ifeq ($(findstring bin,$(SDL_DIR_ENTRIES)),bin)
+        SDL_FLAGS = -I$(SDL_BASE_DIR)/include/SDL -L$(SDL_BASE_DIR)/lib
+        SDL_DLL_FROM = $(SDL_BASE_DIR)/bin/SDL.dll
+    endif
+endif
+# Didn't find ?
+ifeq ($(SDL_FLAGS),)
+# Then check in C:\MinGW
+ifneq ($(SDL_DIR_ENTRIES)),)
+    ifneq ($(wildcard C:/MinGW/includes/SDL/*)),)
+        ifeq ($(findstring SDL.dll,$(wildcard C:/MinGW/lib/*)),SDL.dll)
+            SDL_FLAGS = -IC:\MinGW\include\SDL -LC:\MinGW\lib
+            SDL_DLL_FROM = C:\MinGW\lib\SDL.dll
+        endif
+    endif
+endif
+endif
+#If didn't find SDL...
+ifeq ($(SDL_FLAGS),)
+    $(error The SDL library not found. Make sure you have it in C:\SDL)
+endif
+
+SDL_DLL := SDL.dll
+LDFLAGS += -lws2_32
+LDFLAGS += -lmingw32 -lSDLmain -lSDL #keeping in this order is important
 CC := g++
 MKDIR := mkdir -p
 RM := -rm -rf
+CP := cp
 MTOOLS = utils/mtools
 endif
 
@@ -150,11 +181,16 @@ msg:
 $(TARGETS): msg $(TARGET_NAME)
 	@echo done!
 
-$(TARGET_NAME): $(TARGET_OBJS)
+$(TARGET_NAME): $(TARGET_OBJS) $(SDL_DLL)
 	$(CC) $(TARGET_OBJS) -o $(TARGET_NAME) $(CPPFLAGS) $(LDFLAGS) $(TARGET_D_DEFINES)
 
 $(TARGET_OBJ_DIR)/%.o: %.cpp
 	$(CC) -c $< -o $@ $(TARGET_CPPFLAGS) $(DEPFLAGS) $(TARGET_D_DEFINES)
+
+# This rule used only for Windows
+$(SDL_DLL): $(SDL_DLL_FROM)
+	@echo Copying SDL dll from $(SDL_DLL_FROM)
+	$(CP) $(SDL_DLL_FROM) $(SDL_DLL)
 
 .PHONY: SDCardDemo
 SDCardDemo:
@@ -170,6 +206,7 @@ clean:
 	-@$(RM) $(DEBUG_OBJ_DIR)
 	-@$(RM) $(RELEASE_NAME)
 	-@$(RM) $(DEBUG_NAME)
+	-@$(RM) $(SDL_DLL)
 
 .PHONY: help
 help:
@@ -183,13 +220,14 @@ help:
 	@echo \'make release\' - release version
 	@echo \'make debug\' - debug version
 	@echo \'make clean\' - clean all object files and binaries for debug and release versions
-	@echo \'make SDCardDemo\' - Builds the SDCard demo and copy the iHex file to local dir.
-	@echo \'debug-sd\' - Starts $(DEBUG_NAME) using the SDCard demo image.
+	@echo \'make SDCardDemo\' - Builds the SDCard demo and copy the iHex file to local dir
+	@echo \'debug-sd\' - Starts $(DEBUG_NAME) using the SDCard demo image
 	@echo \'make help\' - this help :-\)
 	@echo Flags available:
 	@echo ----------------
 	@echo PROF=\[y\|n\] - Enable or disable profiling using gprof, e.g.: \'make debug PROF=y\'. The default is PROF=$(PROF)
-	@echo ARCH=cpu-type - Choose the target CPU to build Uzem. The default cpu-type is \'native\' which gives you the best performance. Only use this flag with you want build a more generic binary to release. E.g: \'make release ARCH=i686\'
+	@echo ARCH=cpu-type - Choose the target CPU to build Uzem. The compiler generates instructions for the cpu-type
+	@echo TUNE=\[y|n] - Enable or disable optmizations for the cpu-type indicated in ARCH='cpu-type'
 	@echo Tips:
 	@echo -----
 	@echo If you have a multiprocessor system, use \'-j N\', e.g.: \'make release -j 3\'

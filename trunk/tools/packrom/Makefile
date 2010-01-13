@@ -15,15 +15,19 @@ SRCS := packrom.cpp
 ######################################
 # Architecture
 ######################################
-ifeq ($(ARCH),)
-    ARCH := native
-    MTUNE := -mtune=native
+######################################
+# Architecture
+######################################
+ifneq ($(ARCH),)
+    CPPFLAGS += -march=$(ARCH)
+    ifeq ($(TUNE),y)
+        CPPFLAGS += -mtune=$(ARCH)
+    endif
 endif
 
 ######################################
 # Global Flags
 ######################################
-CPPFLAGS = -march=$(ARCH) $(MTUNE)
 CPPFLAGS += -D$(OS)
 CPPFLAGS += -Wall
 
@@ -32,7 +36,7 @@ LDFLAGS +=
 ######################################
 # Release definitions
 ######################################
-RELEASE_NAME := packrom
+RELEASE_NAME = packrom$(OS_EXTENSION)
 RELEASE_OBJ_DIR := Release
 RELEASE_DEFINES := 
 RELEASE_CPPFLAGS = $(CPPFLAGS) -O3
@@ -40,7 +44,7 @@ RELEASE_CPPFLAGS = $(CPPFLAGS) -O3
 ######################################
 # Debug definitions
 ######################################
-DEBUG_NAME := $(RELEASE_NAME)dbg
+DEBUG_NAME = packromdbg$(OS_EXTENSION)
 DEBUG_OBJ_DIR := Debug
 DEBUG_DEFINES := DEBUG
 DEBUG_CPPFLAGS = $(CPPFLAGS) -g
@@ -78,6 +82,7 @@ endif
 ## Windows ###########################
 ifneq (,$(findstring MINGW,$(UNAME)))
 PLATFORM := Windows
+OS_EXTENSION = .exe
 LDFLAGS += -lws2_32 -Wl,-u,_WinMain@16
 CC := g++
 MKDIR := mkdir -p
@@ -165,7 +170,8 @@ help:
 	@echo Flags available:
 	@echo ----------------
 	@echo PROF=\[y\|n\] - Enable or disable profiling using gprof, e.g.: \'make debug PROF=y\'. The default is PROF=$(PROF)
-	@echo ARCH=cpu-type - Choose the target CPU to build. The default cpu-type is \'native\' which gives you the best performance. Only use this flag with you want build a more generic binary to release. E.g: \'make release ARCH=i686\'
+	@echo ARCH=cpu-type - Choose the target CPU to build Uzem. The compiler generates instructions for the cpu-type
+	@echo TUNE=\[y|n] - Enable or disable optmizations for the cpu-type indicated in ARCH='cpu-type'
 	@echo Tips:
 	@echo -----
 	@echo If you have a multiprocessor system, use \'-j N\', e.g.: \'make release -j 3\'

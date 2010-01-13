@@ -58,8 +58,10 @@ bool isUzeromFile(char* in_filename){
 bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
 
     FILE* f = fopen(in_filename,"rb");
+    size_t ret;
     if(f){
-        if (fread(header,512,1,f) != 512) {
+        ret = fread(header,1,512,f);
+	if(ret != 512) {
             printf("Erro: failed to read the file %s.\n", in_filename);
             return false;
 	}
@@ -81,7 +83,7 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
         }
         printf("\n");
         
-        if (fread(buffer,header->progSize,1,f) != header->progSize) {
+        if (fread(buffer,1,header->progSize,f) != header->progSize) {
             printf("Erro: failed to read the file %s.\n", in_filename);
             return false;
 	}
