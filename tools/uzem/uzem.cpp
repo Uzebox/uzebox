@@ -35,7 +35,6 @@ THE SOFTWARE.
 
 static const struct option longopts[] ={
     { "help"       , no_argument      , NULL, 'h' },
-    { "bp"         , required_argument, NULL, 'k' },
     { "nosound"    , no_argument      , NULL, 'n' },
     { "fullscreen" , no_argument      , NULL, 'f' },
     { "hwsurface"  , no_argument      , NULL, 'w' },
@@ -50,16 +49,19 @@ static const struct option longopts[] ={
     { "boot"       , no_argument,       NULL, 'b' },
     { "gdbserver"  , no_argument,       NULL, 'd' },
     { "port"       , required_argument, NULL, 't' },
-    #if defined(__WIN32__)
-        { "sd"     , required_argument, NULL, 's' },
-    #endif 
+#if defined(DISASM)
+    { "bp"         , required_argument, NULL, 'k' },
+#endif
+#if defined(__WIN32__)
+    { "sd"         , required_argument, NULL, 's' },
+#endif 
     {NULL          , 0                , NULL, 0}
 };
 
 #if defined(__WIN32__)
-    static const char* shortopts = "hb:dt:nhxim2i:rs:";
+    static const char* shortopts = "hnfwxim2g:re:p:bdt:k:s:";
 #else
-    static const char* shortopts = "hb:dt:nhxim2i:r";
+    static const char* shortopts = "hnfwxim2g:re:p:bdt:k:";
 #endif
 
 #define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
@@ -71,7 +73,9 @@ void showHelp(char* programName){
     printerr("\t%s [OPTIONS] GAMEFILE\n",programName);
     printerr("Options:\n");
     printerr("\t--help -h           Show this help screen\n");
-    printerr("\t--bp -k <addr>      Set breakpoint address\n");
+    #if defined(DISASM)
+        printerr("\t--bp -k <addr>      Set breakpoint address\n");
+    #endif
     printerr("\t--nosound  -n       Disable sound playback\n");
     printerr("\t--fullscreen -f     Enable full screen\n");
     printerr("\t--hwsurface -w      Use SDL hardware surface (probably slower)\n");
@@ -129,13 +133,15 @@ int main(int argc,char **argv)
         case 'h': 
             showHelp(argv[0]);
             return 1;
+#if defined(DISASM)
         case 'k':
             uzebox.breakpoint = (u16) strtoul(optarg,NULL,16);
             break;
+#endif
         case 'n':
 			uzebox.enableSound = false;
             break;
-		case 'f':
+        case 'f':
 			uzebox.fullscreen = true;
             break;
         case 'w':
@@ -144,7 +150,7 @@ int main(int argc,char **argv)
         case 'x':
 			uzebox.sdl_flags &= ~SDL_DOUBLEBUF;
             break;
-		case 'i':
+        case 'i':
 			uzebox.interlaced = true;
             break;
         case 'm':
@@ -159,9 +165,11 @@ int main(int argc,char **argv)
         case 'r':
             //TODO: implement MBR emulation option
             break;
+#if defined(__WIN32__)
         case 's':
             sddrive = optarg;
             break;
+#endif
         case 'e':
             eepromFile = optarg;
             break;

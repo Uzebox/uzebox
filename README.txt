@@ -17,6 +17,11 @@ Current  Notes
 	-Created new Makefile to build all tools and demos from the base directory
 	-Created Makefile for the tool packrom
 	-Fixed buffer overflow in packrom
+	-Fixed broked parameters in Uzem
+	-Fixed bug in loadUzeImage() in Uzem. Loading '.uze' files is working again
+	-Removed the default option '-march=native' in Uzem and Packrom because MinGW uses an unsuported version of gcc.
+	-Fixed the missing '.exe' when building Uzem in Windows.
+	-Added support for Uzem to define the SDL directory when building for Windows. By default the build system will look in C:\SDL\. This is good because you don't need to copy files from SDL inside MinGW making both hard to update.
 	-Changes in some demos filenames and Makefiles to build in Linux machines
 
 Rev 3.0 Notes 
