@@ -1,0 +1,2 @@
+
+avrdude -p m644 -c stk500 -P /dev/ttyUSB0 -U VideoDemo.hex
