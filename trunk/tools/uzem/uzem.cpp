@@ -119,7 +119,7 @@ int main(int argc,char **argv)
 		return 1;
     }
 
-    char opt;
+    int opt;
     char* heximage = NULL;
     char* sdimage = NULL;
     char* sddrive = NULL;
