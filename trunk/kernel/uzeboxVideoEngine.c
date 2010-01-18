@@ -232,7 +232,7 @@ void Fill(int x,int y,int width,int height,int tile){
 	
 	for(cy=0;cy<height;cy++){
 		for(cx=0;cx<width;cx++){		
-			SetTile(x+cx,y+cy,tile+RAM_TILES_COUNT);
+			SetTile(x+cx,y+cy,tile);
 		}
 	}
 }
