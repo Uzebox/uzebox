@@ -63,7 +63,7 @@ BIN_DIR := bin
 ifeq (clean,$(MAKECMDGOALS))
     CLEAN := clean
 endif
-DEST_FLAG = DEST_DIR=$(BIN_DIR)
+DEST_FLAG = DEST_DIR=$(shell pwd)/$(BIN_DIR)/
 
 ALL_TARGETS_TOOLS = $(patsubst %,$(TOOLS_DIR)/%,$(TOOLS))
 ALL_TARGETS_DEMOS = $(patsubst %,$(DEMOS_DIR)/%/default,$(DEMOS))
@@ -95,9 +95,6 @@ tools: $(ALL_TARGETS_TOOLS)
 .PHONY: $(ALL_TARGETS_TOOLS)
 $(ALL_TARGETS_TOOLS):
 	$(MAKE) -C $@ $(CLEAN) $(DEST_FLAG)
-ifeq ($(CLEAN),)
-	$(CP) $@/$(patsubst $(TOOLS_DIR)/%,%,$@)$(OS_EXTENSION) $(BIN_DIR)
-endif
 
 .PHONY: $(ALL_TARGETS_DEMOS)
 $(ALL_TARGETS_DEMOS): $(ALL_TARGETS_TOOLS_DEP)

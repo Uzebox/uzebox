@@ -29,6 +29,13 @@ ifneq ($(ARCH),)
 endif
 
 ######################################
+# Destination dir
+######################################
+ifneq ($(DEST_DIR),)
+    BIN_DIR := $(DEST_DIR)/
+endif
+
+######################################
 # Global Flags
 ######################################
 CPPFLAGS += $(SDL_FLAGS) -D$(OS) -D_GNU_SOURCE=1 -DGUI=1
@@ -120,7 +127,7 @@ ifeq ($(SDL_FLAGS),)
     $(error The SDL library not found. Make sure you have it in C:\SDL)
 endif
 
-SDL_DLL := SDL.dll
+SDL_DLL := $(BIN_DIR)SDL.dll
 LDFLAGS += -lws2_32
 LDFLAGS += -lmingw32 -lSDLmain -lSDL #keeping in this order is important
 CC := g++
@@ -152,7 +159,7 @@ ifeq ($(PROF),y)
 endif
 
 
-TARGET_NAME = $($(CFG)_NAME)
+TARGET_NAME = $(BIN_DIR)$($(CFG)_NAME)
 TARGET_OBJ_DIR = $($(CFG)_OBJ_DIR)
 TARGET_CPPFLAGS = $($(CFG)_CPPFLAGS)
 TARGET_DEFINES = $($(CFG)_DEFINES)
@@ -204,8 +211,8 @@ debug-sd: all SDCardDemo
 clean:
 	-@$(RM) $(RELEASE_OBJ_DIR) 
 	-@$(RM) $(DEBUG_OBJ_DIR)
-	-@$(RM) $(RELEASE_NAME)
-	-@$(RM) $(DEBUG_NAME)
+	-@$(RM) $(BIN_DIR)$(RELEASE_NAME)
+	-@$(RM) $(BIN_DIR)$(DEBUG_NAME)
 	-@$(RM) $(SDL_DLL)
 
 .PHONY: help
@@ -227,7 +234,8 @@ help:
 	@echo ----------------
 	@echo PROF=\[y\|n\] - Enable or disable profiling using gprof, e.g.: \'make debug PROF=y\'. The default is PROF=$(PROF)
 	@echo ARCH=cpu-type - Choose the target CPU to build Uzem. The compiler generates instructions for the cpu-type
-	@echo TUNE=\[y|n] - Enable or disable optmizations for the cpu-type indicated in ARCH='cpu-type'
+	@echo TUNE=\[y\|n\] - Enable or disable optmizations for the cpu-type indicated in ARCH=\'cpu-type\'
+	@echo DEST_DIR=path - Use this flag to place the binary file \(and any required library\) in the \'path\' directory
 	@echo Tips:
 	@echo -----
 	@echo If you have a multiprocessor system, use \'-j N\', e.g.: \'make release -j 3\'
