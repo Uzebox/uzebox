@@ -11,9 +11,13 @@
           The Uzebox Project - A retro-minimalist open source console!  
 	    All sources and content is licenced under the GNU GPL V3
 
-
+		
 Current  Notes
 -------------------------
+	-None
+
+Rev 3.1 Notes (Jan 20, 2010)
+----------------------------
 	-Created new Makefile to build all tools and demos from the base directory
 	-Created Makefile for the tool packrom
 	-Fixed buffer overflow in packrom
@@ -25,11 +29,8 @@ Current  Notes
 	-Changes in some demos filenames and Makefiles to build in Linux machines
 	-Removed binary files from Bootloader_pragma
 
-Rev 3.0 Notes 
--------------------------
-
-	Jan 8, 2010
-	-------------
+Rev 3.0 Notes (Jan 8, 2010)
+---------------------------
 	-Major Refactoring: All video modes in their own files
 	-New video modes: 3,4,6,7,8 (See the WIKI for details)
 	-EEPROM functions
@@ -43,11 +44,8 @@ Rev 3.0 Notes
 	-Video mode 3 now has a -DSCROLLING=1 to enable XY scrolling.
 	-SD/MMC low level functions ported to assembler to cut on flash utilization
 
-Rev 2.0 Beta4 Notes
+Rev 2.0 Beta4 Notes (Feb 1, 2009)
 -------------------------
-
-	Feb 1, 2009
-	-----------
 	The demos are beign re-aranged to use a 'master' kernel instead of having copies all over the place.
 	Here's the changes:
 	-Projects now uses custom Makefiles. Define the path of the kernel files and your custom compilation options in there. For the moment the kernel files and objects are still referenced in the game's makefiles. Eventually it will delegate to a kernel makefile.
