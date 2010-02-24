@@ -75,8 +75,7 @@ next_scan_line:
 	ldi r19,68 + CENTER_ADJUSTMENT
 	dec r19			
 	brne .-4
-	nop
-	nop
+
 
 	;***draw line***
 	rcall render_tile_line

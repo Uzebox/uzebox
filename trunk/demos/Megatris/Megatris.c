@@ -229,6 +229,11 @@ const struct tetraminoStruct tetraminos[] PROGMEM={
 #define ANIM_T_SPIN 1
 #define ANIM_TETRIS 2
 
+//declare custom assembly functions
+extern void RestoreTile(char x,char y);
+extern void LoadMap(void);
+extern void SetTileMap(const int *data);
+
 void menu(void);
 void drawTetramino(int x,int y,int tetramino,int rotation,int forceTile,bool restore,bool clipToField);
 void drawBigLetter(int cx,int cy,char letter,int tile);

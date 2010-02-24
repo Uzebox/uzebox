@@ -14,7 +14,11 @@
 		
 Current  Notes
 -------------------------
-	-None
+	-Removed custom function from the API used only by Megatris
+	-Added -mcall-prologues to demos makefile (saves ~300-500 bytes of flash)
+	-Added support for variable tile/sprite height in mode 3
+	-Corrected sync timing in mode 3,8 that caused shearing at the top of screen
+	-Corrected screen centering from mode 1,3 so "CENTER_ADJUSTMENT=0" have the picture perfectly centered on a real TV.
 
 Rev 3.1 Notes (Jan 20, 2010)
 ----------------------------

@@ -36,8 +36,13 @@
 	#define SCROLLING 0
 #endif
 
-#define TILE_HEIGHT 8
-#define TILE_WIDTH 8
+#ifndef TILE_HEIGHT
+	#define TILE_HEIGHT 8
+#endif
+
+#ifndef	TILE_WIDTH
+	#define TILE_WIDTH 8
+#endif
 
 #ifndef OVERLAY_LINES
 	#define OVERLAY_LINES 0

@@ -31,7 +31,49 @@
 	#define __DEFINES_H_
  	#include <avr/io.h>
 
-		
+	//For some reason the Atmega1284P io.h does not include the old "PA0" defines
+	#ifndef PA0
+		#define PA0 PORTA0
+		#define PA1 PORTA1 
+		#define PA2 PORTA2 
+		#define PA3 PORTA3 
+		#define PA4 PORTA4 
+		#define PA5 PORTA5 
+		#define PA6 PORTA6 
+		#define PA7 PORTA7 
+	#endif
+	#ifndef PB0
+		#define PB0 PORTB0
+		#define PB1 PORTB1 
+		#define PB2 PORTB2 
+		#define PB3 PORTB3 
+		#define PB4 PORTB4 
+		#define PB5 PORTB5 
+		#define PB6 PORTB6 
+		#define PB7 PORTB7 
+	#endif
+	#ifndef PC0
+		#define PC0 PORTC0
+		#define PC1 PORTC1 
+		#define PC2 PORTC2 
+		#define PC3 PORTC3 
+		#define PC4 PORTC4 
+		#define PC5 PORTC5 
+		#define PC6 PORTC6 
+		#define PC7 PORTC7 
+	#endif
+	#ifndef PD0
+		#define PD0 PORTD0
+		#define PD1 PORTD1 
+		#define PD2 PORTD2 
+		#define PD3 PORTD3 
+		#define PD4 PORTD4 
+		#define PD5 PORTD5 
+		#define PD6 PORTD6 
+		#define PD7 PORTD7 
+	#endif
+
+
 	//Generic define
 	#define DISABLED 0
 	#define ENABLED  1
@@ -333,6 +375,7 @@
 	#define SYNC_PORT PORTB
 	#define DATA_PORT PORTC
 
+	#define VIDEO_PORT _SFR_IO_ADDR(DATA_PORT)
 
 	#define CHANNEL_STRUCT_SIZE 10
 	#define MIX_BANK_SIZE (SYNC_HSYNC_PULSES + ((SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES)/2))

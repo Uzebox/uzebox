@@ -1,5 +1,5 @@
 /*
- *  Uzebox Kernel - Mode 1
+ *  Uzebox Kernel - Video Mode 1
  *  Copyright (C) 2009  Alec Bourque
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -18,33 +18,54 @@
  *  Uzebox is a reserved trade mark
 */
 
-;***************************************************
-; TEXT MODE VIDEO PROCESSING
-; Process video frame in tile mode (30*28)
-;***************************************************	
+;***************************************************************
+; Video Mode 1 Rasterizer and Functions
+;***************************************************************
+;
+; Spec
+; ----
+; Type:			Tile-based
+; Cycles/Pixel: 6
+; Tile Size: 	6x8
+; Resolution: 	240x224 pixels (40x28 tiles)
+; Sprites: 		No
+; Scrolling: 	No
+;
+; Description
+; -----------
+; This video mode is tile-based and does not support 
+; sprites or scrolling. Tile are 6x8 pixels
+; (6 horizontally by 8 vertically). The VRAM is organized as
+; a 40x28 array of 16-bits pointers which points
+; to individual tiles in flash. Because it is using 
+; adresses instead of indexes (like most other modes),
+; more than 256 tiles can be displayed simultaneously.
+; After initialization, pointers to a tile set and/or font set
+; must be defined by calling SetTileTable() and SetFontTable().
+;
+; Functions specific to mode 1
+; ----------------------------
+; -SetFontTable(): Defines the font set to use with Print() functions
+; -SetFont()     : Sets a font at the specified X/Y location in VRAM
+; 
+;***************************************************************
 
 .global vram
 
 .section .bss
-	vram: 	  	.space VRAM_SIZE
-	tile_map_lo:	.byte 1
-	tile_map_hi:	.byte 1
-	font_table_lo:	.byte 1
+	vram: 	  	.space VRAM_SIZE	;allocate space for the video memory (VRAM)
+	font_table_lo:	.byte 1			;pointer to user font table
 	font_table_hi:	.byte 1	
 
 .section .text
-;***************************************************
-; TEXT MODE VIDEO PROCESSING
-; Process video frame in tile mode (40*28)
-;***************************************************	
 
 sub_video_mode1:
 
 	;waste line to align with next hsync in render function
 	ldi ZL,222 
 mode1_render_delay:
-	lpm
-	nop
+	rjmp .
+	rjmp .
 	dec ZL
 	brne mode1_render_delay 
 
@@ -64,14 +85,14 @@ mode1_render_delay:
 next_text_line:	
 	rcall hsync_pulse ;3+144=147
 
-	ldi r19,37 + CENTER_ADJUSTMENT
+	ldi r19,44 + CENTER_ADJUSTMENT
 	dec r19			
 	brne .-4
 
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,26 - CENTER_ADJUSTMENT
+	ldi r19,19 - CENTER_ADJUSTMENT
 	dec r19			
 	brne .-4
 
@@ -135,72 +156,68 @@ text_frame_end:
 	ret
 
 ;*************************************************
-; RENDER TILE LINE
+; Renders a line within the current tile row.
+; Draws 40 tiles wide @ 6 clocks per pixel
 ;
-; r22     = Y offset in tiles
+; r22     = Y offset in tile row (0-7)
 ; r23 	  = tile width in bytes
 ; Y       = VRAM adress to draw from (must not be modified)
-;
-; Can destroy: r0,r1,r2,r3,r4,r5,r13,r16,r17,r18,r19,r20,r21,Z
 ; 
 ; cycles  = 1495
 ;*************************************************
 render_tile_line:
 
-	movw XL,YL
-
-	;add tile Y offset
-	mul r22,r23
-	movw r24,r0
-
-	;load the first tile from vram
-	ld	r20,X+	;load tile adress LSB from VRAM
-	ld	r21,X+	;load tile adress MSB from VRAM
-	add r20,r24	;add tile address
-	adc r21,r25  ;add tile address	
-
-
-	movw ZL,r20
-	;draw 40 tiles wide, 6 clocks/pixel
-	ldi r18,SCREEN_TILES_H
-
-m1_loop:	
-	lpm r16,Z+
-	out _SFR_IO_ADDR(DATA_PORT),r16
+	movw XL,YL			;copy current VRAM pointer to X
 	
-	ld	r20,X+	;load tile adress # LSB from VRAM
+	;////////////////////////////////////////////
+	;Compute the adress of the first tile to draw
+	;////////////////////////////////////////////
+	ld	r20,X+			;load absolute tile adress from VRAM (LSB)
+	ld	r21,X+			;load absolute tile adress from VRAM (MSB)
+	mul r22,r23			;compute Y offset in current tile row
+	movw r24,r0			;store result in r24:r25 for use in inner loop
+	add r20,r24			;add Y offset to tile address
+	adc r21,r25 		;add Y offset to tile address
+	movw ZL,r20 		;copy to Z, the only register that can read from flash
 
-	lpm r16,Z+
-	out _SFR_IO_ADDR(DATA_PORT),r16
+	ldi r18,SCREEN_TILES_H ;load the number of horizontal tiles to draw
 
-	ld	r21,X+	;load tile adress # MSB from VRAM
+mode1_loop:	
+	lpm r16,Z+			;get pixel 0 from flash
+	out VIDEO_PORT,r16	;and output it to the video DAC
+	
+	ld	r20,X+			;load next tile adress from VRAM (LSB)
 
-	lpm r16,Z+
-	out _SFR_IO_ADDR(DATA_PORT),r16
+	lpm r16,Z+			;get pixel 1 from flash
+	out VIDEO_PORT,r16	;and output it to the video DAC
 
-	rjmp .
+	ld	r21,X+			;load next tile adress from VRAM (MSB)
 
-	lpm r16,Z+
-	out _SFR_IO_ADDR(DATA_PORT),r16
+	lpm r16,Z+			;get pixel 2 from flash
+	out VIDEO_PORT,r16	;and output it to the video DAC
 
-	add r20,r24	;add tile table row offset 
-	adc r21,r25 ;add tile table row offset 
+	rjmp .				;2 cycles delay
 
-	lpm r16,Z+
-	out _SFR_IO_ADDR(DATA_PORT),r16
+	lpm r16,Z+			;get pixel 3 from flash
+	out VIDEO_PORT,r16	;and output it to the video DAC
 
-	lpm r16,Z+
-	movw ZL,r20
-	dec r18
+	add r20,r24			;add Y offset to tile address
+	adc r21,r25 		;add Y offset to tile address
 
-	out _SFR_IO_ADDR(DATA_PORT),r16
-	brne m1_loop
+	lpm r16,Z+			;get pixel 4 from flash
+	out VIDEO_PORT,r16	;and output it to the video DAC
 
-	;end set last pix to zero
-	rjmp .
-	clr r16
-	nop
-	out _SFR_IO_ADDR(DATA_PORT),r16
+	lpm r16,Z+			;get pixel 5 from flash
+	movw ZL,r20			;load the next tile's adress in Z
+	dec r18				;decrement horizontal tiles to draw
+
+	out VIDEO_PORT,r16	;and output it to the video DAC
+	brne mode1_loop		
+	
+	rjmp .				;2 cycles delay
+	nop					;1 cycle delay
+	clr r16				;set last pixel to zero (black)
+	out VIDEO_PORT,r16
 
 	ret
 
@@ -233,119 +250,6 @@ fill_vram_loop:
 	clr r1
 
 	ret
-
-;*****************************
-; Defines a tile map
-; C-callable
-; r25:r24=pointer to tiles map
-;*****************************
-.section .text.SetTileMap
-SetTileMap:
-	//adiw r24,2
-	sts tile_map_lo,r24
-	sts tile_map_hi,r25
-
-	ret
-
-;***********************************
-; LOAD Main map
-;************************************
-.section .text.LoadMap
-LoadMap:
-	push r16
-	push r17
-	//init vram
-
-	ldi r24,lo8(VRAM_TILES_H *VRAM_TILES_V)
-	ldi r25,hi8(VRAM_TILES_H *VRAM_TILES_V)
-	ldi XL,lo8(vram)
-	ldi XH,hi8(vram)
-
-	lds ZL,tile_map_lo
-	lds ZH,tile_map_hi
-
-	ldi r20,(TILE_WIDTH*TILE_HEIGHT) ;48
-
-	lds r16,tile_table_lo
-	lds r17,tile_table_hi
-
-load_map_loop:
-	lpm r22,Z+ ;16
-	lpm r23,Z+ ;17
-
-	mul r22,r20
-	movw r18,r0
-	mul r23,r20
-	add r19,r0
-
-	add r18,r16
-	adc r19,r17
-
-	st X+,r18	;store tile adress
-	st X+,r19
-
-	sbiw r24,1
-	brne load_map_loop
-
-	clr r1
-
-	pop r17
-	pop r16
-	ret
-
-;***********************************
-; RESTORE TILE
-; Copy a map tile # to the same position VRAM
-; C-callable
-; r24=X pos (8 bit)
-; r22=Y pos (8 bit)
-;************************************
-//.section text.RestoreTile
-.section .text.RestoreTile
-RestoreTile:
-	clr r25
-	clr r23
-	clr r19
-	ldi r18,VRAM_TILES_H*2
-	mul r22,r18		;calculate Y line addr
-	lsl r24
-	add r0,r24		;add X offset
-	adc r1,r19
-
-	//load map tile #
-	lds ZL,tile_map_lo
-	lds ZH,tile_map_hi
-
-	add ZL,r0
-	adc ZH,r1
-	lpm r20,Z+ 
-	lpm r21,Z+ 
-
-	ldi XL,lo8(vram)
-	ldi XH,hi8(vram)
-	add XL,r0
-	adc XH,r1
-
-	ldi r18,(TILE_WIDTH*TILE_HEIGHT)
-	mul r20,r18
-	movw r22,r0
-	mul r21,r18
-	add r23,r0
-
-	lds r20,tile_table_lo
-	lds r21,tile_table_hi
-
-	add r22,r20
-	adc r23,r21
-
-	st X+,r22
-	st X,r23
-
-	clr r1
-
-	ret
-
-
 
 ;***********************************
 ; SET FONT TILE
