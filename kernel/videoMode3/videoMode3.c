@@ -92,8 +92,10 @@
 				dx=ssx&0x7;
 				if(dx>0) tx++;
 
-				by=ssy>>3;			
-				dy=ssy&0x7;		
+				//by=ssy>>3;			
+				//dy=ssy&0x7;		
+				by=ssy/TILE_HEIGHT;
+				dy=ssy%TILE_HEIGHT;
 				if(dy>0) ty++;			
 
 				for(y=0;y<ty;y++){
@@ -157,11 +159,11 @@
 
 		if(VRAM_TILES_V<32){
 
-			if(Screen.scrollY>=(VRAM_TILES_V*8)){
+			if(Screen.scrollY>=(VRAM_TILES_V*TILE_HEIGHT)){
 				if(dy>=0){	
-					Screen.scrollY=(Screen.scrollY-(VRAM_TILES_V*8));
+					Screen.scrollY=(Screen.scrollY-(VRAM_TILES_V*TILE_HEIGHT));
 				}else{
-					Screen.scrollY=((VRAM_TILES_V*8)-1)-(0xff-Screen.scrollY);
+					Screen.scrollY=((VRAM_TILES_V*TILE_HEIGHT)-1)-(0xff-Screen.scrollY);
 				}			
 			}
 	
@@ -175,7 +177,7 @@
 			Screen.scrollX=sx;
 
 			if(VRAM_TILES_V<32){
-				if(sy<(VRAM_TILES_V*8)){
+				if(sy<(VRAM_TILES_V*TILE_HEIGHT)){
 					Screen.scrollY=sy;
 				}
 			}else{
@@ -235,13 +237,13 @@
 		for(unsigned char dy=0;dy<height;dy++){
 			for(unsigned char dx=0;dx<width;dx++){
 			
-				sprites[startSprite].x=x+(8*dx);
+				sprites[startSprite].x=x+(TILE_WIDTH*dx);
 			
-				if((VRAM_TILES_V<32) && (y+(8*dy))>(VRAM_TILES_V*8)){
-					unsigned char tmp=(y+(8*dy))-(VRAM_TILES_V*8);
+				if((VRAM_TILES_V<32) && (y+(TILE_HEIGHT*dy))>(VRAM_TILES_V*TILE_HEIGHT)){
+					unsigned char tmp=(y+(TILE_HEIGHT*dy))-(VRAM_TILES_V*TILE_HEIGHT);
 					sprites[startSprite].y=tmp;
 				}else{
-					sprites[startSprite].y=y+(8*dy);
+					sprites[startSprite].y=y+(TILE_HEIGHT*dy);
 				}
 			
 				startSprite++;
@@ -254,7 +256,7 @@
 	void DisplayLogo(){
 	
 		#if INTRO_LOGO !=0
-			#define LOGO_X_POS 12
+			#define LOGO_X_POS 13
 			
 			InitMusicPlayer(logoInitPatches);
 			SetTileTable(logo_tileset);

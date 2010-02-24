@@ -47,15 +47,11 @@
 	extern void ClearVram(void);
 	extern void SetTile(char x,char y, unsigned int tileId);
 	extern void SetFont(char x,char y, unsigned char tileId);
-	extern void RestoreTile(char x,char y);
-	extern void LoadMap(void);
 	extern void SetFontTilesIndex(unsigned char index);
 	extern void SetFontTable(const char *data);
 	extern void SetTileTable(const char *data);
 	extern void DrawMap(unsigned char x,unsigned char y,const int *map); //draw a map in video mode 1
 	extern void DrawMap2(unsigned char x,unsigned char y,const char *map); //draw a map in video mode 2
-	extern void SetTileMap(const int *data);
-
 
 	extern void Print(int x,int y,const char *string);
 	extern void PrintRam(int x,int y,unsigned char *string);

@@ -35,6 +35,7 @@
 .global overlay_vram
 .global Screen
 .global SetSpritesTileTable
+.global CopyTileToRam
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -101,12 +102,12 @@
 		ldi ZL,(0<<OCIE1A)
 		sts _SFR_MEM_ADDR(TIMSK1),ZL
 
-		;wait cycles
-		ldi r26,lo8(204-2-5)
-		ldi r27,hi8(204-2-5)
+		;wait cycles to align with next hsync
+		ldi r26,lo8(204-2)
+		ldi r27,hi8(204-2)
 		sbiw r26,1
 		brne .-4		
-
+		nop
 
 	
 		;**********************
@@ -253,23 +254,16 @@
 		;***draw scanline***
 		call render_tile_line
 
-		ldi r18,4+11
+		ldi r18,4+11+2
 		dec r18
 		brne .-4
-	
 		nop
-		nop
-		rjmp .
-		nop
-		rjmp .
-
-
 
 		inc r22
 		dec r8
 		breq text_frame_end
 
-		cpi r22,8 ;last char line? 1
+		cpi r22,TILE_HEIGHT ;last char line? 1
 		breq next_text_row 
 
 		ldi r16,4
@@ -309,15 +303,20 @@
 
 	text_frame_end:
 		;13
-		lpm
-		lpm
-		lpm ;3 nop
-		lpm ;3 nop
-		lpm ;3 nop
-		lpm ;3 nop
-		lpm ;3 nop
-		nop
-		nop
+		;lpm
+		;lpm
+		;lpm ;3 nop
+		;lpm ;3 nop
+		;lpm ;3 nop
+		;lpm ;3 nop
+		;lpm ;3 nop
+		;nop
+		;nop
+
+		ldi r18,7
+		dec r18
+		brne .-4
+		rjmp .
 
 		rcall hsync_pulse ;145
 	
@@ -711,6 +710,12 @@
 	;***************************************************	
 	sub_video_mode3:
 
+		;wait cycles to align with next hsync
+		ldi r16,7
+		dec r16
+		brne .-4		
+
+
 
 		;Set ramtiles indexes in VRAM 
 		ldi ZL,lo8(ram_tiles_restore);
@@ -777,7 +782,7 @@
 		rcall hsync_pulse ;3+144=147
 
 
-		ldi r19,41-5-1 + CENTER_ADJUSTMENT 
+		ldi r19,43 + CENTER_ADJUSTMENT 
 	text_wait1:
 		dec r19			
 		brne text_wait1;206
@@ -785,7 +790,7 @@
 		;***draw line***
 		call render_tile_line
 
-		ldi r19,10+5 - CENTER_ADJUSTMENT
+		ldi r19,7 - CENTER_ADJUSTMENT
 	text_wait2:
 		dec r19			
 		brne text_wait2;233
@@ -804,7 +809,7 @@
 		nop
 		nop
 
-		cpi r22,8 ;last char line? 1
+		cpi r22,TILE_HEIGHT ;last char line? 1
 		breq next_text_row 
 	
 		;wait to align with next_tile_row instructions (+1 cycle for the breq)
@@ -1163,14 +1168,14 @@ BlitSprite:
 	sbrs r16,SPRITE_FLIP_X_BIT
 	rjmp x_check_end
 
-	adiw ZL,7
+	adiw ZL,(TILE_WIDTH-1);7
 	ldi r17,16
 	sub r17,r18	;xdiff for src
 	rjmp x_check_end
 
 
 x_2nd_tile:
-	ldi r24,8
+	ldi r24,TILE_WIDTH
 	sub r24,r18	;8-DX = xdiff for dest
 
 	sbrc r16,SPRITE_FLIP_X_BIT
@@ -1182,7 +1187,7 @@ x_2nd_tile:
 	rjmp x_check_end
 
 x2_flip_x:
-	ldi r17,8
+	ldi r17,TILE_WIDTH
 	add r17,r18	;xdiff for src
 	
 	add ZL,r18
@@ -1243,11 +1248,11 @@ y_check_end:
 	sbrc r16,SPRITE_FLIP_X_BIT
 	set
 
-	ldi r21,8
+	ldi r21,TILE_HEIGHT ;8
 	sub r21,r25 ;y2
 
 y2_loop:
-	ldi r20,8
+	ldi r20,TILE_WIDTH ;8
 	sub r20,r24 ;x2
 
 	brts x2_loop_flip

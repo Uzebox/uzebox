@@ -77,6 +77,7 @@
 .global sync_phase
 .global curr_field
 .global tile_table_lo
+.global tile_table_hi
 .global burstOffset
 .global vsync_phase
 .global joypad1_status_lo
