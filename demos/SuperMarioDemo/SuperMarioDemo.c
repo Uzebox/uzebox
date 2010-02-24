@@ -85,6 +85,7 @@ int main(){
 
 	ClearVram();
 	InitMusicPlayer(patches);
+	SetMasterVolume(0x40);
 	StartSong(song_nsmb);
 
 	SetSpritesTileTable(mario_sprites_tileset);
