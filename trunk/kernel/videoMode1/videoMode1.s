@@ -1,6 +1,6 @@
 /*
  *  Uzebox Kernel - Video Mode 1
- *  Copyright (C) 2009  Alec Bourque
+ *  Copyright (C) 2008  Alec Bourque
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,14 +85,14 @@ mode1_render_delay:
 next_text_line:	
 	rcall hsync_pulse ;3+144=147
 
-	ldi r19,44 + CENTER_ADJUSTMENT
+	ldi r19,50 + CENTER_ADJUSTMENT
 	dec r19			
 	brne .-4
 
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,19 - CENTER_ADJUSTMENT
+	ldi r19,13 - CENTER_ADJUSTMENT
 	dec r19			
 	brne .-4
 
