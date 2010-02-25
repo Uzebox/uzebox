@@ -302,21 +302,11 @@
 
 
 	text_frame_end:
-		;13
-		;lpm
-		;lpm
-		;lpm ;3 nop
-		;lpm ;3 nop
-		;lpm ;3 nop
-		;lpm ;3 nop
-		;lpm ;3 nop
-		;nop
-		;nop
 
-		ldi r18,7
+		ldi r18,13
 		dec r18
 		brne .-4
-		rjmp .
+		nop
 
 		rcall hsync_pulse ;145
 	
@@ -753,7 +743,6 @@
 
 
 		ldi r16,73-RAM_TILES_COUNT ;222*7 
-		//subi r16,RAM_TILES_COUNT
 	wait_loop:
 	
 		ldi r17,6
@@ -781,33 +770,24 @@
 	next_text_line:	
 		rcall hsync_pulse ;3+144=147
 
-
-		ldi r19,43 + CENTER_ADJUSTMENT 
-	text_wait1:
+		ldi r19,43 + CENTER_ADJUSTMENT 	
 		dec r19			
-		brne text_wait1;206
+		brne .-4
 
 		;***draw line***
 		call render_tile_line
 
-		ldi r19,7 - CENTER_ADJUSTMENT
-	text_wait2:
+		ldi r19,7 - CENTER_ADJUSTMENT	
 		dec r19			
-		brne text_wait2;233
-
+		brne .-4
 	
 		rjmp .
-
 
 		dec r10
 		breq text_frame_end
 	
-
-		nop
 		inc r22
-
-		nop
-		nop
+		lpm ;3 nop
 
 		cpi r22,TILE_HEIGHT ;last char line? 1
 		breq next_text_row 
@@ -822,31 +802,22 @@
 	next_text_row:
 		clr r22		;current char line			;1	
 
-
 		clr r0
 		ldi r19,VRAM_TILES_H
 		add YL,r19
 		adc YH,r0
 
-
-		;nop
-		;nop
-		nop
-		nop
+		lpm
 		nop
 
-		nop
 		rjmp next_text_line
 
 	text_frame_end:
-		;13
-		lpm ;3 nop
-		lpm ;3 nop
-		lpm ;3 nop
-		lpm ;3 nop
-		lpm ;3 nop
-		nop
-		nop
+
+		ldi r19,5
+		dec r19			
+		brne .-4
+		rjmp .
 
 		rcall hsync_pulse ;145
 	
