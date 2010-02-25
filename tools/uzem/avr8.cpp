@@ -1500,7 +1500,7 @@ bool avr8::init_gui()
 	scanline_count = -999;
 	//Syncronized with the kernel, this value now results in the image 
 	//being perfectly centered in both the emulator and a real TV
-	left_edge = -177;
+	left_edge = -166;
 
 	latched_buttons[0] = buttons[0] = ~0;
 	latched_buttons[1] = buttons[1] = ~0;
