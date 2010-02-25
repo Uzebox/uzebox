@@ -770,14 +770,14 @@
 	next_text_line:	
 		rcall hsync_pulse ;3+144=147
 
-		ldi r19,43 + CENTER_ADJUSTMENT 	
+		ldi r19,43 - 4 + CENTER_ADJUSTMENT 	
 		dec r19			
 		brne .-4
 
 		;***draw line***
 		call render_tile_line
 
-		ldi r19,7 - CENTER_ADJUSTMENT	
+		ldi r19,7 + 4 - CENTER_ADJUSTMENT	
 		dec r19			
 		brne .-4
 	
