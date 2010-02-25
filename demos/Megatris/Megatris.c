@@ -326,7 +326,7 @@ struct fieldStruct {
 struct fieldStruct fields[2];
 
 const char strCopyright[] PROGMEM ="2008 ALEC BOURQUE";
-const char strWebsite[] PROGMEM ="HTTP://WWW.BELOGIC.COM/UZEBOX";
+const char strWebsite[] PROGMEM ="HTTP://WWW.UZEBOX.ORG"; //"HTTP://WWW.BELOGIC.COM/UZEBOX";
 const char strLicence[] PROGMEM ="LICENCED UNDER GNU GPL V3";
 
 const char strMenu1PGame[] PROGMEM ="1 PLAYER";
@@ -403,11 +403,9 @@ int main(){
 	SetTileTable(tetrisTiles);
 	SetTileMap(map_main+2);
 
-	//DrawLogo();
-
 
 	DrawMainMenu();
-	SetTile(15,15+option,CURSOR_TILE); //draw cursor
+	SetTile(14,15+option,CURSOR_TILE); //draw cursor
 
 
 	while(1){
@@ -429,7 +427,7 @@ int main(){
 			}
 
 			DrawMainMenu();
-			SetTile(15,15+option,CURSOR_TILE); //draw cursor
+			SetTile(14,15+option,CURSOR_TILE); //draw cursor
 			
 			
 		}
@@ -447,7 +445,7 @@ int main(){
 		}
 
 		if(c&BTN_UP || c&BTN_DOWN || c&BTN_SELECT){
-			SetTile(15,15+option,0); //erase old cursor
+			SetTile(14,15+option,0); //erase old cursor
 			TriggerFx(1,0x90,true);
 
 			if(c&BTN_UP){
@@ -465,7 +463,7 @@ int main(){
 				}
 			}
 			
-			SetTile(15,15+option,CURSOR_TILE); //draw new cursor
+			SetTile(14,15+option,CURSOR_TILE); //draw new cursor
 			while(ReadJoypad(0)!=0); //wait for key release
 		}
 
@@ -494,21 +492,21 @@ void OptionsMenu(){
 
 	ClearVram();
 	
-	Print(15,8,strGameOptions);
+	Print(14,8,strGameOptions);
 	
-	Print(12,13,strSong);
-	PrintHexByte(18,13,songNo);
+	Print(11,13,strSong);
+	PrintHexByte(17,13,songNo);
 	
-	Print(12,14,strUseGhostBlock);
+	Print(11,14,strUseGhostBlock);
 	if(fields[0].useGhostBlock==true){
-		Print(12+13,14,strYes);
+		Print(11+13,14,strYes);
 	}else{
-		Print(12+13,14,strNo);
+		Print(11+13,14,strNo);
 	}	
 
-	Print(12,15,strBackToMenu);
+	Print(11,15,strBackToMenu);
 
-	SetTile(11,13+option,CURSOR_TILE); //draw cursor
+	SetTile(10,13+option,CURSOR_TILE); //draw cursor
 
 	while(1){
 		c=ReadJoypad(0);
@@ -536,16 +534,16 @@ void OptionsMenu(){
 		if(c&BTN_LEFT){
 			if(option==0 && songNo>0){
 				songNo--;
-				PrintHexByte(18,13,songNo);
+				PrintHexByte(17,13,songNo);
 				TriggerFx(1,0x90,true);
 			}else if(option==1){
 				TriggerFx(1,0x90,true);
 				if(fields[0].useGhostBlock==true){
-					Print(12+13,14,strNo);
+					Print(11+13,14,strNo);
 					fields[0].useGhostBlock=false;
 					fields[1].useGhostBlock=false;
 				}else{
-					Print(12+13,14,strYes);
+					Print(11+13,14,strYes);
 					fields[0].useGhostBlock=true;
 					fields[1].useGhostBlock=true;
 				}				
@@ -556,7 +554,7 @@ void OptionsMenu(){
 		if(c&BTN_RIGHT){
 			if(option==0 && songNo<3){
 				songNo++;
-				PrintHexByte(18,13,songNo);
+				PrintHexByte(17,13,songNo);
 				TriggerFx(1,0x90,true);
 			}else if(option==1){
 				TriggerFx(1,0x90,true);
@@ -575,7 +573,7 @@ void OptionsMenu(){
 		}
 
 		if(c&BTN_UP || c&BTN_DOWN || c&BTN_SELECT){
-			SetTile(11,13+option,0); //erase old cursor
+			SetTile(10,13+option,0); //erase old cursor
 			TriggerFx(1,0x90,true);
 
 			if(c&BTN_UP){
@@ -593,7 +591,7 @@ void OptionsMenu(){
 				}
 			}
 			
-			SetTile(11,13+option,CURSOR_TILE); //draw new cursor
+			SetTile(10,13+option,CURSOR_TILE); //draw new cursor
 			while(ReadJoypad(0)!=0); //wait for key release
 		}
 
@@ -601,25 +599,26 @@ void OptionsMenu(){
 	}
 }
 
+
 void DrawMainMenu(){
 
 	ClearVram();
 
 
-	Print(16,15,strMenu1PGame);
-	Print(16,16,strMenu2PGame);
-	Print(16,17,strMenuVsCpuGame);
-	Print(16,18,strMenuOptions);
+	Print(15,15,strMenu1PGame);
+	Print(15,16,strMenu2PGame);
+	Print(15,17,strMenuVsCpuGame);
+	Print(15,18,strMenuOptions);
 	
-	PrintChar(11,22,92);
-	Print(13,22,strCopyright);
-	Print(8,23,strLicence);
-	Print(6,25,strWebsite);
+	PrintChar(10,22,92);
+	Print(12,22,strCopyright);
+	Print(7,23,strLicence);
+	Print(9,25,strWebsite);
 	
 
 
 	//draw tetris TITLE
-	DrawMap(4,3,map_title);
+	DrawMap(3,3,map_title);
 
 
 
@@ -636,13 +635,13 @@ void game(void){
 			LoadMap();
 			initFields();	
 
-			SetTile(15,25,8);
-			SetTile(16,25,20);
-			PrintHexByte(17,25,0);
+			SetTile(14,25,8);
+			SetTile(15,25,20);
+			PrintHexByte(16,25,0);
 
-			SetTile(23,25,8);
-			SetTile(24,25,20);
-			PrintHexByte(25,25,0);
+			SetTile(22,25,8);
+			SetTile(23,25,20);
+			PrintHexByte(24,25,0);
 
 			StartSongNo(songNo);
 
@@ -752,9 +751,9 @@ void processAnimations(unsigned char f){
 	//BACK-TO-BACK
 	if(fields[f].backToBackAnimFrame>0){
 		if(f==0){
-			dx=15;		
+			dx=14;		
 		}else{
-			dx=22;
+			dx=21;
 		}
 		dy=16;
 
@@ -993,15 +992,15 @@ void initFields(void){
 	}
 
 	//set field specifics
-	fields[0].left=3;
+	fields[0].left=2;
 	fields[0].right=13;
-	fields[0].nextBlockPosX=15;
-	fields[0].holdBlockPosX=3;
+	fields[0].nextBlockPosX=14;
+	fields[0].holdBlockPosX=2;
 
-	fields[1].left=29;
+	fields[1].left=28;
 	fields[1].right=39;
-	fields[1].nextBlockPosX=23;
-	fields[1].holdBlockPosX=35;
+	fields[1].nextBlockPosX=22;
+	fields[1].holdBlockPosX=34;
 
 	for(y=0;y<FIELD_HEIGHT;y++){
 		for(x=0;x<FIELD_WIDTH;x++){
@@ -2115,8 +2114,8 @@ void doGameOver(void){
 
 void waitForStartGame(void){
 	
-	Print(5,16,strPress);
-	Print(5,17,strStart);	
+	Print(4,16,strPress);
+	Print(4,17,strStart);	
 
 	
 	//wait for key
@@ -2130,7 +2129,7 @@ void waitForStartGame(void){
 			//wait for key release
 			while((ReadJoypad(0)&BTN_START));
 			
-			restore(5,16,5,2);
+			restore(4,16,5,2);
 			srand(rnd);
 			
 			return;
@@ -2233,8 +2232,8 @@ bool processGarbage(){
 
 	}else{
 	
-		PrintHexByte(17,25,fields[0].garbageQueue);
-		PrintHexByte(25,25,fields[1].garbageQueue);
+		PrintHexByte(16,25,fields[0].garbageQueue);
+		PrintHexByte(24,25,fields[1].garbageQueue);
 		return true;
 	}
 	
