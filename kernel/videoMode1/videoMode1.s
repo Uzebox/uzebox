@@ -85,14 +85,14 @@ mode1_render_delay:
 next_text_line:	
 	rcall hsync_pulse ;3+144=147
 
-	ldi r19,50 + CENTER_ADJUSTMENT
+	ldi r19,50 - 4  + CENTER_ADJUSTMENT
 	dec r19			
 	brne .-4
 
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,13 - CENTER_ADJUSTMENT
+	ldi r19,13 + 4 - CENTER_ADJUSTMENT
 	dec r19			
 	brne .-4
 
