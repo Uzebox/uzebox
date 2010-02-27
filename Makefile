@@ -112,9 +112,12 @@ ifeq ($(CLEAN),)
 endif
 
 clean: $(ALL_TARGETS)
+
+
+cleanall:
 	$(RM) $(BIN_DIR)/*
 	$(RM) $(ROMS_DIR)/*
-
+	
 .PHONY: help
 help:
 	@echo

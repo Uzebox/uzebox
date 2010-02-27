@@ -106,7 +106,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(GAME).* dep/* 
+	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze
 
 
 ## Other dependencies
