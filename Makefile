@@ -36,6 +36,7 @@ DEMOS += Maze
 DEMOS += MusicDemo
 DEMOS += SpriteDemo
 DEMOS += Uzeamp
+DEMOS += Tutorial
 DEMOS += VideoDemo
 DEMOS += SDCardDemo
 DEMOS += Bootloader
@@ -58,6 +59,7 @@ CP := cp
 TOOLS_DIR := tools
 DEMOS_DIR = demos
 BIN_DIR := bin
+ROMS_DIR := roms
 
 ######################################
 # Handling options and flags
@@ -105,11 +107,13 @@ $(ALL_TARGETS_DEMOS): $(ALL_TARGETS_TOOLS_DEP)
 	@echo ===================================
 	$(MAKE) -C $@ $(CLEAN)
 ifeq ($(CLEAN),)
-	$(CP) $@/$(patsubst $(DEMOS_DIR)/%/default,%,$@).hex $(BIN_DIR)
+	$(CP) $@/$(patsubst $(DEMOS_DIR)/%/default,%,$@).hex $(ROMS_DIR)
+	-$(CP) $@/$(patsubst $(DEMOS_DIR)/%/default,%,$@).uze $(ROMS_DIR)
 endif
 
 clean: $(ALL_TARGETS)
 	$(RM) $(BIN_DIR)/*
+	$(RM) $(ROMS_DIR)/*
 
 .PHONY: help
 help:
