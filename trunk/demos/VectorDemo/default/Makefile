@@ -8,7 +8,6 @@ GAME= VectorDemo
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
-PACKROM = ../../../tools/packrom/packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings
@@ -92,7 +91,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	$(PACKROM) $(GAME).hex $@ $(INFO)
+	-packrom $(GAME).hex $@ $(INFO)
 
 size: ${TARGET}
 	@echo
@@ -101,7 +100,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(GAME).* dep/* 
+	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze
 
 
 ## Other dependencies

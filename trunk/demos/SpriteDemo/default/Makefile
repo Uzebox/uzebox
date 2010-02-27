@@ -8,7 +8,6 @@ GAME = SpriteDemo
 MCU = atmega644
 TARGET = SpriteDemo.elf
 CC = avr-gcc
-PACKROM = ../../../tools/packrom/packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings
@@ -93,7 +92,7 @@ $(TARGET): $(OBJECTS)
 
 %.uze: $(TARGET)
 	@echo
-	$(PACKROM) $(GAME).hex $@ $(INFO)
+	-packrom $(GAME).hex $@ $(INFO)
 
 size: ${TARGET}
 	@echo
@@ -102,7 +101,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) SpriteDemo.elf dep/* SpriteDemo.hex SpriteDemo.eep SpriteDemo.lss SpriteDemo.map SpriteDemo.uze
+	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze
 
 
 ## Other dependencies

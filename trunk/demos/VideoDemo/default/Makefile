@@ -7,7 +7,6 @@ PROJECT = VideoDemo
 MCU = atmega644
 TARGET = $(PROJECT).elf
 CC = avr-gcc
-PACKROM = ../../../tools/packrom/packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings
@@ -96,7 +95,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	$(PACKROM) $(PROJECT).hex $@ $(INFO)
+	-packrom $(PROJECT).hex $@ $(INFO)
 	
 size: ${TARGET}
 	@echo
@@ -105,7 +104,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(PROJECT).* dep/*
+	-rm -rf $(OBJECTS) $(PROJECT).* dep/* *.uze
 
 
 ## Other dependencies
