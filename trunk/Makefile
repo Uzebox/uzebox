@@ -6,7 +6,7 @@
 # Type 'make help' to see the options
 #
 
-.DEFAULT_GOAL = all
+.DEFAULT_GOAL = all 
 MAKEFLAGS += --no-print-directory
 
 ######################################
