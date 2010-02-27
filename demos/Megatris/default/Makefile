@@ -8,7 +8,6 @@ GAME = Megatris
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
-PACKROM = ../../../tools/packrom/packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings
@@ -55,7 +54,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+all: ../data/graphics.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size 
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -74,6 +73,10 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
+
+../data/graphics.inc: ../data/graphics.png
+	gconvert ../data/gconvert.xml
+
 asmFunctions.o: ../asmFunctions.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
@@ -94,7 +97,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-$(PACKROM) $(GAME).hex $@ $(INFO)
+	-packrom $(GAME).hex $@ $(INFO)
 
 size: ${TARGET}
 	@echo
@@ -103,7 +106,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(GAME).* dep/*
+	-rm -rf $(OBJECTS) $(GAME).* dep/* 
 
 
 ## Other dependencies

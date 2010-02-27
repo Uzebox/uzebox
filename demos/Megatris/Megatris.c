@@ -364,8 +364,7 @@ const char strRestart[] PROGMEM ="RESTART";
 
 //import tiles & maps
 #include "data/fonts.pic.inc"
-#include "data/tetrisTiles.pic.inc"
-#include "data/tetrisTiles.map.inc"
+#include "data/graphics.inc"
 
 //import patches
 #include "data/patches.inc"
@@ -1860,8 +1859,8 @@ bool updateFields(void){
 							fields[0].garbageQueue+=garbageLines;
 						}
 					}
-					PrintHexByte(17,25,fields[0].garbageQueue);
-					PrintHexByte(25,25,fields[1].garbageQueue);
+					PrintHexByte(16,25,fields[0].garbageQueue);
+					PrintHexByte(24,25,fields[1].garbageQueue);
 				}
 
 				//update score, lines, etc

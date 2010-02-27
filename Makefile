@@ -14,11 +14,13 @@ MAKEFLAGS += --no-print-directory
 ######################################
 TOOLS += uzem
 TOOLS += packrom
+TOOLS += gconvert
 
 ######################################
 # Tools used to build demos
 ######################################
 TOOLS_DEP += packrom
+TOOLS_DEP += gconvert
 
 ######################################
 # Demos
