@@ -76,6 +76,7 @@ int main(int argc, char *argv[]) {
 		exit( 1 );
 	}
 
+    printf("\n*** Gconvert 1.0 ***\n");
 
 	char *path=NULL;
 	size_t size=0;
@@ -116,7 +117,7 @@ bool process(){
 	}
 
 	//some validation
-    if(xform.mapsPointersSize!=8 && xform.mapsPointersSize!=16){
+    if(xform.maps!=NULL && xform.mapsPointersSize!=8 && xform.mapsPointersSize!=16){
 		printf("Error: Invalid map pointers size: %i. Valid values are 8 and 16.\n", xform.mapsPointersSize);
 		return false;
     }
@@ -138,9 +139,10 @@ bool process(){
 	printf("Tile height: %ipx\n",xform.tileHeight);
 	printf("Output file: %s\n",xform.outputFile);
 	printf("Tiles variable name: %s\n",xform.tilesVarName);
-	printf("Maps pointers size: %i\n",xform.mapsPointersSize);
-	printf("Map elements: %i\n",xform.mapsCount);
-
+	if(xform.maps!=NULL){
+		printf("Maps pointers size: %i\n",xform.mapsPointersSize);
+		printf("Map elements: %i\n",xform.mapsCount);
+	}
 
 	int horizontalTiles=xform.width/xform.tileWidth;
 	int verticalTiles=xform.height/xform.tileHeight;
@@ -325,35 +327,34 @@ void parseXml(TiXmlDocument* doc){
 
 	//maps
 	TiXmlElement* mapsElem=output->FirstChildElement("maps");
-	mapsElem->QueryIntAttribute("pointers-size",&xform.mapsPointersSize);
+	if(mapsElem!=NULL){
+		mapsElem->QueryIntAttribute("pointers-size",&xform.mapsPointersSize);
 
-	//count # of map sub-elements
-	const TiXmlNode* node;
-	int mapCount=0;
-	for(node=mapsElem->FirstChild("map");node;node=node->NextSibling("map"))mapCount++;
+		//count # of map sub-elements
+		const TiXmlNode* node;
+		int mapCount=0;
+		for(node=mapsElem->FirstChild("map");node;node=node->NextSibling("map"))mapCount++;
 
-	TileMap* maps=new TileMap[mapCount];
-	xform.mapsCount=mapCount;
-	mapCount=0;
-	for(node=mapsElem->FirstChild("map");node;node=node->NextSibling("map")){
-		maps[mapCount].varName=node->ToElement()->Attribute("var-name");
+		TileMap* maps=new TileMap[mapCount];
+		xform.mapsCount=mapCount;
+		mapCount=0;
+		for(node=mapsElem->FirstChild("map");node;node=node->NextSibling("map")){
+			maps[mapCount].varName=node->ToElement()->Attribute("var-name");
 
-		node->ToElement()->QueryIntAttribute("top",&maps[mapCount].top);
-		node->ToElement()->QueryIntAttribute("left",&maps[mapCount].left);
-		node->ToElement()->QueryIntAttribute("width",&maps[mapCount].width);
-		node->ToElement()->QueryIntAttribute("height",&maps[mapCount].height);
-		mapCount++;
-	}
-	if(mapCount>0){
-		xform.maps=maps;
+			node->ToElement()->QueryIntAttribute("top",&maps[mapCount].top);
+			node->ToElement()->QueryIntAttribute("left",&maps[mapCount].left);
+			node->ToElement()->QueryIntAttribute("width",&maps[mapCount].width);
+			node->ToElement()->QueryIntAttribute("height",&maps[mapCount].height);
+			mapCount++;
+		}
+		if(mapCount>0){
+			xform.maps=maps;
+		}else{
+			xform.maps=NULL;
+		}
 	}else{
 		xform.maps=NULL;
 	}
-
-	TileMap map=xform.maps[0];
-	TileMap map2=xform.maps[1];
-
-
 
 }
 
