@@ -85,7 +85,7 @@ void showHelp(char* programName){
     printerr("\t--2p -2             Start with snes 2p mode enabled\n");
     printerr("\t--img -g <file>     SD card emulation w/image file\n");
     printerr("\t--mbr -r            Enable MBR emulation (use w/--img for images w/o MBR)\n");
-    printerr("\t--eeprom -e <file>  Use following file for EEPRROM data on start/stop.\n");
+    printerr("\t--eeprom -e <file>  Use following filename for EEPRROM data (default is eeprom.bin).\n");
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
     printerr("\t--gdbserver -d      Debug mode. Start the built-in gdb support.\n");
     printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
@@ -104,15 +104,12 @@ int main(int argc,char **argv)
         
 #if defined(__GNUC__) && defined(__WIN32__)
     //HACK: workaround for precompiled SDL libraries that block output to console
-    freopen( "CONOUT$", "wt", stdout ); 
+    freopen( "CONOUT$", "wt", stdout );
     freopen( "CONOUT$", "wt", stderr );
 #endif
 
     // init basic flags before parsing args
 	uzebox.sdl_flags = SDL_DOUBLEBUF | SDL_SWSURFACE;
-
-    printerr("\nNOTE THIS IS AN EXPERIMENTAL BRANCH OF THE UZEBOX EMULATOR\n");
-    printerr("PLEASE SEE THE FORUM FOR MORE DETAILS:  http://uzebox.org/forums\n\n");
 
     if(argc == 1) {
         showHelp(argv[0]);
@@ -123,9 +120,10 @@ int main(int argc,char **argv)
     char* heximage = NULL;
     char* sdimage = NULL;
     char* sddrive = NULL;
-    char* eepromFile = NULL;
+   // char* eepromFile = NULL;
     int bootsize = 0;
-    
+
+
     while((opt = getopt_long(argc, argv,shortopts,longopts,NULL)) != -1) {
         switch(opt) {
         default:
@@ -171,7 +169,8 @@ int main(int argc,char **argv)
             break;
 #endif
         case 'e':
-            eepromFile = optarg;
+            //eepromFile = optarg;
+        	uzebox.eepromFile=optarg;
             break;
         case 'b':
             uzebox.pc = 0xF000; //set start for boot image
@@ -226,8 +225,8 @@ int main(int argc,char **argv)
     }
     
     // start EEPROM emulation if appropriate
-    if(eepromFile){
-        uzebox.LoadEEPROMFile(eepromFile);
+    if(uzebox.eepromFile){
+        uzebox.LoadEEPROMFile(uzebox.eepromFile);
     }
     
     // attempt to load the hex image

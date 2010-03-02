@@ -220,7 +220,9 @@ struct avr8
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
 		prevWDR(0), frameCounter(0), new_input_mode(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
-        spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),
+        spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),
+
+
     #if defined(__WIN32__)
         hDisk(INVALID_HANDLE_VALUE),
     #endif
