@@ -56,6 +56,10 @@ INCLUDES = -I"$(KERNEL_DIR)"
 ## Build
 all: ../data/graphics.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size 
 
+## Rebuild graphics ressource
+../data/graphics.inc: ../data/graphics.png ../data/gconvert.xml
+	gconvert ../data/gconvert.xml
+
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
@@ -73,9 +77,6 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-
-../data/graphics.inc: ../data/graphics.png
-	gconvert ../data/gconvert.xml
 
 asmFunctions.o: ../asmFunctions.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<

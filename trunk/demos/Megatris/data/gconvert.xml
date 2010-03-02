@@ -9,7 +9,7 @@
 
 		<tiles var-name="tetrisTiles"/>
 
-		<maps pointers-size="16">
+		<maps pointers-size="16"> 
 			<map var-name="map_main" left="0" top="9" width="40" height="28"/>
 			<map var-name="map_title" left="0" top="37" width="33" height="9"/>			
 
