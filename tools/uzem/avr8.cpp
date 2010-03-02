@@ -2243,8 +2243,10 @@ void avr8::SDCommit(){
 
 void avr8::LoadEEPROMFile(char* filename){
     eepromFile = filename;
-    FILE* f = fopen(eepromFile,"rb");
+    memset(eeprom,0xff,eepromSize);
+    FILE* f = fopen(filename,"rb");
     if(f){
+
         fseek(f,0,SEEK_END);
         size_t size = ftell(f);
         if(size < eepromSize) printf("Warning: EEPROM file is smaller than 2k.\n");
@@ -2252,14 +2254,16 @@ void avr8::LoadEEPROMFile(char* filename){
             printf("Warning: EEPROM file is larger than 2k.\n");
             size = eepromSize;
         }
-        memset(eeprom,0,eepromSize);
-        if (fread(eeprom,size,1,f) != size)
-		printf("Warning: fread in %s returned an unxpected value.\n", __FUNCTION__);
+        fseek(f, 0, SEEK_SET);
+
+		size_t result=fread(eeprom,1,size,f);
+        if (result != size){
+        	printf("Warning: fread in %s returned an unexpected value:%i,\n", __FUNCTION__,result);
+        }
         fclose(f);
     }
     else{
         printf("EEPROM file not found, continuing with emulation.\n");
-        memset(eeprom,0,eepromSize);
     }
 }
 
