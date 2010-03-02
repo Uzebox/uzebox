@@ -103,73 +103,6 @@ void SoftReset(void){
 	while(1);
 }
 
-/*
-void logo(){
-
-	#if INTRO_LOGO !=0
-
-		InitMusicPlayer(initPatches);
-
-		#if VIDEO_MODE == 2
-			#define LOGO_X_POS 8
-			screenSections[0].tileTableAdress=uzeboxlogo;
-		#elif VIDEO_MODE==3
-			#define LOGO_X_POS 13
-			SetTileTable(logo_tileset);
-		#else			
-			#define LOGO_X_POS 18
-			SetTileTable(uzeboxlogo);
-			SetFontTable(uzeboxlogo);
-		#endif
-			
-		//draw logo
-		ClearVram();
-		WaitVsync(15);
-		
-
-
-		#if INTRO_LOGO == 1 
-			InitMusicPlayer(initPatches);
-			TriggerFx(0,0xff,true);
-		#endif
-
-		#if VIDEO_MODE == 3
-			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo);
-			WaitVsync(3);
-			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo2);
-			WaitVsync(2);
-			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo);
-		#else
-			DrawMap(LOGO_X_POS,12,map_uzeboxlogo);
-			WaitVsync(3);
-			DrawMap(LOGO_X_POS,12,map_uzeboxlogo2);
-			WaitVsync(2);
-			DrawMap(LOGO_X_POS,12,map_uzeboxlogo);
-		#endif	
-
-		#if INTRO_LOGO == 2
-
-			SetMasterVolume(0xc0);
-			TriggerNote(3,0,16,0xff);
-
-
-		#endif 
-		
-		WaitVsync(20);
-
-		#if VIDEO_MODE == 2
-			WaitVsync(80);
-		#else
-			WaitVsync(10);
-		#endif
-
-		ClearVram();
-		WaitVsync(20);
-	#endif
-
-}
-
-*/
 
 /**
  * Called by the assembler initialization routines, should not be called directly.
@@ -562,37 +495,6 @@ unsigned char DetectControllers(){
 
 	return resp;
 }
-
-
-/*
-void DetectControllers(){
-	unsigned int joy;
-	//wait a frame for mouse to settle
-	WaitVsync(4);
-	joy=ReadJoypad(0);
-	if((joy&0x8000)!=0){
-		//we have a mouse in player 1 port
-		playDevice=1;
-		playPort=0;
-		actionButton=BTN_MOUSE_LEFT;
-		return;
-	}else{
-		playDevice=0;
-		playPort=0;
-		actionButton=BTN_A;
-	}
-
-	joy=ReadJoypad(1);
-	if((joy&0x8000)!=0){
-		//we have a mouse in player 2 port
-		playDevice=1;
-		playPort=1;
-		actionButton=BTN_MOUSE_LEFT;
-	}
-}
-*/
-
-
 
 /* Buttons stuff */
 
