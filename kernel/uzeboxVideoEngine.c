@@ -182,7 +182,7 @@ void PrintHexLong(char x,char y,uint32_t value){
 	PrintHexByte(x+6,y,value&0xff);
 }
 
-//Print a string
+//Print a string from flash
 void Print(int x,int y,const char *string){
 
 

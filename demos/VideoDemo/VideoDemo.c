@@ -59,9 +59,9 @@ extern volatile unsigned char curr_field;
 int main(){
 
 
-	init();
-
-//	while(1);
+	//init();
+StartPlayback();
+	while(1);
 
 	LoadRootDirectory(sector.buffer);
 	//LoadFiles(sector.buffer,files);

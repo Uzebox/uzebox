@@ -141,20 +141,6 @@
 	void ProcessMouseMovement(void);
 	void ProcessFading();
 
-	//buttons lib
-	typedef struct
-	{
-		unsigned char id;
-		unsigned char x;
-		unsigned char y;
-		unsigned char width;
-		unsigned char height;
-		const char *normalMapPtr;
-		const char *pushedMapPtr;
-		unsigned char state;
-		bool clicked;
-	} Button;
-
 
 
 

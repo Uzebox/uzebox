@@ -39,7 +39,7 @@
 sub_video_mode6:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,222 
+	ldi ZL,222-25+9
 mode0_render_delay:
 	lpm
 	nop

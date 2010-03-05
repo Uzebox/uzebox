@@ -295,10 +295,13 @@
 		for(int i=0;i<MAX_SPRITES;i++){
 			sprites[i].x=(SCREEN_TILES_H*TILE_WIDTH);		
 		}
+		
+		#if SCROLLING == 1
+			for(int i=0;i<(OVERLAY_LINES*VRAM_TILES_H);i++){
+				overlay_vram[i]=RAM_TILES_COUNT;
+			}
+		#endif
 
-		for(int i=0;i<(OVERLAY_LINES*VRAM_TILES_H);i++){
-			overlay_vram[i]=RAM_TILES_COUNT;
-		}
 		//set defaults for main screen section
 		/*
 		for(i=0;i<SCREEN_SECTIONS_COUNT;i++){

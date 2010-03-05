@@ -25,6 +25,8 @@
 #include <uzebox.h>
 #include <mmc.h>
 #include <avr/interrupt.h>
+#include <gui.h>
+
 
 #include "data/main.pic.inc"
 #include "data/font8x8.pic.inc"

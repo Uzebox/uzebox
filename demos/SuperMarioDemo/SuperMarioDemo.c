@@ -80,7 +80,7 @@ unsigned char delay=0;
 
 
 int main(){	
-
+	TriggerFx(0,0,0);
 
 
 	ClearVram();

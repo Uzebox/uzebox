@@ -126,6 +126,16 @@
 	#endif
 
 	/*
+	 * Adds support  code for the SNES mouse.
+	 *
+	 * 0 = no support
+	 * 1 = support enabled
+	 */
+	#ifndef SNES_MOUSE
+		#define SNES_MOUSE 0
+	#endif
+	
+	/*
 	 * Activates the MIDI-IN support. 
 	 * Not supported with video mode 2.
 	 *
@@ -390,7 +400,7 @@
 	#define JOYPAD_DATA2_PIN PA1
 
 	#define EEPROM_BLOCK_SIZE 32
-	#define EEPROM_HEADER_SIZE 2
+	#define EEPROM_HEADER_SIZE 1
 	#define EEPROM_SIGNATURE 0x555A
 	#define EEPROM_SIGNATURE2 0x555B
 	#define EEPROM_FREE_BLOCK 0xffff

@@ -13,14 +13,15 @@ INFO=../gameinfo.properties
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
 KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSOUND_CHANNEL_4_ENABLE=0 -DSCROLLING=1
-KERNEL_OPTIONS += -DMAX_SPRITES=14 -DRAM_TILES_COUNT=30 -DSCREEN_TILES_V=27 -DFIRST_RENDER_LINE=24 -DOVERLAY_LINES=4 -DVRAM_TILES_V=24
+KERNEL_OPTIONS += -DMAX_SPRITES=14 -DRAM_TILES_COUNT=30 -DSCREEN_TILES_V=27 -DFIRST_RENDER_LINE=24 
+KERNEL_OPTIONS += -DOVERLAY_LINES=4 -DVRAM_TILES_V=24
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections 
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-inline 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
@@ -36,6 +37,7 @@ LDFLAGS += -Wl,-Map=$(GAME).map
 LDFLAGS += -Wl,-gc-sections 
 
 
+
 ## Intel Hex file production flags
 HEX_FLASH_FLAGS = -R .eeprom
 
@@ -45,7 +47,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o $(GAME).o 
+OBJECTS = uzeboxVideoEngineCore.o  uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 

@@ -83,14 +83,14 @@
 sub_video_mode2:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,216+3
+	ldi ZL,216+3-25+9+1
 m2_render_delay:
 	lpm
 	nop
 	dec ZL
 	brne m2_render_delay 
 
-	rjmp .
+	
 	rjmp .
 
 	lds r20,screenSections+tileTableAdressLo
