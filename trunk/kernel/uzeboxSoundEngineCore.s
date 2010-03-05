@@ -639,8 +639,7 @@ update_sound_buffer_2b:
 	cpc ZH,r16
 	
 	brsh s1
-	nop
-	nop
+	rjmp .
 s1:
 	brlo s2
 	ldi ZL,lo8(mix_buf)
@@ -660,8 +659,7 @@ s2:
 	
 	;inc r16 ;used to write ahead in undefined part of buffer if no rx data
 	;andi r16,(MIDI_RX_BUF_SIZE-1) ;wrap
-	nop
-	nop
+	rjmp .
 
 	clr r17
 	add ZL,r16
@@ -679,14 +677,18 @@ s2:
 	sts uart_rx_buf_end,r16
 #else
 	//alignment cycles
-	lpm
-	lpm
-	lpm
-	lpm
-	lpm
-	lpm
-	nop
-	nop
+	;lpm
+	;lpm
+	;lpm
+	;lpm
+	;lpm
+	;lpm
+	;nop
+	;nop
+	ldi r18,6
+	dec r18
+	brne .-4
+	rjmp .
 #endif
 
 
@@ -712,11 +714,12 @@ usb2:
 	dec ZL
 	brne usb2	
 
-	nop
-	nop
+	rjmp .
 
 	ret 
 
+steptable:
+#include "data/steptable.inc"
 
 .align 8
 waves:
@@ -725,6 +728,9 @@ waves:
 #endif
 
 
-steptable:
-#include "data/steptable.inc"
+
+
+
+
+
 

@@ -38,6 +38,7 @@
 #define MIDI_NULL 0xfd
 
 unsigned int ReadVarLen(const char **songPos);
+void SetTriggerCommonValues(struct TrackStruct *track, u8 volume, u8 note);
 
 #if MIDI_IN == 1
 	static long received=0;
@@ -68,6 +69,9 @@ const char *songStart;
 const char *loopStart;
 unsigned char masterVolume;
 
+//Used instead of a constant so GCC does not unroll small loops.
+//There's a bug that ignores -fno-unroll-loops
+u8 channelCount=CHANNELS;
 
 
 
@@ -216,10 +220,14 @@ void RestartSong(){
 
 void StopSong(){
 	//fade out all channels
-	if(tracks[0].envelopeStep>=0) tracks[0].envelopeStep=-6;
-	if(tracks[1].envelopeStep>=0) tracks[1].envelopeStep=-6;
-	if(tracks[2].envelopeStep>=0) tracks[2].envelopeStep=-6;
-	if(tracks[3].envelopeStep>=0) tracks[3].envelopeStep=-6;
+	//if(tracks[0].envelopeStep>=0) tracks[0].envelopeStep=-6;
+	//if(tracks[1].envelopeStep>=0) tracks[1].envelopeStep=-6;
+	//if(tracks[2].envelopeStep>=0) tracks[2].envelopeStep=-6;
+	//if(tracks[3].envelopeStep>=0) tracks[3].envelopeStep=-6;
+	for(u8 i=0;i<channelCount;i++){
+		if(tracks[i].envelopeStep>=0) tracks[i].envelopeStep=-6;
+	}
+
 	playSong=false;
 }
 
@@ -682,7 +690,7 @@ void TriggerFx(unsigned char patch,unsigned char volume,bool retrig){
 	}				
 	
 	
-
+/*
 	tracks[channel].patchNextDeltaTime=pgm_read_byte(pos++); //pgm_read_byte(tracks[channel].patchCommandStreamPos++);
 	tracks[channel].patchCommandStreamPos=pos;
 	tracks[channel].patchCurrDeltaTime=0;		
@@ -698,6 +706,28 @@ void TriggerFx(unsigned char patch,unsigned char volume,bool retrig){
 	tracks[channel].priority=1;	
 	tracks[channel].tremoloLevel=0;
 	tracks[channel].expressionVol=DEFAULT_EXPRESSION_VOL;
+*/
+/*
+	tracks[channel].patchCurrDeltaTime=0;	
+	tracks[channel].envelopeStep=0; 
+	tracks[channel].envelopeVol=0xff;
+	tracks[channel].noteVol=volume;
+	tracks[channel].patchEnvelopeHold=false;
+	tracks[channel].patchPlayingTime=0;
+	tracks[channel].patchPlaying=true;	
+	tracks[channel].patchWave=0;
+	tracks[channel].tremoloLevel=0;
+	tracks[channel].expressionVol=DEFAULT_EXPRESSION_VOL;
+	tracks[channel].note=80; //default 
+*/
+
+
+	tracks[channel].patchNextDeltaTime=pgm_read_byte(pos++); //pgm_read_byte(tracks[channel].patchCommandStreamPos++);
+	tracks[channel].patchCommandStreamPos=pos;
+	tracks[channel].fxPatchNo=patch;
+	tracks[channel].priority=1;	
+	SetTriggerCommonValues(&tracks[channel],volume,80);
+
 
 	#if MIXER_CHAN4_TYPE == 0
 		if(channel==3){
@@ -782,53 +812,60 @@ void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,un
 			}
 
 			
-			
+		/*
 			tracks[channel].patchCurrDeltaTime=0;
 			tracks[channel].envelopeStep=0; 
-			tracks[channel].patchNo=patch;	
-			tracks[channel].priority=0;	
 			tracks[channel].envelopeVol=0xff; 
 			tracks[channel].noteVol=volume;
-			tracks[channel].note=note;
+			tracks[channel].patchEnvelopeHold=false;
 			tracks[channel].patchPlayingTime=0;
 			tracks[channel].patchPlaying=true;
-			tracks[channel].patchEnvelopeHold=false;
 			tracks[channel].patchWave=0;
 			tracks[channel].tremoloLevel=0;
 			tracks[channel].expressionVol=DEFAULT_EXPRESSION_VOL;
+			tracks[channel].note=note;
+		*/
+
+			tracks[channel].patchNo=patch;	
+			tracks[channel].priority=0;	
+			SetTriggerCommonValues(&tracks[channel],volume,note);
+
+
+
+
+
+
 		}
 
 	}
 }
 
+
+
+
+void SetTriggerCommonValues(struct TrackStruct* track, u8 volume, u8 note)  {
+
+	track->patchCurrDeltaTime=0;
+	track->envelopeStep=0; 
+	track->envelopeVol=0xff; 
+	track->noteVol=volume;
+	track->patchEnvelopeHold=false;
+	track->patchPlayingTime=0;
+	track->patchPlaying=true;
+	track->patchWave=0;
+	track->tremoloLevel=0;
+	track->expressionVol=DEFAULT_EXPRESSION_VOL;
+	track->note=note;
+}
+
+
+
 void SetMasterVolume(unsigned char vol){
 	masterVolume=vol;
 }
 
-/*
-//Print a byte in hexadecimal
-void PrintHexByte3(char x,char y,unsigned char byte){
-	unsigned char nibble;
-
-	//hi nibble	
-	nibble=(byte>>4);
-	if(nibble<=9){
-		SetFont(x,y,nibble+1+RAM_TILES_COUNT);
-	}else{
-		SetFont(x,y,nibble+1+ RAM_TILES_COUNT);
-	}
-
-	//lo nibble	
-	nibble=(byte&0xf);
-	if(nibble<=9){		
-		SetFont(x+1,y,nibble+1+ RAM_TILES_COUNT);
-	}else{
-		SetFont(x+1,y,nibble+1+ RAM_TILES_COUNT);
-	}
-
-}
-*/
 //Called each frame 
+/*
 void DisplayMixStats(char phase,char line){
 
 	unsigned char total;
@@ -846,4 +883,5 @@ void DisplayMixStats(char phase,char line){
 //	PrintHexByte(27,1,total);
 
 }
+*/
 

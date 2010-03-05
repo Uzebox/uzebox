@@ -31,7 +31,7 @@
 sub_video_mode7:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,222-170-2
+	ldi ZL,222-170-2-25+9
 mode7_render_delay:
 	lpm
 	nop
@@ -40,6 +40,8 @@ mode7_render_delay:
 
 	lpm
 	lpm
+	lpm
+	rjmp .
 
 
 

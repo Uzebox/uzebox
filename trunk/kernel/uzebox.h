@@ -86,18 +86,13 @@
 	char EnableSnesMouse(unsigned char spriteIndex,const char *spriteMap);
 	extern bool SetMouseSensitivity(unsigned char value);
 	extern unsigned char GetMouseSensitivity();
-	void unregisterButtonHandler();
 	unsigned char GetMouseX();	
 	unsigned char GetMouseY();
 	unsigned int GetActionButton();
 	unsigned char DetectControllers();
 
 
-	typedef void (*ButtonHandler)(unsigned char buttonIndex,unsigned char eventType);
-	void registerButtonHandler(ButtonHandler fptr, Button *buttons);
-	void createButton(Button *button, unsigned char x,unsigned char y,const char *normalMapPtr,const char *pushedMapPtr);
-	void processButtons();
-	void createAreaButton(Button *button, unsigned char x,unsigned char y,unsigned char width,unsigned char height);
+
 
 
 

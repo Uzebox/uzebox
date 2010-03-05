@@ -103,11 +103,11 @@
 		sts _SFR_MEM_ADDR(TIMSK1),ZL
 
 		;wait cycles to align with next hsync
-		ldi r26,lo8(204-2)
-		ldi r27,hi8(204-2)
+		ldi r26,lo8(204-2-35+8)
+		ldi r27,hi8(204-2-35+8)
 		sbiw r26,1
 		brne .-4		
-		nop
+		rjmp .
 
 	
 		;**********************
@@ -701,10 +701,10 @@
 	sub_video_mode3:
 
 		;wait cycles to align with next hsync
-		ldi r16,7
+		ldi r16,7-4-1+8+3
 		dec r16
 		brne .-4		
-
+		nop
 
 
 		;Set ramtiles indexes in VRAM 
@@ -742,7 +742,7 @@
 
 
 
-		ldi r16,73-RAM_TILES_COUNT ;222*7 
+		ldi r16,73-6-RAM_TILES_COUNT ;222*7 
 	wait_loop:
 	
 		ldi r17,6

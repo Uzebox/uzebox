@@ -53,11 +53,11 @@
 sub_video_mode8:
 
 	;wait 873 cycles
-	ldi r26,lo8(390)
-	ldi r27,hi8(390)
+	ldi r26,lo8(390-27)
+	ldi r27,hi8(390-27)
 	sbiw r26,1 
 	brne .-4		
-	nop
+	rjmp .
 	nop
 
 
@@ -96,7 +96,7 @@ next_scan_line:
 	cpi r20,(SCREEN_HEIGHT*2)
 	brne next_scan_line
 
-
+	nop
 	rcall hsync_pulse ;145
 	
 	;set vsync flag if beginning of next frame

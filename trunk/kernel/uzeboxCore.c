@@ -26,22 +26,8 @@
 #include <avr/wdt.h>
 #include "uzebox.h"
 
-//#if VIDEO_MODE == 3 
-//		extern struct SpriteStruct sprites[];
-//		extern struct ScreenSectionStruct screenSections[];
-//#endif
-
 #define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
 #define Wait100ns() asm volatile("lpm\n\t");
-
-
-//#if INTRO_LOGO !=0
-//		#include "data/uzeboxlogo.pic.inc"
-//		#include "data/uzeboxlogo.map.inc"
-//#endif
-
-
-
 
 
 //Callbakcs defined in each video modes module
@@ -60,7 +46,8 @@ extern struct TrackStruct tracks[CHANNELS];
 
 extern unsigned char burstOffset;
 extern unsigned char vsync_phase;
-extern volatile unsigned int joypad1_status_lo,joypad2_status_lo,joypad1_status_hi,joypad2_status_hi;
+extern volatile unsigned int joypad1_status_lo,joypad2_status_lo;
+extern volatile unsigned int joypad1_status_hi,joypad2_status_hi;
 extern unsigned char tileheight, textheight;
 extern unsigned char line_buffer[];
 extern unsigned char render_start;
@@ -107,8 +94,9 @@ void SoftReset(void){
 /**
  * Called by the assembler initialization routines, should not be called directly.
  */
-int i;
+
 void Initialize(void){
+	int i;
 
 	if(!isEepromFormatted()) FormatEeprom();
 
@@ -218,37 +206,49 @@ void ReadButtons(){
 
 	//latch controllers
 	JOYPAD_OUT_PORT|=_BV(JOYPAD_LATCH_PIN);
-	if(snesMouseEnabled){
-		WaitUs(1);
-	}else{
+	#if SNES_MOUSE == 1
+		if(snesMouseEnabled){
+			WaitUs(1);
+		}else{
+			Wait200ns();
+		}	
+	#else
 		Wait200ns();
-	}	
+	#endif
 	JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));
 
 
 	//read button states
 	for(i=0;i<16;i++){
-		
+
 		p1ButtonsLo>>=1;
 		p2ButtonsLo>>=1;
 	
 		//pulse clock pin		
 		JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
-		if(snesMouseEnabled){
-			WaitUs(5);
-		}else{
+		#if SNES_MOUSE == 1
+			if(snesMouseEnabled){
+				WaitUs(5);
+			}else{
+				Wait200ns();
+			}	
+		#else
 			Wait200ns();
-		}
+		#endif
 		
 		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsLo|=(1<<15);
 		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsLo|=(1<<15);
 		
 		JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
-		if(snesMouseEnabled){
-			WaitUs(5);
-		}else{
+		#if SNES_MOUSE == 1
+			if(snesMouseEnabled){
+				WaitUs(5);
+			}else{
+				Wait200ns();
+			}	
+		#else
 			Wait200ns();
-		}
+		#endif
 
 	}
 
@@ -267,14 +267,17 @@ void ReadButtons(){
 }
 
 void ReadControllers(){
-	unsigned int p1ButtonsHi=0,p2ButtonsHi=0;
-	unsigned char i;
+
 
 	//read the standard buttons
 	ReadButtons();
-
+	
+#if SNES_MOUSE == 1
 	//read the extended bits. Applies only if the mouse is plugged.
 	//if bit 15 of standard word is 1, a mouse is plugged.
+	unsigned int p1ButtonsHi=0,p2ButtonsHi=0;
+	unsigned char i;
+
 	if(joypad1_status_lo&(1<<15) || joypad2_status_lo&(1<<15)){
 
 		WaitUs(1);
@@ -300,12 +303,13 @@ void ReadControllers(){
 		joypad2_status_hi=p2ButtonsHi;
 
 	}
-
+#endif
 
 
 }
 
 
+#if SNES_MOUSE == 1
 /*
  This method activates teh code to read the mouse. 
  Currently reading the mouse takes a much a 2.5 scanlines.
@@ -495,143 +499,7 @@ unsigned char DetectControllers(){
 
 	return resp;
 }
-
-/* Buttons stuff */
-
-#define DBL_CLICK_DELAY 15
-
-ButtonHandler btnHandlerPtr;
-Button *_buttons;
-unsigned char btnCount=0;
-bool buttonsHandlerActive=false;
-
-void createButton(Button *button, unsigned char x,unsigned char y,const char *normalMapPtr,const char *pushedMapPtr){	
-
-	button->x=x;
-	button->y=y;
-	button->normalMapPtr=normalMapPtr;
-	button->pushedMapPtr=pushedMapPtr;
-	button->state=0;
-	button->width=pgm_read_byte(&(normalMapPtr[0]));
-	button->height=pgm_read_byte(&(normalMapPtr[1]));
-	button->clicked=false;
-	DrawMap2(x,y,normalMapPtr);
-
-	btnCount++;	
-}
-
-void createAreaButton(Button *button, unsigned char x,unsigned char y,unsigned char width,unsigned char height){	
-
-	button->x=x;
-	button->y=y;
-	button->width=width;
-	button->height=height;
-	button->normalMapPtr=NULL;
-	button->pushedMapPtr=NULL;
-	button->state=0;
-	button->clicked=false;
-
-	btnCount++;	
-}
-
-void registerButtonHandler(ButtonHandler fptr, Button *btns){
-	btnHandlerPtr=fptr;
-	_buttons=btns;
-	buttonsHandlerActive=true;
-}
-
-void unregisterButtonHandler(){
-	btnHandlerPtr=NULL;
-	_buttons=NULL;
-	buttonsHandlerActive=false;
-}
-
-static unsigned char debugNo2=0;
-void debug2(char no){
-
-	PrintHexByte(2+(no*3),3,debugNo2);
-
-}
-
-
-//char debug=0;
-void processButtons(){
-	unsigned char i,tx,ty;
-	unsigned int joy=ReadJoypad(playPort);
-	static unsigned int lastButtons=0;
-	static unsigned char dblClickDelay=0;
-
-	tx=mx>>3;
-	ty=my>>3;
-
-	for(i=0;i<btnCount;i++){
-
-		if(tx>=_buttons[i].x && tx<(_buttons[i].x+_buttons[i].width) && ty>=_buttons[i].y && ty<(_buttons[i].y+_buttons[i].height)){		
-		
-
-			if(joy&actionButton && _buttons[i].state==BUTTON_UP){
-				//button pushed
-				if(_buttons[i].pushedMapPtr!=NULL) DrawMap2(_buttons[i].x,_buttons[i].y,_buttons[i].pushedMapPtr);				
-				_buttons[i].state=BUTTON_DOWN;
-				btnHandlerPtr(i,BUTTON_DOWN);					
-				lastButtons=joy;	
-				return;
-			}
-		
-			if((joy&actionButton)==0 && _buttons[i].state==BUTTON_DOWN && _buttons[i].clicked==true){
-				//button clicked
-				if(_buttons[i].normalMapPtr!=NULL) DrawMap2(_buttons[i].x,_buttons[i].y,_buttons[i].normalMapPtr);
-				_buttons[i].state=BUTTON_UP;
-				_buttons[i].clicked=false;				
-				btnHandlerPtr(i,BUTTON_DBLCLICK);					
-				lastButtons=joy;	
-				return;
-			}
-	
-			if((joy&actionButton)==0 && _buttons[i].state==BUTTON_DOWN && !_buttons[i].clicked){
-				//button clicked
-				if(_buttons[i].normalMapPtr!=NULL) DrawMap2(_buttons[i].x,_buttons[i].y,_buttons[i].normalMapPtr);
-				_buttons[i].state=BUTTON_UP;
-				_buttons[i].clicked=true;				
-				btnHandlerPtr(i,BUTTON_CLICK);					
-				lastButtons=joy;
-				dblClickDelay=0;	
-				return;
-			}			
-	
-
-
-			if(dblClickDelay==DBL_CLICK_DELAY && _buttons[i].clicked==true){
-				//btnHandlerPtr(i,BUTTON_CLICK);
-				_buttons[i].clicked=false;
-				lastButtons=joy;	
-				return;
-			}
-		
-		}else{
-		
-			if((joy&actionButton)==0 && _buttons[i].state==BUTTON_DOWN){
-				//button released outside of button
-				if(_buttons[i].normalMapPtr!=NULL) DrawMap2(_buttons[i].x,_buttons[i].y,_buttons[i].normalMapPtr);
-				_buttons[i].state=BUTTON_UP;
-				btnHandlerPtr(i,BUTTON_UP);					
-				lastButtons=joy;	
-				return;
-			}
-		
-
-		}
-
-	
-
-	}
-
-	dblClickDelay++;
-	lastButtons=joy;
-}
-
-
-
+#endif
 	
 // Format eeprom, wiping all data to zero
 void FormatEeprom(void) {
@@ -660,7 +528,7 @@ void FormatEeprom2(u16 *ids, u8 count) {
    }
 
    // Paint unreserved free blocks
-   for (int i = 2; i < 64; i++) {
+   for (int i = EEPROM_HEADER_SIZE; i < 64; i++) {
 	  id=ReadEeprom(i*EEPROM_BLOCK_SIZE)+(ReadEeprom((i*EEPROM_BLOCK_SIZE)+1)<<8);
 
 	  for (j = 0; j < count; j++) {
@@ -696,7 +564,7 @@ char EepromWriteBlock(struct EepromBlockStruct *block){
 	if(block->id==EEPROM_FREE_BLOCK || block->id==EEPROM_SIGNATURE) return EEPROM_ERROR_INVALID_BLOCK;
 
 	//scan all blocks and get the adress of that block or the next free one.
-	for(i=2;i<64;i++){
+	for(i=EEPROM_HEADER_SIZE;i<64;i++){
 		id=ReadEeprom(i*EEPROM_BLOCK_SIZE)+(ReadEeprom((i*EEPROM_BLOCK_SIZE)+1)<<8);
 		if(id==block->id){
 			destAddr=i*EEPROM_BLOCK_SIZE;

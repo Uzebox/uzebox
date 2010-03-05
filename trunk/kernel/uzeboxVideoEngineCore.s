@@ -119,7 +119,7 @@
 						.byte 1
 	joypad1_status_hi:	.byte 1
 						.byte 1
-	
+
 	joypad2_status_lo:	.byte 1
 						.byte 1
 	joypad2_status_hi:	.byte 1
@@ -146,20 +146,25 @@ do_hsync:
 
 	call update_sound_buffer ;36 -> 63
 
-	ldi ZL,32-9
+	ldi ZL,32-10-10-1
 do_hsync_delay:
 	dec ZL
 	brne do_hsync_delay ;135
+	rjmp .
 
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;136
-
-	rcall set_normal_rate_HDRIVE
-
+	; Set HDRIVE to normal rate
+	ldi ZL,hi8(HDRIVE_CL)
+	sts _SFR_MEM_ADDR(OCR1AH),ZL
+	
+	ldi ZL,lo8(HDRIVE_CL)
+	sts _SFR_MEM_ADDR(OCR1AL),ZL
 
 	ldi ZL,SYNC_PHASE_PRE_EQ
 	ldi ZH,SYNC_PRE_EQ_PULSES
-
 	rcall update_sync_phase
+
+	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;136
+
 
 	sbrs ZL,0
 	rcall render
@@ -197,7 +202,9 @@ do_hsync_delay:
 
 	;refresh buttons states
 	call ReadControllers
-	call ProcessMouseMovement
+	#if SNES_MOUSE == 1
+		call ProcessMouseMovement
+	#endif
 
 	;process music (music, envelopes, etc)
 	call MixSound
@@ -226,9 +233,6 @@ not_vsync:
 	ret
 
 
-
-
-
 ;**** RENDER ****
 render:
 	push ZL
@@ -240,7 +244,30 @@ render:
 	cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE-FRAME_LINES
 	brlo render_end
 
-	
+
+	;push r1-r29
+	ldi ZL,29
+	clr ZH
+push_loop:
+	ld r0,Z	;load value from register file
+	push r0
+	dec ZL
+	brne push_loop	
+
+	call VMODE_FUNC
+
+	;pop r1-r29
+	ldi ZL,1
+	clr ZH
+pop_loop:
+	pop r0
+	st Z+,r0 ;store value to register file
+	cpi ZL,30
+	brlo pop_loop	
+
+/*
+
+	push r1
 	push r2
 	push r3
 	push r4
@@ -275,7 +302,7 @@ render:
 	push XH
 	push YL
 	push YH 
-		
+	
 	call VMODE_FUNC
 
 	pop YH
@@ -312,6 +339,8 @@ render:
 	pop r4
 	pop r3
 	pop r2
+	pop r1
+*/
 
 render_end:
 	pop ZL
@@ -327,6 +356,7 @@ render_end:
 ;
 ;***************************************************************************
 TIMER1_COMPA_vect:
+/*
 	push ZH;2
 	push ZL;2
 
@@ -367,6 +397,29 @@ TIMER1_COMPA_vect:
 
 	cpi ZL,9
 	brlo .		;advance PC to next instruction
+*/
+
+	push ZH;2
+	push ZL;2
+
+	;save flags & status register
+	in ZL,_SFR_IO_ADDR(SREG);1
+	push ZL ;2		
+
+	;Read timer offset since rollover to remove cycles 
+	;and conpensate for interrupt latency.
+	;This is nessesary to eliminate frame jitter.
+
+	lds ZL,_SFR_MEM_ADDR(TCNT1L)
+	subi ZL,0x0e ;MIN_INT_LATENCY
+
+	ldi ZH,1
+latency_loop:
+	cp ZL,ZH
+	brlo .		;advance PC to next instruction	
+	inc ZH
+	cpi ZH,10
+	brlo latency_loop
 
 	rcall sync
 
@@ -441,8 +494,8 @@ up_pulse:
 ;*************************************************
 ; Generate a H-Sync pulse - 136 clocks (4.749us)
 ; Note: TCNT1 should be equal to 
-; 0x44 on the cbi 
-; 0xcc on the sbi 
+; 0x68 on the cbi -- old:0x44
+; 0xf0 on the sbi -- old:0xcc
 ;
 ; Cycles: 144
 ; Destroys: ZL (r30)
@@ -471,8 +524,8 @@ hsync_pulse:
 ;**************************
 ; PRE_EQ pulse
 ; Note: TCNT1 should be equal to 
-; 0x44 on the cbi
-; 0x88 on the sbi
+; 0x68 on the cbi
+; 0xAC on the sbi
 ; pulse duration: 68 clocks
 ;**************************
 do_pre_eq:
@@ -487,15 +540,22 @@ do_pre_eq:
 	ldi ZH,SYNC_EQ_PULSES
 	rcall update_sync_phase
 
-	rcall set_double_rate_HDRIVE
+//	rcall set_double_rate_HDRIVE
+	
+	; Set HDRIVE to double rate during VSYNC
+	ldi ZL,hi8(HDRIVE_CL_TWICE)
+	sts _SFR_MEM_ADDR(OCR1AH),ZL
+	
+	ldi ZL,lo8(HDRIVE_CL_TWICE)
+	sts _SFR_MEM_ADDR(OCR1AL),ZL
 
 	ret
 
 ;************
 ; Serration EQ
 ; Note: TCNT1 should be equal to 
-; 0x44  on the cbi
-; 0x34A on the sbi
+; 0x68  on the cbi
+; 0x36E on the sbi
 ; low pulse duration: 774 clocks
 ;************
 do_eq:
@@ -503,20 +563,22 @@ do_eq:
 
 	call update_sound_buffer_2 ;36 -> 63
 
-	ldi ZL,181-9+4
+	ldi ZL,181-9+4-7
 do_eq_delay:
 	nop
 	dec ZL
 	brne do_eq_delay ;135
 
+	rjmp .
 	nop
-	nop
-
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;136
 
 	ldi ZH,SYNC_POST_EQ_PULSES
 	ldi ZL,SYNC_PHASE_POST_EQ
 	rcall update_sync_phase
+
+	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;136
+
+	
 
 	;set sync generator counter on TIMER1
 	;ldi ZH,hi8(0x90+704)
@@ -528,11 +590,12 @@ do_eq_delay:
 ;************
 ; POST_EQ
 ; Note: TCNT1 should be equal to 
-; 0x44 on the cbi
-; 0x88 on the sbi
+; 0x68 on the cbi
+; 0xAC on the sbi
 ; pulse cycles: 68 clocks
 ;************
 do_post_eq:
+
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
 
 	call update_sound_buffer_2 ;36 -> 63
@@ -582,8 +645,6 @@ noshift:
 
 
 
-
-
 ;************
 ; update sync phase
 ; ZL=next phase #
@@ -591,6 +652,7 @@ noshift:
 ;
 ; returns: ZL: 0=more pulses in phase
 ;              1=was the last pulse in phase
+; 21c
 ;***********
 update_sync_phase:
 
@@ -615,6 +677,7 @@ update_sync_phase:
 ;**************************************
 ; Set HDRIVE to double rate during VSYNC
 ;**************************************
+/*
 set_double_rate_HDRIVE:
 
 	ldi ZL,hi8(HDRIVE_CL_TWICE)
@@ -624,10 +687,11 @@ set_double_rate_HDRIVE:
 	sts _SFR_MEM_ADDR(OCR1AL),ZL
 
 	ret
-
+*/
 ;**************************************
 ; Set HDRIVE to normal rate
 ;**************************************
+/*
 set_normal_rate_HDRIVE:
 
 	ldi ZL,hi8(HDRIVE_CL)
@@ -637,7 +701,7 @@ set_normal_rate_HDRIVE:
 	sts _SFR_MEM_ADDR(OCR1AL),ZL
 
 	ret
-
+*/
 
 
 #if VRAM_ADDR_SIZE == 1
@@ -821,6 +885,7 @@ rj_p2:
 ; r24=joypad No (0 or 1)
 ; returns: (int) r25:r24
 ;*****************************
+#if SNES_MOUSE == 1
 .section .text.ReadJoypadExt
 ReadJoypadExt:
 
@@ -834,7 +899,7 @@ rj_p2m:
 	lds r24,joypad2_status_hi
 	lds r25,joypad2_status_hi+1	
 	ret
-
+#endif
 	
 ;****************************
 ; Wait for n microseconds

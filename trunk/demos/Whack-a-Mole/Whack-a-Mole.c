@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
+#include <gui.h>
 
 #include "data/Whacksong.inc"
 
