@@ -199,8 +199,13 @@
 		//used by the bootloader to know the currently flashed game
 		unsigned long currentGameCrc32;
 
+		//Bootloader flags:
+		//b0: Boot method: 0=Bootloader starts on reset (default) , 1=Current game starts on reset (hold any key to enter bootloader)
+		//b1-b7: reserved		
+		unsigned char bootloaderFlags; 
+
 		//for future expansion
-		unsigned char reserved[10];		
+		unsigned char reserved[9];			
 	};
 
 	struct EepromBlockStruct{
