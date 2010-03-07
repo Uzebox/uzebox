@@ -132,6 +132,55 @@
 						.word pm(do_hsync)
 
 
+#define io_set(a,b) .word pm( ((_SFR_MEM_ADDR(a) & 0xff) + ((b)<<8)) )
+#define set_io_end .word pm(0x0001)
+
+io_table:
+   //stop timers   
+   io_set(TCCR1B,0x00)
+   io_set(TCCR0B,0x00)
+
+   //set port directions 
+   io_set(DDRC,0xff)
+   io_set(DDRB,0xff)      //h-sync for ad725
+
+   io_set(DDRD,0x80)       //audio-out, midi-in
+
+   //setup port A for joypads
+   io_set(DDRA, ((1<<PA2) + (1<<PA3)) )
+   io_set(PORTA, ((1<<PA2) + (1<<PA3)) )
+
+   //clear counters
+   io_set(TCNT1H,0x00)
+   io_set(TCNT1L,0x00)   
+
+   //set sync generator counter on TIMER1
+   io_set(OCR1AH, (HDRIVE_CL_TWICE)>>8)
+   io_set(OCR1AL, (HDRIVE_CL_TWICE) & 0xff)
+
+   io_set(TCCR1B,(1<<WGM12)+(1<<CS10))   //CTC mode, use OCR1A for match
+   io_set(TIMSK1,1<<OCIE1A)            //generate interrupt on match
+
+   //set clock divider counter for AD725 on TIMER0
+   //outputs 14.31818Mhz (4FSC)
+   io_set(TCCR0A,(1<<COM0A0)+(1<<WGM01))  //toggle on compare match + CTC
+
+   io_set(OCR0A,0x00)   //divide main clock by 2
+
+   io_set(TCCR0B,(1<<CS00))  //enable timer, no pre-scaler
+
+   //set sound PWM on TIMER2
+   io_set(TCCR2A,(1<<COM2A1)+(1<<WGM21)+(1<<WGM20))   //Fast PWM
+
+   io_set(OCR2A,0)   //duty cycle (amplitude)
+
+   io_set(TCCR2B, (1<<CS20))  //enable timer, no pre-scaler
+
+   io_set(SYNC_PORT, (1<<SYNC_PIN) +(1<<VIDEOCE_PIN) ) //set sync line to hi
+
+set_io_end
+
+
 
 ;***************************************************
 ; Video Mode 1: Tiles-Only
@@ -755,6 +804,21 @@ InitVideo:
 	
 	cli
 
+
+    //setup I/O (port, timer and etc.)
+   ldi YH, 0x00
+   ldi ZL, lo8(io_table)
+   ldi ZH, hi8(io_table)
+
+loop_of_io_setup:
+   lpm YL, Z+
+   lpm r16, Z+
+   ST Y, r16
+   cpi YL, 0x00
+   brne loop_of_io_setup
+
+/*
+
 	clr r20
 	sts wave_vol,r20
 	sts first_render_line_tmp,r20
@@ -767,7 +831,7 @@ InitVideo:
 	sts _SFR_MEM_ADDR(TCNT1L),r20	
 		
 
-	//*** Set params *****
+	// *** Set params *****
 
 	;set port directions
 	ldi r20,0xff
@@ -837,11 +901,14 @@ InitVideo:
 	ldi r20,(1<<SYNC_PIN)+(1<<VIDEOCE_PIN)
 	out _SFR_IO_ADDR(SYNC_PORT),r20	;set sync line to hi & enable AD723
 
+
+*/
+
 	ldi r20,FIRST_RENDER_LINE
 	sts first_render_line,r20
 	ldi r20,SCREEN_TILES_V
 	sts screen_tiles_v,r20
-	
+
 
 
 	;Unpack font in RAM
