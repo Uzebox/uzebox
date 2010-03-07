@@ -9,6 +9,7 @@
  * Joystick constants & functions
  */
 
+#define MAX_GAMES 128
 
 #define BTN_SR	   1
 #define BTN_SL	   2
@@ -32,28 +33,35 @@
 #define FAT_ATTR_ARCHIVE	0x20
 #define FAT_ATTR_DEVICE		0x40
 
+#define EEP_BOOT_METHOD 1
+#define EEP_BOOT_METHOD_MENU 0
+#define EEP_BOOT_METHOD_GAME 1
+
+#define EEP_FIELD_CRC32 18
+#define EEP_FIELD_FLAGS 22
+
 
 //EEPROM Kernel structs
 struct EepromHeaderStruct
 {
 	//special identifier/magic number to determine if the EEPROM 
 	//contains kernel recognizable data
-	unsigned int signature;
+	unsigned int signature;//0
 	
 	//version of this EEPROM data structure
-	unsigned char version;
+	unsigned char version;//2
 
 	//size of allocated blocks in bytes (should be 32)
-	unsigned char blockSize;  
+	unsigned char blockSize;//3  
 
 	//size of this header in blocks (should be 2)
-	unsigned char headerSize;
+	unsigned char headerSize;//4
 
 	//identifies the harware type. Uzebox, Fuzebox,etc. Do we need that?
-	unsigned char hardwareVersion;
+	unsigned char hardwareVersion;//5
 
 	//identifies the harware revision. Do we need that?
-	unsigned char hardwareRevision;
+	unsigned char hardwareRevision;//6
 
 	/*
 	Hardware features on board
@@ -69,24 +77,29 @@ struct EepromHeaderStruct
 	b3      Soft Power switch 
 	b2:b0   Joystick type: 0=SNES, 1=NES, 2-7=Reserved
 	*/
-	unsigned int features;
+	unsigned int features;//7
 
 	//Even more features -- for future use
-	unsigned int featuresExt;
+	unsigned int featuresExt;//9
 
 	//MAC adress for the Ethernet interface
-	unsigned char macAdress[6];		
+	unsigned char macAdress[6];	//11	
 
 	//Composite Color Correction 
 	//0=none
 	//1=shorten line 	
-	unsigned char colorCorrectionType;	
+	unsigned char colorCorrectionType;//17	
 
 	//used by the bootloader to know the currently flashed game
-	unsigned long currentGameCrc32; //19
+	unsigned long currentGameCrc32; //18
+
+	//Bootloader flags:
+	//b0: Boot method: 0=Bootloader starts on reset (default) , 1=Current game starts on reset (hold any key to enter bootloader)
+	//b1-b7: reserved	
+	unsigned char bootloaderFlags; //22
 
 	//for future expansion
-	unsigned char reserved[10];		
+	unsigned char reserved[9]; //23		
 };
 
 struct EepromBlockStruct{
@@ -186,11 +199,11 @@ union SectorData {
 	RomHeader header;
 } sector;
 
-typedef struct{
-	unsigned char filename[13]; //filename+'.'+ext+0
-	unsigned long firstSector;
-	unsigned long fileSize;	
-} File;
+//typedef struct{
+//	unsigned char filename[13]; //filename+'.'+ext+0
+//	unsigned long firstSector;
+//	unsigned long fileSize;	
+//} File;
 
 
 
@@ -199,7 +212,7 @@ typedef struct{
  */
 void LoadRootDirectory(unsigned char *buffer);
 long GetFileSector(DirectoryTableEntry *file);
-unsigned char LoadFiles(unsigned char *buffer,File *destFiles);
+//unsigned char LoadFiles(unsigned char *buffer,File *destFiles);
 extern void WriteEeprom(unsigned int addr,unsigned char value);
 extern unsigned char ReadEeprom(unsigned int addr);
 
@@ -282,9 +295,66 @@ extern unsigned int vram[];
 #define FONT_TYPE 0
 
 
-File files[16];
+long dirTableSector;
+long sectorsPerCluster;
+long maxRootDirectoryEntries;
+long bytesPerSector;
+long bootRecordSector;
+int reservedSectors;
+int sectorsPerFat;
+unsigned char maxRootDirectorySectors;
 
-char strDemo[] PROGMEM = ">> Uzebox gameloader Menu Alpha1 <<";
+void fat_init(unsigned char *buffer){
+
+	//read MBR
+	mmc_readsector(0);
+
+	//read boot record
+	bootRecordSector= ((MBR*)buffer)->partition1.startSector;
+	mmc_readsector(bootRecordSector);
+
+	reservedSectors=((BootRecord*)buffer)->reservedSectors;
+	sectorsPerFat=((BootRecord*)buffer)->sectorsPerFat;
+	sectorsPerCluster=((BootRecord*)buffer)->sectorsPerCluster;
+
+	maxRootDirectoryEntries=((BootRecord*)buffer)->maxRootDirectoryEntries;
+	bytesPerSector=((BootRecord*)buffer)->bytesPerSector;
+	maxRootDirectorySectors=((maxRootDirectoryEntries * 32)/bytesPerSector);
+		
+
+}
+
+
+long GetFileSector(DirectoryTableEntry *file){
+	return dirTableSector+maxRootDirectorySectors+((file->firstCluster-2)*sectorsPerCluster);
+}
+
+
+
+bool init(){
+	unsigned char temp;
+
+   	do{ 
+		temp = mmc_init(sector.buffer);
+    	Print((12*40*2)+(7*2),temp? PSTR("SD INIT FAIL: NO CARD?") : PSTR("SD INIT OK"),0);  
+						 
+	} while (temp);
+
+   do { 
+		temp = mmc_readsector(0);
+        Print((12*40*2)+(19*2),temp? PSTR("INIT READ FAIL") : PSTR("READ OK"),0); 
+	} while (temp);
+
+
+	return 0;
+}
+
+
+//File files[16];
+unsigned long filesFirstSector[128];
+
+
+char strDemo[] PROGMEM = ">> Uzebox game loader 0.2 <<";
 //char strStarting[] PROGMEM="Starting installed game in 5 seconds...";
 //char strStart[] PROGMEM="Press START to launch game now.";
 //char strMenu[] PROGMEM="Press any other button for menu.";
@@ -292,100 +362,124 @@ char strDemo[] PROGMEM = ">> Uzebox gameloader Menu Alpha1 <<";
 
 void showInfo(unsigned char fileNo){
 
-	for(unsigned char i=0;i<(40*4);i++){
+	//erase box
+	for(unsigned char i=0;i<(40*3);i++){
 		vram[(40*24)+i]=0x5000;
 	}
 
-	mmc_readsector(files[fileNo].firstSector);
+	mmc_readsector(filesFirstSector[fileNo]);
 	Print((25*40*2)+(3*2),sector.header.author,0x50);	
-	//PrintInt(6,26,sector.header.year,80);
-	//PrintRam(8,y+i,sector.header.author,0);	
+
 }
 
 
-//unsigned char gameExist;
 
-void topMenu(){
+void topMenu(unsigned char page,unsigned char total){
 	ClearVram();
-	DrawBar(0,40,0x50);
-	Print((3*2),strDemo,0x50);
+	DrawBar((40*2),40,0x50);
+	Print((40*2)+(6*2),strDemo,0x50);
+	Print((3*40*2)+(14*2),PSTR("< PAGE 1/1 >"),0);
+	SetFont(21,3,(page/16)+49,0);
+	
+	if(total&0xf)total+=16;
+	SetFont(23,3,(total/16)+32+16,0);
 }
 
 
+#define X 3
+#define Y 5
 
 int main(){
 
-	unsigned int fileCount=0,x=3,y=5,fileNo=0;
-	unsigned int i;
-	char c;
+	unsigned char fileCount,fileNo,i,c=0;
+	unsigned char col,dir;
+	unsigned char page;//,totalPages;
 
 
-	//boot normal game if no key if pressed and 
+
+	//wait for SD to stabilize
+	WaitVSync(4); //2
+
+	//boot normal game if EEPROM flag is set, no key if pressed and 
 	//theres a jmp instruction at progmem=0
-	//WaitVSync(2);
-	//gameExist=pgm_read_byte(0);
-	
-	//if(joypad_status==0 && pgm_read_byte(0)==0x0c){
-	//
-	//	cli();
-	//	unsigned char temp = MCUCR;
-	//	// Enable change of Interrupt Vectors 
-	//	MCUCR = temp|(1<<IVCE);
-	//	// Move interrupts to Start of Flash
-	//	MCUCR = temp&~(1<<IVSEL);	
-	//	asm("jmp 0");
-	//	
-	//}
+	if((ReadEeprom(EEP_FIELD_FLAGS)&EEP_BOOT_METHOD) == EEP_BOOT_METHOD_GAME && 
+		joypad_status == 0 && 
+		pgm_read_byte(0) == 0x0c){
+boot_game:							
+		cli();
+		unsigned char temp = MCUCR;
+		// Enable change of Interrupt Vectors 
+		MCUCR = temp|(1<<IVCE);
+		// Move interrupts to Start of Flash
+		MCUCR = temp&~(1<<IVSEL);	
+		asm("jmp 0");
+	}
 
 
-
-	topMenu();
+	topMenu(0,0);
 	init();
-	topMenu();
+	topMenu(0,0);
 
+	fat_init(sector.buffer);
+
+	//get directory table
+	dirTableSector=bootRecordSector + reservedSectors + (sectorsPerFat * 2); 
+
+	fileCount=0;
+	col=1,dir=1;
+	page=0;
 
 	
+	//find files in the directory and store their first sector
+	do{
 
-	LoadRootDirectory(sector.buffer);
-	
+		mmc_readsector(dirTableSector+page);
 
-	//find files in the sector
-	for(i=0;i<16;i++){
-		if((sector.files[i].fileAttributes & (FAT_ATTR_HIDDEN|FAT_ATTR_SYSTEM|FAT_ATTR_VOLUME|FAT_ATTR_DIRECTORY|FAT_ATTR_DEVICE))==0){
-			c=sector.files[i].filename[0];
-			if( c!=0 && c!=0xe5 && c!=0x05 && c!=0x2e &&
-				sector.files[i].extension[0]=='U' &&
-				sector.files[i].extension[1]=='Z' &&
-				sector.files[i].extension[2]=='E' 
-				){									
+		//read all entries in the sector
+		for(i=0;i<16;i++){
+			if((sector.files[i].fileAttributes & (FAT_ATTR_HIDDEN|FAT_ATTR_SYSTEM|FAT_ATTR_VOLUME|FAT_ATTR_DIRECTORY|FAT_ATTR_DEVICE))==0){
+				c=sector.files[i].filename[0];
+				if(c == 0){
 
+					break;
+				}else if(c!=0xe5 && c!=0x05 && c!=0x2e &&
+					sector.files[i].extension[0]=='U' &&
+					sector.files[i].extension[1]=='Z' &&
+					sector.files[i].extension[2]=='E' 
+					){									
 
-				//files[fileCount].fileSize=sector.files[i].fileSize;				
-				files[fileCount].firstSector=GetFileSector(&sector.files[i]);	
-				
-
-				fileCount++;
-				if(fileCount==15) break; //can't fit more than 13 for now			
-			}				
+					filesFirstSector[fileCount]=GetFileSector(&sector.files[i]);	
+					fileCount++;
+					if(fileCount==MAX_GAMES) break;
+				}				
+			}
+			
 		}
-	}
+		
+		page++;
 
-	//fetch names from SD
-	for(i=0;i<fileCount;i++){
-		mmc_readsector(files[i].firstSector);
-		Print(((y+i)*40*2)+(x*2),sector.header.name,0);	
-	}
+	}while(c!=0 && fileCount<MAX_GAMES && page<maxRootDirectorySectors);
+
+	page=0;
+
+browse_files:
 
 	fileNo=0;
-	showInfo(fileNo);
+	topMenu(page,fileCount);
+	showInfo(fileNo+page);
 
-	unsigned char col=1,dir=1;//,x=2,y=5;
+	//fetch names from SD
+	for(i=0;i<16;i++){
+		mmc_readsector(filesFirstSector[page+i]);
+		Print(((i+Y)*40*2)+(X*2),sector.header.name,0);	
+	}
+	
 
-	while(joypad_status!=0); //in case the user pressed start to enter the bootloader
+	while(joypad_status!=0); //in case the user pressed start to enter the bootloader insure the key in relealsed
 
 	while(1){
 		//drawCursor(x-1,y+fileNo,37,col);
-		DrawBar((y+fileNo)*40*2,40,col);
+		DrawBar((Y+fileNo)*40*2,40,col);
 		WaitVSync(6);	
 
 		col+=dir;
@@ -395,45 +489,40 @@ int main(){
 			dir=1;
 		}
 
+
 		if(joypad_status&BTN_UP){
 			if(fileNo>0){
-				//drawCursor(x-1,y+fileNo,37,0);
-				DrawBar((y+fileNo)*40*2,40,0);
+				DrawBar((Y+fileNo)*40*2,40,0); //erase bar at current location
 				fileNo--;
 				wave_vol=90;
 				showInfo(fileNo);
 			}
-		}
-	
-		if(joypad_status&BTN_DOWN){
-			if(fileNo<fileCount-1){
-				DrawBar((y+fileNo)*40*2,40,0);
-				//drawCursor(x-1,y+fileNo,37,0);
-				fileNo++;
+		
+		}else if(joypad_status&BTN_DOWN){
+			if(fileNo<15 && (page+fileNo)<fileCount-1){
+				DrawBar((Y+fileNo)*40*2,40,0);  //erase bar at current location
+				fileNo++;				
 				wave_vol=90;
 				showInfo(fileNo);
 			}
-		}
 
+		}else if(joypad_status&BTN_LEFT){
+			if(page>0){
+				page-=16;
+				goto browse_files;
+			}
+		
+		}else if(joypad_status&BTN_RIGHT){
+			if((page+16)<fileCount){
+				page+=16;
+				goto browse_files;
+			}
 
-		if(joypad_status&BTN_START){
+		}else if(joypad_status&BTN_START){
 			while(joypad_status!=0);
-			
-
-
- 			flashGame(fileNo);
-			
-			
-			cli();
-			unsigned char temp = MCUCR;
-			// Enable change of Interrupt Vectors 
-			MCUCR = temp|(1<<IVCE);
-			// Move interrupts to Start of Flash
-			MCUCR = temp&~(1<<IVSEL);	
-			asm("jmp 0");
-			
-
-
+		
+			flashGame(fileNo+page);
+			goto boot_game;
 		}
 
 	}
@@ -449,21 +538,16 @@ void flashGame(unsigned char fileNo){
 	unsigned long flashPage=0;//,crc;
 	unsigned char fileSector,sectors,pageNo,progress,progressCount=0,progressPos=2;
 	
-	//read rom header
-	mmc_readsector(files[fileNo].firstSector);
-	conv32.bytes.byte1=ReadEeprom(19);
-	conv32.bytes.byte2=ReadEeprom(20);
-	conv32.bytes.byte3=ReadEeprom(21);
-	conv32.bytes.byte4=ReadEeprom(22);
-	//crc=conv32.value;
+	//read rom header's CRC value
+	mmc_readsector(filesFirstSector[fileNo]);
+	conv32.bytes.byte1=ReadEeprom(EEP_FIELD_CRC32+0);
+	conv32.bytes.byte2=ReadEeprom(EEP_FIELD_CRC32+1);
+	conv32.bytes.byte3=ReadEeprom(EEP_FIELD_CRC32+2);
+	conv32.bytes.byte4=ReadEeprom(EEP_FIELD_CRC32+3);
 
-
-
+	//Flash only if it's a different game or if there's no game already 
 	if(conv32.value!=sector.header.crc32 || pgm_read_byte(0)!=0x0c){
 	
-		//PrintLong(20,3,crc,0);
-		//PrintLong(20,4,sector.header.crc32,0);
-
 		//set resolution to 2 tiles
 		WaitVSync(1);
 		first_render_line_tmp=120;
@@ -475,7 +559,6 @@ void flashGame(unsigned char fileNo){
 		}
 		Print((15*2),PSTR("LOADING..."),0);
 
-	//	WaitVsync(1);
 
 		conv32.value=sector.header.crc32;
 		sectors=sector.header.progSize/512;
@@ -486,7 +569,7 @@ void flashGame(unsigned char fileNo){
 
 		for(fileSector=0;fileSector<sectors;fileSector++){
 			//read first sectgor after header
-			mmc_readsector(files[fileNo].firstSector+1+fileSector);
+			mmc_readsector(filesFirstSector[fileNo]+1+fileSector);
 			unsigned char *buf=sector.buffer;
 	
 			//program the game
@@ -534,88 +617,12 @@ void flashGame(unsigned char fileNo){
 
 		}
 
-
-		WriteEeprom(19,conv32.bytes.byte1);
-		WriteEeprom(20,conv32.bytes.byte2);
-		WriteEeprom(21,conv32.bytes.byte3);
-		WriteEeprom(22,conv32.bytes.byte4);
+		//Write the CRC of the game just flashed to eeprom
+		WriteEeprom(EEP_FIELD_CRC32+0,conv32.bytes.byte1);
+		WriteEeprom(EEP_FIELD_CRC32+1,conv32.bytes.byte2);
+		WriteEeprom(EEP_FIELD_CRC32+2,conv32.bytes.byte3);
+		WriteEeprom(EEP_FIELD_CRC32+3,conv32.bytes.byte4);
 
 	}
 }
 
-
-
-long dirTableSector;
-long sectorsPerCluster;
-long maxRootDirectoryEntries;
-long bytesPerSector;
-long bootRecordSector;
-int reservedSectors;
-int sectorsPerFat;
-
-void fat_init(unsigned char *buffer){
-
-	//read MBR
-	mmc_readsector(0);
-
-	//read boot record
-	bootRecordSector= ((MBR*)buffer)->partition1.startSector;
-	mmc_readsector(bootRecordSector);
-
-	reservedSectors=((BootRecord*)buffer)->reservedSectors;
-	sectorsPerFat=((BootRecord*)buffer)->sectorsPerFat;
-
-	maxRootDirectoryEntries=((BootRecord*)buffer)->maxRootDirectoryEntries;
-	bytesPerSector=((BootRecord*)buffer)->bytesPerSector;
-	sectorsPerCluster=((BootRecord*)buffer)->sectorsPerCluster;
-}
-
-
-void LoadRootDirectory(unsigned char *buffer){
-	fat_init(buffer);
-
-	//get directory table
-	dirTableSector=bootRecordSector + reservedSectors + (sectorsPerFat * 2); 
-	mmc_readsector(dirTableSector);
-
-}
-
-
-long GetFileSector(DirectoryTableEntry *file){
-	return dirTableSector+((maxRootDirectoryEntries * 32)/bytesPerSector)+((file->firstCluster-2)*sectorsPerCluster);
-}
-
-
-
-bool init(){
-	unsigned char temp;
-
-   	do{ 
-		temp = mmc_init(sector.buffer);
-    	Print((12*40*2)+(7*2),temp? PSTR("SD INIT FAIL: NO CARD?") : PSTR("SD INIT OK"),0);  
-						 
-	} while (temp);
-
-
-	
-
-   do { 
-		temp = mmc_readsector(0);
-        Print((12*40*2)+(19*2),temp? PSTR("INIT READ FAIL") : PSTR("READ OK"),0); 
-	} while (temp);
-
-
-	return 0;
-}
-
-
-
-
-/*
-int main(){
-	fat_init(sector.buffer);
-	init();
-
-	while(1);
-}
-*/

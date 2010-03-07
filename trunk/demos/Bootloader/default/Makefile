@@ -16,7 +16,7 @@ KERNEL_DIR = ../../../kernel
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -DBOOTLOADER_ADDR=$(BOOTLOAD_ADDRESS) -ffunction-sections
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -DBOOTLOADER_ADDR=$(BOOTLOAD_ADDRESS) -ffunction-sections -fno-inline 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 
 ## Assembly specific flags
@@ -28,7 +28,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=Bootloader.map
 LDFLAGS += -Wl,--section-start=.text=$(BOOTLOAD_ADDRESS) 
-
+LDFLAGS += -Wl,-gc-sections 
 
 ## Intel Hex file production flags
 HEX_FLASH_FLAGS = -R .eeprom -R .fuse -R .lock -R .signature
