@@ -56,18 +56,20 @@ extern unsigned char playback_start;
 
 bool snesMouseEnabled=false;
 
-u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,
-								   (u8)(EEPROM_SIGNATURE>>8),
-								   EEPROM_HEADER_VER,
-								   EEPROM_BLOCK_SIZE,
-								   EEPROM_HEADER_SIZE,
-								   1,			//hardwareVersion
-								   0,			//hardwareRevision
-								   0x38,0x8, 	//standard uzebox & fuzebox features
-								   0,			//extended features
-								   0,0,0,0,0,0, //MAC
-								   0,			//colorCorrectionType
-								   0,0,0,0 		//game CRC
+u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
+								   (u8)(EEPROM_SIGNATURE>>8),	//
+								   EEPROM_HEADER_VER,			//(u8)				
+								   EEPROM_BLOCK_SIZE,			//(u8) 
+								   EEPROM_HEADER_SIZE,			//(u8) 
+								   1,							//(u8) hardwareVersion
+								   0,							//(u8) hardwareRevision
+								   0x38,0x8, 					//(u16)  standard uzebox & fuzebox features
+								   0,0,							//(u16)  extended features
+								   0,0,0,0,0,0, 				//(u8[8])MAC
+								   0,							//(u8)colorCorrectionType
+								   0,0,0,0, 					//(u32)game CRC
+								   0,							//(u8)bootloader flags
+								   0,0,0,0,0,0,0,0,0 			//(u8[9])reserved
 								   };
 
 
