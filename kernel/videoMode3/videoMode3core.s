@@ -821,6 +821,7 @@
 
 		rcall hsync_pulse ;145
 	
+		clr r1
 		call RestoreBackground
 
 		;set vsync flag if beginning of next frame (each two fields)
