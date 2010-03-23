@@ -78,7 +78,11 @@
 #endif
 
 #define SPRITE_STRUCT_SIZE 5
-#define TRANSLUCENT_COLOR 0xfe	
+
+#ifndef TRANSLUCENT_COLOR
+	#define TRANSLUCENT_COLOR 0xfe	
+#endif
+
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 #define VRAM_ADDR_SIZE 1 //in bytes
 
