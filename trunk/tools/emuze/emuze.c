@@ -67,7 +67,7 @@
 #define HEX_DUMP_Y 23
 
 #define GAMES_PER_PAGE 7
-#define PAGE_COUNT (EEPROM_BLOCK_COUNT / GAMES_PER_PAGE + EEPROM_BLOCK_COUNT % GAMES_PER_PAGE)
+#define PAGE_COUNT (EEPROM_BLOCK_COUNT / GAMES_PER_PAGE + ((EEPROM_BLOCK_COUNT % GAMES_PER_PAGE)?1:0))
 #define BLOCK_MENU_LOC_X 6
 #define BLOCK_MENU_LOC_Y 2
 #define BLOCK_MENU_CELL_WID (SCREEN_TILES_H - (BLOCK_MENU_LOC_X + 1))
@@ -735,7 +735,7 @@ void addUndo(int index) {
 	ebsDict *swap;
 
 	for (u8 i = 0; i < UNDO_COUNT; ++i) {
-		if (undoBuf[i].index == index && undoNext[i]->index != index) {
+		if (undoNext[i]->index == index) {
 			// Bubble existing undo slot to top of queue
 			for (; i > 0; --i) {
 				swap = undoNext[i-1];
@@ -1061,8 +1061,10 @@ int main(void) {
 	loadMenuAnimation(state.indexes[state.curr]);
 	drawMenu(&blockMenu);
 
-	for (u8 i = 0; i < UNDO_COUNT; ++i)
+	for (u8 i = 0; i < UNDO_COUNT; ++i) {
 		undoNext[i] = &undoBuf[i];
+		undoBuf[i].index = -1;
+	}
 	
 	while(1) {
 		if (GetVsyncFlag()) {
