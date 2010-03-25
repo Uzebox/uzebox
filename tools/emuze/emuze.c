@@ -33,17 +33,18 @@
 /****************************************
  *			  	 Defines				*
  ****************************************/
-#define GAMES_COUNT 18
+#define GAMES_COUNT 19
 #define EEPROM_BLOCK_COUNT 64
 #define STATE_COUNT 5 // Count of navStates
 #define MENU_OPTIONS_COUNT 6
+#define UNDO_COUNT 3
 #define MAX_MENU_WID 10
 #define MAX_MENU_HGT (MENU_OPTIONS_COUNT+2)
 
 #define OPTION_EDIT 0
 #define OPTION_COPY 1
 #define OPTION_PASTE 2
-#define OPTION_RELOAD 3
+#define OPTION_UNDO 3
 #define OPTION_SAVE 4
 #define OPTION_FORMAT 5
 
@@ -132,15 +133,13 @@ typedef struct {
 	pt loc;
 } menuCursor;
 
-typedef struct tileMenu tileMenu;
-
-struct tileMenu {
+typedef struct {
 	u8 isVisible;
 	pt loc;
 	size s;
 	menuCursor cursor;
 	u8 *buffer; // Currently only used by navMenu to re-paint underlying vram on close.
-};
+} tileMenu;
 
 typedef struct {
 	u8 frameCount;
@@ -162,6 +161,11 @@ typedef struct {
 	u16 animIndex;
 } gameDetails;
 
+typedef struct {
+	int index;
+	struct EepromBlockStruct ebs;
+} ebsDict;
+
 /****************************************
  *			File-level variables		*
  ****************************************/
@@ -170,7 +174,10 @@ tileMenu blockMenu; // Current when browsing eeprom blocks.
 tileMenu menu; // Current when choosing operation to perform on selected block.
 tileMenu hexMenu; // Current when editing block's hex data.
 struct EepromBlockStruct ebs;
+struct EepromBlockStruct ebsBackup;
 struct EepromBlockStruct clipboard;
+ebsDict undoBuf[UNDO_COUNT];
+ebsDict *undoNext[UNDO_COUNT];
 int page; // Current page number
 u16 pageIds[GAMES_PER_PAGE]; // Game ID's for current page.
 u16 gameIds[GAMES_COUNT]; // All game ID's (leave these in flash if ram gets tight).
@@ -185,18 +192,28 @@ const char fwdSlashString[] PROGMEM = "/";
 const char editStr[] PROGMEM = "EDIT";
 const char copyStr[] PROGMEM = "COPY";
 const char pasteStr[] PROGMEM = "PASTE";
-const char reloadStr[] PROGMEM = "RE-LOAD";
+const char undoStr[] PROGMEM = "UNDO";
 const char saveStr[] PROGMEM = "SAVE";
 const char formatStr[] PROGMEM = "FORMAT";
+const char exploreStr[] PROGMEM = "EXPLORE";
 
 const char *menuStrings[] PROGMEM = {
 	editStr,
 	copyStr,
 	pasteStr,
-	reloadStr,
+	undoStr,
 	saveStr,
-	formatStr
+	formatStr,
+
+	editStr,
+	copyStr,
+	pasteStr,
+	undoStr,
+	saveStr,
+	exploreStr
 };
+
+
 
 // Kernel block strings
 const char kbTitle[] PROGMEM = "--- KERNEL SETTINGS ---";
@@ -240,6 +257,7 @@ const char pongGame[] PROGMEM = "PONG";
 const char arkanoidGame[] PROGMEM = "ARKANOID";
 const char drMarioGame[] PROGMEM = "DR. MARIO";
 const char lodeRunnerGame[] PROGMEM = "LODE RUNNER";
+const char donkeyKongGame[] PROGMEM = "DONKEY KONG";
 const char unkownGame[] PROGMEM = "???";
 const char spaceInvadersGame[] PROGMEM = "SPACE INVADERS";
 const char pacmanGame[] PROGMEM = "PAC-MAN";
@@ -262,12 +280,12 @@ u16 frameDurations[] PROGMEM = {
 	5, 5,				// (15) Zombienator
 	3, 3, 3, 3,			// (17) B.C. Dash
 	20, 20, 20,			// (21) Dr Mario
-	7, 7				// (24) Sokoban World
+	7, 7				// (24) Sokoban World, Donkey Kong
 };
 
 u8 frameSequences[] PROGMEM = {
 	0,					// (0) All single-frame animations.
-	0,1,				// (1) Lolo, Zombienator, Sokoban World
+	0,1,				// (1) Lolo, Zombienator, Sokoban World, Donkey Kong
 	0,1,2,				// (3) Megatris, Whack-A-Mole, Arkanoid, Dr Mario, Space Invaders
 	0,1,2,3,			// (6)
 	0,1,2,3,4,			// (10) Pong
@@ -294,7 +312,8 @@ const animation animations[] PROGMEM = {
 
 	{ 3, 3, 21, mapDrMario0 },
 	{ 2, 1, 24, sokobanWorld0 },
-	{ 4, 25, 12, mapKernel0 }
+	{ 4, 25, 12, mapKernel0 },
+	{ 2, 1, 24, mapDonkeyKong0 }
 };
 
 // findGameIndex() expects these to be sorted by id if in binary search mode.
@@ -307,18 +326,19 @@ gameDetails games[] PROGMEM = {
 	{ 6, arkanoidGame, 5 },
 	{ 7, drMarioGame, 12 },
 	{ 8, lodeRunnerGame, 11 },
-	{ 12, spaceInvadersGame, 6 },
+	{ 11, donkeyKongGame, 15 },
 
+	{ 12, spaceInvadersGame, 6 },
 	{ 13, pacmanGame, 7 },
 	{ 14, bcdashGame, 8 },
 	{ 15, bcdashGame, 8 },
-	{ 61, sokobanWorldGame, 13 },
 
+	{ 61, sokobanWorldGame, 13 },
 	{ 62, sokobanWorldGame, 13 },
 	{ 63, advOfLoloGame, 9 },
 	{ 89, zombienatorGame, 10 },
-	{ 569, corridaNebososaGame, 0 },
 
+	{ 569, corridaNebososaGame, 0 },
 	{ 666, castlevaniaGame, 0 },
 	{ EEPROM_SIGNATURE, kernelGame, 14 } // 0x555A
 };
@@ -340,7 +360,6 @@ void activateItem(int index);
 void initMenus(void);
 void readBlock(struct EepromBlockStruct *block, int index);
 void writeBlock(struct EepromBlockStruct *block, int index);
-void formatBlock(int index);
 void flipPage(char dir);
 void dumpHex(struct EepromBlockStruct *ebs);
 void loadGameIds(void);
@@ -355,6 +374,9 @@ void hideKernelBlock(void);
 void cycleHexCell(u16 btnPressed, u16 btnHeld);
 u8 autoScrollMenuH(u16 btnPressed, u16 btnHeld, u8 inertia, u8 interval);
 u8 autoScrollMenuV(u16 btnPressed, u16 btnHeld, u8 inertia, u8 interval);
+void addUndo(int index);
+struct EepromBlockStruct* getUndo(int index);
+void refreshCommittedBlock(void);
 
 /****************************************
  *			Function definitions		*
@@ -603,7 +625,6 @@ void drawMenu(tileMenu *m) {
 		fillRegion(x+1, y, w-2, 1, MENU_HORIZ_BTM);
 		SetTile(x+w-1, y, MENU_BTM_RIGHT);
 	} else if (m == &hexMenu) {
-		readBlock(&ebs, state.indexes[navBlock]);
 		dumpHex(&ebs);
 	}
 }
@@ -709,6 +730,39 @@ void hidePageNumber(void) {
 	fillRegion(PAGE_NO_LOC_X, PAGE_NO_LOC_Y, PAGE_NO_WID, PAGE_NO_HGT, CLEAR_TILE);
 }
 
+
+void addUndo(int index) {
+	ebsDict *swap;
+
+	for (u8 i = 0; i < UNDO_COUNT; ++i) {
+		if (undoBuf[i].index == index && undoNext[i]->index != index) {
+			// Bubble existing undo slot to top of queue
+			for (; i > 0; --i) {
+				swap = undoNext[i-1];
+				undoNext[i-1] = undoNext[i];
+				undoNext[i] = swap;
+			}
+			break;
+		}
+	}
+	memcpy(&undoNext[0]->ebs,&ebsBackup,sizeof(ebsBackup));
+	undoNext[0]->index = index;
+	swap = undoNext[0];
+
+	// Move newly added undo to back of queue
+	for (u8 i = 0; i < UNDO_COUNT; ++i)
+		undoNext[i] = (i < (UNDO_COUNT-1))?undoNext[i+1]:swap;
+}
+
+
+struct EepromBlockStruct* getUndo(int index) {
+	for (u8 i = 0; i < UNDO_COUNT; ++i) {
+		if (undoBuf[i].index == index)
+			return &undoBuf[i].ebs;
+	}
+	return 0;
+}
+
 void setState(int newState) {
 	int oldState = state.curr;
 
@@ -739,9 +793,17 @@ void setState(int newState) {
 		case navMenu:
 			hidePageNumber();
 
-			if (oldState == navBlock) {
+			if (oldState == navBlock || oldState == navKernel) {
 				drawMenu(&menu);
-				printPgmStrings(17, 9, MENU_OPTIONS_COUNT, menuStrings);
+
+				if (page == 0 && state.indexes[navBlock] == 0)
+					printPgmStrings(17, 9, MENU_OPTIONS_COUNT, menuStrings+6);
+				else
+					printPgmStrings(17, 9, MENU_OPTIONS_COUNT, menuStrings);
+				if (oldState == navBlock) {
+					readBlock(&ebs,state.indexes[navBlock]);
+					memcpy(&ebsBackup,&ebs,sizeof(ebsBackup));
+				}
 				drawMenu(&hexMenu);
 			} else if (oldState == navHexDump) {
 				hideCursor(&hexMenu.cursor);
@@ -756,6 +818,9 @@ void setState(int newState) {
 		case navHexCell:
 			break;
 		case navKernel:
+			closeMenu(&hexMenu);
+			closeMenu(&menu);
+			closeMenu(&blockMenu);
 			hidePageNumber();
 			printKernelBlock();
 			break;
@@ -777,17 +842,22 @@ void dumpHex(struct EepromBlockStruct *ebs) {
 }
 
 
+void refreshCommittedBlock(void) {
+	setState(navBlock);
+	flipPage(0);
+	closeMenu(&blockMenu);
+	drawMenu(&blockMenu);
+	loadMenuAnimation(state.indexes[state.curr]);
+	activateItem(state.indexes[state.curr]);
+}
+
+
 void activateItem(int index) {
 	switch (state.curr) {
 		case navBlock:
-			if (pageIds[state.indexes[state.curr] % GAMES_PER_PAGE] == EEPROM_SIGNATURE) {
-				closeMenu(&blockMenu);
-				setState(navKernel);
-			} else {
-				blockMenu.cursor.tile = CURSOR_VRED;
-				drawCursor(&blockMenu.cursor);
-				setState(navMenu);
-			}
+			blockMenu.cursor.tile = CURSOR_VRED;
+			drawCursor(&blockMenu.cursor);
+			setState(navMenu);
 			break;
 		case navMenu:
 			switch (index) {
@@ -799,32 +869,37 @@ void activateItem(int index) {
 				case OPTION_COPY:
 					memcpy(&clipboard, &ebs, sizeof(clipboard));
 					break;
-				case OPTION_RELOAD:
-					closeMenu(&hexMenu);
-					drawMenu(&hexMenu);
+				case OPTION_UNDO:
+				{
+					struct EepromBlockStruct* pebs = getUndo(page*GAMES_PER_PAGE+state.indexes[navBlock]);
+
+					if (pebs) {
+						memcpy(&ebs, pebs, sizeof(ebs));
+						writeBlock(&ebs, state.indexes[navBlock]);
+						refreshCommittedBlock();
+					}
 					break;
+				}
 				case OPTION_PASTE:
 					if (clipboard.id == EEPROM_FREE_BLOCK)
 						break;
 					memcpy(&ebs, &clipboard, sizeof(ebs));
-					// Allow fall through
+					closeMenu(&hexMenu);
+					drawMenu(&hexMenu);
+					break;
 				case OPTION_SAVE:
+					addUndo(page*GAMES_PER_PAGE+state.indexes[navBlock]);
 					writeBlock(&ebs, state.indexes[navBlock]);
-					setState(navBlock);
-					flipPage(0);
-					closeMenu(&blockMenu);
-					drawMenu(&blockMenu);
-					loadMenuAnimation(state.indexes[state.curr]);
-					activateItem(state.indexes[state.curr]);
+					refreshCommittedBlock();
 					break;
 				case OPTION_FORMAT:
-					formatBlock(state.indexes[navBlock]);
-					setState(navBlock);
-					flipPage(0);
-					closeMenu(&blockMenu);
-					drawMenu(&blockMenu);
-					loadMenuAnimation(state.indexes[state.curr]);
-					activateItem(state.indexes[state.curr]);
+					if (page == 0 && state.indexes[navBlock] == 0) {
+						setState(navKernel);
+					} else {
+						memset(&ebs,0xff,2);
+						closeMenu(&hexMenu);
+						drawMenu(&hexMenu);
+					}
 					break;
 			}
 			break;
@@ -839,6 +914,8 @@ void activateItem(int index) {
 			hideKernelBlock();
 			setState(navBlock);
 			drawMenu(&blockMenu);
+			loadMenuAnimation(state.indexes[state.curr]);
+			activateItem(state.indexes[state.curr]);
 			break;
 	}
 }
@@ -861,12 +938,6 @@ void writeBlock(struct EepromBlockStruct *block, int index) {
 
 	for (u8 i = 0; i < EEPROM_BLOCK_SIZE; i++)
 		WriteEeprom(index*EEPROM_BLOCK_SIZE+i, *dptr++);
-}
-
-
-void formatBlock(int index) {
-	for (u8 i = 0; i < sizeof(ebs.id); i++)
-		WriteEeprom(index*EEPROM_BLOCK_SIZE+i,(u8)EEPROM_FREE_BLOCK);
 }
 
 
@@ -989,6 +1060,9 @@ int main(void) {
 	state.indexes[navBlock] = 0;
 	loadMenuAnimation(state.indexes[state.curr]);
 	drawMenu(&blockMenu);
+
+	for (u8 i = 0; i < UNDO_COUNT; ++i)
+		undoNext[i] = &undoBuf[i];
 	
 	while(1) {
 		if (GetVsyncFlag()) {
