@@ -101,8 +101,8 @@
 		for(unsigned char dy=0;dy<height;dy++){
 			for(unsigned char dx=0;dx<width;dx++){
 				
-				sprites[startSprite].x=x+(8*dx);
-				sprites[startSprite].y=y+(8*dy);
+				sprites[startSprite].x=x+(TILE_WIDTH*dx);
+				sprites[startSprite].y=y+(TILE_HEIGHT*dy);
 				startSprite++;
 			}
 		}	
