@@ -1580,8 +1580,10 @@ void avr8::handle_key_down(SDL_Event &ev)
 				printf("new mouse sensitivity is %d\n",mouse_scale);
 				break;
 			case SDLK_7:
-				joyMapping = true;
-				printf("Press START on the joystick you wish to re-map...");
+				if (!joyMapping) {
+					joyMapping = true;
+					printf("Press START on the joystick you wish to re-map...");
+				}
 				break;
 			case SDLK_ESCAPE:
 				printf("user abort (pressed ESC).\n");
