@@ -114,10 +114,11 @@ endif
 ifeq ($(SDL_FLAGS),)
 # Then check in C:\MinGW
 ifneq ($(SDL_DIR_ENTRIES)),)
-    ifneq ($(wildcard C:/MinGW/includes/SDL/*)),)
+    ifneq ($(wildcard C:/MinGW/include/SDL/*)),)
         ifeq ($(findstring SDL.dll,$(wildcard C:/MinGW/lib/*)),SDL.dll)
-            SDL_FLAGS = -IC:\MinGW\include\SDL -LC:\MinGW\lib
-            SDL_DLL_FROM = C:\MinGW\lib\SDL.dll
+            ## SDL_FLAGS = -IC:\MinGW\includes\SDL -LC:\MinGW\lib
+			SDL_FLAGS = -IC:\MinGW\include\SDL
+            SDL_DLL_FROM = C:\MinGW\bin\SDL.dll
         endif
     endif
 endif

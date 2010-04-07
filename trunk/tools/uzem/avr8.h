@@ -58,6 +58,11 @@ THE SOFTWARE.
 #pragma comment(lib, "SDL.lib")
 #pragma comment(lib, "SDLmain.lib")
 #endif
+
+#define MAX_JOYSTICKS 2
+#define NUM_JOYSTICK_BUTTONS 8
+#define NUM_JOYSTICK_AXES 4
+
 #endif
 
 #if defined (_MSC_VER) && _MSC_VER >= 1400
@@ -163,7 +168,6 @@ struct SDPartitionEntry{
     u32 sectorCount;
 };
 
-
 class ringBuffer
 {
 public:
@@ -219,8 +223,8 @@ struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0), new_input_mode(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
-        spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),
+		prevWDR(0), frameCounter(0), new_input_mode(false),joyMapping(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
+        spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),joystickFile(0),
 
 
     #if defined(__WIN32__)
@@ -257,12 +261,14 @@ struct avr8
 	u8 TEMP;				// for 16-bit timers
 	u32 cycleCounter, prevPortB, prevWDR;
 	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
-		new_input_mode;
+		new_input_mode, joyMapping;
 	int interruptLevel;
 	u32 lastFlip;
 	u32 inset;
 #if GUI
 	SDL_Surface *screen;
+	SDL_Joystick *joysticks[MAX_JOYSTICKS];
+	int joyMapIters[MAX_JOYSTICKS];
 	int sdl_flags;
 	int frameCounter;
 	int scanline_count;
@@ -327,6 +333,7 @@ struct avr8
     size_t emulatedMBRLength;
     u32 sectorSize;
     char* eepromFile;
+	char* joystickFile;
     u8 eeprom[eepromSize];
     u8 eeClock;
 
@@ -433,6 +440,9 @@ struct avr8
 	void handle_key_down(SDL_Event &ev);
 	void handle_key_up(SDL_Event &ev);
 	void update_buttons(int key,bool down);
+	void update_joysticks(SDL_Event &ev);
+	void map_joysticks(SDL_Event &ev);
+	void load_joystick_file(char* filename);
 #endif
 	void trigger_interrupt(int location);
 	u8 exec(bool disasmOnly,bool verbose);
@@ -448,7 +458,7 @@ struct avr8
     u8 SDReadByte();    
     void SDWriteByte(u8 value);    
     void SDCommit();
-    void LoadEEPROMFile(char* filename);    
+    void LoadEEPROMFile(char* filename);
     void shutdown(int errcode);
     void idle(void);
 };
