@@ -74,6 +74,10 @@ THE SOFTWARE.
 
 static const char *port_name(int);
 
+#if GUI
+static char* joySettingsFilename = "joystick-settings";
+#endif
+
 #if defined(__WIN32__)
     #define SD_ENABLED() (hDisk || sdImage)
 #else
@@ -306,6 +310,13 @@ void avr8::write_io(u8 addr,u8 value)
                         handle_key_down(event);
                     else if (event.type == SDL_KEYUP)
                         handle_key_up(event);
+					else if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP || event.type == SDL_JOYAXISMOTION)
+					{
+						if (joyMapping)
+							map_joysticks(event);
+						else
+							update_joysticks(event);
+					}
                     else if (event.type == SDL_QUIT)
                     {
                         printf("User abort (closed window).\n");
@@ -1448,12 +1459,29 @@ void avr8::trigger_interrupt(int location)
 #if GUI
 bool avr8::init_gui()
 {
-	if ( SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) < 0 )
+	if ( SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0 )
 	{
 		fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
 		return false;
 	}
 	atexit(SDL_Quit);
+	
+	if (SDL_JoystickEventState(SDL_QUERY) != SDL_ENABLE && SDL_JoystickEventState(SDL_ENABLE) != SDL_ENABLE)
+	{
+		printf("No supported joysticks found.\n");
+	}
+	else
+	{
+		memset(joyMapIters, 0, MAX_JOYSTICKS*sizeof(joyMapIters[0]));
+		load_joystick_file(joySettingsFilename);
+		
+		for (int i = 0; i < MAX_JOYSTICKS; ++i) {
+			if ((joysticks[i] = SDL_JoystickOpen(i)) == NULL)
+				printf("P%i joystick not found.\n", i+1);
+			else
+				printf("P%i joystick: %s.\n", i+1,SDL_JoystickName(i));
+		}
+	}
 
 	if (fullscreen)
 		screen = SDL_SetVideoMode(800,600,32,sdl_flags | SDL_FULLSCREEN);
@@ -1551,6 +1579,10 @@ void avr8::handle_key_down(SDL_Event &ev)
 					mouse_scale = 0;
 				printf("new mouse sensitivity is %d\n",mouse_scale);
 				break;
+			case SDLK_7:
+				joyMapping = true;
+				printf("Press START on the joystick you wish to re-map...");
+				break;
 			case SDLK_ESCAPE:
 				printf("user abort (pressed ESC).\n");
                 shutdown(0);
@@ -1567,6 +1599,7 @@ void avr8::handle_key_down(SDL_Event &ev)
 				puts("3/4 - Adjust top edge lock");
 				puts(" 5  - Toggle NES/SNES 1p/SNES 2p/SNES mouse mode (default is SNES pad)");
 				puts(" 6  - Mouse sensitivity scale factor");
+				puts(" 7  - Re-map joystick");
 				puts(" F1 - This help text");
 #if DISASM
 				puts(" F5 - Debugger resume execution");
@@ -1666,6 +1699,187 @@ void avr8::update_buttons(int key,bool down)
 		++k;
 	}
 	// printf("buttons = %x\n",buttons);
+}
+
+// Default joystick settings
+#define JOY_SNES_X 0
+#define JOY_SNES_A 1
+#define JOY_SNES_B 2
+#define JOY_SNES_Y 3
+#define JOY_SNES_LSH 6
+#define JOY_SNES_RSH 7
+#define JOY_SNES_SELECT 8
+#define JOY_SNES_START 9
+
+struct joyButton { u8 button; u8 bit; };
+struct joyAxis { u8 axis; s16 value; u8 bit; };
+
+joyButton joy_btns_p1[] =
+{
+	{ JOY_SNES_START, PAD_START }, { JOY_SNES_SELECT, PAD_SELECT },
+	{ JOY_SNES_A, SNES_A }, { JOY_SNES_B, SNES_B },
+	{ JOY_SNES_X, SNES_X }, { JOY_SNES_Y, SNES_Y },
+	{ JOY_SNES_LSH, SNES_LSH }, { JOY_SNES_RSH, SNES_RSH }
+};
+
+joyButton joy_btns_p2[] =
+{
+	{ JOY_SNES_START, PAD_START }, { JOY_SNES_SELECT, PAD_SELECT },
+	{ JOY_SNES_A, SNES_A }, { JOY_SNES_B, SNES_B },
+	{ JOY_SNES_X, SNES_X }, { JOY_SNES_Y, SNES_Y },
+	{ JOY_SNES_LSH, SNES_LSH }, { JOY_SNES_RSH, SNES_RSH }
+};
+
+joyAxis joy_axes_p1[] =
+{
+	{ 0, -32768, PAD_LEFT }, { 0, -1, PAD_LEFT },
+	{ 0, 32767, PAD_RIGHT }, { 0, -1, PAD_RIGHT },
+	{ 1, -32768, PAD_UP }, { 1, -1, PAD_UP },
+	{ 1, 32767, PAD_DOWN }, { 1, -1, PAD_DOWN }
+};
+
+joyAxis joy_axes_p2[] =
+{
+	{ 0, -32768, PAD_LEFT }, { 0, -1, PAD_LEFT },
+	{ 0, 32767, PAD_RIGHT }, { 0, -1, PAD_RIGHT },
+	{ 1, -32768, PAD_UP }, { 1, -1, PAD_UP },
+	{ 1, 32767, PAD_DOWN }, { 1, -1, PAD_DOWN }
+};
+
+joyButton *joyButtons[] = { joy_btns_p1, joy_btns_p2 };
+joyAxis *joyAxes[] = { joy_axes_p1, joy_axes_p2 };
+
+void avr8::map_joysticks(SDL_Event &ev)
+{
+	int *jiter = 0;
+	
+	for (int i = 0, j = 0; i < MAX_JOYSTICKS; ++i) {
+		if (joyMapIters[i]) {
+			// Ignore input from all joysticks but the one being mapped
+			if (ev.jbutton.which == i)
+				jiter = joyMapIters+i;
+			else
+				return;
+		}
+	}
+	
+	if (!jiter)
+		jiter = joyMapIters+ev.jbutton.which;
+	if (*jiter < NUM_JOYSTICK_BUTTONS) {
+		if (ev.jbutton.type == SDL_JOYBUTTONDOWN)
+			joyButtons[ev.jbutton.which][*jiter].button = ev.jbutton.button;
+		else
+			return;
+	} else if (*jiter == NUM_JOYSTICK_BUTTONS && ev.jbutton.type == SDL_JOYBUTTONUP) {
+		return;
+	} else {
+		// Only process initial press. Ignore holds.
+		if (*jiter == NUM_JOYSTICK_BUTTONS || joyAxes[ev.jaxis.which][*jiter-(NUM_JOYSTICK_BUTTONS+1)].value != ev.jaxis.value) {
+			joyAxes[ev.jaxis.which][*jiter-NUM_JOYSTICK_BUTTONS].axis = ev.jaxis.axis;
+			joyAxes[ev.jaxis.which][*jiter-NUM_JOYSTICK_BUTTONS].value = ev.jaxis.value;
+		} else
+			return;
+	}
+	
+	if (++*jiter == (NUM_JOYSTICK_BUTTONS+2*NUM_JOYSTICK_AXES)) {
+		*jiter = 0;
+		joyMapping = false;
+		joystickFile = joySettingsFilename;	// Save on exit
+		printf("\nJoystick mappings complete.\n");
+	} else {
+		switch (*jiter) {
+			case 1: printf("\nPress SELECT..."); break;
+			case 2: printf("\nPress A..."); break;
+			case 3: printf("\nPress B..."); break;
+			case 4: printf("\nPress X..."); break;
+			case 5: printf("\nPress Y..."); break;
+			case 6: printf("\nPress LShldr..."); break;
+			case 7: printf("\nPress RShldr..."); break;
+			case 8: printf("\nPress DPAD Left..."); break;
+			case 9: printf("\nPress DPAD Right..."); break;
+			case 11: printf("\nPress DPAD Up..."); break;
+			case 13: printf("\nPress DPAD Down..."); break;
+			default: break;
+		}
+	}
+}
+
+void avr8::update_joysticks(SDL_Event &ev)
+{
+	if (ev.type == SDL_JOYAXISMOTION) {
+		joyAxis *j = joyAxes[ev.jaxis.which];
+		
+		for (int i = 0; i < 2*NUM_JOYSTICK_AXES; ++i, ++j) {
+			if (ev.jaxis.axis == j->axis && ev.jaxis.value == j->value) {
+				if (i&1) {	// Released
+					if (buttons[ev.jaxis.which]&(1<<j->bit))
+						continue;
+					buttons[ev.jaxis.which] |= (1<<j->bit);
+				} else {	// Pressed
+					buttons[ev.jaxis.which] &= ~(1<<j->bit);
+					
+					// In case release didn't register
+					if (j->bit == PAD_LEFT)
+						buttons[ev.jaxis.which] |= (1<<PAD_RIGHT);
+					else if (j->bit == PAD_RIGHT)
+						buttons[ev.jaxis.which] |= (1<<PAD_LEFT);
+					else if (j->bit == PAD_UP)
+						buttons[ev.jaxis.which] |= (1<<PAD_DOWN);
+					else if (j->bit == PAD_DOWN)
+						buttons[ev.jaxis.which] |= (1<<PAD_UP);
+				}
+				break;
+			}
+		}
+	} else {
+		joyButton *j = joyButtons[ev.jbutton.which];
+		
+		for (int i = 0; i < NUM_JOYSTICK_BUTTONS; ++i, ++j) {
+			if (ev.jbutton.button == j->button) {
+				if (ev.jbutton.type == SDL_JOYBUTTONUP)
+					buttons[ev.jaxis.which] |= (1<<j->bit);
+				else
+					buttons[ev.jaxis.which] &= ~(1<<j->bit);
+				break;
+			}
+		}
+	}
+	/*
+	if (ev.type == SDL_JOYAXISMOTION)
+		printf("Axis pressed: %i , Value: %i\n", ev.jaxis.axis, ev.jaxis.value);
+	else if (ev.type == SDL_JOYBUTTONDOWN)
+		printf("Button pressed: %i\n", ev.jbutton.button);
+	*/
+}
+
+void avr8::load_joystick_file(char* filename)
+{
+	bool validFile = true;
+	FILE* f = fopen(filename,"rb");
+	
+	if (f) {
+		int btnsSize = NUM_JOYSTICK_BUTTONS*sizeof(struct joyButton);
+		int axesSize = 2*NUM_JOYSTICK_AXES*sizeof(struct joyAxis);
+			
+		fseek(f,0,SEEK_END);
+		size_t size = ftell(f);
+		
+		if (size < (MAX_JOYSTICKS*(btnsSize+axesSize))) {
+			validFile = false;
+		} else {
+			fseek(f,0,SEEK_SET);
+			size_t result;
+			
+			for (int i = 0; i < MAX_JOYSTICKS; ++i) {
+				if (!(result = fread(joyButtons[i],btnsSize,1,f)) || !(result = fread(joyAxes[i],axesSize,1,f)))
+					validFile = false;
+			}
+		}
+		fclose(f);
+
+		if (!validFile)
+			printf("Warning: Invalid Joystick settings file.\n");
+	}
 }
 #endif
 
@@ -2287,6 +2501,24 @@ void avr8::shutdown(int errcode){
             fclose(f);
         }
     }
+#if GUI
+	if (joystickFile) {
+		FILE* f = fopen(joystickFile,"wb");
+
+        if(f) {
+			for (int i = 0; i < MAX_JOYSTICKS; ++i) {
+				fwrite(joyButtons[i],sizeof(struct joyButton),NUM_JOYSTICK_BUTTONS,f);
+				fwrite(joyAxes[i],sizeof(struct joyAxis),2*NUM_JOYSTICK_AXES,f);
+			}
+            fclose(f);
+        }
+	}
+	for (int i = 0; i < MAX_JOYSTICKS; ++i)
+	{
+		if (joysticks[i] && SDL_JoystickOpened(SDL_JoystickIndex(joysticks[i])))
+			SDL_JoystickClose(joysticks[i]);
+	}
+#endif
     exit(errcode);
 }
 
