@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" >
+
+  <xs:element name="gfx-xform">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="input" minOccurs="1" maxOccurs="1"/>
+        <xs:element ref="output" minOccurs="1" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="version" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="input">
+    <xs:complexType>
+      <xs:attribute name="file" use="required" type="xs:string"/>
+      <xs:attribute name="tile-height" use="required" type="xs:integer"/>
+      <xs:attribute name="tile-width" use="required" type="xs:integer"/>
+      <xs:attribute name="type" use="required" type="ImageType"/>
+      <xs:attribute name="width" use="optional" type="xs:integer"/>
+	  <xs:attribute name="height" use="optional" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="output">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tiles" minOccurs="1" maxOccurs="1"/>
+        <xs:element ref="maps" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="file" use="required" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="tiles">
+    <xs:complexType>
+      <xs:attribute name="var-name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="maps">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="1" maxOccurs="unbounded" ref="map"/>
+      </xs:sequence>
+      <xs:attribute name="pointers-size" use="required" type="PointerSizeType"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="map">
+    <xs:complexType>
+	  <xs:attribute name="width" use="required" type="xs:integer"/>
+      <xs:attribute name="height" use="required" type="xs:integer"/>
+      <xs:attribute name="left" use="required" type="xs:integer"/>
+      <xs:attribute name="top" use="required" type="xs:integer"/>
+      <xs:attribute name="var-name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+
+  	<xs:simpleType name="ImageType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="raw"/>
+			<xs:enumeration value="png"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+  	<xs:simpleType name="PointerSizeType">
+		<xs:restriction base="xs:int">
+			<xs:enumeration value="8"/>
+			<xs:enumeration value="16"/>
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>
