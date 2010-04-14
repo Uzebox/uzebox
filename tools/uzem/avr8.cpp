@@ -306,22 +306,28 @@ void avr8::write_io(u8 addr,u8 value)
                 SDL_Event event;
                 while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
                 {
-                    if (event.type == SDL_KEYDOWN)
-                        handle_key_down(event);
-                    else if (event.type == SDL_KEYUP)
-                        handle_key_up(event);
-					else if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP || event.type == SDL_JOYAXISMOTION)
-					{
-						if (joyMapping)
-							map_joysticks(event);
-						else
-							update_joysticks(event);
+					switch (event.type) {
+						case SDL_KEYDOWN:
+							handle_key_down(event);
+							break;
+						case SDL_KEYUP:
+							handle_key_up(event);
+							break;
+						case SDL_JOYBUTTONDOWN:
+						case SDL_JOYBUTTONUP:
+						case SDL_JOYAXISMOTION:
+						case SDL_JOYHATMOTION:
+						case SDL_JOYBALLMOTION:
+							if (jmap.jstate != JMAP_IDLE)
+								map_joysticks(event);
+							else
+								update_joysticks(event);
+							break;
+						case SDL_QUIT:
+							printf("User abort (closed window).\n");
+							shutdown(0);
+							break;
 					}
-                    else if (event.type == SDL_QUIT)
-                    {
-                        printf("User abort (closed window).\n");
-                        shutdown(0);
-                    }
                 }
 
                 if (pad_mode == SNES_MOUSE) 
@@ -1465,23 +1471,7 @@ bool avr8::init_gui()
 		return false;
 	}
 	atexit(SDL_Quit);
-	
-	if (SDL_JoystickEventState(SDL_QUERY) != SDL_ENABLE && SDL_JoystickEventState(SDL_ENABLE) != SDL_ENABLE)
-	{
-		printf("No supported joysticks found.\n");
-	}
-	else
-	{
-		memset(joyMapIters, 0, MAX_JOYSTICKS*sizeof(joyMapIters[0]));
-		load_joystick_file(joySettingsFilename);
-		
-		for (int i = 0; i < MAX_JOYSTICKS; ++i) {
-			if ((joysticks[i] = SDL_JoystickOpen(i)) == NULL)
-				printf("P%i joystick not found.\n", i+1);
-			else
-				printf("P%i joystick: %s.\n", i+1,SDL_JoystickName(i));
-		}
-	}
+	init_joysticks();
 
 	if (fullscreen)
 		screen = SDL_SetVideoMode(800,600,32,sdl_flags | SDL_FULLSCREEN);
@@ -1549,7 +1539,8 @@ bool avr8::init_gui()
 
 void avr8::handle_key_down(SDL_Event &ev)
 {
-	update_buttons(ev.key.keysym.sym,true);
+	if (jmap.jstate == JMAP_IDLE)
+		update_buttons(ev.key.keysym.sym,true);
 	static int ssnum = 0;
 	char ssbuf[32];
 	static const char *pad_mode_strings[4] = {"NES pad.","SNES pad.","SNES 2p pad.","SNES mouse."};
@@ -1580,10 +1571,16 @@ void avr8::handle_key_down(SDL_Event &ev)
 				printf("new mouse sensitivity is %d\n",mouse_scale);
 				break;
 			case SDLK_7:
-				if (!joyMapping) {
-					joyMapping = true;
-					printf("Press START on the joystick you wish to re-map...");
-				}
+				if (jmap.jstate == JMAP_IDLE)
+					set_jmap_state(JMAP_INIT);
+				break;
+			case SDLK_n:
+				if (jmap.jstate == JMAP_MORE_AXES)
+					set_jmap_state(JMAP_DONE);
+				break;
+			case SDLK_y:
+				if (jmap.jstate == JMAP_MORE_AXES)
+					set_jmap_state(JMAP_AXES);
 				break;
 			case SDLK_ESCAPE:
 				printf("user abort (pressed ESC).\n");
@@ -1703,20 +1700,8 @@ void avr8::update_buttons(int key,bool down)
 	// printf("buttons = %x\n",buttons);
 }
 
-// Default joystick settings
-#define JOY_SNES_X 0
-#define JOY_SNES_A 1
-#define JOY_SNES_B 2
-#define JOY_SNES_Y 3
-#define JOY_SNES_LSH 6
-#define JOY_SNES_RSH 7
-#define JOY_SNES_SELECT 8
-#define JOY_SNES_START 9
-
-struct joyButton { u8 button; u8 bit; };
-struct joyAxis { u8 axis; s16 value; u8 bit; };
-
-joyButton joy_btns_p1[] =
+// Joysticks
+struct joyButton joy_btns_p1[] =
 {
 	{ JOY_SNES_START, PAD_START }, { JOY_SNES_SELECT, PAD_SELECT },
 	{ JOY_SNES_A, SNES_A }, { JOY_SNES_B, SNES_B },
@@ -1724,7 +1709,7 @@ joyButton joy_btns_p1[] =
 	{ JOY_SNES_LSH, SNES_LSH }, { JOY_SNES_RSH, SNES_RSH }
 };
 
-joyButton joy_btns_p2[] =
+struct joyButton joy_btns_p2[] =
 {
 	{ JOY_SNES_START, PAD_START }, { JOY_SNES_SELECT, PAD_SELECT },
 	{ JOY_SNES_A, SNES_A }, { JOY_SNES_B, SNES_B },
@@ -1732,110 +1717,187 @@ joyButton joy_btns_p2[] =
 	{ JOY_SNES_LSH, SNES_LSH }, { JOY_SNES_RSH, SNES_RSH }
 };
 
-joyAxis joy_axes_p1[] =
-{
-	{ 0, -32768, PAD_LEFT }, { 0, -1, PAD_LEFT },
-	{ 0, 32767, PAD_RIGHT }, { 0, -1, PAD_RIGHT },
-	{ 1, -32768, PAD_UP }, { 1, -1, PAD_UP },
-	{ 1, 32767, PAD_DOWN }, { 1, -1, PAD_DOWN }
-};
+struct joyButton *joyButtons[] =  { joy_btns_p1, joy_btns_p2 };
 
-joyAxis joy_axes_p2[] =
-{
-	{ 0, -32768, PAD_LEFT }, { 0, -1, PAD_LEFT },
-	{ 0, 32767, PAD_RIGHT }, { 0, -1, PAD_RIGHT },
-	{ 1, -32768, PAD_UP }, { 1, -1, PAD_UP },
-	{ 1, 32767, PAD_DOWN }, { 1, -1, PAD_DOWN }
-};
+void avr8::init_joysticks() {
+	if (SDL_JoystickEventState(SDL_QUERY) != SDL_ENABLE && SDL_JoystickEventState(SDL_ENABLE) != SDL_ENABLE)
+	{
+		printf("No supported joysticks found.\n");
+	}
+	else
+	{
+		jmap.jstate = JMAP_IDLE;
 
-joyButton *joyButtons[] = { joy_btns_p1, joy_btns_p2 };
-joyAxis *joyAxes[] = { joy_axes_p1, joy_axes_p2 };
-
-void avr8::map_joysticks(SDL_Event &ev)
-{
-	int *jiter = 0;
-	
-	for (int i = 0, j = 0; i < MAX_JOYSTICKS; ++i) {
-		if (joyMapIters[i]) {
-			// Ignore input from all joysticks but the one being mapped
-			if (ev.jbutton.which == i)
-				jiter = joyMapIters+i;
-			else
-				return;
+		for (int i = 0; i < MAX_JOYSTICKS; ++i) {
+			for (int j= 0; j < MAX_JOYSTICK_AXES; ++j)
+				joysticks[i].axes[j].axis = JOY_AXIS_UNUSED;
 		}
-	}
-	
-	if (!jiter)
-		jiter = joyMapIters+ev.jbutton.which;
-	if (*jiter < NUM_JOYSTICK_BUTTONS) {
-		if (ev.jbutton.type == SDL_JOYBUTTONDOWN)
-			joyButtons[ev.jbutton.which][*jiter].button = ev.jbutton.button;
-		else
-			return;
-	} else if (*jiter == NUM_JOYSTICK_BUTTONS && ev.jbutton.type == SDL_JOYBUTTONUP) {
-		return;
-	} else {
-		// Only process initial press. Ignore holds.
-		if (*jiter == NUM_JOYSTICK_BUTTONS || joyAxes[ev.jaxis.which][*jiter-(NUM_JOYSTICK_BUTTONS+1)].value != ev.jaxis.value) {
-			joyAxes[ev.jaxis.which][*jiter-NUM_JOYSTICK_BUTTONS].axis = ev.jaxis.axis;
-			joyAxes[ev.jaxis.which][*jiter-NUM_JOYSTICK_BUTTONS].value = ev.jaxis.value;
-		} else
-			return;
-	}
-	
-	if (++*jiter == (NUM_JOYSTICK_BUTTONS+2*NUM_JOYSTICK_AXES)) {
-		*jiter = 0;
-		joyMapping = false;
-		joystickFile = joySettingsFilename;	// Save on exit
-		printf("\nJoystick mappings complete.\n");
-	} else {
-		switch (*jiter) {
-			case 1: printf("\nPress SELECT..."); break;
-			case 2: printf("\nPress A..."); break;
-			case 3: printf("\nPress B..."); break;
-			case 4: printf("\nPress X..."); break;
-			case 5: printf("\nPress Y..."); break;
-			case 6: printf("\nPress LShldr..."); break;
-			case 7: printf("\nPress RShldr..."); break;
-			case 8: printf("\nPress DPAD Left..."); break;
-			case 9: printf("\nPress DPAD Right..."); break;
-			case 11: printf("\nPress DPAD Up..."); break;
-			case 13: printf("\nPress DPAD Down..."); break;
-			default: break;
+			
+		load_joystick_file(joySettingsFilename);
+		
+		for (int i = 0; i < MAX_JOYSTICKS; ++i) {
+			if ((joysticks[i].device = SDL_JoystickOpen(i)) == NULL)
+				printf("P%i joystick not found.\n", i+1);
+			else {
+				joysticks[i].buttons = joyButtons[i];
+				joysticks[i].hats = 0;
+				printf("P%i joystick: %s.\n", i+1,SDL_JoystickName(i));
+			}
+			
+			for (int j= 0; j < MAX_JOYSTICK_AXES; ++j)
+				joysticks[i].axes[j].bits = 0;
 		}
 	}
 }
 
-void avr8::update_joysticks(SDL_Event &ev)
+void avr8::set_jmap_state(int state)
 {
-	if (ev.type == SDL_JOYAXISMOTION) {
-		joyAxis *j = joyAxes[ev.jaxis.which];
-		
-		for (int i = 0; i < 2*NUM_JOYSTICK_AXES; ++i, ++j) {
-			if (ev.jaxis.axis == j->axis && ev.jaxis.value == j->value) {
-				if (i&1) {	// Released
-					if (buttons[ev.jaxis.which]&(1<<j->bit))
-						continue;
-					buttons[ev.jaxis.which] |= (1<<j->bit);
-				} else {	// Pressed
-					buttons[ev.jaxis.which] &= ~(1<<j->bit);
-					
-					// In case release didn't register
-					if (j->bit == PAD_LEFT)
-						buttons[ev.jaxis.which] |= (1<<PAD_RIGHT);
-					else if (j->bit == PAD_RIGHT)
-						buttons[ev.jaxis.which] |= (1<<PAD_LEFT);
-					else if (j->bit == PAD_UP)
-						buttons[ev.jaxis.which] |= (1<<PAD_DOWN);
-					else if (j->bit == PAD_DOWN)
-						buttons[ev.jaxis.which] |= (1<<PAD_UP);
+	switch (state) {
+		case JMAP_INIT:
+			printf("Press START on the joystick you wish to re-map...");
+			fflush(stdout);
+			break;
+		case JMAP_BUTTONS:
+			jmap.jiter = 0;
+			jmap.jaxis = JOY_AXIS_UNUSED;
+			
+			for (int i= 0; i < MAX_JOYSTICK_AXES; ++i)
+				joysticks[jmap.jindex].axes[i].axis = JOY_AXIS_UNUSED;
+			break;
+		case JMAP_AXES:
+			jmap.jiter = NUM_JOYSTICK_BUTTONS;
+			jmap.jaxis = JOY_AXIS_UNUSED;
+			printf("\nPress Left on axial input (hats are mapped automatically and won't register)...");
+			fflush(stdout);
+			break;
+		case JMAP_MORE_AXES:
+			jmap.jiter == NUM_JOYSTICK_BUTTONS+2;
+			printf("\nMap an axial input (y/n)? ");
+			fflush(stdout);
+			break;
+		case JMAP_DONE:
+			jmap.jstate = JMAP_IDLE;
+			joystickFile = joySettingsFilename;	// Save on exit
+			printf("\nJoystick mappings complete.\n");
+			fflush(stdout);
+			state = JMAP_IDLE;
+			break;
+		default:
+			break;
+	}
+	jmap.jstate = state;
+}
+
+void avr8::map_joysticks(SDL_Event &ev)
+{	
+	if (jmap.jstate == JMAP_MORE_AXES) {
+		return;
+	} else if (jmap.jstate == JMAP_INIT) { // Initialize mapping settings
+		jmap.jindex = ev.jbutton.which;
+		set_jmap_state(JMAP_BUTTONS);
+	} else if (ev.jbutton.which != jmap.jindex) {
+		return; // Ignore input from all joysticks but the one being mapped
+	}
+
+	if (jmap.jstate == JMAP_BUTTONS) {
+		if (ev.jbutton.type == SDL_JOYBUTTONDOWN)
+				joyButtons[ev.jbutton.which][jmap.jiter].button = ev.jbutton.button;
+		else
+			return;
+	} else if (jmap.jstate == JMAP_AXES && ev.type == SDL_JOYAXISMOTION) {
+		// Find index to place new axes
+		if (jmap.jaxis == JOY_AXIS_UNUSED) {
+			for (int i = 0, j = 0; i < MAX_JOYSTICK_AXES; i+=2) {
+				if (joysticks[jmap.jindex].axes[i].axis == JOY_AXIS_UNUSED || joysticks[jmap.jindex].axes[i].axis == ev.jaxis.axis) {
+					joysticks[jmap.jindex].axes[i].axis = JOY_AXIS_UNUSED;
+					joysticks[jmap.jindex].axes[i+1].axis = JOY_AXIS_UNUSED;
+					jmap.jaxis = i;
+					break;
 				}
-				break;
 			}
 		}
-	} else {
-		joyButton *j = joyButtons[ev.jbutton.which];
 		
+		if (joysticks[jmap.jindex].axes[jmap.jaxis].axis == JOY_AXIS_UNUSED) {
+			if (ev.jaxis.value < -(2*JOY_ANALOG_DEADZONE))
+				joysticks[jmap.jindex].axes[jmap.jaxis].axis = ev.jaxis.axis;
+			else
+				return;
+		} else if (joysticks[jmap.jindex].axes[jmap.jaxis].axis != ev.jaxis.axis && ev.jaxis.value < -(2*JOY_ANALOG_DEADZONE)) {
+			joysticks[jmap.jindex].axes[jmap.jaxis+1].axis = ev.jaxis.axis;
+		} else {
+			return;
+		}
+		//printf("Mapped to axis: %i\n",ev.jaxis.axis);
+	} else {
+		return;
+	}
+	
+	if (++jmap.jiter == NUM_JOYSTICK_BUTTONS) {
+		if (SDL_JoystickNumAxes(joysticks[jmap.jindex].device) == 0) {
+			set_jmap_state(JMAP_DONE);
+			return;
+		} else {
+			set_jmap_state(JMAP_MORE_AXES);
+		}
+	} else if (jmap.jiter == (NUM_JOYSTICK_BUTTONS+2)) {
+		set_jmap_state(JMAP_MORE_AXES);
+	}
+	
+	switch (jmap.jiter) {
+		case 1: printf("\nPress SELECT..."); break;
+		case 2: printf("\nPress A..."); break;
+		case 3: printf("\nPress B..."); break;
+		case 4: printf("\nPress X..."); break;
+		case 5: printf("\nPress Y..."); break;
+		case 6: printf("\nPress LShldr..."); break;
+		case 7: printf("\nPress RShldr..."); break;
+		case 9: printf("\nPress Up on axial input..."); break;
+		default: break;
+	}
+	fflush(stdout);
+}
+
+void avr8::update_joysticks(SDL_Event &ev)
+{
+	u8 axisBits = 0;
+	
+	if (ev.type == SDL_JOYAXISMOTION) {
+		for (int i = 0; i < MAX_JOYSTICK_AXES; ++i) {
+			if (joysticks[ev.jaxis.which].axes[i].axis == -1)
+				break;
+			if (joysticks[ev.jaxis.which].axes[i].axis != ev.jaxis.axis) {
+				axisBits |= joysticks[ev.jaxis.which].axes[i].bits;
+				continue;
+			}
+			if (i&1) {
+				if (ev.jaxis.value < -JOY_ANALOG_DEADZONE) { // UP
+					joysticks[ev.jaxis.which].axes[i].bits |= JOY_DIR_UP;
+					joysticks[ev.jaxis.which].axes[i].bits &= ~JOY_DIR_DOWN;
+				} else if (ev.jaxis.value > JOY_ANALOG_DEADZONE) { // DOWN
+					joysticks[ev.jaxis.which].axes[i].bits |= JOY_DIR_DOWN;
+					joysticks[ev.jaxis.which].axes[i].bits &= ~JOY_DIR_UP;
+				} else {
+					joysticks[ev.jaxis.which].axes[i].bits &= ~(JOY_DIR_UP|JOY_DIR_DOWN);
+				}
+			} else {
+				if (ev.jaxis.value < -JOY_ANALOG_DEADZONE) { // LEFT
+					joysticks[ev.jaxis.which].axes[i].bits |= JOY_DIR_LEFT;
+					joysticks[ev.jaxis.which].axes[i].bits &= ~JOY_DIR_RIGHT;
+				} else if (ev.jaxis.value > JOY_ANALOG_DEADZONE) { // RIGHT
+					joysticks[ev.jaxis.which].axes[i].bits |= JOY_DIR_RIGHT;
+					joysticks[ev.jaxis.which].axes[i].bits &= ~JOY_DIR_LEFT;
+				} else {
+					joysticks[ev.jaxis.which].axes[i].bits &= ~(JOY_DIR_LEFT|JOY_DIR_RIGHT);
+				}
+			}
+			axisBits |= joysticks[ev.jaxis.which].axes[i].bits;
+		}
+	} else if (ev.type == SDL_JOYHATMOTION) {
+		joysticks[ev.jhat.which].hats &= ~(0xf<<ev.jhat.hat);
+		joysticks[ev.jhat.which].hats |= (ev.jhat.value<<ev.jhat.hat);
+	} else if (ev.type == SDL_JOYBUTTONDOWN || ev.type == SDL_JOYBUTTONUP) {
+		struct joyButton *j = joysticks[ev.jbutton.which].buttons;
+	
 		for (int i = 0; i < NUM_JOYSTICK_BUTTONS; ++i, ++j) {
 			if (ev.jbutton.button == j->button) {
 				if (ev.jbutton.type == SDL_JOYBUTTONUP)
@@ -1846,11 +1908,44 @@ void avr8::update_joysticks(SDL_Event &ev)
 			}
 		}
 	}
+		
+	if (ev.type == SDL_JOYAXISMOTION || ev.type == SDL_JOYHATMOTION) {
+		for (u32 i = JOY_MASK_UP, bit = PAD_UP; bit; i<<=1) {
+			if ((axisBits&i) || (joysticks[ev.jaxis.which].hats&i))
+				buttons[ev.jaxis.which] &= ~(1<<bit);
+			else
+				buttons[ev.jaxis.which] |= (1<<bit);
+			if (bit == PAD_UP)
+				bit = PAD_RIGHT;
+			else if (bit == PAD_RIGHT)
+				bit = PAD_DOWN;
+			else if (bit == PAD_DOWN)
+				bit = PAD_LEFT;
+			else
+				bit = 0;
+		}
+	}
 	/*
-	if (ev.type == SDL_JOYAXISMOTION)
-		printf("Axis pressed: %i , Value: %i\n", ev.jaxis.axis, ev.jaxis.value);
-	else if (ev.type == SDL_JOYBUTTONDOWN)
-		printf("Button pressed: %i\n", ev.jbutton.button);
+	switch (ev.type) {
+		case SDL_JOYAXISMOTION:
+			printf("Axis motion on P%i. Axis: %i Value: %i\n", ev.jaxis.which+1, ev.jaxis.axis, ev.jaxis.value);
+			break;
+		case SDL_JOYBALLMOTION:
+			printf("Ball motion on P%i. Ball: %i Xrel: %i Yrel: %i\n", ev.jball.which+1, ev.jball.ball, ev.jball.xrel, ev.jball.yrel);
+			break;
+		case SDL_JOYHATMOTION:
+			printf("Hat motion on P%i. Hat: %i Value: %i\n", ev.jhat.which+1, ev.jhat.hat, ev.jhat.value);
+			break;
+		case SDL_JOYBUTTONDOWN:
+			printf("Button press on P%i. Button: %i\n", ev.jbutton.which+1, ev.jbutton.button);
+			break;
+		case SDL_JOYBUTTONUP:
+			printf("Button release on P%i. Button: %i\n", ev.jbutton.which+1, ev.jbutton.button);
+			break;
+		default:
+			printf("Unknown event. Type: %i\n", ev.user.type);
+			break;
+	}
 	*/
 }
 
@@ -1860,20 +1955,21 @@ void avr8::load_joystick_file(char* filename)
 	FILE* f = fopen(filename,"rb");
 	
 	if (f) {
-		int btnsSize = NUM_JOYSTICK_BUTTONS*sizeof(struct joyButton);
-		int axesSize = 2*NUM_JOYSTICK_AXES*sizeof(struct joyAxis);
-			
+		size_t btnsSize = MAX_JOYSTICKS*NUM_JOYSTICK_BUTTONS*sizeof(struct joyButton);
+		size_t axesSize = MAX_JOYSTICKS*MAX_JOYSTICK_AXES*sizeof(struct joyAxis);
 		fseek(f,0,SEEK_END);
+		
 		size_t size = ftell(f);
 		
-		if (size < (MAX_JOYSTICKS*(btnsSize+axesSize))) {
+		if (size < (btnsSize+axesSize)) {
 			validFile = false;
 		} else {
 			fseek(f,0,SEEK_SET);
 			size_t result;
 			
 			for (int i = 0; i < MAX_JOYSTICKS; ++i) {
-				if (!(result = fread(joyButtons[i],btnsSize,1,f)) || !(result = fread(joyAxes[i],axesSize,1,f)))
+				if (!(result = fread(joyButtons[i],NUM_JOYSTICK_BUTTONS*sizeof(struct joyButton),1,f)) || 
+						!(result = fread(joysticks[i].axes,MAX_JOYSTICK_AXES*sizeof(struct joyAxis),1,f)))
 					validFile = false;
 			}
 		}
@@ -2510,15 +2606,13 @@ void avr8::shutdown(int errcode){
         if(f) {
 			for (int i = 0; i < MAX_JOYSTICKS; ++i) {
 				fwrite(joyButtons[i],sizeof(struct joyButton),NUM_JOYSTICK_BUTTONS,f);
-				fwrite(joyAxes[i],sizeof(struct joyAxis),2*NUM_JOYSTICK_AXES,f);
+				fwrite(joysticks[i].axes,sizeof(struct joyAxis),MAX_JOYSTICK_AXES,f);
+				
+				if (joysticks[i].device && SDL_JoystickOpened(SDL_JoystickIndex(joysticks[i].device)))
+					SDL_JoystickClose(joysticks[i].device);
 			}
             fclose(f);
         }
-	}
-	for (int i = 0; i < MAX_JOYSTICKS; ++i)
-	{
-		if (joysticks[i] && SDL_JoystickOpened(SDL_JoystickIndex(joysticks[i])))
-			SDL_JoystickClose(joysticks[i]);
 	}
 #endif
     exit(errcode);
