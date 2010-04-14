@@ -59,9 +59,36 @@ THE SOFTWARE.
 #pragma comment(lib, "SDLmain.lib")
 #endif
 
+// Joysticks
 #define MAX_JOYSTICKS 2
 #define NUM_JOYSTICK_BUTTONS 8
-#define NUM_JOYSTICK_AXES 4
+#define MAX_JOYSTICK_AXES 8
+#define MAX_JOYSTICK_HATS 8
+
+#define JOY_SNES_X 0
+#define JOY_SNES_A 1
+#define JOY_SNES_B 2
+#define JOY_SNES_Y 3
+#define JOY_SNES_LSH 6
+#define JOY_SNES_RSH 7
+#define JOY_SNES_SELECT 8
+#define JOY_SNES_START 9
+
+#define JOY_DIR_UP 1
+#define JOY_DIR_RIGHT 2
+#define JOY_DIR_DOWN 4
+#define JOY_DIR_LEFT 8
+#define JOY_DIR_COUNT 4
+#define JOY_AXIS_UNUSED -1
+
+#define JOY_MASK_UP 0x11111111
+#define JOY_MASK_RIGHT 0x22222222
+#define JOY_MASK_DOWN 0x44444444
+#define JOY_MASK_LEFT 0x88888888
+
+#ifndef JOY_ANALOG_DEADZONE
+	#define JOY_ANALOG_DEADZONE 4096
+#endif
 
 #endif
 
@@ -132,6 +159,21 @@ typedef int16_t s16;
 typedef uint32_t u32;
 
 using namespace std;
+
+struct joyButton { u8 button; u8 bit; };
+struct joyAxis { int axis; u8 bits; };
+struct joystickState {
+	SDL_Joystick *device;
+	struct joyButton *buttons;
+	struct joyAxis axes[MAX_JOYSTICK_AXES];
+	u32 hats; // 4 bits per hat (1 for each direction)
+};
+
+enum { JMAP_IDLE, JMAP_INIT, JMAP_BUTTONS, JMAP_AXES, JMAP_MORE_AXES, JMAP_DONE };
+
+struct joyMapSettings {
+	int jstate, jiter, jindex, jaxis;
+};
 
 enum cpu_state {
 	CPU_RUNNING,
@@ -223,7 +265,7 @@ struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0), new_input_mode(false),joyMapping(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
+		prevWDR(0), frameCounter(0), new_input_mode(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
         spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),joystickFile(0),
 
 
@@ -261,14 +303,14 @@ struct avr8
 	u8 TEMP;				// for 16-bit timers
 	u32 cycleCounter, prevPortB, prevWDR;
 	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
-		new_input_mode, joyMapping;
+		new_input_mode;
 	int interruptLevel;
 	u32 lastFlip;
 	u32 inset;
 #if GUI
 	SDL_Surface *screen;
-	SDL_Joystick *joysticks[MAX_JOYSTICKS];
-	int joyMapIters[MAX_JOYSTICKS];
+	joystickState joysticks[MAX_JOYSTICKS];
+	joyMapSettings jmap;
 	int sdl_flags;
 	int frameCounter;
 	int scanline_count;
@@ -437,10 +479,12 @@ struct avr8
 
 #if GUI
 	bool init_gui();
+	void init_joysticks();
 	void handle_key_down(SDL_Event &ev);
 	void handle_key_up(SDL_Event &ev);
 	void update_buttons(int key,bool down);
 	void update_joysticks(SDL_Event &ev);
+	void set_jmap_state(int state);
 	void map_joysticks(SDL_Event &ev);
 	void load_joystick_file(char* filename);
 #endif
