@@ -274,7 +274,15 @@
 		#define SCREEN_SECTIONS_COUNT 1
 	#endif
 
-
+	/*
+	 * Determines who reads the controllers (joypad and mouse)
+	 * 1 = The kernel reads the controllers during VSYNC (default)
+	 * 0= The user program will control when to read the controller by using ReadControllers();
+	 */
+	#ifndef CONTROLLERS_VSYNC_READ
+		#define CONTROLLERS_VSYNC_READ 1
+	#endif
+	
 	/*
 	 * Kernel Internal settings, do not modify
 	 */

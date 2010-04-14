@@ -54,6 +54,7 @@ extern unsigned char render_start;
 extern unsigned char playback_start;
 
 
+u8 joypadsConnectionStatus;
 bool snesMouseEnabled=false;
 
 u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
@@ -270,6 +271,15 @@ void ReadButtons(){
 
 void ReadControllers(){
 
+	//detect if joypads are connected
+	//when no connector are plugged, the internal AVR pullup will drive the line high
+	//otherwise the controller's shift register will drive the line low.
+	joypadsConnectionStatus=0;
+	if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) joypadsConnectionStatus|=1;
+	if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) joypadsConnectionStatus|=2;
+			
+	
+
 
 	//read the standard buttons
 	ReadButtons();
@@ -465,43 +475,77 @@ void ProcessMouseMovement(void){
 		#endif
 	}
 }
+#endif
 
+/* Detects what devices are connected to the game ports.
+ * Note: If a mouse is expected to be connected, 
+ * the first time this function is called, enough time must be given
+ * to the mouse to settle by calling WaitVsync(8) before
+ * invoking this function.
+ * 
+ * Returns: b1:b0 = 00 -> No controller connected in P1 port
+ *                  01 -> Gamepad connected in P1 port
+ *                  10 -> Mouse connected in P1 port
+ *                  11 -> Reserved
+ *
+ * 
+ *          b3:b2 = 00 -> No controller connected in P2 port
+ *                  01 -> Gamepad connected in P2 port
+ *                  10 -> Mouse connected in P2 port
+ *                  11 -> Reserved
 
-/*
- * Returns: 0=controller in P1
+ *          0=controller in P1
  *          1=mouse in P1
  */
 unsigned char DetectControllers(){
-	unsigned int joy;
+	//unsigned int joy;
 	unsigned char resp=0;
-	//wait a frame for mouse to settle
-	WaitVsync(8);
-	joy=ReadJoypad(0);
-	if((joy&0x8000)!=0){
-		//we have a mouse in player 1 port
-		playDevice=1;
-		playPort=0;
-		actionButton=BTN_MOUSE_LEFT;
-		resp=1;
-		return resp;
-	}else{
-		playDevice=0;
-		playPort=0;
-		actionButton=BTN_A;
+
+	//wait a couple frames for mouse to settle
+	//WaitVsync(8);
+	
+
+	if(joypadsConnectionStatus&1){
+
+		//joy=ReadJoypad(0);
+		if((joypad1_status_lo&0x8000)!=0){
+			//we have a mouse in P1 port
+			#if SNES_MOUSE == 1
+				playDevice=1;
+				playPort=0;
+				actionButton=BTN_MOUSE_LEFT;
+			#endif
+			resp|=2;
+		}else{
+			//we have a regular controller in P1 port
+			#if SNES_MOUSE == 1
+				playDevice=0;
+				playPort=0;
+				actionButton=BTN_A;
+			#endif
+			resp|=1;
+		}
 	}
 
-	joy=ReadJoypad(1);
-	if((joy&0x8000)!=0){
-		//we have a mouse in player 2 port
-		playDevice=1;
-		playPort=1;
-		actionButton=BTN_MOUSE_LEFT;
-		resp=1<<4;
+	if(joypadsConnectionStatus&2){
+		//joy=ReadJoypad(1);
+		if((joypad2_status_lo&0x8000)!=0){
+			//we have a mouse in player 2 port
+			#if SNES_MOUSE == 1
+				playDevice=1;
+				playPort=1;
+				actionButton=BTN_MOUSE_LEFT;
+			#endif
+			resp|=8;
+		}else{
+			//we have a regular controller in P2
+			resp|=4;
+		}
 	}
 
 	return resp;
 }
-#endif
+
 	
 // Format eeprom, wiping all data to zero
 void FormatEeprom(void) {

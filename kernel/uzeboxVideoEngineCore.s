@@ -201,7 +201,10 @@ do_hsync_delay:
 	call VideoModeVsync	
 
 	;refresh buttons states
-	call ReadControllers
+	#if CONTROLLERS_VSYNC_READ == 1
+		call ReadControllers
+	#endif 
+	
 	#if SNES_MOUSE == 1
 		call ProcessMouseMovement
 	#endif
