@@ -83,14 +83,14 @@
 
 	extern unsigned int ReadJoypad(unsigned char joypadNo);
 	extern unsigned int ReadJoypadExt(unsigned char joypadNo); //use with SNES mouse
-	char EnableSnesMouse(unsigned char spriteIndex,const char *spriteMap);
+	extern char EnableSnesMouse(unsigned char spriteIndex,const char *spriteMap);
 	extern bool SetMouseSensitivity(unsigned char value);
 	extern unsigned char GetMouseSensitivity();
-	unsigned char GetMouseX();	
-	unsigned char GetMouseY();
-	unsigned int GetActionButton();
-	unsigned char DetectControllers();
-
+	extern unsigned char GetMouseX();	
+	extern unsigned char GetMouseY();
+	extern unsigned int GetActionButton();
+	extern unsigned char DetectControllers();
+	void ReadControllers(); //use only if CONTROLLERS_READ_MASTER=1
 
 
 
