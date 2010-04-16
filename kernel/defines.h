@@ -432,6 +432,8 @@
 		#include "videoMode7/videoMode7.def.h"
 	#elif VIDEO_MODE == 8
 		#include "videoMode8/videoMode8.def.h"
+	#elif VIDEO_MODE == 9
+		#include "videoMode9/videoMode9.def.h"
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif
