@@ -27,7 +27,6 @@
 	
 	//Callback invoked by UzeboxCore.Initialize()
 	void InitializeVideoMode(){
-		ClearVram();
 	}
 
 	//Callback invoked during hsync
