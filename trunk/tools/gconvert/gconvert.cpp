@@ -38,6 +38,7 @@ unsigned char* loadRawImage();
 unsigned char* loadPngImage();
 unsigned char* loadImage();
 const char* toUpperCase(const char *src);
+//void exportType8bpp(unsigned char* buffer, vector<unsigned char*> uniqueTiles, FILE *tf);
 
 struct TileMap {
 	const char* varName;
@@ -52,6 +53,7 @@ struct ConvertionDefinition {
 	const char* xformFile;
 	const char* inputFile;
 	const char* inputType;		//"raw" and "png" are only valid values
+	const char* outputType;		//"8bpp" (default) or "code"
 	const char* outputFile;
 	const char* tilesVarName;
 
@@ -108,6 +110,7 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+
 bool process(){
 
 	unsigned char* buffer=loadImage();
@@ -138,6 +141,7 @@ bool process(){
 	printf("Tile width: %ipx\n",xform.tileWidth);
 	printf("Tile height: %ipx\n",xform.tileHeight);
 	printf("Output file: %s\n",xform.outputFile);
+	printf("Output type: %s\n",xform.outputType);
 	printf("Tiles variable name: %s\n",xform.tilesVarName);
 	if(xform.maps!=NULL){
 		printf("Maps pointers size: %i\n",xform.mapsPointersSize);
@@ -164,6 +168,7 @@ bool process(){
     fprintf(tf," * Source image: %s\n",xform.inputFile);
     fprintf(tf," * Tile width: %ipx\n",xform.tileWidth);
     fprintf(tf," * Tile height: %ipx\n",xform.tileHeight);
+    fprintf(tf," * Output format: %s\n",xform.outputType);
     fprintf(tf," */\n");
 
 
@@ -275,35 +280,95 @@ bool process(){
 		}
 	}
 
-	//Export tileset
-    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
-    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
+	if(xform.outputType==NULL || strcmp(xform.outputType,"8bpp")==0){
 
-	int c=0,t=0;
-	vector<unsigned char*>::iterator it;
-	for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+		//Export tileset in 8 bits per pixel format
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+	    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
 
-		unsigned char* tile=*it;
+		int c=0,t=0;
+		vector<unsigned char*>::iterator it;
+		for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
 
-		for(int index=0;index<(xform.tileWidth*xform.tileHeight);index++){
-			if(c>0)fprintf(tf,",");
-			fprintf(tf," 0x%x",tile[index]);
-			c++;
+			unsigned char* tile=*it;
+
+			for(int index=0;index<(xform.tileWidth*xform.tileHeight);index++){
+				if(c>0)fprintf(tf,",");
+				fprintf(tf," 0x%x",tile[index]);
+				c++;
+			}
+			fprintf(tf,"\t\t //tile:%i\n",t);
+			t++;
 		}
-		fprintf(tf,"\t\t //tile:%i\n",t);
-		t++;
-	}
-	fprintf(tf,"};\n");
+		fprintf(tf,"};\n");
+		totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight);
 
-	totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight);
+	}else if(xform.outputType!=NULL && strcmp(xform.outputType,"code")==0){
+
+		//export "code tiles"
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (2))) ={\n",xform.tilesVarName);
+
+		int c=0,t=0;
+		vector<unsigned char*>::iterator it;
+		for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+
+			unsigned char* tile=*it;
+			int pos;
+
+			for(int index=0;index<xform.tileHeight;index++){
+				if(c>0)fprintf(tf,",");
+				pos=xform.tileWidth*index;
+
+				fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, 0x01	; 1
+				fprintf(tf,"0x08,0xb9,"); //08 b9       	out	0x08, r16
+				fprintf(tf,"0x19,0x91,"); //19 91       	ld	r17, Y+
+				pos++;
+
+				fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, 0x01	; 1
+				fprintf(tf,"0x08,0xb9,"); //08 b9       	out	0x08, r16
+				fprintf(tf,"0x15,0x9f,"); //15 9f       	mul	r17, r21
+				pos++;
+
+				fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, 0x01	; 1
+				fprintf(tf,"0x08,0xb9,"); //08 b9       	out	0x08, r16
+				fprintf(tf,"0x08,0x0e,"); //08 0e       	add	r0, r24
+				fprintf(tf,"0x19,0x1e,"); //19 1e       	adc	r1, r25
+				pos++;
+
+				fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, 0x01	; 1
+				fprintf(tf,"0x08,0xb9,"); //08 b9       	out	0x08, r16
+				fprintf(tf,"0xf9,0x01,"); //f9 01       	movw	r30, r18
+				fprintf(tf,"0x4a,0x95,"); //4a 95       	dec	r20
+				pos++;
+
+				fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, 0x01	; 1
+				fprintf(tf,"0x08,0xb9,"); //08 b9       	out	0x08, r16
+				fprintf(tf,"0x09,0xf0,"); //09 f0       	breq	.+2
+				fprintf(tf,"0xf0,0x01,"); //f0 01       	movw	r30, r0
+				pos++;
+
+				fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, 0x01	; 1
+				fprintf(tf,"0x08,0xb9,"); //08 b9       	out	0x08, r16
+				fprintf(tf,"0x09,0x94 "); //09 94       	ijmp
+
+				c++;
+			}
+			fprintf(tf,"\t\t //tile:%i\n",t);
+			t++;
+		}
+		fprintf(tf,"};\n");
+		totalSize+=(uniqueTiles.size()*xform.tileHeight*21*2);
+	}
 
 	fclose(tf);
 	free(buffer);
-
 	printf("File exported successfully!\nUnique tiles found: %i\nTotal size (tiles + maps): %i bytes\n",uniqueTiles.size(),totalSize);
+
 
 	return true;
 }
+
 
 void parseXml(TiXmlDocument* doc){
 	//root
@@ -324,6 +389,7 @@ void parseXml(TiXmlDocument* doc){
 	xform.outputFile=output->Attribute("file");
 	TiXmlElement* tiles=output->FirstChildElement("tiles");
 	xform.tilesVarName=tiles->Attribute("var-name");
+    xform.outputType=output->Attribute("type");
 
 	//maps
 	TiXmlElement* mapsElem=output->FirstChildElement("maps");
