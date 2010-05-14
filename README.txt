@@ -12,14 +12,23 @@
 	    All sources and content is licenced under the GNU GPL V3
 
 		
-Current  Notes
--------------------------
+Rev 3.2 Notes (May 14, 2010)
+----------------------------
 	-Added gconvert tool to convert images (raw or PNG-8) to tilesets and maps
 	-Removed custom function from the API used only by Megatris
 	-Added -mcall-prologues to demos makefile (saves ~300-500 bytes of flash)
 	-Added support for variable tile/sprite height in mode 3
 	-Corrected sync timing in mode 3,8 that caused shearing at the top of screen
 	-Corrected screen centering from mode 1,3 so " 	" have the picture perfectly centered on a real TV. 
+	-Fixed EEPROM bugs in uzem
+	-Added emuze HEX tool to view/edit EEPROM content
+	-Kernel size reduced by ~900 bytes
+	-Gameloader supports up to 128 games
+	-Added conditional for TRANSLUCENT_COLOR in video Mode3
+	-Main program can decided when controllers are read instead of kernel with CONTROLLERS_VSYNC_READ compile switch 
+	-DetectControllers() can now detect if a joypad or mouse is connected to both ports (note: function is not backward compatible) 
+	-Better support for joysticks in uzem
+	-Added video mode 9: 60x28 tile-only based mode (360x224)
 
 Rev 3.1 Notes (Jan 20, 2010)
 ----------------------------
