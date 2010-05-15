@@ -88,5 +88,10 @@
 
 #define SPRITES_ENABLED 1
 
+//Sprite flags
 #define SPRITE_FLIP_X 1
+#define SPRITE_BANK0 0<<6
+#define SPRITE_BANK1 1<<6
+#define SPRITE_BANK2 2<<6
+#define SPRITE_BANK3 3<<6
 

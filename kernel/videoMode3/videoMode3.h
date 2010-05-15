@@ -86,4 +86,4 @@
 		extern struct ScreenSectionStruct screenSections[];
 	#endif
 
-
+	extern void SetSpritesTileBank(u8 bank,const char *tileData);
