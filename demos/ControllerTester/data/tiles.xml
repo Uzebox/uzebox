@@ -1,0 +1,25 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="/home/flavio/uzebox/ctester/data/controllertiles.png" type="png" tile-width="8" tile-height="8"/>
+    <output file="/home/flavio/uzebox/ctester/data/tiles.inc">
+        <tiles var-name="cTesterTiles"/>
+        <maps pointers-size="8">
+	    <map var-name="map_nocontroller" left="1" top="0" width="13" height="1"/>
+	    <map var-name="map_copyright" left="3" top="27" width="20" height="1"/>
+	    <map var-name="map_gamepad" left="3" top="3" width="13" height="8"/>	
+	    <map var-name="map_mouse" left="11" top="15" width="7" height="10"/>	
+	    <map var-name="map_dpad" left="4" top="8" width="1" height="1"/>	
+	    <map var-name="map_bumper" left="4" top="5" width="3" height="1"/>	
+	    <map var-name="map_start" left="8" top="7" width="1" height="1"/>	
+	    <map var-name="map_button" left="12" top="8" width="1" height="1"/>	
+	    <map var-name="map_mouseb" left="13" top="17" width="1" height="3"/>	
+	    <map var-name="map_pdpad" left="22" top="6" width="1" height="1"/>	
+	    <map var-name="map_pbumper" left="22" top="4" width="3" height="1"/>	
+	    <map var-name="map_pstart" left="24" top="6" width="1" height="1"/>	
+	    <map var-name="map_pbutton" left="23" top="8" width="1" height="1"/>	
+	    <map var-name="map_pmouseb" left="21" top="17" width="1" height="3"/>	
+	    <map var-name="map_divider" left="0" top="13" width="30" height="1"/>	
+	    <map var-name="map_warning" left="1" top="22" width="7" height="2"/>	
+	</maps>	
+    </output>
+</gfx-xform>
