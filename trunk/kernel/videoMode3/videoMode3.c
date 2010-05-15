@@ -61,7 +61,6 @@
 		spritesOn=visible;
 	}
 
-	unsigned char xx=0;
 	void ProcessSprites(){
 	
 		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy;
@@ -92,8 +91,8 @@
 				dx=ssx&0x7;
 				if(dx>0) tx++;
 
-				//by=ssy>>3;			
-				//dy=ssy&0x7;		
+				//by=ssy>>3;
+				//dy=ssy&0x7;
 				by=ssy/TILE_HEIGHT;
 				dy=ssy%TILE_HEIGHT;
 				if(dy>0) ty++;			

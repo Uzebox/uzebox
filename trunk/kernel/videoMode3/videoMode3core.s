@@ -36,6 +36,7 @@
 .global Screen
 .global SetSpritesTileTable
 .global CopyTileToRam
+.global SetSpritesTileBank
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -76,8 +77,12 @@
 	sprites:				.space SPRITE_STRUCT_SIZE*MAX_SPRITES
 	ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
 	ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
-	sprites_tiletable_lo: 	.byte 1
-	sprites_tiletable_hi: 	.byte 1	
+
+	//sprites_tiletable_lo: 	.byte 1
+	//sprites_tiletable_hi: 	.byte 1	
+
+	sprites_tile_banks: 	.space 8
+
 	vram_linear_buf:		.space 30
 
 	#if SCROLLING == 1
@@ -1107,11 +1112,24 @@ BlitSprite:
 	movw r26,r0
 	mul r25,r30
 	add r27,r0
-	lds ZL,sprites_tiletable_lo
-	lds ZH,sprites_tiletable_hi
-	add ZL,r26	;src
-	adc ZH,r27
+	
+	;get tile bank addr
+	ldi r25,4*2
+	mul r16,r25
+	ldi ZL,lo8(sprites_tile_banks)	
+	ldi ZH,hi8(sprites_tile_banks)	
+	clr r0
+	add ZL,r1
+	adc ZH,r0		
+	ldd r0,Z+0
+	ldd r1,Z+1
+	movw ZL,r0
 
+	//lds ZL,sprites_tile_banks
+	//lds ZH,sprites_tile_banks+1
+	add ZL,r26	;tile data src
+	adc ZH,r27
+	
 	;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
 	ldi XL,lo8(ram_tiles)	
 	ldi XH,hi8(ram_tiles)
@@ -1271,12 +1289,33 @@ x2_loop_end:
 
 
 ;*****************************
-; Defines where the sprites tile are defined.
+; Defines where the sprites tile are defined. (obsolete, use SetSpritesTileTableBank)
 ; C-callable
 ; r25:r24=pointer to sprites pixel data.
 ;*****************************
 .section .text.SetSpritesTileTable
 SetSpritesTileTable:
-	sts sprites_tiletable_lo,r24
-	sts sprites_tiletable_hi,r25
+	sts sprites_tile_banks,r24
+	sts sprites_tile_banks+1,r25
+	ret
+
+
+
+;*****************************
+; Defines where the sprites tile are defined.
+; Sprites can use one of four tile banks.
+; C-callable
+;     r24=bank No (0-3)
+; r23:r22=pointer to sprites pixel data.
+;*****************************
+.section .text.SetSpritesTileBank
+SetSpritesTileBank:
+	andi r24,3
+	lsl r24	
+	ldi ZL,lo8(sprites_tile_banks)
+	ldi ZH,hi8(sprites_tile_banks)
+	add ZL,r24
+	adc ZH,r1
+	st Z,r22
+	std Z+1,r23
 	ret
