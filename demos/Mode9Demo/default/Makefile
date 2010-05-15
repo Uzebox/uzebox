@@ -3,8 +3,8 @@
 ###############################################################################
 
 ## General Flags
-PROJECT = mode9
-GAME= mode9
+PROJECT = Mode9Demo
+GAME= Mode9Demo
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
@@ -74,7 +74,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../mode9.c
+$(GAME).o: ../Mode9demo.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

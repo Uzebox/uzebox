@@ -35,6 +35,7 @@ DEMOS += BitmapDemo
 DEMOS += Maze
 DEMOS += MusicDemo
 DEMOS += SpriteDemo
+DEMOS += Mode9Demo
 DEMOS += Uzeamp
 DEMOS += Tutorial
 DEMOS += VideoDemo
