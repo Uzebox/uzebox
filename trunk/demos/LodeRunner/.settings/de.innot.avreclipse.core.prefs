@@ -1,0 +1,24 @@
+#Thu Jul 15 21:50:06 EDT 2010
+avrtarget/ClockFrequency=2863636
+avrtarget/ExtRAMSize=0
+avrtarget/ExtendedRAM=false
+avrtarget/MCUType=atmega644
+avrtarget/UseEEPROM=false
+avrtarget/UseExtendedRAMforHeap=true
+avrtarget/avrdude/BitBangDelay=
+avrtarget/avrdude/Bitclock=
+avrtarget/avrdude/EEPROMFile=
+avrtarget/avrdude/EEPROMFromConfig=true
+avrtarget/avrdude/FlashFile=
+avrtarget/avrdude/FlashFromConfig=true
+avrtarget/avrdude/NoChipErase=false
+avrtarget/avrdude/NoSigCheck=false
+avrtarget/avrdude/NoVerify=true
+avrtarget/avrdude/NoWrite=false
+avrtarget/avrdude/OtherOptions=
+avrtarget/avrdude/ProgrammerID=programmerconfig.1
+avrtarget/avrdude/UseCounter=false
+avrtarget/avrdude/WriteEEPROM=false
+avrtarget/avrdude/WriteFlash=true
+avrtarget/perConfig=false
+eclipse.preferences.version=1

@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+ 
+	<input file="..\data\sprites-title.png" type="png" tile-width="8" tile-height="12" />
+	<output file="..\data\sprites-title.inc">
+		<tiles var-name="sprites_title"/>
+	</output>
+
+</gfx-xform>
