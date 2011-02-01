@@ -322,7 +322,7 @@ void ProcessFading(){
 	if(fadeActive==true){
 		if(currFadeFrame==0){
 			currFadeFrame=fadeSpeed;
-			DDRC = fader[fadeStep-1];
+			DDRC = pgm_read_byte(&(fader[fadeStep-1]));
 			fadeStep+=fadeDir;
 			if(fadeStep==0 || fadeStep==(FADER_STEPS+1)){
 				fadeActive=false;
