@@ -91,9 +91,15 @@ $(TARGET): $(OBJECTS)
 %.uze: $(TARGET)
 	-packrom $(PROJECT).hex $@ $(INFO)
 	
+UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
+AVRSIZEFLAGS := -A ${TARGET}
+ifneq (,$(findstring MINGW,$(UNAME)))
+AVRSIZEFLAGS := -C --mcu=${MCU} ${TARGET}
+endif
+
 size: ${TARGET}
 	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
+	@avr-size ${AVRSIZEFLAGS}
 
 ## Clean target
 .PHONY: clean

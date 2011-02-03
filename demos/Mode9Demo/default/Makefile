@@ -74,7 +74,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../Mode9demo.c
+$(GAME).o: ../Mode9Demo.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -93,9 +93,15 @@ $(TARGET): $(OBJECTS)
 %.uze: $(TARGET)
 	-packrom $(GAME).hex $@ $(INFO)
 
+UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
+AVRSIZEFLAGS := -A ${TARGET}
+ifneq (,$(findstring MINGW,$(UNAME)))
+AVRSIZEFLAGS := -C --mcu=${MCU} ${TARGET}
+endif
+
 size: ${TARGET}
 	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
+	@avr-size ${AVRSIZEFLAGS}
 
 ## Clean target
 .PHONY: clean
