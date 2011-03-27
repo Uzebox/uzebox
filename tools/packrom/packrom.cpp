@@ -6,7 +6,7 @@
 
 #define HEADER_VERSION 1
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 1
+#define VERSION_MINOR 2
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
 #define MARKER_SIZE 6
@@ -157,6 +157,7 @@ bool load_hex(const char *in_filename)
 	u16 progmemLast=0;
 	char line[128];
 	int lineNumber = 1;
+    bool warned = false;
 
 	FILE *in_file = fopen(in_filename,"r");
 
@@ -164,7 +165,7 @@ bool load_hex(const char *in_filename)
 	if (!in_file) return false;
 
 	// Set entire memory out first in case new image is shorter than last one (0xff == NOP)
-	memset(rom.progmem+HEADER_SIZE, 0xff , sizeof(rom.progmem-HEADER_SIZE));
+	memset(rom.progmem+HEADER_SIZE, 0xff , MAX_PROG_SIZE);
 
 	while (fgets(line, sizeof(line), in_file) && line[0]==':')
 	{
@@ -176,11 +177,25 @@ bool load_hex(const char *in_filename)
 			char *lp = line + 9;
 			while (bytes > 0)
 			{
-				rom.progmem[addr+HEADER_SIZE] = parse_hex_byte(lp);
-				addr ++;
-				if (addr > progmemLast){
-					progmemLast = addr;
-				}
+                // Check if it went past the 60KB
+                if(addr < MAX_PROG_SIZE)
+                {
+                    rom.progmem[addr+HEADER_SIZE] = parse_hex_byte(lp);
+                    addr ++;
+                    if (addr > progmemLast){
+                        progmemLast = addr;
+                    }
+                }
+                else if(!warned)
+                {
+                    fprintf(stderr, "\n\t***Warning***: The hex file has instructions after\n "
+                        "\tthe 60KB mark, which are being ignored and is, probably, incompatible with the\n"
+                        "\tbootloader. Note: This might not be a problem if your hex is a dump from the\n "
+                        "\tchip's flash.\n\n");
+
+                    warned = true;
+                }
+
 				lp += 2;
 				bytes -= 1;
 			}
@@ -194,7 +209,7 @@ bool load_hex(const char *in_filename)
 
 		++lineNumber;
 	}
-
+    
 	rom.header.progSize=progmemLast;
 
 	fclose(in_file);
@@ -257,7 +272,6 @@ int main(int argc,char **argv)
 		return 1;
 	}
 
-
 	memcpy(rom.header.marker,"UZEBOX",MARKER_SIZE);
 	rom.header.version=HEADER_VERSION;
 	rom.header.target=0;
@@ -268,14 +282,14 @@ int main(int argc,char **argv)
 
 	//write the output file
 	FILE *out_file = fopen(argv[2],"wb");
-	if(!load_hex(argv[1])){
+	if(!fwrite(&rom.progmem,rom.header.progSize+HEADER_SIZE,1,out_file)){
+
 		fprintf(stderr,"Could not process output file.\n");
 		return 1;
 	}
 
 
 
-	fwrite(&rom.progmem,rom.header.progSize+HEADER_SIZE,1,out_file);
 	fclose(out_file);
 
 	//while (1)
