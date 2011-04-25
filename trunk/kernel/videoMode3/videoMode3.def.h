@@ -49,7 +49,9 @@
 #endif
 
 #if SCROLLING == 0
-	#define VRAM_TILES_H 30
+	#ifndef VRAM_TILES_H
+		#define VRAM_TILES_H 30
+	#endif
 	#define SCREEN_TILES_H 30
 #else
 	#define VRAM_TILES_H 32
