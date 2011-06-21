@@ -34,6 +34,7 @@ The Atmega644 needs to have some fuses set in order to support teh bootloader. F
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/boot.h>
+#include <avr/wdt.h>
 
 /*
  * Joystick constants & functions
@@ -328,11 +329,29 @@ extern unsigned int vram[];
 long dirTableSector;
 long sectorsPerCluster;
 long maxRootDirectoryEntries;
-long bytesPerSector;
+//long bytesPerSector;
 long bootRecordSector;
 int reservedSectors;
 int sectorsPerFat;
 unsigned char maxRootDirectorySectors;
+unsigned char eeBootloaderFlags;
+
+void wdt_init(void) __attribute__((naked)) __attribute__((section(".init3")));
+
+void wdt_init(void)
+{
+    MCUSR = 0;
+    wdt_disable();
+    return;
+}
+
+/**
+ * Performs a software reset
+ */
+void SoftReset(void){        
+	wdt_enable(WDTO_15MS);  
+	while(1);
+}
 
 void fat_init(unsigned char *buffer){
 
@@ -348,8 +367,8 @@ void fat_init(unsigned char *buffer){
 	sectorsPerCluster=((BootRecord*)buffer)->sectorsPerCluster;
 
 	maxRootDirectoryEntries=((BootRecord*)buffer)->maxRootDirectoryEntries;
-	bytesPerSector=((BootRecord*)buffer)->bytesPerSector;
-	maxRootDirectorySectors=((maxRootDirectoryEntries * 32)/bytesPerSector);
+	//bytesPerSector=((BootRecord*)buffer)->bytesPerSector;
+	maxRootDirectorySectors=((maxRootDirectoryEntries * 32)/512);
 		
 
 }
@@ -366,13 +385,17 @@ bool init(){
 
    	do{ 
 		temp = mmc_init(sector.buffer);
-    	Print((12*40*2)+(7*2),temp? PSTR("SD INIT FAIL: NO CARD?") : PSTR("SD INIT OK"),0);  
+		if(temp){
+    		Print((12*40*2)+(9*2), PSTR("SD INIT FAIL: NO CARD?"),0);  
+		}
 						 
 	} while (temp);
 
    do { 
 		temp = mmc_readsector(0);
-        Print((12*40*2)+(19*2),temp? PSTR("INIT READ FAIL") : PSTR("READ OK"),0); 
+		if(temp){
+        	Print((13*40*2)+(13*2),PSTR("INIT READ FAIL"),0); 
+		}
 	} while (temp);
 
 
@@ -384,7 +407,7 @@ bool init(){
 unsigned long filesFirstSector[128];
 
 
-char strDemo[] PROGMEM = ">> Uzebox game loader 0.2 <<";
+char strDemo[] PROGMEM = ">> Uzebox game loader 0.4 <<";
 //char strStarting[] PROGMEM="Starting installed game in 5 seconds...";
 //char strStart[] PROGMEM="Press START to launch game now.";
 //char strMenu[] PROGMEM="Press any other button for menu.";
@@ -400,6 +423,14 @@ void showInfo(unsigned char fileNo){
 	mmc_readsector(filesFirstSector[fileNo]);
 	Print((25*40*2)+(3*2),sector.header.author,0x50);	
 
+
+	char *type=PSTR("BOOT: MENU");
+	//Print((25*40*2)+(28*2),PSTR("BOOT: MENU"),0x50);
+	if(eeBootloaderFlags&EEP_BOOT_METHOD){
+		//Print((25*40*2)+(34*2),PSTR("GAME"),0x50);
+		type=PSTR("BOOT: GAME");
+	}
+	Print((25*40*2)+(28*2),type,0x50);
 }
 
 
@@ -413,6 +444,9 @@ void topMenu(unsigned char page,unsigned char total){
 	
 	if(total&0xf)total+=16;
 	SetFont(23,3,(total/16)+32+16,0);
+
+	
+
 }
 
 
@@ -427,14 +461,17 @@ int main(){
 
 
 
+	eeBootloaderFlags=ReadEeprom(EEP_FIELD_FLAGS);
+
 	//wait for SD to stabilize
 	WaitVSync(4); //2
 
-	//boot normal game if EEPROM flag is set, no key if pressed and 
+	//boot normal game if EEPROM flag is set, no key is pressed and 
 	//theres a jmp instruction at progmem=0
-	if((ReadEeprom(EEP_FIELD_FLAGS)&EEP_BOOT_METHOD) == EEP_BOOT_METHOD_GAME && 
+	if((eeBootloaderFlags&EEP_BOOT_METHOD) == EEP_BOOT_METHOD_GAME && 
 		joypad_status == 0 && 
-		pgm_read_byte(0) == 0x0c){
+		pgm_read_byte(0) == 0x0c && 
+		BOOT_METHOD_GAME==1){
 boot_game:							
 		cli();
 		unsigned char temp = MCUCR;
@@ -496,7 +533,7 @@ browse_files:
 
 	fileNo=0;
 	topMenu(page,fileCount);
-	showInfo(fileNo+page);
+
 
 	//fetch names from SD
 	for(i=0;i<16;i++){
@@ -504,6 +541,8 @@ browse_files:
 		Print(((i+Y)*40*2)+(X*2),sector.header.name,0);	
 	}
 	
+	showInfo(fileNo+page);
+
 
 	while(joypad_status!=0); //in case the user pressed start to enter the bootloader insure the key in relealsed
 
@@ -553,6 +592,12 @@ browse_files:
 		
 			flashGame(fileNo+page);
 			goto boot_game;
+		
+		}
+		else if(joypad_status&BTN_SELECT){
+			eeBootloaderFlags^=1;
+			WriteEeprom(EEP_FIELD_FLAGS,eeBootloaderFlags);
+			goto browse_files;			
 		}
 
 	}
@@ -592,16 +637,34 @@ void flashGame(unsigned char fileNo){
 
 		conv32.value=sector.header.crc32;
 		sectors=sector.header.progSize/512;
-		if((sector.header.progSize%512)!=0)sectors++;
+	
+		//clip prog size to prevent overwriting the bootloader
+		//(65536-4096)/512=120 sectors max
+		if(sectors>=120){
+			sectors=120;
+		} else if((sector.header.progSize%512)!=0){
+			sectors++;
+		}
 		progress=sectors/32;
 		
 		eeprom_busy_wait();
 
 		for(fileSector=0;fileSector<sectors;fileSector++){
+	
 			//read first sectgor after header
 			mmc_readsector(filesFirstSector[fileNo]+1+fileSector);
 			unsigned char *buf=sector.buffer;
-	
+
+			/*			
+			//patch soft power interrupt vectors into bootloader
+			if(fileSector==0){
+				sector.buffer[6]=0x04;
+				sector.buffer[7]=0xf0;
+				sector.buffer[10]=0x08;
+				sector.buffer[11]=0xf0;
+			}
+			*/
+
 			//program the game
 			//two flash pages per SD sector
 			for(pageNo=0;pageNo<2;pageNo++){
