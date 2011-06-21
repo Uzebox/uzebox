@@ -78,6 +78,8 @@
 
 ;Public methods
 .global TIMER1_COMPA_vect
+.global INT0_vect
+.global INT1_vect
 .global SetFont
 .global ClearVram
 .global joypad_status
@@ -136,47 +138,54 @@
 #define set_io_end .word pm(0x0001)
 
 io_table:
-   //stop timers   
-   io_set(TCCR1B,0x00)
-   io_set(TCCR0B,0x00)
+	//stop timers   
+	io_set(TCCR1B,0x00)
+	io_set(TCCR0B,0x00)
 
-   //set port directions 
-   io_set(DDRC,0xff)
-   io_set(DDRB,0xff)      //h-sync for ad725
+	//set port directions 
+	io_set(DDRC,0xff)
+	io_set(DDRB,0xff)      //h-sync for ad725
 
-   io_set(DDRD,0x80)       //audio-out, midi-in
 
-   //setup port A for joypads
-   io_set(DDRA, ((1<<PA2) + (1<<PA3)) )
-   io_set(PORTA, ((1<<PA2) + (1<<PA3)) )
+	//io_set(DDRD,0x80)  
+	io_set(DDRD,(1<<PD7)+(1<<PD4))       		//audio-out, LED pins as output
+	io_set(PORTD,(1<<PD4)+(1<<PD3)+(1<<PD2))		//turn on led & activate power switch pull-ups
 
-   //clear counters
-   io_set(TCNT1H,0x00)
-   io_set(TCNT1L,0x00)   
+	//setup port A for joypads
+	io_set(DDRA, ((1<<PA2) + (1<<PA3)) )
+	io_set(PORTA, ((1<<PA2) + (1<<PA3)) )
 
-   //set sync generator counter on TIMER1
-   io_set(OCR1AH, (HDRIVE_CL_TWICE)>>8)
-   io_set(OCR1AL, (HDRIVE_CL_TWICE) & 0xff)
+	//clear counters
+	io_set(TCNT1H,0x00)
+	io_set(TCNT1L,0x00)   
 
-   io_set(TCCR1B,(1<<WGM12)+(1<<CS10))   //CTC mode, use OCR1A for match
-   io_set(TIMSK1,1<<OCIE1A)            //generate interrupt on match
+	//set sync generator counter on TIMER1
+	io_set(OCR1AH, (HDRIVE_CL_TWICE)>>8)
+	io_set(OCR1AL, (HDRIVE_CL_TWICE) & 0xff)
 
-   //set clock divider counter for AD725 on TIMER0
-   //outputs 14.31818Mhz (4FSC)
-   io_set(TCCR0A,(1<<COM0A0)+(1<<WGM01))  //toggle on compare match + CTC
+	io_set(TCCR1B,(1<<WGM12)+(1<<CS10))   //CTC mode, use OCR1A for match
+	io_set(TIMSK1,1<<OCIE1A)            //generate interrupt on match
 
-   io_set(OCR0A,0x00)   //divide main clock by 2
+	//set clock divider counter for AD725 on TIMER0
+	//outputs 14.31818Mhz (4FSC)
+	io_set(TCCR0A,(1<<COM0A0)+(1<<WGM01))  //toggle on compare match + CTC
 
-   io_set(TCCR0B,(1<<CS00))  //enable timer, no pre-scaler
+	io_set(OCR0A,0x00)   //divide main clock by 2
 
-   //set sound PWM on TIMER2
-   io_set(TCCR2A,(1<<COM2A1)+(1<<WGM21)+(1<<WGM20))   //Fast PWM
+	io_set(TCCR0B,(1<<CS00))  //enable timer, no pre-scaler
 
-   io_set(OCR2A,0)   //duty cycle (amplitude)
+	//set sound PWM on TIMER2
+	io_set(TCCR2A,(1<<COM2A1)+(1<<WGM21)+(1<<WGM20))   //Fast PWM
 
-   io_set(TCCR2B, (1<<CS20))  //enable timer, no pre-scaler
+	io_set(OCR2A,0)   //duty cycle (amplitude)
 
-   io_set(SYNC_PORT, (1<<SYNC_PIN) +(1<<VIDEOCE_PIN) ) //set sync line to hi
+	io_set(TCCR2B, (1<<CS20))  //enable timer, no pre-scaler
+
+	io_set(SYNC_PORT, (1<<SYNC_PIN) +(1<<VIDEOCE_PIN) ) //set sync line to hi
+
+	//io_set(EIMSK,(1<<INT1) +(1<<INT0)) //soft-power buttons interrupt
+
+	//io_set(SMCR, (1<<SM1) + (1<<SE)) //set sleep mode to power-down
 
 set_io_end
 
@@ -261,6 +270,7 @@ text_frame_end:
 	sts _SFR_MEM_ADDR(TIFR1),ZL
 
 	ret
+
 
 
 ;*************************************************
@@ -439,10 +449,14 @@ read_joypads_loop:
 	jmp .
 	cbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_CLOCK_PIN
 
-	jmp .
-	jmp .
-	jmp .
-	jmp .
+	ldi r25,3
+	dec r25
+	brne .-4
+
+	;jmp .
+	;jmp .
+	;jmp .
+	;jmp .
 
 	dec r24
 	brne read_joypads_loop ;232
@@ -522,6 +536,7 @@ render_end:
 ; Video sync interrupt
 ;***************************************************************************
 TIMER1_COMPA_vect:
+
 	push ZH;2
 	push ZL;2
 
@@ -1129,6 +1144,76 @@ Print_loop:
 
 Print_end:
 	ret
+
+
+
+
+;***************************************************************************
+; Soft power switch interrupt
+;***************************************************************************
+/*
+INT0_vect:
+INT1_vect:
+
+
+
+//	push r16
+//	push r17
+//	push r18
+
+	;save flags & status register
+//	in r16,_SFR_IO_ADDR(SREG)
+//	push r16
+
+wait_release:
+	in r16,_SFR_IO_ADDR(PIND)
+	andi r16,0x0c
+	cpi r16,0xc
+	brne wait_release
+	
+	;switch debouncing loop
+	ldi r16,0xff
+	ldi r17,0xff
+	ldi r18,0x10
+sp_loop:
+	subi r16,1
+	sbci r17,0
+	sbci r18,0
+	brne sp_loop
+
+	//if we got out of sleep mode
+	//reset the console
+	in r16,_SFR_IO_ADDR(SYNC_PORT)
+	sbrs r16,VIDEOCE_PIN
+	call SoftReset
+
+	cbi _SFR_IO_ADDR(SYNC_PORT),VIDEOCE_PIN //turn off AD725
+	cbi _SFR_IO_ADDR(PORTD),PD4	
+	out _SFR_IO_ADDR(EIFR),3
+	sei
+	sleep
+
+//	sbi _SFR_IO_ADDR(SYNC_PORT),VIDEOCE_PIN //turn on AD725
+//	sbi _SFR_IO_ADDR(PORTD),PD4	
+
+//	clr r16
+//	sts sleeping,r16
+
+
+//do_reset:
+//	call SoftReset
+
+
+//	pop r16
+//	out _SFR_IO_ADDR(SREG),r16
+
+//	pop r18
+//	pop r17
+//	pop r16
+
+//	reti
+
+*/
 
 
 fonts:
