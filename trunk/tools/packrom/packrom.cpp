@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <fstream>
 
 #define HEADER_VERSION 1
@@ -19,11 +20,11 @@
 
 // 644 Overview: http://www.atmel.com/dyn/resources/prod_documents/doc2593.pdf
 // AVR8 insn set: http://www.atmel.com/dyn/resources/prod_documents/doc0856.pdf
-typedef unsigned char u8;
-typedef signed char s8;
-typedef unsigned short u16;
-typedef signed short s16;
-typedef unsigned long u32;
+typedef uint8_t u8;
+typedef int8_t s8;
+typedef uint16_t u16;
+typedef int16_t s16;
+typedef uint32_t u32;
 
 #pragma pack( 1 )
 typedef struct{
@@ -277,8 +278,9 @@ int main(int argc,char **argv)
 	rom.header.target=0;
 	rom.header.crc32=chksum_crc32(rom.progmem+HEADER_SIZE, rom.header.progSize);
 
-	fprintf(stderr,"\tCRC32: 0x%lx\n", rom.header.crc32);
-	fprintf(stderr,"\tProgram size: %li \n",rom.header.progSize);
+	fprintf(stderr,"\tCRC32: 0x%lx\n", (long unsigned int) rom.header.crc32);
+	fprintf(stderr,"\tProgram size: %li \n",
+        (long unsigned int) rom.header.progSize);
 
 	//write the output file
 	FILE *out_file = fopen(argv[2],"wb");
