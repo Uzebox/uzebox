@@ -22,6 +22,9 @@
 	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 	OTHER DEALINGS IN THE SOFTWARE.
 */
+
+#include <stdint.h>
+
 #ifndef UZEROM_H
 
 #define HEADER_VERSION 1
@@ -38,17 +41,17 @@
 
 struct RomHeader{
     //Header fields (512 bytes)
-    unsigned char marker[6];	//'UZEBOX'
-    unsigned char version;		//header version
-    unsigned char target;		//AVR target (ATmega644=0, ATmega1284=1)
-    unsigned long progSize;	    //program memory size in bytes
-    unsigned short year;
-    unsigned char name[32];
-    unsigned char author[32];
-    unsigned char icon[16*16];
-    unsigned long crc32;
-    unsigned char mouse;
-    unsigned char reserved[178];
+    uint8_t marker[6]; //'UZEBOX'
+    uint8_t version; //header version
+    uint8_t target; //AVR target (ATmega644=0, ATmega1284=1)
+    uint32_t progSize; //program memory size in bytes
+    uint16_t year;
+    uint8_t name[32];
+    uint8_t author[32];
+    uint8_t icon[16*16];
+    uint32_t crc32;
+    uint8_t mouse;
+    uint8_t reserved[178];
 } ALIGN1;
 
 /*
