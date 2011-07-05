@@ -407,7 +407,7 @@ bool init(){
 unsigned long filesFirstSector[128];
 
 
-char strDemo[] PROGMEM = ">> Uzebox game loader 0.4 <<";
+char strDemo[] PROGMEM = ">> Uzebox game loader 0.4.1 <<";
 //char strStarting[] PROGMEM="Starting installed game in 5 seconds...";
 //char strStart[] PROGMEM="Press START to launch game now.";
 //char strMenu[] PROGMEM="Press any other button for menu.";
@@ -564,7 +564,7 @@ browse_files:
 				DrawBar((Y+fileNo)*40*2,40,0); //erase bar at current location
 				fileNo--;
 				wave_vol=90;
-				showInfo(fileNo);
+				showInfo(fileNo+page);
 			}
 		
 		}else if(joypad_status&BTN_DOWN){
@@ -572,7 +572,7 @@ browse_files:
 				DrawBar((Y+fileNo)*40*2,40,0);  //erase bar at current location
 				fileNo++;				
 				wave_vol=90;
-				showInfo(fileNo);
+				showInfo(fileNo+page);
 			}
 
 		}else if(joypad_status&BTN_LEFT){
