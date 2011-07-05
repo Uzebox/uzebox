@@ -438,7 +438,7 @@ void showInfo(unsigned char fileNo){
 void topMenu(unsigned char page,unsigned char total){
 	ClearVram();
 	DrawBar((40*2),40,0x50);
-	Print((40*2)+(6*2),strDemo,0x50);
+	Print((40*2)+(5*2),strDemo,0x50);
 	Print((3*40*2)+(14*2),PSTR("< PAGE 1/1 >"),0);
 	SetFont(21,3,(page/16)+49,0);
 	
