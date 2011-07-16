@@ -144,8 +144,8 @@ void Initialize(void){
 	//set ports
 	DDRC=0xff; //video dac
 	DDRB=0xff; //h-sync for ad725
-	DDRD=(1<<PD7)+(1<<PD4)+(1<<PD3); //audio-out, midi-in +led + switch
-	PORTD|=(1<<PD4); //turn on led
+	DDRD=(1<<PD7)+(1<<PD4); //audio-out + led 
+	PORTD|=(1<<PD4)+(1<<PD3)+(1<<PD2); //turn on led & activate pull-ups for soft-power switches
 
 
 	//setup port A for joypads
@@ -597,6 +597,15 @@ bool isEepromFormatted(){
 }
 
 /*
+ * Reads the power button status. Works for all consoles. 
+ *
+ * Returns: true if pressed.
+ */
+u8 ReadPowerSwitch(){
+	return !((PIND&((1<<PD3)+(1<<PD2)))==((1<<PD3)+(1<<PD2)));
+}
+
+/*
  * Write a data block in the specified block id. If the block does not exist, it is created.
  *
  * Returns: 0 on success or error codes
@@ -634,11 +643,16 @@ char EepromWriteBlock(struct EepromBlockStruct *block){
 /*
  * Reads a data block in the specified structure.
  *
- * Returns: 0 on success or error codes
+ * Returns: 
+ *  0x00 = Success
+ * 	0x01 = EEPROM_ERROR_INVALID_BLOCK
+ *	0x02 = EEPROM_ERROR_FULL
+ *	0x03 = EEPROM_ERROR_BLOCK_NOT_FOUND
+ *	0x04 = EEPROM_ERROR_NOT_FORMATTED
  */
 char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
 	unsigned char i;
-	unsigned int destAddr=0,id;
+	unsigned int destAddr=0xffff,id;
 	unsigned char *destPtr=(unsigned char *)block;
 
 	if(!isEepromFormatted()) return EEPROM_ERROR_NOT_FORMATTED;
@@ -653,7 +667,7 @@ char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
 		}
 	}
 
-	if(destAddr==0) return EEPROM_ERROR_BLOCK_NOT_FOUND;			
+	if(destAddr==0xffff) return EEPROM_ERROR_BLOCK_NOT_FOUND;			
 
 	for(i=0;i<EEPROM_BLOCK_SIZE;i++){
 		*destPtr=ReadEeprom(destAddr++);
