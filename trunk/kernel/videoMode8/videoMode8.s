@@ -257,8 +257,8 @@ GetPixel:
 	clr ZH
 	andi ZL,3
 	lsl ZL
-	subi ZL,lo8(-(write_masks))
-	sbci ZH,hi8(-(write_masks))
+	subi ZL,lo8(-(read_masks))
+	sbci ZH,hi8(-(read_masks))
 	
 	ldi r23,(SCREEN_WIDTH/4)
 	lsr r24
