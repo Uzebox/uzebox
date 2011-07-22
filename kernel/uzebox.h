@@ -71,6 +71,7 @@
 	extern void ClearVsyncFlag(void);
 	extern unsigned char GetVsyncFlag(void);
 	
+	extern void SetRenderingParameters(u8 firstScanlineToRender, u8 verticalTilesToRender);
 
 
 	/*
@@ -117,6 +118,8 @@
 	extern void StartSong(const char *midiSong);
 	extern void ResumeSong();
 	extern void InitMusicPlayer(const struct PatchStruct *patchPointersParam);
+	extern void EnableSoundEngine();
+	extern void DisableSoundEngine();
 
 	/*
 	 * UART RX buffer

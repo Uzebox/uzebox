@@ -409,7 +409,7 @@ InitializeVideoMode:
 	sts tileheight,r24
 
 	ldi r24,4
-	sts textheight,4
+	sts textheight,r24
 	
 	ret
 

@@ -52,6 +52,12 @@ extern unsigned char tileheight, textheight;
 extern unsigned char line_buffer[];
 extern unsigned char render_start;
 extern unsigned char playback_start;
+extern unsigned char render_lines_count;
+extern unsigned char render_lines_count_tmp;
+extern unsigned char first_render_line;
+extern unsigned char first_render_line_tmp;
+extern unsigned char sound_enabled;
+
 
 
 u8 joypadsConnectionStatus;
@@ -92,6 +98,17 @@ void SoftReset(void){
 	wdt_enable(WDTO_15MS);  
 	while(1);
 }
+
+/**
+ * Dynamically sets the rasterizer parameters:
+ * firstScanlineToRender = First scanline to render
+ * scanlinesToRender     = Total number of vertical lines to render. 
+ */
+void SetRenderingParameters(u8 firstScanlineToRender, u8 scanlinesToRender){        
+	render_lines_count_tmp=scanlinesToRender;
+	first_render_line_tmp=firstScanlineToRender;
+}
+
 
 
 /**
@@ -158,6 +175,11 @@ void Initialize(void){
 	sync_phase=SYNC_PHASE_PRE_EQ;
 	sync_pulse=SYNC_PRE_EQ_PULSES;
 
+	//set rendering parameters
+	render_lines_count_tmp=FRAME_LINES;
+	first_render_line_tmp=FIRST_RENDER_LINE;
+	
+
 	//clear timers
 	TCNT1H=0;
 	TCNT1L=0;
@@ -188,6 +210,7 @@ void Initialize(void){
 	joypad1_status_hi=0;
 	joypad2_status_hi=0;
 	snesMouseEnabled=false;
+	sound_enabled=1;
 
 	//enable color correction
 	ReadButtons();
