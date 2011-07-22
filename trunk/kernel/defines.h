@@ -426,6 +426,8 @@
 		#include "videoMode3/videoMode3.def.h"
 	#elif VIDEO_MODE == 4
 		#include "videoMode4/videoMode4.def.h"
+	#elif VIDEO_MODE == 5
+		#include "videoMode5/videoMode5.def.h"
 	#elif VIDEO_MODE == 6
 		#include "videoMode6/videoMode6.def.h"
 	#elif VIDEO_MODE == 7

@@ -84,6 +84,8 @@
 .global joypad2_status_lo
 .global joypad1_status_hi
 .global joypad2_status_hi
+.global first_render_line_tmp
+.global render_lines_count_tmp
 
 
 ;*** IMPORTANT ***
@@ -105,6 +107,14 @@
 
 	pre_vsync_user_callback:  .word 1 ;pointer to function
 	post_vsync_user_callback: .word 1 ;pointer to function
+
+
+	first_render_line:		.byte 1
+	render_lines_count: 	.byte 1
+
+	first_render_line_tmp:	.byte 1
+	render_lines_count_tmp: .byte 1
+	
 
 	tile_table_lo:	.byte 1
 	tile_table_hi:	.byte 1
@@ -240,11 +250,30 @@ not_vsync:
 render:
 	push ZL
 
+/*	
 	lds ZL,sync_pulse
 	cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE
 	brsh render_end
 
 	cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE-FRAME_LINES
+	brlo render_end
+*/
+
+
+	ldi ZH,SYNC_HSYNC_PULSES
+	lds r0,first_render_line
+	sub ZH,r0				
+	lds ZL,sync_pulse
+	cp ZL,ZH
+	brsh render_end
+
+
+	ldi ZH,SYNC_HSYNC_PULSES
+	lds r0,first_render_line
+	sub ZH,r0				
+	lds r0,render_lines_count
+	sub ZH,r0			
+	cp ZL,ZH
 	brlo render_end
 
 
@@ -268,83 +297,6 @@ pop_loop:
 	cpi ZL,30
 	brlo pop_loop	
 
-/*
-
-	push r1
-	push r2
-	push r3
-	push r4
-	push r5
-
-	push r6
-	push r7
-	push r8
-	push r9
-
-	push r10
-	push r11
-	push r12
-	push r13
-
-	push r14
-	push r15
-	push r16
-	push r17
-
-	push r18
-	push r19
-	push r20
-	push r21
-
-	push r22
-	push r23
-	push r24
-	push r25
-
-	push XL
-	push XH
-	push YL
-	push YH 
-	
-	call VMODE_FUNC
-
-	pop YH
-	pop YL
-	pop XH
-	pop XL
-
-	pop r25
-	pop r24
-	pop r23
-	pop r22
-
-	pop r21
-	pop r20
-	pop r19
-	pop r18
-
-	pop r17
-	pop r16
-	pop r15
-	pop r14
-
-	pop r13
-	pop r12
-	pop r11
-	pop r10
-
-	pop r9
-	pop r8
-	pop r7
-	pop r6
-
-	pop r5
-	pop r4
-	pop r3
-	pop r2
-	pop r1
-*/
-
 render_end:
 	pop ZL
 	ret
@@ -359,48 +311,6 @@ render_end:
 ;
 ;***************************************************************************
 TIMER1_COMPA_vect:
-/*
-	push ZH;2
-	push ZL;2
-
-	;save flags & status register
-	in ZL,_SFR_IO_ADDR(SREG);1
-	push ZL ;2		
-
-	;Read timer offset since rollover to remove cycles 
-	;and conpensate for interrupt latency.
-	;This is nessesary to eliminate frame jitter.
-
-	lds ZL,_SFR_MEM_ADDR(TCNT1L)
-	subi ZL,0x0e ;MIN_INT_LATENCY
-
-	cpi ZL,1
-	brlo .		;advance PC to next instruction
-
-	cpi ZL,2
-	brlo .		;advance PC to next instruction
-
-	cpi ZL,3
-	brlo .		;advance PC to next instruction
-
- 	cpi ZL,4
-	brlo .		;advance PC to next instruction
-
-	cpi ZL,5
-	brlo .		;advance PC to next instruction
-
-	cpi ZL,6
-	brlo .		;advance PC to next instruction
-
-	cpi ZL,7
-	brlo .		;advance PC to next instruction
-	
-	cpi ZL,8
-	brlo .		;advance PC to next instruction
-
-	cpi ZL,9
-	brlo .		;advance PC to next instruction
-*/
 
 	push ZH;2
 	push ZL;2
@@ -543,14 +453,19 @@ do_pre_eq:
 	ldi ZH,SYNC_EQ_PULSES
 	rcall update_sync_phase
 
-//	rcall set_double_rate_HDRIVE
-	
 	; Set HDRIVE to double rate during VSYNC
 	ldi ZL,hi8(HDRIVE_CL_TWICE)
 	sts _SFR_MEM_ADDR(OCR1AH),ZL
 	
 	ldi ZL,lo8(HDRIVE_CL_TWICE)
 	sts _SFR_MEM_ADDR(OCR1AL),ZL
+
+	;fetch render height registers if they changed	
+	lds ZH,first_render_line_tmp
+	sts first_render_line,ZH
+	
+	lds ZH,render_lines_count_tmp
+	sts render_lines_count,ZH
 
 	ret
 

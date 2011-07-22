@@ -28,4 +28,7 @@
  #pragma once
 	
 	extern unsigned char vram[];  
+	
+	//set the tile table for the text section
+	extern void SetAsciiTiles();
 		

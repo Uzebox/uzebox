@@ -30,6 +30,8 @@
 .global SetMixerVolume
 .global SetMixerWave
 .global SetMixerNoiseParams
+.global EnableSoundEngine
+.global DisableSoundEngine
 .global waves
 .global mix_pos
 .global mix_buf
@@ -37,6 +39,7 @@
 .global tr4_barrel_lo
 .global tr4_barrel_hi
 .global tr4_params
+.global sound_enabled
 
 #if MIDI_IN == ENABLED
 //.global midi_rx_buf_start
@@ -71,6 +74,7 @@
 //	midi_rx_buf_end:.byte 1
 //#endif
 
+sound_enabled:		.byte 1
 
 //struct MixerStruct -> soundEngine.h
 mixer:	
@@ -134,6 +138,7 @@ tr3_loop_end_hi: .byte 1
 	tr4_loop_end_hi: .byte 1
 
 #endif
+
 
 
 .section .text
@@ -278,7 +283,10 @@ SetMixerVolume:
 ;***********************
 MixSound:
 
+	
 #if ENABLE_MIXER==1
+	lds ZL,sound_enabled
+	cpse ZL,0
  	call ProcessMusic
 #endif
 
@@ -304,6 +312,11 @@ end_set_bank:
 
 
 #if ENABLE_MIXER==1
+
+	lds ZL,sound_enabled
+	sbrs ZL,0
+	ret
+
 	push r2
 	push r3
 	push r4
@@ -717,6 +730,28 @@ usb2:
 	rjmp .
 
 	ret 
+
+;*****************************
+; Enabled the sound engine (mixed and player).
+; C-callable
+;*****************************
+.section .text.EnableSoundEngine
+EnableSoundEngine:	
+	ldi r24,1
+	sts sound_enabled,r24
+	ret
+
+;*****************************
+; Disable the sound engine. When disabled, 
+; no CPU cycles are consumed.
+; C-callable
+;*****************************
+.section .text.DisableSoundEngine
+DisableSoundEngine:	
+	ldi r24,0
+	sts sound_enabled,r24
+	ret
+
 
 steptable:
 #include "data/steptable.inc"
