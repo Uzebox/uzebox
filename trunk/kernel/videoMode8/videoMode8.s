@@ -53,12 +53,11 @@
 sub_video_mode8:
 
 	;wait 873 cycles
-	ldi r26,lo8(390-27)
-	ldi r27,hi8(390-27)
+	ldi r26,lo8(361)
+	ldi r27,hi8(361)
 	sbiw r26,1 
 	brne .-4		
-	rjmp .
-	nop
+
 
 
 	ldi YL,lo8(vram)

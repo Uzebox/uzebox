@@ -38,10 +38,6 @@ mode7_render_delay:
 	dec ZL
 	brne mode7_render_delay
 
-	lpm
-	lpm
-	lpm
-	rjmp .
 
 
 
