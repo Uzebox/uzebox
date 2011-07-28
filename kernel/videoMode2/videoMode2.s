@@ -83,15 +83,15 @@
 sub_video_mode2:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,216+3-25+9+1
+	ldi ZL,202
 m2_render_delay:
-	lpm
-	nop
-	dec ZL
-	brne m2_render_delay 
-
-	
 	rjmp .
+	rjmp .
+	dec ZL
+	brne m2_render_delay 	
+	lpm
+	rjmp .
+
 
 	lds r20,screenSections+tileTableAdressLo
 	lds r21,screenSections+tileTableAdressHi
@@ -311,8 +311,8 @@ m2_text_frame_end:
 ;**************************
 mode2_do_hsync_and_sprites:
 	;Important: TCNT1 should be equal to:
-	;0x44 on the cbi 
-	;0xcd on the sbi 
+	;0x68 on the cbi 
+	;0xf0 on the sbi 
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
 
 
