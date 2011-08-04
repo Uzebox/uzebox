@@ -286,7 +286,7 @@ MixSound:
 	
 #if ENABLE_MIXER==1
 	lds ZL,sound_enabled
-	cpse ZL,0
+	sbrc ZL,0
  	call ProcessMusic
 #endif
 
