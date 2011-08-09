@@ -1,8 +1,8 @@
 <?xml version="1.0" ?>
 <gfx-xform version="1">
 
-	<input file="..\data\sprites.png" type="png" tile-width="8" tile-height="12" />
-	<output file="..\data\sprites.inc">
+	<input file="../data/sprites.png" type="png" tile-width="8" tile-height="12" />
+	<output file="../data/sprites.inc">
 		<tiles var-name="lode_sprites"/>
 	</output>
 

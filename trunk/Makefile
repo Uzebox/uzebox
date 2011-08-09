@@ -41,7 +41,6 @@ DEMOS += tutorial
 DEMOS += VideoDemo
 DEMOS += SDCardDemo
 DEMOS += Bootloader
-DEMOS += Bootloader_Pragma
 
 ######################################
 # Disabled

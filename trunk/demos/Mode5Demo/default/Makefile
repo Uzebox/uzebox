@@ -81,7 +81,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../Mode5demo.c
+$(GAME).o: ../Mode5Demo.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
