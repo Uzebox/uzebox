@@ -58,7 +58,7 @@ all: ../data/graphics.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).
 
 ## Rebuild graphics ressource
 ../data/graphics.inc: ../data/graphics.png ../data/gconvert.xml
-	gconvert ../data/gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/gconvert.xml
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -98,7 +98,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-packrom $(GAME).hex $@ $(INFO)
+	-$(UZEBIN_DIR)packrom $(GAME).hex $@ $(INFO)
 
 UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 AVRSIZEFLAGS := -A ${TARGET}

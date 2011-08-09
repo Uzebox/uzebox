@@ -60,13 +60,13 @@ all: ../data/tiles.inc ../data/sprites.inc ../data/sprites-title.inc $(TARGET) $
 
 ## Rebuild graphics ressource
 ../data/tiles.inc: ../data/tiles.png ../data/tiles.gconvert.xml
-	gconvert ../data/tiles.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/tiles.gconvert.xml
 
 ../data/sprites.inc: ../data/sprites.png ../data/sprites.gconvert.xml
-	gconvert ../data/sprites.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/sprites.gconvert.xml
 
 ../data/sprites-title.inc: ../data/sprites-title.png ../data/sprites-title.gconvert.xml
-	gconvert ../data/sprites-title.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/sprites-title.gconvert.xml
 	
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -102,7 +102,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-packrom $(GAME).hex $@ $(INFO)
+	-$(UZEBIN_DIR)packrom $(GAME).hex $@ $(INFO)
 
 UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 AVRSIZEFLAGS := -A ${TARGET}

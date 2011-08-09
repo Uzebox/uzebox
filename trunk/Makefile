@@ -1,12 +1,12 @@
 #
-# Uzebox 
+# Uzebox
 #
 # Build System by Filipe Rinaldi, 9 January 2010
 # This build system will build the tools, demos and in the future a SDCard image.
 # Type 'make help' to see the options
 #
 
-.DEFAULT_GOAL = all 
+.DEFAULT_GOAL = all
 MAKEFLAGS += --no-print-directory
 
 ######################################
@@ -68,6 +68,7 @@ ifeq (clean,$(MAKECMDGOALS))
     CLEAN := clean
 endif
 DEST_FLAG = DEST_DIR=$(shell pwd)/$(BIN_DIR)/
+DEMO_FLAG = UZEBIN_DIR=$(shell pwd)/$(BIN_DIR)/
 
 ALL_TARGETS_TOOLS = $(patsubst %,$(TOOLS_DIR)/%,$(TOOLS))
 ALL_TARGETS_DEMOS = $(patsubst %,$(DEMOS_DIR)/%/default,$(DEMOS))
@@ -105,10 +106,11 @@ $(ALL_TARGETS_DEMOS): $(ALL_TARGETS_TOOLS_DEP)
 	@echo ===================================
 	@echo Building demo: $@
 	@echo ===================================
-	$(MAKE) -C $@ $(CLEAN)
+	$(MAKE) -C $@ $(CLEAN) $(DEMO_FLAG)
 ifeq ($(CLEAN),)
 	$(CP) $@/$(patsubst $(DEMOS_DIR)/%/default,%,$@).hex $(ROMS_DIR)
-	-$(CP) $@/$(patsubst $(DEMOS_DIR)/%/default,%,$@).uze $(ROMS_DIR)
+	(test -e $@/$(patsubst $(DEMOS_DIR)/%/default,%,$@).uze && \
+		$(CP) $@/$(patsubst $(DEMOS_DIR)/%/default,%,$@).uze $(ROMS_DIR)) || echo
 endif
 
 clean: $(ALL_TARGETS)
@@ -117,7 +119,7 @@ clean: $(ALL_TARGETS)
 cleanall:
 	$(RM) $(BIN_DIR)/*
 	$(RM) $(ROMS_DIR)/*
-	
+
 .PHONY: help
 help:
 	@echo
@@ -138,5 +140,4 @@ help:
 	@echo -----
 	@echo If you have a multiprocessor system, use \'-j N\', e.g.: \'make release -j 3\'
 	@echo
-	
 
