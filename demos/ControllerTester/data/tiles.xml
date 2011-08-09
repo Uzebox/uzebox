@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <gfx-xform version="1">
-    <input file="/home/flavio/uzebox/ctester/data/controllertiles.png" type="png" tile-width="8" tile-height="8"/>
-    <output file="/home/flavio/uzebox/ctester/data/tiles.inc">
+    <input file="controllertiles.png" type="png" tile-width="8" tile-height="8"/>
+    <output file="tiles.inc">
         <tiles var-name="cTesterTiles"/>
         <maps pointers-size="8">
 	    <map var-name="map_nocontroller" left="1" top="0" width="13" height="1"/>

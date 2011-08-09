@@ -3,8 +3,8 @@
 
 	<!--For usage see: http://uzebox.org/wiki/index.php?title=Gconvert -->
 
-	<input file="..\data\tiles.png" type="png" tile-width="6" tile-height="8" />	
-	<output file="..\data\tiles.inc" type="8bpp">
+	<input file="../data/tiles.png" type="png" tile-width="6" tile-height="8" />	
+	<output file="../data/tiles.inc" type="8bpp">
 		<tiles var-name="tiles"/>
 	</output>
 

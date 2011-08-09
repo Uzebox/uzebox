@@ -1,8 +1,8 @@
 <?xml version="1.0" ?>
 <gfx-xform version="1">
 
-	<input file="..\data\tiles.png" type="png" tile-width="8" tile-height="12" />
-	<output file="..\data\tiles.inc">
+	<input file="../data/tiles.png" type="png" tile-width="8" tile-height="12" />
+	<output file="../data/tiles.inc">
 		<tiles var-name="lode_tileset"/>
 		<maps pointers-size="8">
 			<map var-name="logo1" top="1" left="3" width="3" height="1"/>
