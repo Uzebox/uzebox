@@ -8,7 +8,7 @@ GAME = ControllerTester
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
-PACKROM = packrom
+PACKROM = $(UZEBIN_DIR)packrom
 INFO=../gameinfo.properties
 
 ## Kernel settings

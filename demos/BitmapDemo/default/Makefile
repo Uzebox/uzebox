@@ -89,7 +89,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-packrom $(PROJECT).hex $@ $(INFO)
+	-$(UZEBIN_DIR)packrom $(PROJECT).hex $@ $(INFO)
 	
 UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 AVRSIZEFLAGS := -A ${TARGET}
