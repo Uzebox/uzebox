@@ -42,6 +42,7 @@ DEMOS += VideoDemo
 DEMOS += SDCardDemo
 DEMOS += Bootloader
 DEMOS += unittest
+DEMOS += Mode5Demo
 
 ######################################
 # Disabled
