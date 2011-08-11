@@ -3,9 +3,9 @@
 
 	<!--<input file="c:/uze/tetris-tiles.raw" type="raw" width="240" height="368" tile-width="6" tile-height="8" />-->
 
-	<input file="..\data\graphics.png" type="png" tile-width="6" tile-height="8" />
+	<input file="../data/graphics.png" type="png" tile-width="6" tile-height="8" />
 
-	<output file="..\data\graphics.inc">
+	<output file="../data/graphics.inc">
 
 		<tiles var-name="tetrisTiles"/>
 
