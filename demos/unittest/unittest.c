@@ -23,10 +23,9 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
-#include <mmc_if.h>
+#include <mmc.h>
 #include <fat.h>
-
-extern unsigned char gfx[] PROGMEM;
+#include "data/gfx.inc"
 
 unsigned char buffer[512];
 File file;
@@ -45,7 +44,7 @@ int main(){
     
     Print(1,1,PSTR("DETECTING MMC...     "));
     do { 
-        WaitVsync(2); temp = mmc_init();
+        WaitVsync(2); temp = mmc_init(buffer);
         Print(1,2,temp? PSTR("MMC Init FAILED") : PSTR("MMC Init Passed")); 
     } while (temp);
     
@@ -53,9 +52,9 @@ int main(){
     
     Print(1,1,PSTR("Initalizing FAT16    "));
     do {
-        WaitVsync(2); temp = InitFAT(buffer);
-        Print(1,3,temp != FAT_OK? PSTR("FAT Init FAILED") : PSTR("FAT Init Passed")); 
-    } while (temp != FAT_OK);
+        WaitVsync(2); temp = InitFat(buffer);
+        Print(1,3,temp? PSTR("FAT Init FAILED") : PSTR("FAT Init Passed")); 
+    } while (temp);
     
     // SD WRITE (second sector)
     for(int i=0; i<512; i++){
@@ -64,14 +63,15 @@ int main(){
     
     long testlocation = 0x22E6;
     
-    if(mmc_writesector(testlocation,buffer) == 0){
+    /* No such thing in r198
+    if(mmc_writesector(testlocation) == 0){
         Print(1,5,PSTR("SD Write Passed"));   
     }
     else{
         Print(1,5,PSTR("SD Write Failed")); 
         goto endtest;
-    }
-    if(mmc_readsector(testlocation,buffer) == 0){
+    }*/
+    if(mmc_readsector(testlocation) == 0){
         Print(1,6,PSTR("SD Read Passed"));   
     }
     else{
@@ -91,14 +91,16 @@ int main(){
     //TODO: bogus command test
     
     //Open File
-    file.firstCluster = 0;
-    if(OpenFile(&file)==FAT_OK){
+    /* These functions changed quite a lot, no real testing can be done
+    file.firstSector = 0;
+    if(LoadFiles(&file)==FAT_OK){
         Print(1,8,PSTR("Opened Root Directory."));
     }
     else{
         Print(1,8,PSTR("Could not open file.")); 
         goto endtest;
     }
+    
     
     //Open Directory File 
     if(OpenDirectoryFile(&file,&file,PSTR("uzebox"),FAT_ATTR_DIRECTORY)==FAT_OK){
@@ -117,7 +119,7 @@ int main(){
     else{
         Print(1,10,PSTR("Failed to create 'foobar.txt'"));
         goto endtest;
-    }
+    }*/
     
     //Read/Write EEPROM
     WriteEeprom(0x00FF,0xFF);

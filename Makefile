@@ -41,6 +41,7 @@ DEMOS += tutorial
 DEMOS += VideoDemo
 DEMOS += SDCardDemo
 DEMOS += Bootloader
+DEMOS += unittest
 
 ######################################
 # Disabled
