@@ -35,6 +35,8 @@ int main(){
 	SetTileTable(cTesterTiles);
 	SetSpritesTileTable(cursor);
 	ClearVram();
+	EnableSnesMouse(0,map_cursor);
+
 	//Print the basic stuff on the screen
 	DrawMap2(5,26,map_copyright);
 	DrawMap2(0,13,map_divider);

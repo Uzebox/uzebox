@@ -301,203 +301,203 @@ void ReadControllers(){
 	if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) joypadsConnectionStatus|=1;
 	if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) joypadsConnectionStatus|=2;
 			
-	
-
-
 	//read the standard buttons
 	ReadButtons();
-	
-#if SNES_MOUSE == 1
-	//read the extended bits. Applies only if the mouse is plugged.
-	//if bit 15 of standard word is 1, a mouse is plugged.
-	unsigned int p1ButtonsHi=0,p2ButtonsHi=0;
-	unsigned char i;
-
-	if(joypad1_status_lo&(1<<15) || joypad2_status_lo&(1<<15)){
-
-		WaitUs(1);
-
-		for(i=0;i<16;i++){
-		
-			p1ButtonsHi<<=1;
-			p2ButtonsHi<<=1;
-	
-			//pulse clock pin		
-			JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
-			Wait200ns();
-			Wait200ns();
-		
-			if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsHi|=1;
-			if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsHi|=1;
-
-			JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
-			WaitUs(8);
-		}
-		
-		joypad1_status_hi=p1ButtonsHi;
-		joypad2_status_hi=p2ButtonsHi;
-
-	}
-#endif
-
-
 }
 
 
 #if SNES_MOUSE == 1
-/*
- This method activates teh code to read the mouse. 
- Currently reading the mouse takes a much a 2.5 scanlines.
-*/
-unsigned char playDevice=0,playPort=0,mouseSpriteIndex,mouseWidth,mouseHeight;
-unsigned int actionButton;
-int mx=0,my=0;
 
-char EnableSnesMouse(unsigned char spriteIndex,const char *spriteMap){
-	snesMouseEnabled=true;
-	if(DetectControllers()!=0){
-		mouseWidth=pgm_read_byte(&(spriteMap[0]));
-		mouseHeight=pgm_read_byte(&(spriteMap[1]));
+	//read mouse bits 16 to 31
+	//spec requires a 2.5ms delay between the two 16bits chunks
+	//but the mouse works fine without it. 
+	void ReadMouseExtendedData(){
+		//read the extended bits. Applies only if the mouse is plugged.
+		//if bit 15 of standard word is 1, a mouse is plugged.
+		unsigned int p1ButtonsHi=0,p2ButtonsHi=0;
+		unsigned char i;
 
-		mx=120;
-		my=120;
-		mouseSpriteIndex=spriteIndex;
-		MapSprite(spriteIndex,spriteMap);
-		MoveSprite(spriteIndex,mx,my,mouseWidth,mouseHeight);
-		return 0;
-	}else{
-		snesMouseEnabled=false;
-		return -1;
-	}
+		if(joypad1_status_lo&(1<<15) || joypad2_status_lo&(1<<15)){
 
-}
+			//WaitUs(1);
 
-unsigned char GetMouseX(){
-	return mx;
-}
-
-unsigned char GetMouseY(){
-	return my;
-}
-
-unsigned int GetActionButton(){
-	return actionButton;
-}
-
-unsigned char GetMouseSensitivity(){
-	unsigned char sens=-1;
-
-	if(snesMouseEnabled){
-		ReadButtons();
-
-		if(joypad1_status_lo&(1<<15)){
-			sens=(joypad1_status_lo>>10)&3;
-		}else if(joypad2_status_lo&(1<<15)){
-			sens=(joypad2_status_lo>>10)&3;
-		}
-
-	}
-
-	return sens;
-}
-
-bool SetMouseSensitivity(unsigned char value){
-	unsigned char i,retries=6;
-
-	if(snesMouseEnabled){	
-		while(retries>0){
-			
-			if(GetMouseSensitivity()==value){
-				return true;
-			}
-
-			WaitUs(1000);
-
-			for(i=0;i<31;i++){	
-				JOYPAD_OUT_PORT|=_BV(JOYPAD_LATCH_PIN);	
+			for(i=0;i<16;i++){
+	
+				p1ButtonsHi<<=1;
+				p2ButtonsHi<<=1;
 
 				//pulse clock pin		
 				JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
 				Wait200ns();
 				Wait200ns();
-				Wait200ns();			
-				Wait100ns();			
+	
+				if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsHi|=1;
+				if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsHi|=1;
+
 				JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
+				WaitUs(5);
+			}
+	
+			joypad1_status_hi=p1ButtonsHi;
+			joypad2_status_hi=p2ButtonsHi;
 
-				JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));	
-			
-				WaitUs(2);
-				Wait200ns();
-				Wait200ns();
-				Wait200ns();			
-				Wait100ns();
-			}	
-			
-			retries++;
 		}
 	}
 
-	return false;
-}
 
+	/*
+	 This method activates teh code to read the mouse. 
+	 Currently reading the mouse takes a much a 2.5 scanlines.
+	*/
+	unsigned char playDevice=0,playPort=0,mouseSpriteIndex,mouseWidth,mouseHeight;
+	unsigned int actionButton;
+	int mx=0,my=0;
 
+	char EnableSnesMouse(unsigned char spriteIndex,const char *spriteMap){
+		snesMouseEnabled=true;
+		if(DetectControllers()!=0){
+			mouseWidth=pgm_read_byte(&(spriteMap[0]));
+			mouseHeight=pgm_read_byte(&(spriteMap[1]));
 
-
-
-void ProcessMouseMovement(void){
-	unsigned int joy;
-	
-	if(snesMouseEnabled){
-
-		//check in case its a SNES pad
-
-		if(playDevice==0){
-			joy=ReadJoypad(playPort);
-
-			if(joy&BTN_LEFT){
-				mx-=2;
-				if(mx<0) mx=0; 
-			}
-			if(joy&BTN_RIGHT){
-				mx+=2;
-				if(mx>231) mx=231;
-			}
-			if(joy&BTN_UP){
-				my-=2;
-				if(my<0)my=0;
-			}
-			if(joy&BTN_DOWN){
-				my+=2;
-				if(my>215)my=215;
-			}
-
+			mx=120;
+			my=120;
+			mouseSpriteIndex=spriteIndex;
+			MapSprite(spriteIndex,spriteMap);
+			MoveSprite(spriteIndex,mx,my,mouseWidth,mouseHeight);
+			return 0;
 		}else{
-	
-			joy=ReadJoypadExt(playPort);
-
-			if(joy&0x80){
-				mx-=(joy&0x7f);
-				if(mx<0) mx=0; 
-			}else{
-				mx+=(joy&0x7f);
-				if(mx>231) mx=231;
-			}
-	
-			if(joy&0x8000){
-				my-=((joy>>8)&0x7f);
-				if(my<0)my=0;
-			}else{
-				my+=((joy>>8)&0x7f);
-				if(my>215)my=215;
-			}
-	
+			snesMouseEnabled=false;
+			return -1;
 		}
 
-		#if SPRITES_ENABLED !=0
-			MoveSprite(mouseSpriteIndex,mx,my,mouseWidth,mouseHeight);
-		#endif
 	}
-}
+
+	unsigned char GetMouseX(){
+		return mx;
+	}
+
+	unsigned char GetMouseY(){
+		return my;
+	}
+
+	unsigned int GetActionButton(){
+		return actionButton;
+	}
+
+	unsigned char GetMouseSensitivity(){
+		unsigned char sens=-1;
+
+		if(snesMouseEnabled){
+			ReadButtons();
+
+			if(joypad1_status_lo&(1<<15)){
+				sens=(joypad1_status_lo>>10)&3;
+			}else if(joypad2_status_lo&(1<<15)){
+				sens=(joypad2_status_lo>>10)&3;
+			}
+
+		}
+
+		return sens;
+	}
+
+	bool SetMouseSensitivity(unsigned char value){
+		unsigned char i,retries=6;
+
+		if(snesMouseEnabled){	
+			while(retries>0){
+			
+				if(GetMouseSensitivity()==value){
+					return true;
+				}
+
+				WaitUs(1000);
+
+				for(i=0;i<31;i++){	
+					JOYPAD_OUT_PORT|=_BV(JOYPAD_LATCH_PIN);	
+
+					//pulse clock pin		
+					JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
+					Wait200ns();
+					Wait200ns();
+					Wait200ns();			
+					Wait100ns();			
+					JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
+
+					JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));	
+			
+					WaitUs(2);
+					Wait200ns();
+					Wait200ns();
+					Wait200ns();			
+					Wait100ns();
+				}	
+			
+				retries++;
+			}
+		}
+
+		return false;
+	}
+
+
+
+
+
+	void ProcessMouseMovement(void){
+		unsigned int joy;
+	
+		if(snesMouseEnabled){
+
+			//check in case its a SNES pad
+
+			if(playDevice==0){
+				joy=ReadJoypad(playPort);
+
+				if(joy&BTN_LEFT){
+					mx-=2;
+					if(mx<0) mx=0; 
+				}
+				if(joy&BTN_RIGHT){
+					mx+=2;
+					if(mx>231) mx=231;
+				}
+				if(joy&BTN_UP){
+					my-=2;
+					if(my<0)my=0;
+				}
+				if(joy&BTN_DOWN){
+					my+=2;
+					if(my>215)my=215;
+				}
+
+			}else{
+	
+				joy=ReadJoypadExt(playPort);
+
+				if(joy&0x80){
+					mx-=(joy&0x7f);
+					if(mx<0) mx=0; 
+				}else{
+					mx+=(joy&0x7f);
+					if(mx>231) mx=231;
+				}
+	
+				if(joy&0x8000){
+					my-=((joy>>8)&0x7f);
+					if(my<0)my=0;
+				}else{
+					my+=((joy>>8)&0x7f);
+					if(my>215)my=215;
+				}
+	
+			}
+
+			#if SPRITES_ENABLED !=0
+				MoveSprite(mouseSpriteIndex,mx,my,mouseWidth,mouseHeight);
+			#endif
+		}
+	}
 #endif
 
 /* Detects what devices are connected to the game ports.
@@ -525,7 +525,7 @@ unsigned char DetectControllers(){
 	unsigned char resp=0;
 
 	//wait a couple frames for mouse to settle
-	//WaitVsync(8);
+	WaitVsync(3);
 	
 
 	if(joypadsConnectionStatus&1){

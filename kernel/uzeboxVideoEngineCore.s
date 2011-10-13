@@ -207,21 +207,22 @@ do_hsync_delay:
 	breq .+2 
 	icall
 
-	;invoke stuff the video mode may have to do
-	call VideoModeVsync	
-
 	;refresh buttons states
 	#if CONTROLLERS_VSYNC_READ == 1
 		call ReadControllers
 	#endif 
-	
-	#if SNES_MOUSE == 1
-		call ProcessMouseMovement
-	#endif
 
+	;invoke stuff the video mode may have to do
+	call VideoModeVsync	
+	
 	;process music (music, envelopes, etc)
 	call MixSound
 	clr r1
+
+	#if SNES_MOUSE == 1
+		call ReadMouseExtendedData
+		call ProcessMouseMovement
+	#endif
 
 	;process user post callback
 	lds ZL,post_vsync_user_callback+0
@@ -230,6 +231,8 @@ do_hsync_delay:
 	cpc ZH,r1
 	breq .+2 
 	icall
+
+
 
 	pop r27
 	pop r26
