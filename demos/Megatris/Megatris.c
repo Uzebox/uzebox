@@ -502,8 +502,13 @@ void OptionsMenu(){
 	}else{
 		Print(11+13,14,strNo);
 	}	
+	
+	Print(11,15,PSTR("P1 LEVEL:"));
+	PrintByte(11+11,15,P1Level,true);
+	Print(11,16,PSTR("P2 LEVEL:"));
+	PrintByte(11+11,16,P2Level,true);
 
-	Print(11,15,strBackToMenu);
+	Print(11,17,strBackToMenu);
 
 	SetTile(10,13+option,CURSOR_TILE); //draw cursor
 
@@ -522,7 +527,7 @@ void OptionsMenu(){
 					StartSongNo(songNo);
 					playing=true;
 				}
-			}else if(option==2){
+			}else if(option==4){
 				StopSong();
 				return;
 			}
@@ -546,6 +551,14 @@ void OptionsMenu(){
 					fields[0].useGhostBlock=true;
 					fields[1].useGhostBlock=true;
 				}				
+			}else if(option==2 && P1Level>0){
+				P1Level--;
+				PrintByte(11+11,15,P1Level,true);
+				TriggerFx(1,0x90,true);
+			}else if(option==3 && P2Level>0){
+				P2Level--;
+				PrintByte(11+11,16,P2Level,true);
+				TriggerFx(1,0x90,true);
 			}
 
 			while(ReadJoypad(0)!=0); //wait for key release	
@@ -566,6 +579,15 @@ void OptionsMenu(){
 					fields[0].useGhostBlock=true;
 					fields[1].useGhostBlock=true;
 				}				
+			}else if(option==2 && P1Level<30){
+				P1Level++;
+				PrintByte(11+11,15,P1Level,true);
+				TriggerFx(1,0x90,true);
+	
+			}else if(option==3 && P2Level<30){
+				P2Level++;
+				PrintByte(11+11,16,P2Level,true);
+				TriggerFx(1,0x90,true);
 			}
 
 			while(ReadJoypad(0)!=0); //wait for key release	
@@ -577,13 +599,13 @@ void OptionsMenu(){
 
 			if(c&BTN_UP){
 				if(option==0){
-					option=2;
+					option=4;
 				}else{
 					option--;
 				}
 
 			}else if(c&BTN_DOWN || c&BTN_SELECT){
-				if(option==2){
+				if(option==4){
 					option=0;
 				}else{
 					option++;
@@ -880,7 +902,6 @@ void processAnimations(unsigned char f){
 }
 
 
-unsigned char debugCount=0;
 void runStateMachine(){
 	unsigned char next,op;
 
@@ -1864,6 +1885,8 @@ bool updateFields(void){
 				}
 
 				//update score, lines, etc
+				//commented out to save FLASH
+				/*
 				if(clearCount!=0){
 					fields[f].lines+=clearCount;
 
@@ -1889,7 +1912,7 @@ bool updateFields(void){
 			
 					if(score>999999) fields[f].score=999999;
 				}
-
+				*/
 
 				if(fields[f].lines > fields[f].nextLevel){
 					//increase speed
