@@ -73,5 +73,5 @@
 
 	//Callback invoked during hsync
 	void VideoModeVsync(){		
-		//ProcessFading();
+		ProcessFading();
 	}
