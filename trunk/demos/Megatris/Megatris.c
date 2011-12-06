@@ -1886,21 +1886,20 @@ bool updateFields(void){
 
 				//update score, lines, etc
 				//commented out to save FLASH
-				/*
 				if(clearCount!=0){
-					fields[f].lines+=clearCount;
+					//fields[f].lines+=clearCount;
 
-					if(clearCount==1){
-						bonus=100;
-					}else if(clearCount==2){
-						bonus=300;
-					}else if(clearCount==3){
-						bonus=500;
-					}else{
-						bonus=800;
-					}
+					//if(clearCount==1){
+					//	bonus=100;
+					//}else if(clearCount==2){
+					//	bonus=300;
+					//}else if(clearCount==3){
+					//	bonus=500;
+					//}else{
+					//	bonus=800;
+					//}
 	
-					if(fields[f].backToBack!=0) bonus=(bonus*3)/2;
+					//if(fields[f].backToBack!=0) bonus=(bonus*3)/2;
 
 					if(difficult){				
 						fields[f].backToBack++;
@@ -1908,11 +1907,11 @@ bool updateFields(void){
 						fields[f].backToBack=0;						
 					}
 			
-					score=fields[f].score+=(fields[f].level*fields[f].height)*bonus;
+					//score=fields[f].score+=(fields[f].level*fields[f].height)*bonus;
 			
-					if(score>999999) fields[f].score=999999;
+					//if(score>999999) fields[f].score=999999;
 				}
-				*/
+				
 
 				if(fields[f].lines > fields[f].nextLevel){
 					//increase speed
