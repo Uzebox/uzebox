@@ -37,6 +37,12 @@ The Atmega644 needs to have some fuses set in order to support teh bootloader. F
 #include <avr/wdt.h>
 
 /*
+ * Game loader version string as display in the menu
+ */
+char strDemo[] PROGMEM = ">> Uzebox game loader 0.4.2 <<";
+
+
+/*
  * Joystick constants & functions
  */
 
@@ -55,7 +61,10 @@ The Atmega644 needs to have some fuses set in order to support teh bootloader. F
 #define BTN_Y      1024 
 #define BTN_B      2048 
 
-//FAT stuff
+//SD Card defines
+#define BYTES_PER_SECTOR 512 	//fixed for regular SD
+
+//FAT Defines
 #define FAT_ATTR_READONLY	0x01
 #define FAT_ATTR_HIDDEN		0x02
 #define FAT_ATTR_SYSTEM		0x04
@@ -223,7 +232,7 @@ typedef struct{
 } RomHeader;
 
 union SectorData {
-	unsigned char buffer[512];
+	unsigned char buffer[BYTES_PER_SECTOR];
 	BootRecord bootRecord;
 	MBR mbr;
 	DirectoryTableEntry files[16];
@@ -329,23 +338,23 @@ extern unsigned int vram[];
 long dirTableSector;
 long sectorsPerCluster;
 long maxRootDirectoryEntries;
-//long bytesPerSector;
 long bootRecordSector;
 int reservedSectors;
 int sectorsPerFat;
 unsigned char maxRootDirectorySectors;
 unsigned char eeBootloaderFlags;
 
-void wdt_init(void) __attribute__((naked)) __attribute__((section(".init3")));
-
+/*
+ * Initializes the watchdog timer used for software resets
+ */
+void wdt_init(void) __attribute__((naked)) __attribute__((section(".init3"))); 
 void wdt_init(void)
 {
     MCUSR = 0;
     wdt_disable();
-    return;
 }
 
-/**
+/*
  * Performs a software reset
  */
 void SoftReset(void){        
@@ -367,8 +376,7 @@ void fat_init(unsigned char *buffer){
 	sectorsPerCluster=((BootRecord*)buffer)->sectorsPerCluster;
 
 	maxRootDirectoryEntries=((BootRecord*)buffer)->maxRootDirectoryEntries;
-	//bytesPerSector=((BootRecord*)buffer)->bytesPerSector;
-	maxRootDirectorySectors=((maxRootDirectoryEntries * 32)/512);
+	maxRootDirectorySectors=((maxRootDirectoryEntries * 32)/BYTES_PER_SECTOR);
 		
 
 }
@@ -403,16 +411,16 @@ bool init(){
 }
 
 
-//File files[16];
 unsigned long filesFirstSector[128];
 
 
-char strDemo[] PROGMEM = ">> Uzebox game loader 0.4.1 <<";
-//char strStarting[] PROGMEM="Starting installed game in 5 seconds...";
-//char strStart[] PROGMEM="Press START to launch game now.";
-//char strMenu[] PROGMEM="Press any other button for menu.";
 
-
+/*
+ * Read the game creator from the specified UZE file
+ * and displays it in the info box
+ * 
+ * Input: fileNo = pointer to a file handle
+ */
 void showInfo(unsigned char fileNo){
 
 	//erase box
@@ -420,21 +428,26 @@ void showInfo(unsigned char fileNo){
 		vram[(40*24)+i]=0x5000;
 	}
 
-	mmc_readsector(filesFirstSector[fileNo]);
+	//load rom header & display it in the infox box area
+	mmc_readsector(filesFirstSector[fileNo]);			
 	Print((25*40*2)+(3*2),sector.header.author,0x50);	
 
-
-	char *type=PSTR("BOOT: MENU");
-	//Print((25*40*2)+(28*2),PSTR("BOOT: MENU"),0x50);
+	//display bootloader startup type
+	char *type=PSTR("BOOT: MENU");	
 	if(eeBootloaderFlags&EEP_BOOT_METHOD){
-		//Print((25*40*2)+(34*2),PSTR("GAME"),0x50);
 		type=PSTR("BOOT: GAME");
 	}
-	Print((25*40*2)+(28*2),type,0x50);
+	Print((25*40*2)+(28*2),type,0x50);	
 }
 
 
-
+/*
+ * Clears the screens and intializes the selextion bar, 
+ * top menu bar and info box.
+ * 
+ * Input:  page  => current navigation page
+ *         total => total number of navigation pages
+ */
 void topMenu(unsigned char page,unsigned char total){
 	ClearVram();
 	DrawBar((40*2),40,0x50);
@@ -444,8 +457,6 @@ void topMenu(unsigned char page,unsigned char total){
 	
 	if(total&0xf)total+=16;
 	SetFont(23,3,(total/16)+32+16,0);
-
-	
 
 }
 
@@ -530,6 +541,7 @@ boot_game:
 	page=0;
 
 browse_files:
+
 
 	fileNo=0;
 	topMenu(page,fileCount);
@@ -636,13 +648,13 @@ void flashGame(unsigned char fileNo){
 
 
 		conv32.value=sector.header.crc32;
-		sectors=sector.header.progSize/512;
+		sectors=sector.header.progSize/BYTES_PER_SECTOR;
 	
 		//clip prog size to prevent overwriting the bootloader
-		//(65536-4096)/512=120 sectors max
+		//(65536-4096)/BYTES_PER_SECTOR=120 sectors max
 		if(sectors>=120){
 			sectors=120;
-		} else if((sector.header.progSize%512)!=0){
+		} else if((sector.header.progSize%BYTES_PER_SECTOR)!=0){
 			sectors++;
 		}
 		progress=sectors/32;
