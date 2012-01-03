@@ -1,0 +1,37 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+
+	<!--<input file="c:/uze/tetris-tiles.raw" type="raw" width="240" height="368" tile-width="6" tile-height="8" />-->
+
+	<input file="../data/graphics.png" type="png" tile-width="6" tile-height="8" />
+
+	<output file="../data/graphics.inc">
+
+		<tiles var-name="tetrisTiles"/>
+
+		<maps pointers-size="16"> 
+			<map var-name="map_main" left="0" top="9" width="40" height="28"/>
+			<map var-name="map_title" left="0" top="37" width="33" height="9"/>			
+
+			<map var-name="map_anim_spark4" left="0" top="1" width="7" height="4"/>
+			<map var-name="map_anim_spark3" left="7" top="1" width="7" height="4"/>
+			<map var-name="map_anim_spark2" left="14" top="1" width="7" height="4"/>
+			<map var-name="map_anim_spark1" left="21" top="1" width="7" height="4"/>
+			
+			<map var-name="map_anim_tetris1" left="20" top="5" width="5" height="2"/>
+			<map var-name="map_anim_tetris2" left="25" top="5" width="5" height="2"/>
+			<map var-name="map_anim_tetris3" left="30" top="5" width="5" height="2"/>
+			
+			<map var-name="map_anim_tspin" left="28" top="1" width="5" height="1"/>
+			<map var-name="map_anim_single" left="33" top="1" width="5" height="1"/>
+			<map var-name="map_anim_double" left="28" top="2" width="5" height="1"/>
+			<map var-name="map_anim_triple" left="33" top="2" width="5" height="1"/>
+			
+			<map var-name="map_anim_backtoback3" left="0" top="5" width="5" height="3"/>
+			<map var-name="map_anim_backtoback2" left="10" top="5" width="5" height="3"/>
+			<map var-name="map_anim_backtoback1" left="15" top="5" width="5" height="3"/>									
+		</maps>	
+
+	</output>
+
+</gfx-xform>

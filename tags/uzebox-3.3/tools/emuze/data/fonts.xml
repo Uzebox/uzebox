@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="../data/fonts.png" type="png" tile-width="6" tile-height="8" />
+    <output file="../data/fonts.inc">
+        <tiles var-name="fontset"/>
+        <maps pointers-size="16">
+		<map var-name="mapFont" left="0" top="0" width="62" height="1"/>
+	</maps>	
+    </output>
+</gfx-xform>
