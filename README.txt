@@ -11,6 +11,37 @@
           The Uzebox Project - A retro-minimalist open source console!  
 	    All sources and content is licenced under the GNU GPL V3
 
+Rev 3.3 Notes (Jan 03, 2012)
+----------------------------
+	-Added Chess4uzebox sources
+	-Megatris imprvement: Added P1/P2 level selection in option menu, remove scoring code to recover flash memory
+	-Improved SNES mouse timing to support WII nunchuck interface. 
+	-Added Atomix sources
+	-Fix building on Linux, remove bootloader_pragma from Makefile and use relative paths on ControllerTester's xmls.
+	-Fixed video timing for video modes: 1,2,3,5,6,7,8,9 because of new kernel video features released in version r191
+	-Added video mode 5 	
+	-Added demo for video mode 5	
+	-Added support to dynamically change the number of scanlines rendered 
+	-Added support to dynamically enable/disable the sound engine
+	-Direction bits corrected and pull ups activated for soft-power switches 
+	-Corrected bug in EepromReadBlock that prevented the reading block 0
+	-64-bit packrom and uzem are now able to handle headers correctly.
+	-Bootloader: 
+		* Fixed LED bug 
+		* Bootloader boot mode can now be set in menu 
+		* Clip files >61440 to avoid overwriting the bootloader 
+		* Removed old Bootloader_Pragma project
+		* Show the correct author if page number > 1
+		* Misc code cleaneup
+	-fixing build on GNU/Linux
+	-Added read from FLASH directive for the fader[FADER_STEPS] of previous update
+	-Added PROGMEM directive to unsigned char fader[FADER_STEPS] to recover 12 bytes of RAM
+	-Added Controlle/Mouse Tester project
+	-Video Mode 3: 
+		* Added tile bank select to sprite flags 
+		* Added conditional compile switch to set VRAM_TILES_H in non-scrolling mode.	
+	-Misc bug fixes on kernel and emulator
+
 		
 Rev 3.2 Notes (May 14, 2010)
 ----------------------------
