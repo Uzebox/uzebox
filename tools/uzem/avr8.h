@@ -431,13 +431,13 @@ struct avr8
 	void write_io(u8 addr,u8 value);
 	u8 read_io(u8 addr);
 
-	u8 read_progmem(u16 addr)
+	inline u8 read_progmem(u16 addr)
 	{
 		u16 word = progmem[addr>>1];
 		return (addr&1)? word>>8 : word;
 	}
 
-	void write_sram(u16 addr,u8 value)
+	inline void write_sram(u16 addr,u8 value)
 	{
 		if (addr < IOBASE)
 			r[addr] = value;		// Write a register
@@ -450,7 +450,7 @@ struct avr8
 		}
 	}
 
-	u8 read_sram(u16 addr)
+	inline u8 read_sram(u16 addr)
 	{
 		if (addr < IOBASE)
 			return r[addr];		// Read a register
@@ -463,7 +463,7 @@ struct avr8
 		}
 	}
 
-	static int get_insn_size(u16 insn)
+	inline static int get_insn_size(u16 insn)
 	{
 		/*	1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
 		1001 001d dddd 0000		STS k,Rr (next word is rest of address)
@@ -486,7 +486,7 @@ struct avr8
 	void update_joysticks(SDL_Event &ev);
 	void set_jmap_state(int state);
 	void map_joysticks(SDL_Event &ev);
-	void load_joystick_file(char* filename);
+	void load_joystick_file(const char* filename);
 #endif
 	void trigger_interrupt(int location);
 	u8 exec(bool disasmOnly,bool verbose);

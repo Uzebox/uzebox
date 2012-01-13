@@ -68,14 +68,26 @@ THE SOFTWARE.
 
 #define INT_RESET		0x00
 #define TIMER1_COMPA	0x1A
+#define TIMER1_COMPB	0x1C
 #define SPI_STC     	0x26
 
 #define REG_TCNT1L		0x84
 
+//TIFR1 flags
+#define TOV1			1
+#define OCF1A			2
+#define OCF1B			4
+
+//TIMSK1 flags
+#define TOIE1			1
+#define OCIE1A			2
+#define OCIE1B			4
+#define ICIE1			32
+
 static const char *port_name(int);
 
 #if GUI
-static char* joySettingsFilename = "joystick-settings";
+static const char* joySettingsFilename = "joystick-settings";
 #endif
 
 #if defined(__WIN32__)
@@ -258,7 +270,7 @@ void avr8::spi_calculateClock(){
     spiCycleWait = spiClockDivider*8;
     SPI_DEBUG("SPI divider set to : %d (%d cycles per byte)\n",spiClockDivider,spiCycleWait);
 }
-        
+
 void avr8::write_io(u8 addr,u8 value)
 {
 	// p106 in 644 manual; 16-bit values are latched
@@ -279,7 +291,9 @@ void avr8::write_io(u8 addr,u8 value)
 	{
         u32 elapsed = cycleCounter - prevPortB;
         prevPortB = cycleCounter;
-        if (scanline_count == -999 && value && elapsed >= 774 - 4 && elapsed <= 774 + 4)
+
+        //if (scanline_count == -999 && value && elapsed >= 774 - 4 && elapsed <= 774 + 4)
+          if (scanline_count == -999 && value && elapsed >= 774 -7 && elapsed <= 774 + 7)
             scanline_count = scanline_top;
         else if (scanline_count != -999 && value) {
             ++scanline_count;
@@ -418,6 +432,7 @@ void avr8::write_io(u8 addr,u8 value)
         pixel = palette[value & DDRC];
 	}
 #endif	// GUI
+
     else if(addr == ports::SPDR)
     {
         if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled and card is present
@@ -442,6 +457,7 @@ void avr8::write_io(u8 addr,u8 value)
         if(SD_ENABLED()) spi_calculateClock();
         io[addr] = value;
     }
+
     else if(addr == ports::EECR){
         //printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
         //EEPROM can only be put into either read or write mode, and the master bit must be set
@@ -455,7 +471,7 @@ void avr8::write_io(u8 addr,u8 value)
             }
         }
         else if(value & EEPE){
-            if(io[addr] & EERE || !(io[addr] & EEMPE)){  // need master program enabled first
+            if( (io[addr] & EERE) || !(io[addr] & EEMPE)){  // need master program enabled first
                 io[addr] = value ^ EEPE; // read in progress, don't allow this to be set
             }
             else{
@@ -474,8 +490,12 @@ void avr8::write_io(u8 addr,u8 value)
         //printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
 		io[addr] = value;
     }
-    #ifdef USE_PORT_PRINT
-    
+    else if(addr == ports::TIFR1){
+		//clear flags by writing logical one
+		io[addr] &= ~(value);
+    }
+
+	#ifdef USE_PORT_PRINT
     else if(addr == ports::res3A){
         // emulator-only whisper support
         printf("%c",value);
@@ -484,7 +504,8 @@ void avr8::write_io(u8 addr,u8 value)
         // emulator-only whisper support
         printf("%02x",value);
     }
-    #endif
+	#endif
+
 	else
 		io[addr] = value;
 }
@@ -493,8 +514,6 @@ void avr8::write_io(u8 addr,u8 value)
 u8 avr8::read_io(u8 addr)
 {
 	// p106 in 644 manual; 16-bit values are latched
-	// if (addr == ports::PORTA || addr == ports::PINA)
-	//	printf("reading port %s (%x) pc = %x\n",port_name(addr),io[addr],pc-1);
 	if (addr == ports::TCNT1L || addr == ports::ICR1L)
 	{
 		TEMP = io[addr+1];
@@ -899,6 +918,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				break;
 			default:
 				ILL;
+				break;
 			}
 			break;
 		case 2: case 3:
@@ -959,6 +979,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				break;
 			default:
 				ILL;
+				break;
 			}
 			break;
 		case 4: case 5:
@@ -991,107 +1012,106 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			switch (insn)
 			{
 			case 0x9409:
-				DIS("IJMP");
-				pc = Z;
-				cycles=2;
-				break;
-			case 0x940C:	// JMP; relies on fact that upper k bits are always zero!
-				DIS("JMP    $%04x",progmem[pc]);
-				pc = progmem[pc];
-				cycles=3;
-				break;
-			case 0x940E:	// CALL; relies on fact that upper k bits are always zero!
-				DIS("CALL   $%04x",progmem[pc]);
-				write_sram(SP,(pc+1));
-				DEC_SP;
-				write_sram(SP,(pc+1)>>8);
-				DEC_SP;
-				pc = progmem[pc];
-				cycles=4;
-				break;
+			    DIS("IJMP");
+			    pc = Z;
+			    cycles = 2;
+			    break;
+			case 0x940C: // JMP; relies on fact that upper k bits are always zero!
+			    DIS("JMP    $%04x",progmem[pc]);
+			    pc = progmem[pc];
+			    cycles = 3;
+			    break;
+			case 0x940E: // CALL; relies on fact that upper k bits are always zero!
+			    DIS("CALL   $%04x",progmem[pc]);
+			    write_sram(SP,(pc+1));
+			    DEC_SP;
+			    write_sram(SP,(pc+1)>>8);
+			    DEC_SP;
+			    pc = progmem[pc];
+			    cycles = 4;
+			    break;
 			case 0x9419:
-				DIS("EIJMP");
-				pc = Z;
-				cycles=2;
-				break;
+			    DIS("EIJMP");
+			    pc = Z;
+			    cycles = 2;
+			    break;
 			case 0x9508:
-				DIS("RET");
-				INC_SP;
-				pc = read_sram(SP) << 8;
-				INC_SP;
-				pc |= read_sram(SP);
-				cycles=4;
-				break;
+			    DIS("RET");
+			    INC_SP;
+			    pc = read_sram(SP) << 8;
+			    INC_SP;
+			    pc |= read_sram(SP);
+			    cycles = 4;
+			    break;
 			case 0x9509:
-				DIS("ICALL");
-				write_sram(SP,u8(pc));
-				DEC_SP;
-				write_sram(SP,(pc)>>8);
-				DEC_SP;
-				pc = Z;
-				cycles=3;
-				break;
+			    DIS("ICALL");
+			    write_sram(SP,u8(pc));
+			    DEC_SP;
+			    write_sram(SP,(pc)>>8);
+			    DEC_SP;
+			    pc = Z;
+			    cycles = 3;
+			    break;
 			case 0x9518:
-				DIS("RETI");
-				INC_SP;
-				pc = read_sram(SP) << 8;
-				INC_SP;
-				pc |= read_sram(SP);
-				cycles=4;
-				SREG |= (1<<SREG_I);
-				--interruptLevel;
-				break;
+			    DIS("RETI");
+			    INC_SP;
+			    pc = read_sram(SP) << 8;
+			    INC_SP;
+			    pc |= read_sram(SP);
+			    cycles = 4;
+			    SREG |= (1<<SREG_I);
+			    //--interruptLevel;
+			    break;
 			case 0x9519:
-				DIS("EICALL");
-				write_sram(SP,u8(pc));
-				DEC_SP;
-				write_sram(SP,(pc)>>8);
-				DEC_SP;
-				pc = Z;
-				cycles=3;
-				break;
+			    DIS("EICALL");
+			    write_sram(SP,u8(pc));
+			    DEC_SP;
+			    write_sram(SP,(pc)>>8);
+			    DEC_SP;
+			    pc = Z;
+			    cycles = 3;
+			    break;
 			case 0x9588:
-				DIS("SLEEP");
-				// no operation
-				break;
+			    DIS("SLEEP");
+			    // no operation
+			    break;
 			case 0x9598:
-				DIS("BREAK");
-				// no operation
-				break;
+			    DIS("BREAK");
+			    // no operation
+			    break;
 			case 0x95A8:
-				DIS("WDR");
-				// Implement this if/when we need watchdog timer functionality.
-				if (prevWDR)
-				{
-					printf("WDR measured %u cycles\n",cycleCounter - prevWDR);
-					prevWDR = 0;
-				}
-				else
-					prevWDR = cycleCounter + 1;
-				break;
+			    DIS("WDR");
+			    // Implement this if/when we need watchdog timer functionality.
+			    if(prevWDR){
+			        printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
+			        prevWDR = 0;
+			}else
+			    prevWDR = cycleCounter + 1;
+
+			break;
 			case 0x95C8:
-				DIS("LPM    r0,Z");
-				r0 = read_progmem(Z);
-				cycles=3;
-				break;
+			    DIS("LPM    r0,Z");
+			    r0 = read_progmem(Z);
+			    cycles = 3;
+			    break;
 			case 0x95D8:
-				DIS("ELPM   r0,Z");
-				r0 = read_progmem(Z);
-				cycles=3;
-				break;
+			    DIS("ELPM   r0,Z");
+			    r0 = read_progmem(Z);
+			    cycles = 3;
+			    break;
 			case 0x95E8:
-				DIS("SPM");
-				if (Z >= progSize/2)
+			    DIS("SPM");
+			    if (Z >= progSize/2)
 				{
 					fprintf(stderr,"illegal write to progmem addr %x\n",Z);
                     shutdown(1);
 				}
 				else
 					progmem[Z] = r0 | (r1<<8);
-				cycles=4;	// undocumented?!?!?
-				break;
+			    cycles = 4; // undocumented?!?!?
+			    break;
 			default:
-			  /*1001 010d dddd 0000		COM Rd
+			    /*1001 010d dddd 0000		COM Rd
 				1001 010d dddd 0001		NEG Rd
 				1001 010d dddd 0010		SWAP Rd
 				1001 010d dddd 0011		INC Rd
@@ -1101,7 +1121,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				1001 0100 0sss 1000		BSET s (SEC, etc are aliases with sss implicit)
 				1001 0100 1sss 1000		BCLR s (CLC, etc are aliases with sss implicit)
 				1001 010d dddd 1010		DEC Rd */
-				switch (insn & 15)
+			    switch (insn & 15)
 				{
 				case 0:
 					DIS("COM    %s",reg_name(D5));
@@ -1181,7 +1201,9 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 					break;
 				default:
 					ILL;
+					break;
 				}
+			    break;
 			}
 			break;
 		case 6:
@@ -1433,9 +1455,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 
 void avr8::trigger_interrupt(int location)
 {
-	// are interrupts enabled?
-	if (BIT(SREG,SREG_I))
-	{
 #if DISASM
 		printf("INTERRUPT triggered at cycleCounter = %u\n",cycleCounter);
 #endif
@@ -1457,9 +1476,7 @@ void avr8::trigger_interrupt(int location)
 		// already cleared the interrupt enable flag)
 		update_hardware(5);
 
-		++interruptLevel;
-	}
-	// else interrupt gets ignored!
+//		++interruptLevel;
 }
 
 #if GUI
@@ -1585,6 +1602,7 @@ void avr8::handle_key_down(SDL_Event &ev)
 			case SDLK_ESCAPE:
 				printf("user abort (pressed ESC).\n");
                 shutdown(0);
+                /* no break */
 			case SDLK_PRINT:
 				sprintf(ssbuf,"uzem_%03d.bmp",ssnum++);
 				printf("saving screenshot to '%s'...\n",ssbuf);
@@ -1773,13 +1791,13 @@ void avr8::set_jmap_state(int state)
 			fflush(stdout);
 			break;
 		case JMAP_MORE_AXES:
-			jmap.jiter == NUM_JOYSTICK_BUTTONS+2;
+			jmap.jiter = NUM_JOYSTICK_BUTTONS+2;
 			printf("\nMap an axial input (y/n)? ");
 			fflush(stdout);
 			break;
 		case JMAP_DONE:
 			jmap.jstate = JMAP_IDLE;
-			joystickFile = joySettingsFilename;	// Save on exit
+			joystickFile = (char*)joySettingsFilename;	// Save on exit
 			printf("\nJoystick mappings complete.\n");
 			fflush(stdout);
 			state = JMAP_IDLE;
@@ -1951,7 +1969,7 @@ void avr8::update_joysticks(SDL_Event &ev)
 	*/
 }
 
-void avr8::load_joystick_file(char* filename)
+void avr8::load_joystick_file(const char* filename)
 {
 	bool validFile = true;
 	FILE* f = fopen(filename,"rb");
@@ -1987,16 +2005,21 @@ void avr8::update_hardware(int cycles)
 {
 	cycleCounter += cycles;
 
-	if (TCCR1B)	// not really correct, but close enough?
+	if (TCCR1B & 7)	//if timer 1 is started
 	{
 		u16 TCNT1 = TCNT1L | (TCNT1H<<8);
 		u16 OCR1A = OCR1AL | (OCR1AH<<8);
-		
+		u16 OCR1B = OCR1BL | (OCR1BH<<8);
+
+		if ((TIMSK1 & OCIE1B) && TCNT1 < OCR1B && (TCNT1 + cycles) >= OCR1B){
+			TIFR1|=OCF1B; //CTC match flag
+		}
+
 		if (TCNT1 < OCR1A && TCNT1 + cycles >= OCR1A)
 		{
 			TCNT1 -= (OCR1A - cycles);
-			if (TIMSK1 & 2)
-				trigger_interrupt(TIMER1_COMPA);
+			if (TIMSK1 & OCIE1A)
+				TIFR1|=OCF1A; //CTC match flag
 		}
 		else
 			TCNT1 += cycles;
@@ -2004,6 +2027,7 @@ void avr8::update_hardware(int cycles)
 		TCNT1L = (u8) TCNT1;
 		TCNT1H = (u8) (TCNT1>>8);
 	}
+
 
 #if GUI && VIDEO_METHOD == 1
 	if (scanline_count >= 0 && current_cycle < 1440)
@@ -2019,7 +2043,6 @@ void avr8::update_hardware(int cycles)
 	}
 #endif
     // clock the SPI hardware. 
-    
     if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled
         //TODO: test for master/slave modes (assume master for now)
         // TODO: factor in clock divider 
@@ -2054,7 +2077,7 @@ void avr8::update_hardware(int cycles)
             }
         }
     }
-    
+
     //clock the EEPROM hardware
     /*
     1. Wait until EEPE becomes zero.
@@ -2074,10 +2097,10 @@ void avr8::update_hardware(int cycles)
         EECR ^= (EEMPE | EEPE); // clear program bits
         
         // interrupt?
-        if((EECR & EERIE) && BIT(SREG,SREG_I)){
-            SPSR ^= 0x80; // clear the interrupt
-            trigger_interrupt(SPI_STC); // execute the vector
-        }
+        //if((EECR & EERIE) && BIT(SREG,SREG_I)){
+        //    SPSR ^= 0x80; // clear the interrupt
+        //    trigger_interrupt(SPI_STC); // execute the vector
+        //}
     }
     // are we attempting to read?
     else if(EECR & EERE){
@@ -2088,11 +2111,27 @@ void avr8::update_hardware(int cycles)
         EECR ^= EERE; // clear read  bit
         
         // interrupt?
-        if((EECR & EERIE) && BIT(SREG,SREG_I)){
-            SPSR ^= 0x80; // clear the interrupt
-            trigger_interrupt(SPI_STC); // execute the vector
-        }
+        //if((EECR & EERIE) && BIT(SREG,SREG_I)){
+        //    SPSR ^= 0x80; // clear the interrupt
+        //    trigger_interrupt(SPI_STC); // execute the vector
+        //}
     }
+
+	//process interrupts in order of priority
+    if(SREG & (1<<SREG_I)){
+
+		if (TIFR1 & OCF1A){
+
+			TIFR1&= ~OCF1A; //clear CTC match flag
+			trigger_interrupt(TIMER1_COMPA);
+
+		}else if (TIFR1 & OCF1B){
+
+			TIFR1&= ~OCF1B; //clear CTC match flag
+			trigger_interrupt(TIMER1_COMPB);
+		}
+	}
+
 }
 
 static u8 dummy_sector[512];
@@ -2338,6 +2377,7 @@ static int parse_hex_word(const char *s)
 		(parse_hex_nibble(s[2])<<4) | parse_hex_nibble(s[3]);
 }
 
+
 void avr8::SDLoadImage(char* filename){
     if(sdImage){
         printf("SD Image file already specified.");
@@ -2349,6 +2389,7 @@ void avr8::SDLoadImage(char* filename){
         shutdown(1);
     }
 }
+
 
 void avr8::SDBuildMBR(SDPartitionEntry* entry){
     // create the needed buffer for the entire MBR
@@ -2554,6 +2595,7 @@ void avr8::SDCommit(){
     }
     #endif
 }
+
 
 void avr8::LoadEEPROMFile(char* filename){
     eepromFile = filename;

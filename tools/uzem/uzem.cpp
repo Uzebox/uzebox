@@ -280,25 +280,25 @@ int main(int argc,char **argv)
         else
             uzebox.state = CPU_RUNNING;
 
+	const int cycles=100000000;
+	int left, now;
+	char caption[128];
 	while (true)
 	{
-		const int cycles = 100000000;
-		int left = cycles;
-		int now = SDL_GetTicks();
+		left = cycles;
+		now = SDL_GetTicks();
 		while (left > 0)
 			left -= uzebox.exec(disasmOnly,false);
 		
 		now = SDL_GetTicks() - now;
 
-		char caption[128];
 		sprintf(caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 		if (uzebox.fullscreen){
 			puts(caption);
-        	}
-		else{
+        }else{
 			SDL_WM_SetCaption(caption, NULL);
-        	}
-		uzebox.exec(disasmOnly,false);
+        }
+
 	}
 
 	return 0;
