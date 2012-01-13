@@ -35,6 +35,7 @@ int main(){
 	SetTileTable(cTesterTiles);
 	SetSpritesTileTable(cursor);
 	ClearVram();
+
 	EnableSnesMouse(0,map_cursor);
 
 	//Print the basic stuff on the screen
@@ -51,7 +52,7 @@ int main(){
 	//Main loop
 	while(1){
 		//20fps
-		WaitVsync(3);
+		WaitVsync(1);
 		//Update the controller vars
 		btnHeld[0] = ReadJoypad(0);
 		btnHeld[1] = ReadJoypad(1);

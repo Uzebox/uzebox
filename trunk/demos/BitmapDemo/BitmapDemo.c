@@ -91,13 +91,6 @@ int main(){
 
 	//Clear the screen (fills the vram with tile zero)
 	ClearVram();
-	SetColorBurstOffset(4);
-
-
-
-
-
-
 
 	srand(0x365e);
 
@@ -123,18 +116,6 @@ int main(){
 
 		fadein();			
 		WaitVsync(10);
-
-		/*
-		for(int y=0;y<30;y++){
-			for(int x=0;x<SCREEN_WIDTH;x++){
-				unsigned char c=GetPixel(x,y+30);
-				PutPixel(x,y,c);
-			}
-		}
-
-		while(1);
-		*/
-
 
 		fade();
 

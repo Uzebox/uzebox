@@ -51,24 +51,38 @@
 ;***************************************************************
 
 .global vram
+.global SetTile
+.global ClearVram
+.global SetFont
+.global SetTile
+.global SetFontTable
+.global SetTileTable
+.global tile_table_lo
+.global tile_table_hi
+
+
 
 .section .bss
-	vram: 	  	.space VRAM_SIZE	;allocate space for the video memory (VRAM)
+	vram: 	  		.space VRAM_SIZE	;allocate space for the video memory (VRAM)
 	font_table_lo:	.byte 1			;pointer to user font table
 	font_table_hi:	.byte 1	
-
+	tile_table_lo:	.byte 1
+	tile_table_hi:	.byte 1
+	curr_field:	 	.byte 1	;0 or 1, changes at 60hz
+	
 .section .text
 
 sub_video_mode1:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,222-15-1
-mode1_render_delay:
-	rjmp .
-	rjmp .
-	dec ZL
-	brne mode1_render_delay 
-	
+;ldi ZL,222-15-1-12-1-1
+;mode1_render_delay:
+;	rjmp .
+;	rjmp .
+;	dec ZL
+;	brne mode1_render_delay 
+;	lpm
+	WAIT r19,1347
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
@@ -83,17 +97,12 @@ mode1_render_delay:
 next_text_line:	
 	rcall hsync_pulse ;3+144=147
 
-	ldi r19,50 - 4  + CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
+	WAIT r19,264 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,13 + 4 - CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
-
+	WAIT r19,51 - CENTER_ADJUSTMENT
 
 	dec r10
 	breq text_frame_end
@@ -105,10 +114,11 @@ next_text_line:
 	breq next_text_row 
 	
 	;wait to align with next_tile_row instructions (+1 cycle for the breq)
-	lpm ;3 nop
-	lpm ;3 nop
-	lpm ;3 nop
-	nop
+	;lpm ;3 nop
+	;lpm ;3 nop
+	;lpm ;3 nop
+	;nop
+	WAIT r19,10
 
 	rjmp next_text_line	
 
@@ -332,8 +342,7 @@ SetTile:
 
 	ret
 
-
-
+	
 ;***********************************
 ; Define the tile data source
 ; C-callable
@@ -344,4 +353,15 @@ SetFontTable:
 	sts font_table_lo,r24
 	sts font_table_hi,r25
 
+	ret
+
+;***********************************
+; Define the tile data source
+; C-callable
+; r25:r24=pointer to tiles data
+;************************************
+.section .text.SetTileTable
+SetTileTable:
+	sts tile_table_lo,r24
+	sts tile_table_hi,r25	
 	ret

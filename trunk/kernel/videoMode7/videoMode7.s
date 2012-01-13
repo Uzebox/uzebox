@@ -105,18 +105,6 @@ end_frame:
 	;frame rendering finished
 	rcall hsync_pulse ;145
 
-	;set vsync flag if beginning of next frame (each two fields)
-	ldi r17,1
-	lds r16,curr_field
-	eor r16,r17
-	sts curr_field,r16
-
-	lds r18,curr_frame
-	tst r16
-	breq .+2
-	eor r18,r17
-	sts curr_frame,r18
-
 	;set vsync flag if beginning of next frame
 	ldi ZL,1
 	sts vsync_flag,ZL
@@ -124,8 +112,6 @@ end_frame:
 	;clear any pending timer int
 	ldi ZL,(1<<OCF1A)
 	sts _SFR_MEM_ADDR(TIFR1),ZL
-
-//	call load_sound_buffer
 
 	ret
 

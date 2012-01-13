@@ -19,7 +19,9 @@
 */
 
 /*
-	V2 Changes:
+	Changes
+	---------------------------------------------
+	V2.0:
 	-Sprite engine
 	-Reset console with joypad
 	-ReadJoypad() now return int instead of char
@@ -27,7 +29,7 @@
 	-Use of conditionals (see defines.h)
 	-Many small improvements
 
-	V3 Changes:
+	V3.0
 	-Major Refactoring: All video modes in their own files
 	-New video modes: 3,4,6,7,8
 	-EEPROM functions
@@ -35,50 +37,73 @@
 	-Added Vsync User callback
 	-UART Receive buffer & functions
 	-Color burst offset control
+
+	V3.2
+	-Rewrote sync code
+	-Use interrupt to pull back sync line for serration pulses
+	-Added inline mixer selectable with a compile switch
+	-Added channel 5 PCM (avail with inline mixer only)
+	-Fixed the "click" sound upon game resets
+	-Removed color burst offset code
+	-Removed RAM patch code in music engine
+
 */
 
 #include <avr/io.h>
 #include "defines.h"
 
-
-#define addr 0
-#define tileIndex 2
+;Global delay macro for 0 to 1275 (old:767) cycles
+;Parameters: reg=Registerto use in inner loop (will be destroyed)
+;            clocks=CPU clocks to wait
+.macro WAIT reg,clocks	
+	.if (\clocks) > 767
+	 	ldi	\reg, (\clocks)/6    
+	 	dec	\reg
+		jmp . 
+	 	brne .-8
+		.if ((\clocks) % 6) == 1
+			nop
+		.elseif ((\clocks) % 6) == 2
+			rjmp .
+		.elseif ((\clocks) % 6) == 3
+			jmp .
+		.elseif ((\clocks) % 6) == 4
+			rjmp .
+			rjmp .
+		.elseif ((\clocks) % 6) == 5
+			rjmp .
+			jmp .
+		.endif
+	.else
+		.if (\clocks) > 2
+		 	ldi	\reg, (\clocks)/3    
+		 	dec	\reg                    
+		 	brne   .-4
+		.endif
+		.rept (\clocks) % 3
+		 	nop
+		.endr
+	.endif
+.endm 
 
 ;Public methods
 .global TIMER1_COMPA_vect
 .global TIMER1_COMPB_vect
-.global SetTile
-.global SetFont
-.global RestoreTile
-.global LoadMap
-.global ClearVram
-.global CopyTileToRam
 .global GetVsyncFlag
 .global ClearVsyncFlag
-.global SetTileTable
-.global SetFontTable
-.global SetTileMap
 .global ReadJoypad
 .global ReadJoypadExt
-.global BlitSprite
 .global WriteEeprom
 .global ReadEeprom
 .global WaitUs
-.global SetSpritesTileTable
-.global SetColorBurstOffset
 .global SetUserPreVsyncCallback
 .global SetUserPostVsyncCallback
 .global UartInitRxBuffer
-.global SetFontTilesIndex
+.global IsRunningInEmulator
 
 ;Public variables
-.global curr_frame
 .global sync_pulse
 .global sync_phase
-.global curr_field
-.global tile_table_lo
-.global tile_table_hi
-.global burstOffset
 .global vsync_phase
 .global joypad1_status_lo
 .global joypad2_status_lo
@@ -86,10 +111,12 @@
 .global joypad2_status_hi
 .global first_render_line_tmp
 .global render_lines_count_tmp
+.global first_render_line
+.global render_lines_count
 
 
 ;*** IMPORTANT ***
-;Some video modes MUST have some variables aligned on a 8-bit boudary.
+;Some video modes MUST have some variables aligned on a 8-bit boundary.
 ;This is done by putting uzeboxVideoEngineCore.o as first in the linking 
 ;phase and insure a location of 0x100.
 #include VMODE_ASM_SOURCE
@@ -97,33 +124,20 @@
 .section .bss
 	.align 1
 
-	sync_phase:  .byte 1 ;0=pre-eq, 1=eq, 2=post-eq, 3=hsync, 4=vsync
-	sync_pulse:	 .byte 1
-	vsync_flag:  .byte 1	;set 30 hz
-	curr_field:	 .byte 1	;0 or 1, changes at 60hz
-	curr_frame:  .byte 1	;odd or even frame
-
-	vsync_phase:    .byte 1
+	sync_phase:  .byte 1	;0=vsync, 1=hsync
+	sync_pulse:	 .byte 1	;scanline counter
+	vsync_flag:  .byte 1	;set  @ 60Hz np
 
 	pre_vsync_user_callback:  .word 1 ;pointer to function
 	post_vsync_user_callback: .word 1 ;pointer to function
-
 
 	first_render_line:		.byte 1
 	render_lines_count: 	.byte 1
 
 	first_render_line_tmp:	.byte 1
 	render_lines_count_tmp: .byte 1
+
 	
-
-	tile_table_lo:	.byte 1
-	tile_table_hi:	.byte 1
-
-
-	#if VRAM_ADDR_SIZE == 1
-		font_tile_index:.byte 1 
-	#endif 
-
 	;last read results of joypads
 	joypad1_status_lo:	.byte 1
 						.byte 1
@@ -136,53 +150,269 @@
 						.byte 1
 
 
-	burstOffset:		.byte 1
-
-
-
 .section .text
+
+;***************************************************************************
+; Main Video sync interrupt
+;***************************************************************************
+TIMER1_COMPA_vect:
+	push r0
+	push r1
+	push ZL;2
+	push ZH;2
 	
-	sync_func_vectors:	.word pm(do_pre_eq)
-						.word pm(do_eq)
-						.word pm(do_post_eq)
-						.word pm(do_hsync)
+	;save flags & status register
+	in ZL,_SFR_IO_ADDR(SREG);1
+	push ZL ;2		
 
+	;Read timer offset since rollover to remove cycles 
+	;and conpensate for interrupt latency.
+	;This is nessesary to eliminate frame jitter.
+	lds ZL,_SFR_MEM_ADDR(TCNT1L)
+	subi ZL,0x12 ;MIN_INT_LATENCY
 
-;************
-; HSYNC
-;************
-do_hsync:
-	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
-
-	call update_sound_buffer ;36 -> 63
-
-	ldi ZL,32-10-10-1
-do_hsync_delay:
+	ldi ZH,1
+latency_loop:
+	cp ZL,ZH
+	brlo .		;advance PC to next instruction	
+	inc ZH
+	cpi ZH,10
+	brlo latency_loop
+	jmp .
+	
+	;increment sync pulse counter
+	lds ZL,sync_pulse
 	dec ZL
-	brne do_hsync_delay ;135
+	sts sync_pulse,ZL
+
+	;process sync phases
+	lds ZH,sync_phase
+	sbrc ZH,0
+	rjmp sync_hsync
+		
+
+;***************************************************
+; VSYNC PRE-EQ pulse generation
+; Note: TCNT1 should be equal to 
+; 0x68 on the cbi
+; 0xAC on the sbi
+; pulse duration: 68 clocks
+;***************************************************		
+	cpi ZL,SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES
+	brlo sync_eq
+
+	;Set HDRIVE to double rate during VSYNC
+	ldi ZH,hi8(HDRIVE_CL_TWICE)
+	sts _SFR_MEM_ADDR(OCR1AH),ZH	
+	ldi ZH,lo8(HDRIVE_CL_TWICE)
+	sts _SFR_MEM_ADDR(OCR1AL),ZH
+
+	bst ZL,0
+	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN	;TCNT1=0x68
+	brtc sync_pre_eq_no_sound_update
+	ldi ZL,1	;indicate update_sound to generate the SBI for pre-eq
+	call update_sound
+	rjmp sync_end
+
+sync_pre_eq_no_sound_update:
+	WAIT ZL,64
+	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN	;TCNT1=0xAC
+		
+	rjmp sync_end
+	
+	
+;***************************************************
+; SYNC EQ pulse generation
+; Note: TCNT1 should be equal to 
+; 0x68  on the cbi
+; 0x36E on the sbi
+; low pulse duration: 774 clocks
+;***************************************************	
+sync_eq:
+	cpi ZL,SYNC_POST_EQ_PULSES
+	brlo sync_post_eq
+
 	rjmp .
+	rjmp .
+
+	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
+
+	bst ZL,0
+	ldi ZL,4
+	brtc sync_eq_skip
+	
+	call update_sound
+
+sync_eq_skip:
+	;enable interupt to bring back sync 
+	;level instead of wasting cycles
+	;in a big wait loop
+
+ 	;clear interrupt flag
+	ldi ZL,(1<<OCF1B)
+	sts _SFR_MEM_ADDR(TIFR1),ZL 
+	
+	;generate interrupt on match
+	;for timer1 compare unit b
+	ldi ZL,(1<<OCIE1A)+(1<<OCIE1B)
+	sts _SFR_MEM_ADDR(TIMSK1),ZL
+
+	rjmp sync_end
+
+;**********************************************************
+; Interrupt that set the sync signal back to .3v
+; during VSYNC EQ pulses to recover ~5000 cycles per field
+; with interrupt latency conpensation
+; 37 cycles
+;**********************************************************	
+TIMER1_COMPB_vect:
+	push ZL
+	;save flags & status register
+	in ZL,_SFR_IO_ADDR(SREG);1
+	push ZL ;2		
+
+	lds ZL,_SFR_MEM_ADDR(TCNT1L)
+	subi ZL,62+31 ;0x5D ;MIN_INT_LATENCY
+
+	cpi ZL,1
+	brlo .		;advance PC to next instruction
+
+	cpi ZL,2
+	brlo .		;advance PC to next instruction
+
+	cpi ZL,3
+	brlo .		;advance PC to next instruction
+
+	cpi ZL,4
+	brlo .		;advance PC to next instruction
+
+	cpi ZL,5
+	brlo .		;advance PC to next instruction
+
+ 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
+	ldi ZL,(1<<OCIE1A) ; disable OCIE1B 
+	sts _SFR_MEM_ADDR(TIMSK1),ZL ;stop generate interrupt on match
+	
+	;restore flags
+	pop ZL
+	out _SFR_IO_ADDR(SREG),ZL	
+	pop ZL
+	reti
+	
+	
+;***************************************************
+; SYNC POST EQ pulse generation
+; Note: TCNT1 should be equal to 
+; 0x68 on the cbi
+; 0xAC on the sbi
+; pulse cycles: 68 clocks
+;***************************************************	
+sync_post_eq:	
+	rjmp .
+
+	bst ZL,0
+	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
+	brtc sync_post_eq_no_sound_update
+	ldi ZL,1	
+	call update_sound
+	rjmp sync_pre_eq_cont
+
+sync_post_eq_no_sound_update:
+	WAIT ZL,64
+
+	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN 
+
+sync_pre_eq_cont:	
+	;check if it's the last vsync pulse
+	lds ZL,sync_pulse
+	cpi ZL,0
+	breq .+2 ;skip rjmp
+	rjmp sync_end
+	
+	;update sync flags
+	ldi ZL,SYNC_HSYNC_PULSES
+	sts sync_pulse,ZL
+	ldi ZL,1
+	sts sync_phase,ZL
+	
+	rjmp sync_end
+	
+	
+sync_hsync:
+;***************************************************
+; HSYNC pulse generation
+; Note: TCNT1 should be equal to 
+; 0x68 on the cbi
+; 0xF0 on the sbi
+; pulse duration: 136 clocks
+;***************************************************	
 
 	; Set HDRIVE to normal rate
 	ldi ZL,hi8(HDRIVE_CL)
-	sts _SFR_MEM_ADDR(OCR1AH),ZL
-	
+	sts _SFR_MEM_ADDR(OCR1AH),ZL	
 	ldi ZL,lo8(HDRIVE_CL)
 	sts _SFR_MEM_ADDR(OCR1AL),ZL
+	rjmp .
 
-	ldi ZL,SYNC_PHASE_PRE_EQ
-	ldi ZH,SYNC_PRE_EQ_PULSES
-	rcall update_sync_phase
+	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
+	
+	ldi ZL,2	;indicate update_sound to generate the SBI for pre-eq
+	rjmp .
+	call update_sound
 
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;136
+	;check if we have reached the first line to render
+	ldi ZH,SYNC_HSYNC_PULSES
+	lds r0,first_render_line
+	sub ZH,r0				
+	lds ZL,sync_pulse
+	cp ZL,ZH
+	brsh no_render
 
+	ldi ZH,SYNC_HSYNC_PULSES
+	lds r0,first_render_line
+	sub ZH,r0				
+	lds r0,render_lines_count
+	sub ZH,r0			
+	cp ZL,ZH
+	brlo no_render
 
-	sbrs ZL,0
-	rcall render
+	;push r1-r29
+	ldi ZL,29
+	clr ZH
+push_loop:
+	ld r0,Z	;load value from register file
+	push r0
+	dec ZL
+	brne push_loop	
 
-	sbrs ZL,0
-	rjmp not_vsync
+	;timing compensation
+	;to insure we always call the video mode 
+	;routine at the same cycle	
+	WAIT r16,18+212-AUDIO_OUT_HSYNC_CYCLES
 
-	;invoke vsync stuff
+	call VMODE_FUNC		;TCNT1=0x234
+
+	;pop r1-r29
+	ldi ZL,1
+	clr ZH
+pop_loop:
+	pop r0
+	st Z+,r0 ;store value to register file
+	cpi ZL,30
+	brlo pop_loop	
+
+no_render:
+
+	;check if it's the last hsync pulse and we are 
+	;ready for VSYNC
+	lds ZL,sync_pulse
+	cpi ZL,0
+	breq .+2
+	rjmp sync_end
+
+;***************************************************
+; Process VSYNC stuff
+;***************************************************
 	
 	;push C-call registers
 	push r18
@@ -196,8 +426,21 @@ do_hsync_delay:
 	push r26
 	push r27
 
-	sei ;must enable ints for hsync pulses
+	sei ;must enable ints for re-entrant sync pulses
 	clr r1
+
+	;set vsync flags
+	clr ZL
+	sts sync_phase,ZL
+	ldi ZL,SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES
+	sts sync_pulse,ZL
+
+	;fetch render height registers if they changed	
+	lds ZH,first_render_line_tmp
+	sts first_render_line,ZH
+	
+	lds ZH,render_lines_count_tmp
+	sts render_lines_count,ZH
 
 	;process user pre callback
 	lds ZL,pre_vsync_user_callback+0
@@ -211,18 +454,13 @@ do_hsync_delay:
 	#if CONTROLLERS_VSYNC_READ == 1
 		call ReadControllers
 	#endif 
-
+	
 	;invoke stuff the video mode may have to do
 	call VideoModeVsync	
-	
-	;process music (music, envelopes, etc)
-	call MixSound
-	clr r1
 
-	#if SNES_MOUSE == 1
-		call ReadMouseExtendedData
-		call ProcessMouseMovement
-	#endif
+	;process music (music, envelopes, etc)
+	call process_music
+	clr r1
 
 	;process user post callback
 	lds ZL,post_vsync_user_callback+0
@@ -232,7 +470,10 @@ do_hsync_delay:
 	breq .+2 
 	icall
 
-
+	#if SNES_MOUSE == 1
+		call ReadMouseExtendedData
+		call ProcessMouseMovement
+	#endif
 
 	pop r27
 	pop r26
@@ -244,503 +485,38 @@ do_hsync_delay:
 	pop r20
 	pop r19
 	pop r18
-
-not_vsync:
-	ret
-
-
-;**** RENDER ****
-render:
-	push ZL
-
-/*	
-	lds ZL,sync_pulse
-	cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE
-	brsh render_end
-
-	cpi ZL,SYNC_HSYNC_PULSES-FIRST_RENDER_LINE-FRAME_LINES
-	brlo render_end
-*/
-
-
-	ldi ZH,SYNC_HSYNC_PULSES
-	lds r0,first_render_line
-	sub ZH,r0				
-	lds ZL,sync_pulse
-	cp ZL,ZH
-	brsh render_end
-
-
-	ldi ZH,SYNC_HSYNC_PULSES
-	lds r0,first_render_line
-	sub ZH,r0				
-	lds r0,render_lines_count
-	sub ZH,r0			
-	cp ZL,ZH
-	brlo render_end
-
-
-	;push r1-r29
-	ldi ZL,29
-	clr ZH
-push_loop:
-	ld r0,Z	;load value from register file
-	push r0
-	dec ZL
-	brne push_loop	
-
-	call VMODE_FUNC
-
-	;pop r1-r29
-	ldi ZL,1
-	clr ZH
-pop_loop:
-	pop r0
-	st Z+,r0 ;store value to register file
-	cpi ZL,30
-	brlo pop_loop	
-
-render_end:
-	pop ZL
-	ret
-
-
-
-
-
-;***************************************************************************
-; Video sync interrupt
-; 4 cycles to invoke 
-;
-;***************************************************************************
-TIMER1_COMPA_vect:
-
-	push ZH;2
-	push ZL;2
-
-	;save flags & status register
-	in ZL,_SFR_IO_ADDR(SREG);1
-	push ZL ;2		
-
-	;Read timer offset since rollover to remove cycles 
-	;and conpensate for interrupt latency.
-	;This is nessesary to eliminate frame jitter.
-
-	lds ZL,_SFR_MEM_ADDR(TCNT1L)
-	subi ZL,0x0e ;MIN_INT_LATENCY
-
-	ldi ZH,1
-latency_loop:
-	cp ZL,ZH
-	brlo .		;advance PC to next instruction	
-	inc ZH
-	cpi ZH,10
-	brlo latency_loop
-
-	rcall sync
-
+	
+sync_end:	
+	;restore flags
 	pop ZL
 	out _SFR_IO_ADDR(SREG),ZL
-	pop ZL
+	
 	pop ZH
-	reti
-
-
-;***************************************************
-; Composite SYNC
-;***************************************************
-
-sync:
-	push r0
-	push r1
-			
-	ldi ZL,lo8(sync_func_vectors)	
-	ldi ZH,hi8(sync_func_vectors)
-
-	lds r0,sync_phase
-	lsl r0 ;*2
-	clr r1
-	
-	add ZL,r0
-	adc ZH,r1
-	
-	lpm r0,Z+
-	lpm r1,Z
-	movw ZL,r0
-
-	icall	;call sync functions
-
+	pop ZL
 	pop r1
 	pop r0
-	ret
-
-;*************************************************
-; Interrupt that set the sync signal back to .3v
-; WIP
-;*************************************************
-/*
-TIMER1_COMPB_vect:
-	push ZL
-
-	;save flags & status register
-	in ZL,_SFR_IO_ADDR(SREG);1
-	push ZL ;2	
-
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
-	lds ZL, _SFR_MEM_ADDR(TIMSK1)
-	andi ZL,~(1<<OCIE1B)
-	sts _SFR_MEM_ADDR(TIMSK1),ZL ;stop generate interrupt on match
-	
-	pop ZL
-	out _SFR_IO_ADDR(SREG),ZL	
-	
-	pop ZL
 	reti
 
-up_pulse:
-	;set sync generator counter on TIMER1
-	sts _SFR_MEM_ADDR(OCR1BH),ZH
-	sts _SFR_MEM_ADDR(OCR1BL),ZL	
-	lds ZL,_SFR_MEM_ADDR(TIMSK1) ;generate interrupt on match
-	ori ZL,(1<<OCIE1B)
-	sts _SFR_MEM_ADDR(TIMSK1),ZL ;generate interrupt on match
-	ret
-*/
 
 ;*************************************************
-; Generate a H-Sync pulse - 136 clocks (4.749us)
+; Generate a H-Sync pulse 
+; Called by video modes when rendering a frame.
 ; Note: TCNT1 should be equal to 
-; 0x68 on the cbi -- old:0x44
-; 0xf0 on the sbi -- old:0xcc
-;
-; Cycles: 144
+; 0x68 on the cbi 
+; 0xf0 on the sbi 
+;	
 ; Destroys: ZL (r30)
 ;*************************************************
 hsync_pulse:
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
-	
-	call update_sound_buffer ;36 -> 63
-	
-	ldi ZL,21
-	dec ZL 
-	brne .-4
+	ldi ZL,2
+	rjmp .
+	call update_sound
 
 	lds ZL,sync_pulse
 	dec ZL
 	sts sync_pulse,ZL
 
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
-
-	rjmp .
-
-	ret
-
-
-
-;**************************
-; PRE_EQ pulse
-; Note: TCNT1 should be equal to 
-; 0x68 on the cbi
-; 0xAC on the sbi
-; pulse duration: 68 clocks
-;**************************
-do_pre_eq:
-	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
-
-	call update_sound_buffer_2 ;36 -> 63
-
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
-	nop
-
-	ldi ZL,SYNC_PHASE_EQ
-	ldi ZH,SYNC_EQ_PULSES
-	rcall update_sync_phase
-
-	; Set HDRIVE to double rate during VSYNC
-	ldi ZL,hi8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AH),ZL
-	
-	ldi ZL,lo8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
-
-	;fetch render height registers if they changed	
-	lds ZH,first_render_line_tmp
-	sts first_render_line,ZH
-	
-	lds ZH,render_lines_count_tmp
-	sts render_lines_count,ZH
-
-	ret
-
-;************
-; Serration EQ
-; Note: TCNT1 should be equal to 
-; 0x68  on the cbi
-; 0x36E on the sbi
-; low pulse duration: 774 clocks
-;************
-do_eq:
-	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
-
-	call update_sound_buffer_2 ;36 -> 63
-
-	ldi ZL,181-9+4-7
-do_eq_delay:
-	nop
-	dec ZL
-	brne do_eq_delay ;135
-
-	rjmp .
-	nop
-
-	ldi ZH,SYNC_POST_EQ_PULSES
-	ldi ZL,SYNC_PHASE_POST_EQ
-	rcall update_sync_phase
-
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;136
-
-	
-
-	;set sync generator counter on TIMER1
-	;ldi ZH,hi8(0x90+704)
-	;ldi ZL,lo8(0x90+704)
-	;rjmp up_pulse
-			
-	ret
-
-;************
-; POST_EQ
-; Note: TCNT1 should be equal to 
-; 0x68 on the cbi
-; 0xAC on the sbi
-; pulse cycles: 68 clocks
-;************
-do_post_eq:
-
-	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
-
-	call update_sound_buffer_2 ;36 -> 63
-
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
-
-	nop
-
-	ldi ZL,SYNC_PHASE_HSYNC
-	ldi ZH,SYNC_HSYNC_PULSES
-	rcall update_sync_phase
-
-
-
-	lds ZL,sync_pulse
-	cpi ZL,(SYNC_POST_EQ_PULSES-1)
-	brne noshift
-	//cause a shift in the color burst phase
-	//on odd frames (NTSC superframe?)
-	lds ZL,curr_field
-	cpi ZL,1
-	nop
-	
-	lds ZH,burstOffset
-	brne peq_odd
-	lds ZH,burstOffset
-	neg ZH
- peq_odd:
-
-	ldi ZL,hi8(HDRIVE_CL_TWICE) //4
-	sts _SFR_MEM_ADDR(OCR1AH),ZL	
-	
-	ldi ZL,lo8(HDRIVE_CL_TWICE) //4
-	add ZL,ZH
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
-	ret
-
-noshift:
-	;restore full line size
-	ldi ZL,hi8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AH),ZL	
-	ldi ZL,lo8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
-
-	ret
-
-
-
-
-;************
-; update sync phase
-; ZL=next phase #
-; ZH=next phases's pulse count
-;
-; returns: ZL: 0=more pulses in phase
-;              1=was the last pulse in phase
-; 21c
-;***********
-update_sync_phase:
-
-	lds r0,sync_pulse
-	dec r0
-	lds r1,_SFR_MEM_ADDR(SREG)
-	sbrc r1,SREG_Z
-	mov r0,ZH
-	sts sync_pulse,r0	;set pulses for next sync phase
-
-	lds r0,sync_phase
-	sbrc r1,SREG_Z
-	mov r0,ZL			;go to next phase 
-	sts sync_phase,r0
-	
-	ldi ZL,0
-	sbrc r1,SREG_Z
-	ldi ZL,1
-
-	ret
-
-;**************************************
-; Set HDRIVE to double rate during VSYNC
-;**************************************
-/*
-set_double_rate_HDRIVE:
-
-	ldi ZL,hi8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AH),ZL
-	
-	ldi ZL,lo8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
-
-	ret
-*/
-;**************************************
-; Set HDRIVE to normal rate
-;**************************************
-/*
-set_normal_rate_HDRIVE:
-
-	ldi ZL,hi8(HDRIVE_CL)
-	sts _SFR_MEM_ADDR(OCR1AH),ZL
-	
-	ldi ZL,lo8(HDRIVE_CL)
-	sts _SFR_MEM_ADDR(OCR1AL),ZL
-
-	ret
-*/
-
-
-#if VRAM_ADDR_SIZE == 1
-	;***********************************
-	; CLEAR VRAM 8bit
-	; Fill the screen with the specified tile
-	; C-callable
-	;************************************
-	.section .text.ClearVram
-	ClearVram:
-		//init vram		
-		ldi r30,lo8(VRAM_SIZE)
-		ldi r31,hi8(VRAM_SIZE)
-
-		ldi XL,lo8(vram)
-		ldi XH,hi8(vram)
-
-		ldi r22,RAM_TILES_COUNT
-
-
-	fill_vram_loop:
-		st X+,r22
-		sbiw r30,1
-		brne fill_vram_loop
-
-		clr r1
-
-		ret
-
-		
-	;***********************************
-	; SET TILE 8bit mode
-	; C-callable
-	; r24=X pos (8 bit)
-	; r22=Y pos (8 bit)
-	; r20=Tile No (8 bit)
-	;************************************
-	.section .text.SetTile
-	SetTile:
-
-		clr r25
-		clr r23	
-
-		ldi r18,VRAM_TILES_H
-
-		mul r22,r18		;calculate Y line addr in vram
-		add r0,r24		;add X offset
-		adc r1,r25
-		ldi XL,lo8(vram)
-		ldi XH,hi8(vram)
-		add XL,r0
-		adc XH,r1
-		
-		#if VIDEO_MODE == 3
-			subi r20,~(RAM_TILES_COUNT-1)
-		#endif
-
-		st X,r20
-
-		clr r1
-	
-		ret
-
-	;***********************************
-	; SET FONT TILE
-	; C-callable
-	; r24=X pos (8 bit)
-	; r22=Y pos (8 bit)
-	; r20=Font tile No (8 bit)
-	;************************************
-	.section .text.SetFont
-	SetFont:
-		clr r25
-
-		ldi r18,VRAM_TILES_H
-
-		mul r22,r18		;calculate Y line addr in vram
-		
-		add r0,r24		;add X offset
-		adc r1,r25
-
-		ldi XL,lo8(vram)
-		ldi XH,hi8(vram)
-		add XL,r0
-		adc XH,r1
-
-		lds r21,font_tile_index
-		add r20,r21
-
-		st X,r20
-
-		clr r1
-	
-		ret
-
-
-	;***********************************
-	; SET FONT Index
-	; C-callable
-	; r24=First font tile index in tile table (8 bit)
-	;************************************
-	.section .text.SetFontTilesIndex
- 	SetFontTilesIndex:
-		sts font_tile_index,r24
-		ret
-
-#endif
-
-
-;***********************************
-; Define the tile data source
-; C-callable
-; r25:r24=pointer to tiles data
-;************************************
-.section .text.SetTileTable
-SetTileTable:
-	sts tile_table_lo,r24
-	sts tile_table_hi,r25	
 	ret
 
 
@@ -766,18 +542,6 @@ GetVsyncFlag:
 ClearVsyncFlag:
 	clr r1
 	sts vsync_flag,r1
-	ret
-
-
-;***********************************
-; Offset the color burst per field
-; Optimal value is 4
-; C-callable
-; r24=burst offset in clock cycles
-;************************************
-.section .text.SetColorBurstOffset
-SetColorBurstOffset:
-	sts burstOffset,r24
 	ret
 
 ;*****************************
@@ -913,6 +677,20 @@ SetUserPreVsyncCallback:
 SetUserPostVsyncCallback:
 	sts post_vsync_user_callback+0,r24
 	sts post_vsync_user_callback+1,r25
+	ret
+
+;****************************
+; Return true (1) if the program run on uzem
+; C callable
+;****************************
+.section .text.IsRunningInEmulator
+IsRunningInEmulator:
+	ldi r26,0xaa
+	sts 0xff,r26
+	lds r25,0xff
+	ldi r24,1
+	cpse r25,r26	
+	clr r24
 	ret
 
 

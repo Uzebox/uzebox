@@ -39,7 +39,9 @@ public class MidiConvert {
 	private String variableName=DEFAULT_VARIABLE_NAME;
 	private double speedFactor=DEFAULT_SPEED_FACTOR;
 	private int loopStartTick=-1,loopEndTick=-1;
-	private boolean includeNoteOff=false;
+	//private boolean includeNoteOff=false;
+
+	private boolean includeChannelNoteOff[]=new boolean[5];
 	
 	public static void main (String [] args) throws Exception{
 		System.out.println("Uzebox (tm) MIDI converter 1.0");
@@ -53,7 +55,11 @@ public class MidiConvert {
 			options.addOption("s", true, "Force a loop start (specified in tick). Any existing loop start in the input will be discarded.");
 			options.addOption("e", true, "Force a loop end (specified in tick). Any existing loop end in the input will be discarded.");
 			options.addOption("f", true, "Speed correction factor (double). Defaults to "+DEFAULT_SPEED_FACTOR);
-			options.addOption("o", false, "Include note off messages. Note off can be explicit note-off or note-on with zero volume.");
+			options.addOption("no1", false, "Include note off events for channel 0");
+			options.addOption("no2", false, "Include note off events for channel 1");
+			options.addOption("no3", false, "Include note off events for channel 2");
+			options.addOption("no4", false, "Include note off events for channel 2");
+			//options.addOption("o", false, "Include note off messages. Note off can be explicit note-off or note-on with zero volume.");
 			options.addOption("h", false, "Prints this screen.");
 			options.addOption("d", false, "Prints debug info.");
 			
@@ -75,13 +81,18 @@ public class MidiConvert {
 				System.exit(0);			
 			}
 			
+		
+			
 			MidiConvert converter=new MidiConvert();		
 			converter.setVariableName(cmd.getOptionValue("v",DEFAULT_VARIABLE_NAME));
 			converter.setLoopStartTick(Integer.parseInt(cmd.getOptionValue("s", "-1")));
 			converter.setLoopEndTick(Integer.parseInt(cmd.getOptionValue("e", "-1")));
 			converter.setSpeedFactor(Double.parseDouble(cmd.getOptionValue("f",Double.toString(DEFAULT_SPEED_FACTOR))));
-			if(cmd.hasOption("o"))converter.setIncludeNoteOff(true);
-			
+			//if(cmd.hasOption("o"))converter.setIncludeNoteOff(true);			
+			if(cmd.hasOption("no1")) converter.setIncludeNoteOffEvents(0);
+			if(cmd.hasOption("no2")) converter.setIncludeNoteOffEvents(1);
+			if(cmd.hasOption("no3")) converter.setIncludeNoteOffEvents(2);
+			if(cmd.hasOption("no4")) converter.setIncludeNoteOffEvents(3);
 
 			
 			//remaining args must be the input & output filenames
@@ -208,7 +219,7 @@ public class MidiConvert {
 							//logger.debug("MIDI:tick="+tick+",channel="+m.getChannel()+",command=0x"+Integer.toHexString(m.getCommand())+":"	+commands.get(m.getCommand()).name+"type="+m.getData1()+": UNSUPPORTED");
 						}
 					}else if(m.getCommand()==0x90 && m.getData2()==0){ //note off
-						if(includeNoteOff){
+						if(includeChannelNoteOff[m.getChannel()]==true){
 							addEvent(outTrack,event,tempo,speedFactor);
 							logger.debug("MIDI:tick="+event.getTick()+",channel="+m.getChannel()+",command=0x"+Integer.toHexString(m.getCommand())+":Note Off");
 						}else{
@@ -356,19 +367,22 @@ public class MidiConvert {
 	}
 
 
-	public boolean isIncludeNoteOff() {
-		return includeNoteOff;
-	}
+	//public boolean isIncludeNoteOff() {
+	//	return includeNoteOff;
+	//}
 
 
-	public void setIncludeNoteOff(boolean includeNoteOff) {
-		this.includeNoteOff = includeNoteOff;
-	}
+	//public void setIncludeNoteOff(boolean includeNoteOff) {
+	//	this.includeNoteOff = includeNoteOff;
+	//}
 
 	public String toString(){
 		return "Input file="+inputFile+", output file="+outputFile+", variable="+variableName+
-		", speed factor="+speedFactor+", loop start="+loopStartTick+", loop end="+loopEndTick+", include note off="+includeNoteOff;
+		", speed factor="+speedFactor+", loop start="+loopStartTick+", loop end="+loopEndTick;
 	} 
 	
+	public void setIncludeNoteOffEvents(int channel){
+		includeChannelNoteOff[channel]=true;
+	}
 	
 }

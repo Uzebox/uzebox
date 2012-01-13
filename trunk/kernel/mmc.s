@@ -35,6 +35,7 @@
 .global mmc_send_command
 .global mmc_init
 .global mmc_readsector
+.global sector_buffer_ptr
 
 
 .section .bss

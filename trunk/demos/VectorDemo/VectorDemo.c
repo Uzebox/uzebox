@@ -39,8 +39,6 @@ unsigned char nextFreRamTile=1;
 
 int main(){
 
-	SetColorBurstOffset(4);
-
 	for(int i=0;i<SCREEN_TILES_H*SCREEN_TILES_V;i++) vram[i]=0;
 
 	srand(0x365e);

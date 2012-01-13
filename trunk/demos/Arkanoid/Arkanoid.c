@@ -220,7 +220,6 @@ unsigned char vs=1;
 
 int main(){	
 	unsigned char i;
-	SetColorBurstOffset(4);
 	InitMusicPlayer(patches);
 	//SetMasterVolume(0x40);
 

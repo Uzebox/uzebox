@@ -29,14 +29,12 @@
 #define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
 #define Wait100ns() asm volatile("lpm\n\t");
 
-
-//Callbakcs defined in each video modes module
+//Callbacks defined in each video modes module
 extern void DisplayLogo(); 
 extern void InitializeVideoMode();
-
+extern void InitSoundPort();
 
 void ReadButtons();
-
 
 extern unsigned char sync_phase;
 extern unsigned char sync_pulse;
@@ -58,10 +56,12 @@ extern unsigned char first_render_line;
 extern unsigned char first_render_line_tmp;
 extern unsigned char sound_enabled;
 
-
+#if SNES_MOUSE == 1
+	bool snesMouseEnabled=false;
+#endif
 
 u8 joypadsConnectionStatus;
-bool snesMouseEnabled=false;
+
 
 u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 								   (u8)(EEPROM_SIGNATURE>>8),	//
@@ -110,10 +110,57 @@ void SetRenderingParameters(u8 firstScanlineToRender, u8 scanlinesToRender){
 }
 
 
-
-/**
- * Called by the assembler initialization routines, should not be called directly.
+/*
+ * I/O initialization table
  */
+#define io_set(a,b) ((_SFR_MEM_ADDR(a) & 0xff) + ((b)<<8))
+#define set_io_end  0x0001
+
+u16 io_table[] PROGMEM ={
+	io_set(TCCR1B,0x00),	//stop timers
+	io_set(TCCR0B,0x00),
+	io_set(DDRC,0xff), 		//video dac
+	io_set(DDRB,0xff),		//h-sync for ad725
+	io_set(DDRD,(1<<PD7)+(1<<PD4)), //audio-out + led 
+	io_set(PORTD,(1<<PD4)+(1<<PD3)+(1<<PD2)), //turn on led & activate pull-ups for soft-power switches
+
+	//setup port A for joypads
+	io_set(DDRA,0b00001100), 	//set only control lines as outputs
+	io_set(PORTA,0b11111011),  //activate pullups on the data lines
+
+#if MIDI_IN == 1
+	io_set(UCSR0B,(1<<RXEN0)), //set UART for MIDI in
+	io_set(UCSR0C,(1<<UCSZ01)+(1<<UCSZ00)),
+	io_set(UBRR0L,56), //31250 bauds (.5% error)
+#endif
+	
+	//clear timers
+	io_set(TCNT1H,0),
+	io_set(TCNT1L,0),
+
+	//set sync generator counter on TIMER1
+	io_set(OCR1AH,HDRIVE_CL_TWICE>>8),
+	io_set(OCR1AL,HDRIVE_CL_TWICE&0xff),
+
+	io_set(TCCR1B,(1<<WGM12)+(1<<CS10)),//CTC mode, use OCR1A for match
+	io_set(TIMSK1,(1<<OCIE1A)),			//generate interrupt on match
+
+	//set clock divider counter for AD725 on TIMER0
+	//outputs 14.31818Mhz (4FSC)
+	io_set(TCCR0A,(1<<COM0A0)+(1<<WGM01)), //toggle on compare match + CTC
+	io_set(OCR0A,0), //divide main clock by 2
+	io_set(TCCR0B,(1<<CS00)), //enable timer, no pre-scaler
+
+	//set sound PWM on TIMER2
+	io_set(TCCR2A,(1<<COM2A1)+(1<<WGM21)+(1<<WGM20)), //Fast PWM	
+	io_set(OCR2A,0), //duty cycle (amplitude)
+	io_set(TCCR2B,(1<<CS20)),  //enable timer, no pre-scaler	
+	io_set(SYNC_PORT,(1<<SYNC_PIN)|(1<<VIDEOCE_PIN)), //set sync & chip enable line to hi
+	
+	io_set(OCR1BL,0x4f),		//lo8(0x36e-31) eq pulse pulse restore
+	io_set(OCR1BH,0x03)			//hi8(0x36e-31)	
+};
+
 
 void Initialize(void){
 	int i;
@@ -122,18 +169,19 @@ void Initialize(void){
 
 	cli();
 	
-	//Initialize the mixer buffer
-	for(i=0;i<MIX_BANK_SIZE*2;i++){
-		mix_buf[i]=0x80;
-	}	
+	//InitSoundPort(); //ramp-up sound to avoid click
+
+	#if SOUND_MIXER == MIXER_TYPE_VSYNC
 	
-	mix_pos=mix_buf;
-	mix_bank=0;
-
-	for(i=0;i<CHANNELS;i++){
-		mixer.channels.all[i].volume=0;
-	}
-
+		//Initialize the mixer buffer
+		//ramp up to avoid initial click
+		for(i=0;i<MIX_BANK_SIZE*2;i++){
+			mix_buf[i]=0x80;//(i<128?i:128);
+		}	
+	
+		mix_pos=mix_buf;
+		mix_bank=0;
+	#endif
 	
 	#if MIXER_CHAN4_TYPE == 0
 		//initialize LFSR		
@@ -147,78 +195,40 @@ void Initialize(void){
 		uart_rx_buf_end=0;
 	#endif
 
-	#if MIDI_IN == 1
-		UCSR0B=(1<<RXEN0); //set UART for MIDI in
-		UCSR0C=(1<<UCSZ01)+(1<<UCSZ00);
-		UBRR0L=56; //31250 bauds (.5% error)
+
+	#if SNES_MOUSE == 1
+		snesMouseEnabled=false;
 	#endif
 
-	
-	//stop timers
-	TCCR1B=0;
-	TCCR0B=0;
-	
-	//set ports
-	DDRC=0xff; //video dac
-	DDRB=0xff; //h-sync for ad725
-	DDRD=(1<<PD7)+(1<<PD4); //audio-out + led 
-	PORTD|=(1<<PD4)+(1<<PD3)+(1<<PD2); //turn on led & activate pull-ups for soft-power switches
-
-
-	//setup port A for joypads
-	DDRA =0b00001100; //set only control lines as outputs
-	PORTA=0b11111011; //activate pullups on the data lines
-	
-	//PORTD=0;
+	//silence all sound channels
+	for(i=0;i<CHANNELS;i++){
+		mixer.channels.all[i].volume=0;
+	}
 	
 	//set sync parameters. starts at odd field, in pre-eq pulses, line 1
-	sync_phase=SYNC_PHASE_PRE_EQ;
-	sync_pulse=SYNC_PRE_EQ_PULSES;
+	sync_phase=0;
+	sync_pulse=SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES;
 
 	//set rendering parameters
 	render_lines_count_tmp=FRAME_LINES;
+	render_lines_count=FRAME_LINES;
 	first_render_line_tmp=FIRST_RENDER_LINE;
-	
+	first_render_line=FIRST_RENDER_LINE;
 
-	//clear timers
-	TCNT1H=0;
-	TCNT1L=0;
-
-	//set sync generator counter on TIMER1
-	OCR1AH=HDRIVE_CL_TWICE>>8;
-	OCR1AL=HDRIVE_CL_TWICE&0xff;
-
-	TCCR1B=(1<<WGM12)+(1<<CS10);//CTC mode, use OCR1A for match
-	TIMSK1=(1<<OCIE1A);			//generate interrupt on match
-
-	//set clock divider counter for AD725 on TIMER0
-	//outputs 14.31818Mhz (4FSC)
-	TCCR0A=(1<<COM0A0)+(1<<WGM01); //toggle on compare match + CTC
-	OCR0A=0; //divide main clock by 2
-	TCCR0B=(1<<CS00); //enable timer, no pre-scaler
-
-	//set sound PWM on TIMER2
-	TCCR2A=(1<<COM2A1)+(1<<WGM21)+(1<<WGM20); //Fast PWM	
-	OCR2A=0; //duty cycle (amplitude)
-	TCCR2B=(1<<CS20);  //enable timer, no pre-scaler
-
-	SYNC_PORT=(1<<SYNC_PIN)|(1<<VIDEOCE_PIN); //set sync & chip enable line to hi
-
-	burstOffset=0;
-	curr_frame=0;
-	vsync_phase=0;
 	joypad1_status_hi=0;
 	joypad2_status_hi=0;
-	snesMouseEnabled=false;
 	sound_enabled=1;
 
-	//enable color correction
-	ReadButtons();
-	if(ReadJoypad(0)&BTN_B){
-		SetColorBurstOffset(4);
-	}
-	
 	InitializeVideoMode();
+	
+	//Initialize I/O registers
+	u16 val;
+	u8 *ptr;
+	for(u8 j=0;j<(sizeof(io_table)>>1);j++){
+		val=pgm_read_word(&io_table[j]);
+		ptr=(u8*)(val&0xff);
+		*ptr=val>>8;	
+	}
 
 	sei();
 	
@@ -306,198 +316,204 @@ void ReadControllers(){
 }
 
 
+
+
+
+
+
 #if SNES_MOUSE == 1
 
-	//read mouse bits 16 to 31
-	//spec requires a 2.5ms delay between the two 16bits chunks
-	//but the mouse works fine without it. 
-	void ReadMouseExtendedData(){
-		//read the extended bits. Applies only if the mouse is plugged.
-		//if bit 15 of standard word is 1, a mouse is plugged.
-		unsigned int p1ButtonsHi=0,p2ButtonsHi=0;
-		unsigned char i;
 
-		if(joypad1_status_lo&(1<<15) || joypad2_status_lo&(1<<15)){
+//read mouse bits 16 to 31
+//spec requires a 2.5ms delay between the two 16bits chunks
+//but the mouse works fine without it. 
+void ReadMouseExtendedData(){
+	//read the extended bits. Applies only if the mouse is plugged.
+	//if bit 15 of standard word is 1, a mouse is plugged.
+	unsigned int p1ButtonsHi=0,p2ButtonsHi=0;
+	unsigned char i;
 
-			//WaitUs(1);
+	if(joypad1_status_lo&(1<<15) || joypad2_status_lo&(1<<15)){
 
-			for(i=0;i<16;i++){
+		//WaitUs(1);
+
+		for(i=0;i<16;i++){
 	
-				p1ButtonsHi<<=1;
-				p2ButtonsHi<<=1;
+			p1ButtonsHi<<=1;
+			p2ButtonsHi<<=1;
+
+			//pulse clock pin		
+			JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
+			Wait200ns();
+			Wait200ns();
+	
+			if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsHi|=1;
+			if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsHi|=1;
+
+			JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
+			WaitUs(5);
+		}
+	
+		joypad1_status_hi=p1ButtonsHi;
+		joypad2_status_hi=p2ButtonsHi;
+
+	}
+}
+
+
+/*
+ This method activates teh code to read the mouse. 
+ Currently reading the mouse takes a much a 2.5 scanlines.
+*/
+unsigned char playDevice=0,playPort=0,mouseSpriteIndex,mouseWidth,mouseHeight;
+unsigned int actionButton;
+int mx=0,my=0;
+
+char EnableSnesMouse(unsigned char spriteIndex,const char *spriteMap){
+	snesMouseEnabled=true;
+	if(DetectControllers()!=0){
+		mouseWidth=pgm_read_byte(&(spriteMap[0]));
+		mouseHeight=pgm_read_byte(&(spriteMap[1]));
+
+		mx=120;
+		my=120;
+		mouseSpriteIndex=spriteIndex;
+		MapSprite(spriteIndex,spriteMap);
+		MoveSprite(spriteIndex,mx,my,mouseWidth,mouseHeight);
+		return 0;
+	}else{
+		snesMouseEnabled=false;
+		return -1;
+	}
+
+}
+
+unsigned char GetMouseX(){
+	return mx;
+}
+
+unsigned char GetMouseY(){
+	return my;
+}
+
+unsigned int GetActionButton(){
+	return actionButton;
+}
+
+unsigned char GetMouseSensitivity(){
+	unsigned char sens=-1;
+
+	if(snesMouseEnabled){
+		ReadButtons();
+
+		if(joypad1_status_lo&(1<<15)){
+			sens=(joypad1_status_lo>>10)&3;
+		}else if(joypad2_status_lo&(1<<15)){
+			sens=(joypad2_status_lo>>10)&3;
+		}
+
+	}
+
+	return sens;
+}
+
+bool SetMouseSensitivity(unsigned char value){
+	unsigned char i,retries=6;
+
+	if(snesMouseEnabled){	
+		while(retries>0){
+			
+			if(GetMouseSensitivity()==value){
+				return true;
+			}
+
+			WaitUs(1000);
+
+			for(i=0;i<31;i++){	
+				JOYPAD_OUT_PORT|=_BV(JOYPAD_LATCH_PIN);	
 
 				//pulse clock pin		
 				JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
 				Wait200ns();
 				Wait200ns();
-	
-				if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsHi|=1;
-				if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsHi|=1;
-
+				Wait200ns();			
+				Wait100ns();			
 				JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
-				WaitUs(5);
-			}
-	
-			joypad1_status_hi=p1ButtonsHi;
-			joypad2_status_hi=p2ButtonsHi;
 
+				JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));	
+			
+				WaitUs(2);
+				Wait200ns();
+				Wait200ns();
+				Wait200ns();			
+				Wait100ns();
+			}	
+			
+			retries++;
 		}
 	}
 
+	return false;
+}
 
-	/*
-	 This method activates teh code to read the mouse. 
-	 Currently reading the mouse takes a much a 2.5 scanlines.
-	*/
-	unsigned char playDevice=0,playPort=0,mouseSpriteIndex,mouseWidth,mouseHeight;
-	unsigned int actionButton;
-	int mx=0,my=0;
 
-	char EnableSnesMouse(unsigned char spriteIndex,const char *spriteMap){
-		snesMouseEnabled=true;
-		if(DetectControllers()!=0){
-			mouseWidth=pgm_read_byte(&(spriteMap[0]));
-			mouseHeight=pgm_read_byte(&(spriteMap[1]));
 
-			mx=120;
-			my=120;
-			mouseSpriteIndex=spriteIndex;
-			MapSprite(spriteIndex,spriteMap);
-			MoveSprite(spriteIndex,mx,my,mouseWidth,mouseHeight);
-			return 0;
+
+
+void ProcessMouseMovement(void){
+	unsigned int joy;
+	
+	if(snesMouseEnabled){
+
+		//check in case its a SNES pad
+
+		if(playDevice==0){
+			joy=ReadJoypad(playPort);
+
+			if(joy&BTN_LEFT){
+				mx-=2;
+				if(mx<0) mx=0; 
+			}
+			if(joy&BTN_RIGHT){
+				mx+=2;
+				if(mx>231) mx=231;
+			}
+			if(joy&BTN_UP){
+				my-=2;
+				if(my<0)my=0;
+			}
+			if(joy&BTN_DOWN){
+				my+=2;
+				if(my>215)my=215;
+			}
+
 		}else{
-			snesMouseEnabled=false;
-			return -1;
-		}
-
-	}
-
-	unsigned char GetMouseX(){
-		return mx;
-	}
-
-	unsigned char GetMouseY(){
-		return my;
-	}
-
-	unsigned int GetActionButton(){
-		return actionButton;
-	}
-
-	unsigned char GetMouseSensitivity(){
-		unsigned char sens=-1;
-
-		if(snesMouseEnabled){
-			ReadButtons();
-
-			if(joypad1_status_lo&(1<<15)){
-				sens=(joypad1_status_lo>>10)&3;
-			}else if(joypad2_status_lo&(1<<15)){
-				sens=(joypad2_status_lo>>10)&3;
-			}
-
-		}
-
-		return sens;
-	}
-
-	bool SetMouseSensitivity(unsigned char value){
-		unsigned char i,retries=6;
-
-		if(snesMouseEnabled){	
-			while(retries>0){
-			
-				if(GetMouseSensitivity()==value){
-					return true;
-				}
-
-				WaitUs(1000);
-
-				for(i=0;i<31;i++){	
-					JOYPAD_OUT_PORT|=_BV(JOYPAD_LATCH_PIN);	
-
-					//pulse clock pin		
-					JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
-					Wait200ns();
-					Wait200ns();
-					Wait200ns();			
-					Wait100ns();			
-					JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
-
-					JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));	
-			
-					WaitUs(2);
-					Wait200ns();
-					Wait200ns();
-					Wait200ns();			
-					Wait100ns();
-				}	
-			
-				retries++;
-			}
-		}
-
-		return false;
-	}
-
-
-
-
-
-	void ProcessMouseMovement(void){
-		unsigned int joy;
 	
-		if(snesMouseEnabled){
+			joy=ReadJoypadExt(playPort);
 
-			//check in case its a SNES pad
-
-			if(playDevice==0){
-				joy=ReadJoypad(playPort);
-
-				if(joy&BTN_LEFT){
-					mx-=2;
-					if(mx<0) mx=0; 
-				}
-				if(joy&BTN_RIGHT){
-					mx+=2;
-					if(mx>231) mx=231;
-				}
-				if(joy&BTN_UP){
-					my-=2;
-					if(my<0)my=0;
-				}
-				if(joy&BTN_DOWN){
-					my+=2;
-					if(my>215)my=215;
-				}
-
+			if(joy&0x80){
+				mx-=(joy&0x7f);
+				if(mx<0) mx=0; 
 			}else{
-	
-				joy=ReadJoypadExt(playPort);
-
-				if(joy&0x80){
-					mx-=(joy&0x7f);
-					if(mx<0) mx=0; 
-				}else{
-					mx+=(joy&0x7f);
-					if(mx>231) mx=231;
-				}
-	
-				if(joy&0x8000){
-					my-=((joy>>8)&0x7f);
-					if(my<0)my=0;
-				}else{
-					my+=((joy>>8)&0x7f);
-					if(my>215)my=215;
-				}
-	
+				mx+=(joy&0x7f);
+				if(mx>231) mx=231;
 			}
-
-			#if SPRITES_ENABLED !=0
-				MoveSprite(mouseSpriteIndex,mx,my,mouseWidth,mouseHeight);
-			#endif
+	
+			if(joy&0x8000){
+				my-=((joy>>8)&0x7f);
+				if(my<0)my=0;
+			}else{
+				my+=((joy>>8)&0x7f);
+				if(my>215)my=215;
+			}
+	
 		}
+
+		#if SPRITES_ENABLED !=0
+			MoveSprite(mouseSpriteIndex,mx,my,mouseWidth,mouseHeight);
+		#endif
 	}
+}
 #endif
 
 /* Detects what devices are connected to the game ports.

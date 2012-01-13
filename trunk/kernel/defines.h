@@ -77,7 +77,9 @@
 	//Generic define
 	#define DISABLED 0
 	#define ENABLED  1
-
+	
+	#define MIXER_TYPE_VSYNC 	0
+	#define MIXER_TYPE_INLINE	1
 
  	/*
 	 * Defines the video mode to use. 
@@ -221,7 +223,8 @@
 	 * or more sound channels mixing to 
 	 * regain enough CPU. 
 	 *
-	 * Sound channel 1 is always enabled.
+	 * Sound channel 1 is always enabled. 
+	 * Applies only with the Vsync audio mixer.
 	 *
 	 * 0=disable
 	 * 1=enable
@@ -240,7 +243,7 @@
 
 	/*
 	 * Completely remove all the sound mixer & repalyer code.
-	 * The ring buffer & basic sound functionality is preserved for 
+	 * The ring buffer (vsync mixer only) & basic sound functionality is preserved for 
 	 * the emulator and application that fills themselves the buffer.
 	 */
 	#ifndef ENABLE_MIXER
@@ -282,7 +285,19 @@
 	#ifndef CONTROLLERS_VSYNC_READ
 		#define CONTROLLERS_VSYNC_READ 1
 	#endif
-	
+
+	/*
+	 * Determines the type of audio mixer to use. Currently two mixer are available:
+	 * 
+	 * MIXER_TYPE_VSYNC		Mixes 262 samples during each VSYNC. Requires a 524 RAM buffer. (Default)
+	 * MIXER_TYPE_INLINE	Mixes 1 sample each HSYNC. Does not require a RAM buffer. 
+	 *						Note: Video modes 2 and 3 with scrolling don't have enough free cycles
+	 *						      during HBLANK to use this mixer. 
+	 */
+	#ifndef SOUND_MIXER
+		#define SOUND_MIXER MIXER_TYPE_VSYNC
+	#endif
+
 	/*
 	 * Kernel Internal settings, do not modify
 	 */
@@ -347,29 +362,54 @@
 
 
 	//Patch commands
-	#define PC_ENV_SPEED	0
-	#define PC_NOISE_PARAMS	1
-	#define PC_WAVE			2
-	#define PC_NOTE_UP		3
-	#define PC_NOTE_DOWN	4
-	#define PC_NOTE_CUT		5
-	#define PC_NOTE_HOLD 	6
-	#define PC_ENV_VOL		7
-	#define PC_PITCH		8
-	#define PC_TREMOLO_LEVEL	9
+	#define PC_ENV_SPEED	 0
+	#define PC_NOISE_PARAMS	 1
+	#define PC_WAVE			 2
+	#define PC_NOTE_UP		 3
+	#define PC_NOTE_DOWN	 4
+	#define PC_NOTE_CUT		 5
+	#define PC_NOTE_HOLD 	 6
+	#define PC_ENV_VOL		 7
+	#define PC_PITCH		 8
+	#define PC_TREMOLO_LEVEL 9
 	#define PC_TREMOLO_RATE	10
+	#define PC_SLIDE		11
+	#define PC_SLIDE_SPEED	12
 	#define PATCH_END		0xff
 
 
-	#if MIXER_CHAN4_TYPE == 0
+	#if SOUND_MIXER == MIXER_TYPE_INLINE
+
 		#define WAVE_CHANNELS 3
 		#define NOISE_CHANNELS 1
+		#define PCM_CHANNELS 1
+		#define MIXER_CHAN4_TYPE 0
+		#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
+		#define CHANNEL_STRUCT_SIZE 6
+
+		#define AUDIO_OUT_HSYNC_CYCLES 212
+		#define AUDIO_OUT_VSYNC_CYCLES 212
 	#else
-		#define WAVE_CHANNELS 4
-		#define NOISE_CHANNELS 0
+
+		#if MIXER_CHAN4_TYPE == 0
+			#define WAVE_CHANNELS 3
+			#define NOISE_CHANNELS 1
+			#define PCM_CHANNELS 0		
+		#else
+			#define WAVE_CHANNELS 3
+			#define NOISE_CHANNELS 0
+			#define PCM_CHANNELS 1
+		#endif
+		
+		#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
+		#define CHANNEL_STRUCT_SIZE 6
+
+		#define AUDIO_OUT_HSYNC_CYCLES 135
+		#define AUDIO_OUT_VSYNC_CYCLES 68
+
 	#endif
 
-	#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS
+
 	#define SWEEP_UP   0x80
 	#define SWEEP_DOWN 0x00
 
@@ -395,7 +435,6 @@
 
 	#define VIDEO_PORT _SFR_IO_ADDR(DATA_PORT)
 
-	#define CHANNEL_STRUCT_SIZE 10
 	#define MIX_BANK_SIZE (SYNC_HSYNC_PULSES + ((SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES)/2))
 	#define MIX_BUF_SIZE MIX_BANK_SIZE*2
 	//#define MIDI_RX_BUF_SIZE 128
@@ -439,5 +478,6 @@
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif
+
 
 #endif
