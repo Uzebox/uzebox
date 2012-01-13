@@ -30,6 +30,7 @@
 .global InitializeVideoMode
 .global DisplayLogo
 .global VideoModeVsync
+.global ClearVram
 
 .section .bss
 	.align 2		
@@ -52,17 +53,11 @@
 
 sub_video_mode8:
 
-	;wait 873 cycles
-	ldi r26,lo8(361)
-	ldi r27,hi8(361)
-	sbiw r26,1 
-	brne .-4		
-
-
+	WAIT r16,1350
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
-	//ldi r20,SCREEN_HEIGHT*2
+	
 	clr r20
 
 ;*************************************************************
@@ -71,18 +66,12 @@ sub_video_mode8:
 next_scan_line:	
 	rcall hsync_pulse 
 
-	ldi r19,68 + CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
-
+	WAIT r19,330 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
 	;***draw line***
 	rcall render_tile_line
 
-	ldi r19,39 - CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
-	nop
+	WAIT r19,118 - CENTER_ADJUSTMENT
 
 
 	;duplicate each line
@@ -289,6 +278,29 @@ GetPixel_out_of_screen:
 	clr r24
 	ret
 
+;***********************************
+; CLEAR VRAM 8bit
+; Fill the screen with the specified tile
+; C-callable
+;************************************
+.section .text.ClearVram
+ClearVram:
+	//init vram		
+	ldi r30,lo8(VRAM_SIZE)
+	ldi r31,hi8(VRAM_SIZE)
+
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+
+fill_vram_loop:
+	st X+,r1
+	sbiw r30,1
+	brne fill_vram_loop
+
+	clr r1
+
+	ret
+	
 
 ;Nothing to do in this mode
 DisplayLogo:

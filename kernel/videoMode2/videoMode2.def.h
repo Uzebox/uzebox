@@ -52,7 +52,16 @@
 #define SPRITES_ENABLED 1
 #define SCREEN_SECTION_STRUCT_SIZE 15
 
-#define FIRST_RENDER_LINE 24
+#ifndef FIRST_RENDER_LINE
+	#define FIRST_RENDER_LINE 24
+#endif
+
 #ifndef FRAME_LINES
 	#define FRAME_LINES SCREEN_TILES_V*TILE_HEIGHT
 #endif
+
+//Define the type of sound mixer compatible 
+#if SOUND_MIXER == MIXER_TYPE_INLINE
+	#error Invalid compilation option (-DSOUND_MIXER=1): Inline audio mixer not supported for video mode 2 
+#endif
+

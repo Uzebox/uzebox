@@ -46,13 +46,12 @@
 	bool spritesOn=true;
 
 	void RestoreBackground(){
-		unsigned char i,j;
-		unsigned int a;
+		unsigned char i;
 		for(i=0;i<free_tile_index;i++){			
-			a=ram_tiles_restore[i].addr;
-			j=ram_tiles_restore[i].tileIndex;
-			vram[a]=j;
-			//vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+			//a=ram_tiles_restore[i].addr;
+			//j=ram_tiles_restore[i].tileIndex;
+			//vram[a]=j;
+			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
 		}	
 	}
 
@@ -103,39 +102,38 @@
 						wy=by+y;
 						wx=bx+x;
 
-						//process X-Y wrapping
-						if(wy>=(VRAM_TILES_V*2)){
-							wy-=(VRAM_TILES_V*2);
-						}else if(wy>=VRAM_TILES_V){
-							wy-=VRAM_TILES_V;
-						}
-						if(wx>=VRAM_TILES_H)wx-=VRAM_TILES_H; //should always be 32
+						//if( (wx-(Screen.scrollX/8))>0 ) {
 
-						ramPtr=(wy*VRAM_TILES_H)+wx;
-						bt=vram[ramPtr];						
+							//process X-Y wrapping
+							if(wy>=(VRAM_TILES_V*2)){
+								wy-=(VRAM_TILES_V*2);
+							}else if(wy>=VRAM_TILES_V){
+								wy-=VRAM_TILES_V;
+							}
+							if(wx>=VRAM_TILES_H)wx-=VRAM_TILES_H; //should always be 32
 
-						if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
+							ramPtr=(wy*VRAM_TILES_H)+wx;
+							bt=vram[ramPtr];						
 
-							//tile is mapped to flash. Copy it to next free RAM tile.
-							//if no ram free ignore tile
-							ram_tiles_restore[free_tile_index].addr=ramPtr;
-							ram_tiles_restore[free_tile_index].tileIndex=bt;
+							if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
+
+								//tile is mapped to flash. Copy it to next free RAM tile.
+								//if no ram free ignore tile
+								ram_tiles_restore[free_tile_index].addr=ramPtr;
+								ram_tiles_restore[free_tile_index].tileIndex=bt;
 													
-							CopyTileToRam(bt,free_tile_index);
+								CopyTileToRam(bt,free_tile_index);
 
-							vram[ramPtr]=free_tile_index;
-							bt=free_tile_index;
-							free_tile_index++;										
-						}
+								vram[ramPtr]=free_tile_index;
+								bt=free_tile_index;
+								free_tile_index++;										
+							}
 				
-						if(bt<RAM_TILES_COUNT){
-				
+							if(bt<RAM_TILES_COUNT){				
+								BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);			
+							}
 
-							BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);
-
-			
-						}
-
+					//	}
 
 					}//end for X
 				}//end for Y

@@ -69,9 +69,24 @@
 
 	extern void WaitVsync(int count);
 	extern void ClearVsyncFlag(void);
-	extern unsigned char GetVsyncFlag(void);
+	extern   u8 GetVsyncFlag(void);
 	
 	extern void SetRenderingParameters(u8 firstScanlineToRender, u8 verticalTilesToRender);
+
+
+	/*
+	 * Sound Engine functions
+	 */	
+	extern void SetMasterVolume(unsigned char vol);		//global player volume
+	extern   u8 GetMasterVolume();
+	extern void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,unsigned char volume);
+	extern void TriggerFx(unsigned char patch,unsigned char volume, bool retrig); //uses a simple voice stealing algorithm
+	extern void StopSong();
+	extern void StartSong(const char *midiSong);
+	extern void ResumeSong();
+	extern void InitMusicPlayer(const struct PatchStruct *patchPointersParam);
+	extern void EnableSoundEngine();
+	extern void DisableSoundEngine();
 
 
 	/*
@@ -91,10 +106,7 @@
 	extern unsigned char GetMouseY();
 	extern unsigned int GetActionButton();
 	extern unsigned char DetectControllers();
-	void ReadControllers(); //use only if CONTROLLERS_READ_MASTER=1
-
-
-
+	void ReadControllers(); //use only if CONTROLLERS_VSYNC_READ=0
 
 
 	/*
@@ -108,18 +120,6 @@
 	extern void FormatEeprom(void);
 	extern void FormatEeprom2(u16 *ids, u8 count);
 
-	/*
-	 * Sound Engine functions
-	 */	
-	extern void SetMasterVolume(unsigned char vol);		//global player volume
-	extern void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,unsigned char volume);
-	extern void TriggerFx(unsigned char patch,unsigned char volume, bool retrig); //uses a simple voice stealing algorithm
-	extern void StopSong();
-	extern void StartSong(const char *midiSong);
-	extern void ResumeSong();
-	extern void InitMusicPlayer(const struct PatchStruct *patchPointersParam);
-	extern void EnableSoundEngine();
-	extern void DisableSoundEngine();
 
 	/*
 	 * UART RX buffer
@@ -134,6 +134,7 @@
 	 */
 	extern void WaitUs(unsigned int microseconds);
 	extern void SoftReset(void);
+	extern bool IsRunningInEmulator(void);
 
 	extern void SetUserPreVsyncCallback(VsyncCallBackFunc);
 	extern void SetUserPostVsyncCallback(VsyncCallBackFunc);

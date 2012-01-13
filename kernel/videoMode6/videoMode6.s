@@ -39,13 +39,15 @@
 sub_video_mode6:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,222-25+9-1
-mode0_render_delay:
-	lpm
-	nop
-	dec ZL
-	brne mode0_render_delay 
-	rjmp .
+	;ldi ZL,222-25+9-1-13-1
+;mode0_render_delay:
+;	lpm
+;	nop
+;	dec ZL
+;	brne mode0_render_delay 
+;	rjmp .
+;	rjmp .
+	WAIT r19,1342
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
@@ -59,19 +61,20 @@ mode0_render_delay:
 	clr r5
 
 next_text_line:	
-	rcall hsync_pulse ;3+144=147
+	rcall hsync_pulse 
 
-	ldi r19,37 + CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
+	;ldi r19,14 + CENTER_ADJUSTMENT
+	;dec r19			
+	;brne .-4
+	WAIT r19,254 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,26 - CENTER_ADJUSTMENT -1 -2
+	ldi r19,20 - CENTER_ADJUSTMENT -1 -2
 	dec r19			
 	brne .-4
-	
+	nop
 
 	inc r4
 	inc r5
@@ -118,12 +121,8 @@ text_frame_end:
 
 text_end2:
 
-	;set vsync flag if beginning of next frame (each two fields)
+	;set vsync flag
 	ldi r17,1
-	lds r16,curr_field
-	eor r16,r17
-	sts curr_field,r16
-		
 	sts vsync_flag,r17
 
 	;clear any pending timer int

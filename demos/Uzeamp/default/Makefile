@@ -13,8 +13,8 @@ INFO=../gameinfo.properties
 ## Kernel settings
 ## Notes: SCREEN_TILES_V=27 is required to recover some CPU because with the mouse & sprites, it would randomly crash
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DUZEBOX -DUZEAMP -DVIDEO_MODE=3 -DINTRO_LOGO=1 -DRAM_TILES_COUNT=12 -DCENTER_ADJUSTMENT=0
-KERNEL_OPTIONS += -DMAX_SPRITES=4 -DSCREEN_TILES_V=27 -DVRAM_TILES_V=27 -DFIRST_RENDER_LINE=24 -DENABLE_MIXER=0 -DSNES_MOUSE=1
+KERNEL_OPTIONS  = -DUZEBOX -DUZEAMP -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DRAM_TILES_COUNT=12 -DCENTER_ADJUSTMENT=0
+KERNEL_OPTIONS += -DMAX_SPRITES=4 -DSCREEN_TILES_V=27 -DVRAM_TILES_V=27 -DFIRST_RENDER_LINE=24 -DENABLE_MIXER=0 -DSNES_MOUSE=0
 
 
 ## Options common to compile, link and assembly rules
@@ -47,7 +47,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o gui.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o mmc.o $(GAME).o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o mmc.o mmc_lib.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -74,12 +74,12 @@ uzeboxSoundEngine.o: $(KERNEL_DIR)/uzeboxSoundEngine.c
 uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-gui.o: $(KERNEL_DIR)/gui.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-
 mmc.o: $(KERNEL_DIR)/mmc.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
+
+mmc_lib.o: $(KERNEL_DIR)/mmc_lib.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
 
 ## Compile game sources
 $(GAME).o: ../Uzeamp.c

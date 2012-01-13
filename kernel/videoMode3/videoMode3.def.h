@@ -97,3 +97,8 @@
 #define SPRITE_BANK2 2<<6
 #define SPRITE_BANK3 3<<6
 
+//Define the type of sound mixer compatible 
+//with this video mode
+#if SCROLLING == 1 && SOUND_MIXER == MIXER_TYPE_INLINE
+	#error Invalid compilation option (-DSOUND_MIXER=1): Inline audio mixer not supported for video mode 3 with scrolling enabled 
+#endif

@@ -54,3 +54,5 @@
 #ifndef MODE1_FAST_VSYNC
 	#define MODE1_FAST_VSYNC 0
 #endif
+
+

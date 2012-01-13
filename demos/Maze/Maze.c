@@ -108,8 +108,12 @@ int main()
    SetFontTable(fonts);  // this tells Print___() commands what font to use
    ClearVram();          // clears out display memory (like a 'clear screen')
 
-  DDRD &= 0xF7; // These are used by the "power" switch and LED on the "Gamer" baseboard that 
-  PORTD|= 0x08; // is paired with the AVCore.  The 'power' button is used to switch mazes for now.
+  //DDRD &= 0xF7; // These are used by the "power" switch and LED on the "Gamer" baseboard that 
+  //PORTD|= 0x08; // is paired with the AVCore.  The 'power' button is used to switch mazes for now.
+  
+  
+
+
 
 new_maze:
   for(ay=0; ay<Y_SIZE; ay++) 
@@ -174,7 +178,8 @@ new_maze:
  // This is what happens when you turn a static demo into a 'game'
  // For a real game, you probably don't want to do this, but it works here and is simple...
  
- while(PIND&0x08)       // if the button on the Gamer Baseboard isn't pressed
+ //while(PIND&0x04)       // if the button on the Gamer Baseboard isn't pressed
+ while(ReadPowerSwitch()==0) // if the button on the Gamer Baseboard isn't pressed
  {z++;                  // the z counter is used later on for a seed for the random number generator (user interaction = randomness)
  joypad=ReadJoypad(0);  // get the joypad state
 

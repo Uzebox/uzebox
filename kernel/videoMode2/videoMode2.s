@@ -9,6 +9,13 @@
 .global screenSections
 .global SetSpritesOptions
 .global ProcessSprites
+.global SetTile
+.global ClearVram
+.global SetFontTilesIndex
+.global SetTileTable
+.global SetTile
+.global SetFont
+
 
 ;Sprites Struct offsets
 #define sprPosX  0
@@ -71,7 +78,10 @@
 	sprites_per_lines:	.space (SCREEN_TILES_V)*TILE_HEIGHT*MAX_SPRITES_PER_LINE ;|Y-offset(3bits)|Sprite No(5bits)|
 	sprite_buf_erase:	.space MAX_SPRITES_PER_LINE; ;4x8 bit pointers
 	rotate_spr_no:		.byte 1	
-
+	curr_field:	 		.byte 1	;0 or 1, changes at 60hz
+	tile_table_lo:	.byte 1
+	tile_table_hi:	.byte 1
+	font_tile_index:.byte 1 
 .section .text
 
 ;***************************************************
@@ -83,14 +93,14 @@
 sub_video_mode2:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,202
-m2_render_delay:
-	rjmp .
-	rjmp .
-	dec ZL
-	brne m2_render_delay 	
-	lpm
-	rjmp .
+	;ldi ZL,202-13
+;m2_render_delay:
+	;rjmp .
+	;rjmp .
+	;dec ZL
+	;brne m2_render_delay 	
+	;nop
+	WAIT ZL,1324
 
 
 	lds r20,screenSections+tileTableAdressLo
@@ -1355,4 +1365,112 @@ ps_no_erase2:
 	pop r15
 	pop r14
 
+	ret
+
+;***********************************
+; CLEAR VRAM 8bit
+; Fill the screen with the specified tile
+; C-callable
+;************************************
+.section .text.ClearVram
+ClearVram:
+	//init vram		
+	ldi r30,lo8(VRAM_SIZE)
+	ldi r31,hi8(VRAM_SIZE)
+
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+
+fill_vram_loop:
+	st X+,r1
+	sbiw r30,1
+	brne fill_vram_loop
+
+	clr r1
+
+	ret
+
+	
+;***********************************
+; SET TILE 8bit mode
+; C-callable
+; r24=X pos (8 bit)
+; r22=Y pos (8 bit)
+; r20=Tile No (8 bit)
+;************************************
+.section .text.SetTile
+SetTile:
+
+	clr r25
+	clr r23	
+
+	ldi r18,VRAM_TILES_H
+
+	mul r22,r18		;calculate Y line addr in vram
+	add r0,r24		;add X offset
+	adc r1,r25
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+	add XL,r0
+	adc XH,r1
+
+	st X,r20
+
+	clr r1
+
+	ret
+
+;***********************************
+; SET FONT TILE
+; C-callable
+; r24=X pos (8 bit)
+; r22=Y pos (8 bit)
+; r20=Font tile No (8 bit)
+;************************************
+.section .text.SetFont
+SetFont:
+	clr r25
+
+	ldi r18,VRAM_TILES_H
+
+	mul r22,r18		;calculate Y line addr in vram
+	
+	add r0,r24		;add X offset
+	adc r1,r25
+
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+	add XL,r0
+	adc XH,r1
+
+	lds r21,font_tile_index
+	add r20,r21
+
+	st X,r20
+
+	clr r1
+
+	ret
+
+
+;***********************************
+; SET FONT Index
+; C-callable
+; r24=First font tile index in tile table (8 bit)
+;************************************
+.section .text.SetFontTilesIndex
+	SetFontTilesIndex:
+	sts font_tile_index,r24
+	ret
+
+
+;***********************************
+; Define the tile data source
+; C-callable
+; r25:r24=pointer to tiles data
+;************************************
+.section .text.SetTileTable
+SetTileTable:
+	sts tile_table_lo,r24
+	sts tile_table_hi,r25	
 	ret

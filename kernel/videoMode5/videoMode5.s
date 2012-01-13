@@ -48,21 +48,25 @@
 ;***************************************************************
 
 .global vram
+.global SetTile
+.global ClearVram
+.global SetFontTilesIndex
+.global SetTileTable
+.global SetTile
+.global SetFont
 
 .section .bss
-	vram: 	  	.space VRAM_SIZE	;allocate space for the video memory (VRAM)
-
+	vram: 	  		.space VRAM_SIZE	;allocate space for the video memory (VRAM)
+	tile_table_lo:	.byte 1
+	tile_table_hi:	.byte 1
+	font_tile_index:.byte 1 
+	
 .section .text
 
 sub_video_mode5:
 
 	;waste line to align with next hsync in render function
-	ldi ZL,222-15-1
-mode5_render_delay:
-	rjmp .
-	rjmp .
-	dec ZL
-	brne mode5_render_delay 
+	WAIT ZL,1347
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
@@ -74,16 +78,14 @@ mode5_render_delay:
 	ldi r23,TILE_WIDTH ;tile width in pixels
 
 next_text_line:	
-	rcall hsync_pulse ;3+144=147
-
-	ldi r19,50 - 4 - 1 + CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
+	rcall hsync_pulse 
+	
+	WAIT r19,261 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,13 + 4 - 1 - CENTER_ADJUSTMENT
+	ldi r19,16 - CENTER_ADJUSTMENT
 	dec r19			
 	brne .-4
 
@@ -127,13 +129,7 @@ text_frame_end:
 
 	rcall hsync_pulse ;145
 
-
-	;set vsync flag if beginning of next frame (each two fields)
-	ldi r17,1
-	lds r16,curr_field
-	eor r16,r17
-	sts curr_field,r16
-
+	;set vsync flag
 	sts vsync_flag,r17
 
 	;clear any pending timer int
@@ -216,3 +212,110 @@ mode5_loop:
 	ret
 
 
+;***********************************
+; CLEAR VRAM 8bit
+; Fill the screen with the specified tile
+; C-callable
+;************************************
+.section .text.ClearVram
+ClearVram:
+	//init vram		
+	ldi r30,lo8(VRAM_SIZE)
+	ldi r31,hi8(VRAM_SIZE)
+
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+
+fill_vram_loop:
+	st X+,r1
+	sbiw r30,1
+	brne fill_vram_loop
+
+	clr r1
+
+	ret
+
+	
+;***********************************
+; SET TILE 8bit mode
+; C-callable
+; r24=X pos (8 bit)
+; r22=Y pos (8 bit)
+; r20=Tile No (8 bit)
+;************************************
+.section .text.SetTile
+SetTile:
+
+	clr r25
+	clr r23	
+
+	ldi r18,VRAM_TILES_H
+
+	mul r22,r18		;calculate Y line addr in vram
+	add r0,r24		;add X offset
+	adc r1,r25
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+	add XL,r0
+	adc XH,r1
+
+	st X,r20
+
+	clr r1
+
+	ret
+
+;***********************************
+; SET FONT TILE
+; C-callable
+; r24=X pos (8 bit)
+; r22=Y pos (8 bit)
+; r20=Font tile No (8 bit)
+;************************************
+.section .text.SetFont
+SetFont:
+	clr r25
+
+	ldi r18,VRAM_TILES_H
+
+	mul r22,r18		;calculate Y line addr in vram
+	
+	add r0,r24		;add X offset
+	adc r1,r25
+
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+	add XL,r0
+	adc XH,r1
+
+	lds r21,font_tile_index
+	add r20,r21
+
+	st X,r20
+
+	clr r1
+
+	ret
+
+
+;***********************************
+; SET FONT Index
+; C-callable
+; r24=First font tile index in tile table (8 bit)
+;************************************
+.section .text.SetFontTilesIndex
+	SetFontTilesIndex:
+	sts font_tile_index,r24
+	ret
+
+
+;***********************************
+; Define the tile data source
+; C-callable
+; r25:r24=pointer to tiles data
+;************************************
+.section .text.SetTileTable
+SetTileTable:
+	sts tile_table_lo,r24
+	sts tile_table_hi,r25	
+	ret

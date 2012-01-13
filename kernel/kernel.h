@@ -23,12 +23,12 @@
 
 	#include "defines.h"
 
-	typedef uint8_t u8;
-	typedef int8_t s8;
+	typedef uint8_t  u8;
+	typedef int8_t   s8;
 	typedef uint16_t u16;
-	typedef int16_t s16;
+	typedef int16_t  s16;
 	typedef uint32_t u32;
-	typedef int32_t s32;
+	typedef int32_t  s32;
 
 
 	/*
@@ -41,8 +41,6 @@
 		unsigned int  step;				//8:8 fixed point
 		unsigned char positionFrac; 	//8bit fractional part 
 		const char *position;			//16bit sample pointer	
-		const char *loopStart;			//absolute adress of loop start. unused for chan 1,2,3. Used only if chan4==PBM
-		const char *loopEnd;			//absolute adress of loop end. unused for chan 1,2,3. Used only if chan4==PBM
 	};
 
 
@@ -52,20 +50,27 @@
 		unsigned char params;				//bit0=7/15 bits lfsr, b1:6=divider (samples between shifts)
 		unsigned int  barrel;				//16bit LFSR barrel shifter
 		unsigned char divider;				//divider accumulator
-		unsigned char reserved[5];
+		unsigned char reserved;
 	};
 
-	//Common type for both channels
+	//Common type for both channels (except noise chan)
 	struct MixerChannelStruct
 	{
 		unsigned char volume;				//(0-255)
-		unsigned const char structAlignment[9];	//dont access!
+		unsigned int  step;					//8:8 fixed point
+		unsigned const char structAlignment[3];	//dont access!
 	};
+
 
 	struct SubChannelsStruct
 	{
 		struct MixerWaveChannelStruct wave[WAVE_CHANNELS];
-		struct MixerNoiseChannelStruct noise;
+		
+		#if MIXER_CHAN4_TYPE == 0		
+			struct MixerNoiseChannelStruct noise;		
+		#endif 
+
+		struct MixerWaveChannelStruct pcm;	
 	};
 
 	struct MixerStruct
@@ -75,21 +80,38 @@
 			struct SubChannelsStruct type;	
 		}channels;
 
+		const char *pcmLoopStart;		//PCM channel's absolute adress of PCM loop start
+		const char *pcmLoopEnd;			//PCM channel's absolute adress of PCM loop end.
 	};
+
 
 	extern void SetMixerNoiseParams(unsigned char params);
 	extern void SetMixerWave(unsigned char channel,unsigned char patch);
 	extern void SetMixerNote(unsigned char channel,unsigned char note);//,int volume);
 	extern void SetMixerVolume(unsigned char channel,unsigned char volume);
 
-	typedef void (*PatchCommand)(unsigned char channel, char value);
 	typedef void (*VsyncCallBackFunc)(void);
+
+	#define TRACK_FLAGS_SLIDING		8
+	#define TRACK_FLAGS_ALLOCATED	16
+	#define TRACK_FLAGS_PLAYING		32
+	#define TRACK_FLAGS_HOLD_ENV	64
+	#define TRACK_FLAGS_PRIORITY	128
 
 	struct TrackStruct
 	{
-		bool allocated;				//true=used by music player, false=voice can be controlled by main program
-		unsigned char priority;			//0=lowest
+		unsigned char flags;		//b0-b2: reserved
+									//b2: pitch slide		: 1=sliding to note, 0=slide off
+									//b4: allocated 		: 1=used by music player, 0=voice can be controlled by main program
+									//b5: patch playing 	: 1=playing, 0=stopped
+									//b6: hold envelope		: 1=hold volume envelope, i.e: don't increae/decrease, 0=don't hold
+									//b7: priority			: 1=Hi/Fx, 0=low/regular note
+
 		unsigned char note;
+
+		s16 slideStep;		//used to slide to note
+		u8  slideNote;		//target note
+		u8	slideSpeed;		//fixed point 4:4, 1:0= 1/16 half note per frame
 
 		unsigned char tremoloPos;
 		unsigned char tremoloLevel;
@@ -100,19 +122,18 @@
 		unsigned char noteVol;
 		unsigned char envelopeVol;		//(0-255)
 		char envelopeStep;				//signed, amount of envelope change each frame +127/-128
-		bool patchPlaying;
+		
 		unsigned char patchNo;
 		unsigned char fxPatchNo;
 		unsigned char patchLastStatus;
 		unsigned char patchNextDeltaTime;
 		unsigned char patchCurrDeltaTime;
 		unsigned char patchPlayingTime;	//used by fx to steal oldest voice
-		unsigned char patchWave;		//0-7
-		bool patchEnvelopeHold;
 		const char *patchCommandStreamPos;
-
 	};
 
+
+	typedef void (*PatchCommand)(struct TrackStruct* track,unsigned char channel, char value);
 
 	extern unsigned char mix_buf[];
 	extern volatile unsigned char *mix_pos;
