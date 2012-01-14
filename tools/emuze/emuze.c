@@ -197,7 +197,7 @@ const char saveStr[] PROGMEM = "SAVE";
 const char formatStr[] PROGMEM = "FORMAT";
 const char exploreStr[] PROGMEM = "EXPLORE";
 
-const char *menuStrings[] PROGMEM = {
+const char * const menuStrings[] PROGMEM = {
 	editStr,
 	copyStr,
 	pasteStr,
@@ -271,7 +271,7 @@ const char castlevaniaGame[] PROGMEM = "CASTLEVANIA: VENGEANCE";
 
 // (#) denotes index to be referenced in animations array below. Note: trailing game title
 // comments may not be complete or up-to-date.
-u16 frameDurations[] PROGMEM = {
+const u16 frameDurations[] PROGMEM = {
 	65535,				// (0) All single-frame animations.
 	60, 5,				// (1) Adventures of Lolo
 	5, 5, 5, 5,			// (3) Unknown, Pac-Man
@@ -283,7 +283,7 @@ u16 frameDurations[] PROGMEM = {
 	7, 7				// (24) Sokoban World, Donkey Kong
 };
 
-u8 frameSequences[] PROGMEM = {
+const u8 frameSequences[] PROGMEM = {
 	0,					// (0) All single-frame animations.
 	0,1,				// (1) Lolo, Zombienator, Sokoban World, Donkey Kong
 	0,1,2,				// (3) Megatris, Whack-A-Mole, Arkanoid, Dr Mario, Space Invaders
@@ -317,7 +317,7 @@ const animation animations[] PROGMEM = {
 };
 
 // findGameIndex() expects these to be sorted by id if in binary search mode.
-gameDetails games[] PROGMEM = {
+const gameDetails games[] PROGMEM = {
 	{ 2, megatrisGame, 1 },
 	{ 3, whackAMoleGame, 2 },
 	{ 4, voidFighterGame, 3 },
