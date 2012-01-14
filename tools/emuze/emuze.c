@@ -197,7 +197,7 @@ const char saveStr[] PROGMEM = "SAVE";
 const char formatStr[] PROGMEM = "FORMAT";
 const char exploreStr[] PROGMEM = "EXPLORE";
 
-const char * const menuStrings[] PROGMEM = {
+const char * const menuStrings[12] PROGMEM = {
 	editStr,
 	copyStr,
 	pasteStr,
@@ -354,7 +354,7 @@ void closeMenu(tileMenu *m);
 int moveCursor(menuCursor *cursor, char dist);
 void drawCursor(menuCursor *cursor);
 void hideCursor(menuCursor *cursor);
-void printPgmStrings(u8 x, u8 y, u8 count, PGM_P *strs);
+void printPgmStrings(u8 x, u8 y, u8 count, const char * const *strs);
 void setState(int newState);
 void activateItem(int index);
 void initMenus(void);
@@ -707,7 +707,7 @@ void drawCursor(menuCursor *cursor) {
 }
 
 
-void printPgmStrings(u8 x, u8 y, u8 count, PGM_P *strs) {
+void printPgmStrings(u8 x, u8 y, u8 count, const char * const *strs) {
 	u8 i = 0;
 
 	while (count--)
