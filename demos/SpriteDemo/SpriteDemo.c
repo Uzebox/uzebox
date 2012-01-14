@@ -330,6 +330,7 @@ int main(){
 	}
 }
 
+/*
 void triggerLoop(){
 	//Example to start the loop w/o the API
 	mixer.channels.type.wave[3].volume=0xff;
@@ -342,7 +343,7 @@ void triggerLoop(){
 	tracks[3].envelopeVol=0xff;
 	tracks[3].trackVol=0xff;
 }
-
+*/
 
 unsigned char processControls(void){
 	static int lastbuttons=0;
@@ -355,18 +356,6 @@ unsigned char processControls(void){
 
 	}
 
-
-	if(joy&BTN_SR){
-		//increase loop speed
-		mixer.channels.type.wave[3].step+=0x1;
-	}
-	
-	if(joy&BTN_SL){
-		//decrease loop speed
-		mixer.channels.type.wave[3].step-=0x1;
-	}
-
-
 	
 	if(joy&BTN_X){
 		TriggerNote(3,1,23,0xff);
@@ -374,7 +363,7 @@ unsigned char processControls(void){
 	}
 
 	if(joy&BTN_Y){
-		tracks[3].patchPlaying=false;
+		tracks[3].flags&= ~(TRACK_FLAGS_PLAYING);
 		tracks[3].noteVol=0;
 
 	}

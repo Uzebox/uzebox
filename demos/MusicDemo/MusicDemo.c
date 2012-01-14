@@ -33,10 +33,7 @@ extern unsigned char volatile tr1_step_hi;
 //import tunes
 #include "data/Korobeiniki-3tracks.inc"
 #include "data/ghost.inc"
-#include "data/drmario_main.inc"
 #include "data/nsmb.inc"
-#include "data/ending.inc"
-
 #include "data/testrisnt.inc"
 #include "data/testrisnt_fast.inc"
 
@@ -48,17 +45,13 @@ extern unsigned char volatile tr1_step_hi;
 #include "data/composerTiles.pic.inc"
 #include "data/composerTiles.map.inc"
 
-const char strCopyright[] PROGMEM ="2008 UZE";
+const char strCopyright[] PROGMEM ="2008-2011 UZE";
 const char strWebsite[] PROGMEM ="HTTP://WWW.BELOGIC.COM/UZEBOX";
 
 const char tetris1[] PROGMEM ="TETRIS 1";
 const char tetris2[] PROGMEM ="TETRIS 2";
-const char tetris3[] PROGMEM ="TETRIS 3";
-const char tetris4[] PROGMEM ="TETRIS 4";
-
-const char ghost[] PROGMEM ="GHOST & GOBLINS";
-const char mario[] PROGMEM ="DR.MARIO";
 const char nsmb[] PROGMEM ="NEW SUPER MARIO BROS.";
+const char ghost[] PROGMEM ="GHOST & GOBLINS";
 
 
 const char volume[] PROGMEM ="VOLUME:";
@@ -73,14 +66,9 @@ const char patchStreamStr[] PROGMEM ="STREAM POS:";
 const char envVolStr[] PROGMEM ="ENV VOL:";	
 const char envStepStr[] PROGMEM ="ENV STEP:";	
 
-const char ch1[] PROGMEM ="CH1";
-const char ch2[] PROGMEM ="CH2";
-const char ch3[] PROGMEM ="CH3";
-const char ch4[] PROGMEM ="CH4";
-
 const char midiIn[] PROGMEM ="MIDI IN ENABLED";
 
-extern struct TrackStruct tracks[4];
+extern struct TrackStruct tracks[CHANNELS];
 void MoveCursor(unsigned char x,unsigned char y);
 
 unsigned char y=5,x=9,ox=5,oy=9;
@@ -106,29 +94,27 @@ int main(){
 
 	Print(x+1,y+0,tetris1);
 	Print(x+1,y+1,tetris2);
-	//Print(x+1,y+2,tetris3);
-	//Print(x+1,y+3,tetris4);
-	Print(x+1,y+2,mario);
-	Print(x+1,y+3,nsmb);
-	Print(x+1,y+4,ghost);
+	Print(x+1,y+2,nsmb);
+	Print(x+1,y+3,ghost);
 
 
-	Print(6,10+6,playingStr);
-	Print(5,11+6,prioStr);
-	Print(9,12+6,noteStr);
-	Print(9,13+6,waveStr);
-	Print(8,14+6,patchStr);
-	Print(3,15+6,patchStreamStr);
-	Print(6,16+6,envVolStr);
-	Print(5,17+6,envStepStr);
+	Print(6-1,10+6,playingStr);
+	Print(5+2,11+6,PSTR("SLIDE:"));
+	Print(9-1,12+6,noteStr);
+	Print(9-1-7,13+6,PSTR("TREMOLO LVL:"));
+	Print(8-1,14+6,patchStr);
+	Print(3-1,15+6,patchStreamStr);
+	Print(6-1,16+6,envVolStr);
+	Print(5-1,17+6,envStepStr);
 
-	Print(15,8+6,ch1);
-	Print(20,8+6,ch2);
-	Print(25,8+6,ch3);
-	Print(30,8+6,ch4);
+	Print(15-1,8+6,PSTR("CH1"));
+	Print(20-1,8+6,PSTR("CH2"));
+	Print(25-1,8+6,PSTR("CH3"));
+	Print(30-1,8+6,PSTR("CH4"));
+	Print(35-1,8+6,PSTR("CH5"));
 
-	for(c=0;c<18;c++){
-		SetTile(15+c,15,2);
+	for(c=0;c<23;c++){
+		SetTile(14+c,15,2);
 	}
 
 	MoveCursor(x,y);
@@ -146,17 +132,17 @@ int main(){
 			ClearVsyncFlag();
 	
 
-			for(unsigned char t=0;t<4;t++){
-				PrintHexByte((t*5)+15,10+6,tracks[t].patchPlaying);
-				PrintHexByte((t*5)+15,11+6,tracks[t].priority);
-				PrintHexByte((t*5)+15,12+6,tracks[t].note);
-				PrintHexByte((t*5)+15,13+6,tracks[t].patchWave);
-				PrintHexByte((t*5)+15,14+6,tracks[t].patchNo);			
-				PrintHexByte((t*5)+15,15+6,*tracks[t].patchCommandStreamPos);
-				PrintHexByte((t*5)+15,16+6,tracks[t].envelopeVol);
-				PrintHexByte((t*5)+15,17+6,tracks[t].envelopeStep);
+			for(unsigned char t=0;t<5;t++){
+				PrintHexByte((t*5)+14,10+6,tracks[t].flags&TRACK_FLAGS_PLAYING);
+				PrintHexByte((t*5)+14,11+6,tracks[t].slideNote);
+				PrintHexByte((t*5)+14,12+6,tracks[t].note);
+				PrintHexByte((t*5)+14,13+6,tracks[t].tremoloLevel);
+				PrintHexByte((t*5)+14,14+6,tracks[t].patchNo);			
+				PrintHexByte((t*5)+14,15+6,*tracks[t].patchCommandStreamPos);
+				PrintHexByte((t*5)+14,16+6,tracks[t].envelopeVol);
+				PrintHexByte((t*5)+14,17+6,tracks[t].envelopeStep);
 
-				drawVuMeter((t*5)+17,14+6,t);
+				drawVuMeter((t*5)+16,14+6,t);
 			
 			}
 
@@ -186,11 +172,8 @@ int main(){
 			}else{
 				if(y==5)StartSong(song_korobeiniki);
 				if(y==6)StartSong(song_testrisnt);
-				//if(y==7)StartSong(song_testrisnt_fast);
-				//if(y==8)StartSong(song_ending);
-				if(y==7)StartSong(song_drmario_main);
-				if(y==8)StartSong(song_nsmb);
-				if(y==9)StartSong(song_ghost);
+				if(y==7)StartSong(song_nsmb);
+				if(y==8)StartSong(song_ghost);
 
 			}
 			playing=!playing;
@@ -205,7 +188,7 @@ int main(){
 			}
 			while((ReadJoypad(0)&BTN_UP)!=0);
 		}else if(joy&BTN_DOWN){
-			if(y<9){
+			if(y<8){
 				TriggerFx(1,0x90,true);
 				y++;
 				MoveCursor(x,y);

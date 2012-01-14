@@ -48,9 +48,6 @@
 	void RestoreBackground(){
 		unsigned char i;
 		for(i=0;i<free_tile_index;i++){			
-			//a=ram_tiles_restore[i].addr;
-			//j=ram_tiles_restore[i].tileIndex;
-			//vram[a]=j;
 			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
 		}	
 	}

@@ -63,7 +63,7 @@ extern unsigned char sound_enabled;
 u8 joypadsConnectionStatus;
 
 
-u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
+const u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 								   (u8)(EEPROM_SIGNATURE>>8),	//
 								   EEPROM_HEADER_VER,			//(u8)				
 								   EEPROM_BLOCK_SIZE,			//(u8) 
@@ -116,7 +116,7 @@ void SetRenderingParameters(u8 firstScanlineToRender, u8 scanlinesToRender){
 #define io_set(a,b) ((_SFR_MEM_ADDR(a) & 0xff) + ((b)<<8))
 #define set_io_end  0x0001
 
-u16 io_table[] PROGMEM ={
+const u16 io_table[] PROGMEM ={
 	io_set(TCCR1B,0x00),	//stop timers
 	io_set(TCCR0B,0x00),
 	io_set(DDRC,0xff), 		//video dac
