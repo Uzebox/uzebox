@@ -1,6 +1,6 @@
 /*
  * Transformation file: ../data/tiles.gconvert.xml
- * Source image: ..\data\tiles.png
+ * Source image: ../data/tiles.png
  * Tile width: 8px
  * Tile height: 12px
  * Output format: (null)

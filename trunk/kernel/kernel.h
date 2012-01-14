@@ -101,7 +101,7 @@
 	struct TrackStruct
 	{
 		unsigned char flags;		//b0-b2: reserved
-									//b2: pitch slide		: 1=sliding to note, 0=slide off
+									//b3: pitch slide		: 1=sliding to note, 0=slide off
 									//b4: allocated 		: 1=used by music player, 0=voice can be controlled by main program
 									//b5: patch playing 	: 1=playing, 0=stopped
 									//b6: hold envelope		: 1=hold volume envelope, i.e: don't increae/decrease, 0=don't hold

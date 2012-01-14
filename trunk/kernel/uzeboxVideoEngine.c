@@ -261,7 +261,7 @@ void WaitVsync(int count){
 
 //Fade table created by tim1724 
 #define FADER_STEPS 12
-unsigned char fader[FADER_STEPS] PROGMEM={
+const unsigned char fader[FADER_STEPS] PROGMEM={
            // BB GGG RRR
     0x00,  // 00 000 000
     0x40,  // 01 000 000

@@ -52,11 +52,6 @@ int main(){
 		j--;
 	}
 
-	DisableSoundEngine();
-	DisplayLogo();
-	EnableSoundEngine();
-	DisplayLogo();
-
 	while(1);
 
 } 

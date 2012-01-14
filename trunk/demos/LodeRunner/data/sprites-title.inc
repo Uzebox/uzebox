@@ -1,6 +1,6 @@
 /*
  * Transformation file: ../data/sprites-title.gconvert.xml
- * Source image: ..\data\sprites-title.png
+ * Source image: ../data/sprites-title.png
  * Tile width: 8px
  * Tile height: 12px
  * Output format: (null)

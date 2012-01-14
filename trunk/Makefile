@@ -26,23 +26,26 @@ TOOLS_DEP += gconvert
 # Demos
 ######################################
 DEMOS += Arkanoid
-DEMOS += DrMario
-DEMOS += Megatris
-DEMOS += SuperMarioDemo
-DEMOS += VectorDemo
-DEMOS += Whack-a-Mole
+DEMOS += Atomix
 DEMOS += BitmapDemo
-DEMOS += Maze
-#DEMOS += MusicDemo 	#code fixes required
-#DEMOS += SpriteDemo	#code fixes required
-DEMOS += Mode9Demo
-DEMOS += Uzeamp
-DEMOS += tutorial
-DEMOS += VideoDemo
-DEMOS += SDCardDemo
 DEMOS += Bootloader
-DEMOS += unittest
+DEMOS += chess4uzebox
+DEMOS += ControllerTester
+DEMOS += DrMario
+DEMOS += Maze
+DEMOS += Megatris
 DEMOS += Mode5Demo
+DEMOS += Mode9Demo
+DEMOS += MusicDemo 	
+DEMOS += SDCardDemo
+DEMOS += SpriteDemo	
+DEMOS += SuperMarioDemo
+DEMOS += tutorial
+DEMOS += unittest
+DEMOS += Uzeamp
+DEMOS += VectorDemo
+DEMOS += VideoDemo
+DEMOS += Whack-a-Mole
 
 ######################################
 # Disabled

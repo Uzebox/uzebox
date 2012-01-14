@@ -172,7 +172,7 @@ void PatchCommand12(struct TrackStruct* track,unsigned char trackNo, char param)
 	tracks->slideSpeed=param;
 }
 
-PatchCommand patchCommands[] PROGMEM ={&PatchCommand00,&PatchCommand01,&PatchCommand02,&PatchCommand03,&PatchCommand04,&PatchCommand05,&PatchCommand06,&PatchCommand07,&PatchCommand08,&PatchCommand09,&PatchCommand10,&PatchCommand11,&PatchCommand12};
+const PatchCommand patchCommands[] PROGMEM ={&PatchCommand00,&PatchCommand01,&PatchCommand02,&PatchCommand03,&PatchCommand04,&PatchCommand05,&PatchCommand06,&PatchCommand07,&PatchCommand08,&PatchCommand09,&PatchCommand10,&PatchCommand11,&PatchCommand12};
 
 const struct PatchStruct *patchPointers;
 
@@ -381,9 +381,6 @@ void ProcessMusic(void){
 	}//end if(playSong)
 
 
-	
-/*
-TODO: upgrade code in this section 
 
 	#if MIDI_IN == ENABLED
 
@@ -413,7 +410,7 @@ TODO: upgrade code in this section
 						}else{
 							c1=ReadUART(); //get note
 							c2=ReadUART()<<1; //get volume															
-							if(tracks[channel].allocated==true){
+							if(tracks[channel].flags|TRACK_FLAGS_ALLOCATED){
 								TriggerNote(channel,tracks[channel].patchNo,c1,c2);
 							}
 						}
@@ -466,7 +463,7 @@ TODO: upgrade code in this section
 									UartGoBack(1);
 								}else{
 									c2=ReadUART()<<1; //get volume
-									if(tracks[channel].allocated==true){
+									if(tracks[channel].flags|TRACK_FLAGS_ALLOCATED){
 										TriggerNote(channel,tracks[channel].patchNo,c1,c2);
 									}
 								}
@@ -507,7 +504,8 @@ TODO: upgrade code in this section
 		}
 		
 	#endif
-*/
+
+
 	//
 	// Process patches command streams & final volume
 	//	
