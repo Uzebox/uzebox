@@ -140,7 +140,7 @@ extern const char waves[];
 extern void SetColorBurstOffset(unsigned char value);
 //extern void RestoreBackground();
 
-const char *brickAnim[] PROGMEM ={map_brick0Anim1,map_brick0Anim2,map_brick0Anim3,map_brick0Anim4,map_brick0Anim5,map_brick0,
+const char * const brickAnim[] PROGMEM ={map_brick0Anim1,map_brick0Anim2,map_brick0Anim3,map_brick0Anim4,map_brick0Anim5,map_brick0,
 								  map_brick1Anim1,map_brick1Anim2,map_brick1Anim3,map_brick1Anim4,map_brick1Anim5,map_brick1};
 
 
