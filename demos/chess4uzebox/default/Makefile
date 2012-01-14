@@ -92,9 +92,16 @@ $(TARGET): $(OBJECTS)
 	@echo
 	-$(UZEBIN_DIR)packrom $(GAME).hex $@ $(INFO)
 
+UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
+AVRSIZEFLAGS := -A
+ifneq (,$(findstring MINGW,$(UNAME)))
+AVRSIZEFLAGS := -C --mcu=${MCU}
+endif
+
 size: ${TARGET}
 	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
+	@avr-size ${AVRSIZEFLAGS} ${TARGET}
+
 
 ## Clean target
 .PHONY: clean
