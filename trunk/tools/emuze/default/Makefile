@@ -11,7 +11,7 @@ CC = avr-gcc
 INFO=../gameinfo.properties
 
 ## Kernel settings
-KERNEL_DIR = ../kernel
+KERNEL_DIR = ../../../kernel
 KERNEL_OPTIONS  = -DVIDEO_MODE=1 -DINTRO_LOGO=0 -DSOUND_CHANNEL_4_ENABLE=0 -DSOUND_CHANNEL_2_ENABLE=0 -DSOUND_CHANNEL_3_ENABLE=0 -DSOUND_CHANNEL_1_ENABLE=0
 
 ## Options common to compile, link and assembly rules
@@ -97,9 +97,15 @@ $(TARGET): $(OBJECTS)
 	@echo
 	-packrom $(GAME).hex $@ $(INFO)
 
+UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
+AVRSIZEFLAGS := -A ${TARGET}
+ifneq (,$(findstring MINGW,$(UNAME)))
+AVRSIZEFLAGS := -C --mcu=${MCU} ${TARGET}
+endif
+
 size: ${TARGET}
 	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
+	@avr-size ${AVRSIZEFLAGS}
 
 ## Clean target
 .PHONY: clean
