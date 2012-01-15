@@ -16,7 +16,7 @@ KERNEL_DIR = ../../../kernel
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -DBOOTLOADER_ADDR=$(BOOTLOAD_ADDRESS) -ffunction-sections -fno-inline 
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -DBOOTLOADER_ADDR=$(BOOTLOAD_ADDRESS) -ffunction-sections -fno-inline -fno-toplevel-reorder
 ## BOOT_METHOD_GAME=0 boots menu, BOOT_METHOD_GAME=1 boots game
 CFLAGS += -DBOOT_METHOD_GAME=1 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 

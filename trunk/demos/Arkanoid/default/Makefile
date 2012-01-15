@@ -21,7 +21,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gstabs -std=gnu99 -DF_CPU=28636360UL -Os  -fsigned-char
+CFLAGS += -Wall -gstabs -std=gnu99 -DF_CPU=28636360UL -Os  -fsigned-char -fno-toplevel-reorder
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 ## CFLAGS += -mcall-prologues
 CFLAGS += $(KERNEL_OPTIONS)
