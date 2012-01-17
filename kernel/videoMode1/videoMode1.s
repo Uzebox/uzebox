@@ -68,7 +68,6 @@
 	font_table_hi:	.byte 1	
 	tile_table_lo:	.byte 1
 	tile_table_hi:	.byte 1
-	curr_field:	 	.byte 1	;0 or 1, changes at 60hz
 	
 .section .text
 
@@ -144,19 +143,16 @@ text_frame_end:
 
 	rcall hsync_pulse ;145
 
-
-	;set vsync flag if beginning of next frame (each two fields)
-	ldi r17,1
-	lds r16,curr_field
-	eor r16,r17
-	sts curr_field,r16
-
+	;set vsync flag & flip field
+	lds ZL,sync_flags
+	ldi r20,SYNC_FLAG_FIELD
+	eor ZL,r20
 	#if MODE1_FAST_VSYNC == 0
-		sbrs r16,0
+		sbrs ZL,1
 	#endif
-	
-	sts vsync_flag,r17
-
+	ori ZL,SYNC_FLAG_VSYNC
+	sts sync_flags,ZL
+		
 	;clear any pending timer int
 	ldi ZL,(1<<OCF1A)
 	sts _SFR_MEM_ADDR(TIFR1),ZL

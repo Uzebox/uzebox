@@ -65,9 +65,8 @@
 ;Sprites Struct offsets
 #define sprPosX  0
 #define sprPosY  1
-#define sprTileIndex_lo 2
-#define sprTileIndex_hi 3
-#define sprFlags 4
+#define sprTileIndex 2
+#define sprFlags 3
 
 #define SPRITE_FLIP_X_BIT 0
 
@@ -323,9 +322,12 @@
 		clr r1
 		call RestoreBackground
 
-		;set vsync flag if beginning of next frame
-		ldi ZL,1
-		sts vsync_flag,ZL
+		;set vsync flag & flip field
+		lds ZL,sync_flags
+		ldi r20,SYNC_FLAG_FIELD
+		ori ZL,SYNC_FLAG_VSYNC
+		eor ZL,r20
+		sts sync_flags,ZL
 	
 		cli 
 
@@ -812,9 +814,12 @@
 		clr r1
 		call RestoreBackground
 
-		;set vsync flag if beginning of next frame
-		ldi ZL,1
-		sts vsync_flag,ZL
+		;set vsync flag & flip field
+		lds ZL,sync_flags
+		ldi r20,SYNC_FLAG_FIELD
+		ori ZL,SYNC_FLAG_VSYNC
+		eor ZL,r20
+		sts sync_flags,ZL
 
 		;clear any pending timer int
 		ldi ZL,(1<<OCF1A)
@@ -1076,13 +1081,13 @@ BlitSprite:
 	ldd r16,Z+sprFlags
 
 	;8x16 multiply
-	ldd r24,Z+sprTileIndex_lo
-	ldd r25,Z+sprTileIndex_hi
+	ldd r24,Z+sprTileIndex
+	;clr r25
 	ldi r30,TILE_WIDTH*TILE_HEIGHT
 	mul r24,r30
 	movw r26,r0
-	mul r25,r30
-	add r27,r0
+	;mul r25,r30
+	;add r27,r0
 	
 	;get tile bank addr
 	ldi r25,4*2
