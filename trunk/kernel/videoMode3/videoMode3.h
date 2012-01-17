@@ -32,7 +32,7 @@
 	{
 		unsigned char x;
 		unsigned char y;
-		unsigned int tileIndex;
+		unsigned char tileIndex;
 		unsigned char flags;		
 	};			
 	

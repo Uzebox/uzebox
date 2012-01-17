@@ -105,9 +105,12 @@ end_frame:
 	;frame rendering finished
 	rcall hsync_pulse ;145
 
-	;set vsync flag if beginning of next frame
-	ldi ZL,1
-	sts vsync_flag,ZL
+	;set vsync flag & flip field
+	lds ZL,sync_flags
+	ldi r20,SYNC_FLAG_FIELD
+	ori ZL,SYNC_FLAG_VSYNC
+	eor ZL,r20
+	sts sync_flags,ZL
 
 	;clear any pending timer int
 	ldi ZL,(1<<OCF1A)

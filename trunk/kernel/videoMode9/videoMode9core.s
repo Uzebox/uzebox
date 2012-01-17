@@ -104,10 +104,12 @@ text_frame_end:
 
 	rcall hsync_pulse ;145
 
-	;set vsync flag if beginning of next frame (each two fields)
-	ldi r17,1
-	
-	sts vsync_flag,r17
+	;set vsync flag & flip field
+	lds ZL,sync_flags
+	ldi r20,SYNC_FLAG_FIELD
+	ori ZL,SYNC_FLAG_VSYNC
+	eor ZL,r20
+	sts sync_flags,ZL
 
 	;clear any pending timer int
 	ldi ZL,(1<<OCF1A)

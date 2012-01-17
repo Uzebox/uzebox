@@ -424,10 +424,8 @@
 	#define SYNC_EQ_PULSES 6
 	#define SYNC_POST_EQ_PULSES 6
 
-	#define SYNC_PHASE_PRE_EQ	0
-	#define SYNC_PHASE_EQ		1
-	#define SYNC_PHASE_POST_EQ	2
-	#define SYNC_PHASE_HSYNC	3
+	#define SYNC_FLAG_VSYNC			1
+	#define SYNC_FLAG_FIELD			2
 
 	#define SYNC_PIN PB0
 	#define SYNC_PORT PORTB

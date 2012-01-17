@@ -21,32 +21,7 @@
 /*
 	Changes
 	---------------------------------------------
-	V2.0:
-	-Sprite engine
-	-Reset console with joypad
-	-ReadJoypad() now return int instead of char
-	-NTSC timing more accurate
-	-Use of conditionals (see defines.h)
-	-Many small improvements
-
-	V3.0
-	-Major Refactoring: All video modes in their own files
-	-New video modes: 3,4,6,7,8
-	-EEPROM functions
-	-Assembly functions in their own sections to save flash
-	-Added Vsync User callback
-	-UART Receive buffer & functions
-	-Color burst offset control
-
-	V3.2
-	-Rewrote sync code
-	-Use interrupt to pull back sync line for serration pulses
-	-Added inline mixer selectable with a compile switch
-	-Added channel 5 PCM (avail with inline mixer only)
-	-Fixed the "click" sound upon game resets
-	-Removed color burst offset code
-	-Removed RAM patch code in music engine
-
+	See http://code.google.com/p/uzebox/source/browse/trunk/README.txt
 */
 
 #include <avr/io.h>
@@ -104,7 +79,7 @@
 ;Public variables
 .global sync_pulse
 .global sync_phase
-.global vsync_phase
+.global sync_flags
 .global joypad1_status_lo
 .global joypad2_status_lo
 .global joypad1_status_hi
@@ -126,7 +101,8 @@
 
 	sync_phase:  .byte 1	;0=vsync, 1=hsync
 	sync_pulse:	 .byte 1	;scanline counter
-	vsync_flag:  .byte 1	;set  @ 60Hz np
+	sync_flags:  .byte 1	;b0: vsync flag, set at 60Hz when video frame rendered
+							;b1: current field (0=odd, 1=even)
 
 	pre_vsync_user_callback:  .word 1 ;pointer to function
 	post_vsync_user_callback: .word 1 ;pointer to function
@@ -530,7 +506,8 @@ hsync_pulse:
 ;************************************
 .section .text.GetVsyncFlag
 GetVsyncFlag:
-	lds r24,vsync_flag
+	lds r24,sync_flags
+	andi r24,SYNC_FLAG_VSYNC
 	ret
 
 ;*****************************
@@ -540,8 +517,9 @@ GetVsyncFlag:
 ;*****************************
 .section .text.ClearVsyncFlag
 ClearVsyncFlag:
-	clr r1
-	sts vsync_flag,r1
+	lds r18,sync_flags
+	andi r18,~SYNC_FLAG_VSYNC
+	sts sync_flags,r18
 	ret
 
 ;*****************************

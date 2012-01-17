@@ -1793,8 +1793,7 @@ bool updateFields(void){
 
 
 	//scan the surface for completed rows
-	int x,y,size,tail,clearCount,top, garbageLines=0,bonus,fx;
-	unsigned long score;
+	int x,y,size,tail,clearCount,top, garbageLines=0,fx;	
 	bool difficult=false;;
 
 	size=pgm_read_byte(&(tetraminos[fields[f].currBlock].size));

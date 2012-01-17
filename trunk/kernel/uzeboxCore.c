@@ -38,12 +38,8 @@ void ReadButtons();
 
 extern unsigned char sync_phase;
 extern unsigned char sync_pulse;
-extern unsigned char curr_field;
-extern unsigned char  curr_frame;
+extern unsigned char sync_flags;
 extern struct TrackStruct tracks[CHANNELS];
-
-extern unsigned char burstOffset;
-extern unsigned char vsync_phase;
 extern volatile unsigned int joypad1_status_lo,joypad2_status_lo;
 extern volatile unsigned int joypad1_status_hi,joypad2_status_hi;
 extern unsigned char tileheight, textheight;
@@ -205,8 +201,9 @@ void Initialize(void){
 		mixer.channels.all[i].volume=0;
 	}
 	
-	//set sync parameters. starts at odd field, in pre-eq pulses, line 1
+	//set sync parameters. starts at odd field, in pre-eq pulses, line 1, vsync flag cleared
 	sync_phase=0;
+	sync_flags=0;
 	sync_pulse=SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES;
 
 	//set rendering parameters
