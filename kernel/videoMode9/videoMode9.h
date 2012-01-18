@@ -28,6 +28,7 @@
 #include <avr/io.h>
 
 extern unsigned char vram[];  
+extern u8 backgroundColor[];
 
 
 
