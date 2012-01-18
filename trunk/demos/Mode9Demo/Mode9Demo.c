@@ -36,6 +36,11 @@ int main(){
 	//Clear the screen (fills the vram with tile zero)
 	ClearVram();
 
+	//define background color for text rows 10,12 & 14
+	backgroundColor[10]=2;
+	backgroundColor[12]=6;
+	backgroundColor[14]=2;
+
 	//Prints a string on the screen. Note that PSTR() is a macro 
 	//that tells the compiler to store the string in flash.
 	Print(0,10,PSTR("012345678901234567890123456789012345678901234567890123456789"));

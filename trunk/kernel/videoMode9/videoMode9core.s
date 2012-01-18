@@ -34,19 +34,23 @@
 .global SetTileTable
 .global SetTile
 .global SetFont
+.global backgroundColor
 
 .section .bss
-	vram: 	  	.space VRAM_SIZE	;allocate space for the video memory (VRAM)
+	vram: 	  		.space VRAM_SIZE	;allocate space for the video memory (VRAM)
 	tile_table_lo:	.byte 1
 	tile_table_hi:	.byte 1
-	font_tile_index:.byte 1 
+	font_tile_index:.byte 1
+	backgroundColor:.space VRAM_TILES_V
 
 .section .text
+
+
 
 sub_video_mode9:
 
 	;waste line to align with next hsync in render function
-	WAIT r19,1348
+	WAIT r19,1344
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
@@ -54,6 +58,10 @@ sub_video_mode9:
 	ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw (28*8)
 	mov r10,r16
 	clr r22
+
+	ldi XL,lo8(backgroundColor)
+	ldi XH,hi8(backgroundColor)
+	ld r2,X+	;load background color for current text line
 
 next_text_line:	
 	rcall hsync_pulse ;3+144=147
@@ -90,8 +98,8 @@ next_text_row:
 	add YL,r19
 	adc YH,r0
 
-	lpm
-	nop
+	ld r2,X+
+	rjmp .
 
 	rjmp next_text_line
 
@@ -156,7 +164,7 @@ render_tile_line:
 	adc r1,r25
 
 	movw ZL,r0	 		;copy to Z, the register used by ijmp
-   
+
     ldi r20,SCREEN_TILES_H ;tiles to render
 	ijmp      ;jump to first codetile
 

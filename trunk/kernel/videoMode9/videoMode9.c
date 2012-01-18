@@ -24,7 +24,7 @@
 	#include <avr/pgmspace.h>
 	#include <avr/interrupt.h>
 	#include "uzebox.h"
-	
+
 	//Callback invoked by UzeboxCore.Initialize()
 	void InitializeVideoMode(){
 	}
