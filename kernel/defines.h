@@ -473,6 +473,8 @@
 		#include "videoMode8/videoMode8.def.h"
 	#elif VIDEO_MODE == 9
 		#include "videoMode9/videoMode9.def.h"
+	#elif VIDEO_MODE == 10
+		#include "videoMode10/videoMode10.def.h"
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif
