@@ -35,7 +35,7 @@
 	void DisplayLogo(){
 	
 		#if INTRO_LOGO !=0
-			#define LOGO_X_POS 6
+			#define LOGO_X_POS 7
 			
 			InitMusicPlayer(logoInitPatches);
 			SetTileTable(uzeboxlogo);
@@ -49,7 +49,7 @@
 				TriggerFx(0,0xff,true);
 			#endif
 
-			DrawMap(LOGO_X_POS,4,map_uzeboxlogo);
+			DrawMap(LOGO_X_POS,5,map_uzeboxlogo);
 			WaitVsync(10);
 
 			#if INTRO_LOGO == 2
