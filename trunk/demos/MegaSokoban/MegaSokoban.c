@@ -154,6 +154,9 @@ void eeprom_set_last_level(uint16_t level) {
 	struct EepromBlockStruct eeprom_data;
 	if (!EepromReadBlock(134, &eeprom_data) == 0) {
 		eeprom_data.id = 134;
+		for (uint8_t i = 0; i < 30; i++) {
+			eeprom_data.data[i] = 0;
+		}
 	}
 	eeprom_data.data[29] = level >> 8;
 	eeprom_data.data[28] = level & 0xff;
