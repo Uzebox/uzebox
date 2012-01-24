@@ -43,7 +43,7 @@
 ;
 ; Note: This mode is very similar to mode 1, but uses 8-bit indexes
 ; hence halving the VRAM requirement. Use this mode when more
-; RAM is reuqired by the game logic.
+; RAM is required by the game logic.
 ;
 ; Note: This is hacked mode 5, scanline timing is estimated
 ; (by TV and osciloscope), so no guarantee, that it will work.
@@ -83,17 +83,12 @@ sub_video_mode5:
 next_text_line:	
 	rcall hsync_pulse ;3+144=147
 
-	ldi r19,85 - 4 - 1 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
+	WAIT r19,358 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,42 + 4 - 1 - CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
-
+	WAIT r19,143 - CENTER_ADJUSTMENT
 
 	dec r10
 	breq text_frame_end

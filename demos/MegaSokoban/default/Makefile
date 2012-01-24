@@ -4,26 +4,24 @@
 
 ## General Flags
 PROJECT = MegaSokoban
-GAME = MegaSokoban
+GAME= MegaSokoban
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
 INFO=../gameinfo.properties
- 
+
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=10 -DINTRO_LOGO=1
-
+KERNEL_OPTIONS  = -DVIDEO_MODE=10 -DINTRO_LOGO=0 -DSOUND_MIXER=1
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -mcall-prologues -fsigned-char -ffunction-sections 
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
-
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
@@ -54,7 +52,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size 
+all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -73,8 +71,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-
-$(GAME).o: ../MegaSokoban.c
+$(GAME).o: ../$(GAME).c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -91,19 +88,23 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
+	@echo
 	-$(UZEBIN_DIR)packrom $(GAME).hex $@ $(INFO)
 
-AVRSIZEFLAGS := -C --mcu=${MCU} ${TARGET}
+UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
+AVRSIZEFLAGS := -A
+ifneq (,$(findstring MINGW,$(UNAME)))
+AVRSIZEFLAGS := -C --mcu=${MCU}
+endif
 
 size: ${TARGET}
 	@echo
-	@avr-size ${AVRSIZEFLAGS}
+	@avr-size ${AVRSIZEFLAGS} ${TARGET}
 
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze
-
+	-rm -rf $(OBJECTS) $(GAME).* dep/*
 
 ## Other dependencies
 -include $(shell mkdir dep 2>/dev/null) $(wildcard dep/*)

@@ -36,12 +36,18 @@
 #define TILE_HEIGHT 16
 #define TILE_WIDTH 12
 #define VRAM_TILES_H 16 
+
 #ifndef VRAM_TILES_V
 	#define VRAM_TILES_V 12
 #endif
-#define SCREEN_TILES_H 16
-#define SCREEN_TILES_V 12
-#define FIRST_RENDER_LINE 40
+
+#define SCREEN_TILES_H VRAM_TILES_H
+#define SCREEN_TILES_V VRAM_TILES_V
+
+#ifndef FIRST_RENDER_LINE
+	#define FIRST_RENDER_LINE 35
+#endif
+
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V
 #define VRAM_ADDR_SIZE 1 //in bytes
 #define SPRITES_ENABLED 0
