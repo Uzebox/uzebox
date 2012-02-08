@@ -71,14 +71,16 @@
 #define SPRITE_FLIP_X_BIT 0
 
 
+;.section .noinit
 .section .bss
 	.align 5
 	vram: 	  				.space VRAM_SIZE ;MUST be aligned to 32 bytes
-	
-	#if SCROLLING == 1
-		overlay_vram:		.space VRAM_TILES_H*OVERLAY_LINES
+	overlay_vram:
+	#if OVERLAY_LINES > 0
+							.space VRAM_TILES_H*OVERLAY_LINES
 	#endif
 
+.section .bss
 	.align 1
 	sprites:				.space SPRITE_STRUCT_SIZE*MAX_SPRITES
 	ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
@@ -90,10 +92,12 @@
 	tile_table_hi:			.byte 1
 	font_tile_index:		.byte 1 
 
-	#if SCROLLING == 1
-		;ScreenType struct members
+	
+	;ScreenType struct members
 	Screen:
 		overlay_height:			.byte 1
+		overlay_tile_table:		.word 1
+	#if SCROLLING == 1
 		screen_scrollX:			.byte 1
 		screen_scrollY:			.byte 1
 	#endif
@@ -541,23 +545,21 @@
 
 
 	
+	
 	romloop:
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 1
-	    ld r18,Y+     ;load next tile # from VRAM
-
+	    ld r18,Y     ;load next tile # from VRAM
 
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 2
 		mul r18,r19 ;tile*width*height
 
-
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 3
+		inc YL
 		cpi r18,RAM_TILES_COUNT		;is tile in RAM or ROM? (RAM tiles have indexes<RAM_TILES_COUNT)
-		in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
-
-
+		
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
 		brsh .+2		;skip if next tile is in ROM	
@@ -565,14 +567,13 @@
    
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 5
-	    bst r6,SREG_C	;store carry state in T flag for later branch
 		add r0,r20		;add tile table address +row offset lsb
-    
+	    adc r1,r21		;add title table address +row offset msb
+
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 6
-		adc r1,r21		;add title table address +row offset msb
-		dec r17			;decrement tiles to draw on line
-
+		cpi r18,RAM_TILES_COUNT	
+		dec r17			;decrement tiles to draw on line (does not affect carry)
    
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 7   
@@ -582,7 +583,7 @@
 	    movw ZL,r0   	;copy next tile adress
 
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
-	    brtc romloop
+	    brcc romloop
 	
 		rjmp .
 
@@ -602,13 +603,14 @@
 		nop
 		out _SFR_IO_ADDR(DATA_PORT),r16         ;pixel 3
 		cpi r18,RAM_TILES_COUNT
-		in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
-		bst r6,SREG_C
+		;in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
+		;bst r6,SREG_C
+		rjmp .
    
 
 	    ld r16,Z+
 		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
-		brts .+2 
+		brcs .+2 
 		movw r20,r2 	;ROM title table address +row offset	
    
    
@@ -625,21 +627,22 @@
 	
 		movw ZL,r0
 		out _SFR_IO_ADDR(DATA_PORT),r7      ;pixel 7   
-	    rjmp .
-	
+	    ;rjmp .
+		nop
+		cpi r18,RAM_TILES_COUNT	
 	    dec r17
 	    breq end
 	
 		nop
 		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
 	
-	    brtc romloop
+	    brcc romloop
 		rjmp ramloop
 	
 	end:
 		out _SFR_IO_ADDR(DATA_PORT),r16  	;pixel 8
 		brid end_fine_scroll				;hack: interrupt flag=0 => no fine offset pixel to draw
-		brtc end_rom_fine_scroll_loop
+		brcc end_rom_fine_scroll_loop
 
 	/***END RAM LOOP***/
 		movw ZL,r0
@@ -693,11 +696,7 @@
 	sub_video_mode3:
 
 		;wait cycles to align with next hsync
-		ldi r16,6
-		dec r16
-		brne .-4		
-		;rjmp .
-
+		WAIT r16,15
 
 		;Set ramtiles indexes in VRAM 
 		ldi ZL,lo8(ram_tiles_restore);
@@ -734,7 +733,7 @@
 
 
 
-		ldi r16,63-RAM_TILES_COUNT ;222*7 
+		ldi r16,62-RAM_TILES_COUNT 
 	wait_loop:
 	
 		ldi r17,6
@@ -744,11 +743,35 @@
 		dec r16
 		brne wait_loop
 
-	
+		lds r2,overlay_tile_table
+		lds r3,overlay_tile_table+1
+		lds r16,tile_table_lo 
+		lds r17,tile_table_hi
+		movw r12,r16
+		movw r6,r16
 
-
+		ldi r24,SCREEN_TILES_V
 		ldi YL,lo8(vram)
 		ldi YH,hi8(vram)
+		movw r8,YL	
+		clr r0
+
+		;load values for overlay if it's activated (overlay_height>0)
+		lds r19,overlay_height	
+		cpi r19,0
+		
+		breq .+2
+		ldi YL,lo8(overlay_vram)
+		
+		breq .+2
+		ldi YH,hi8(overlay_vram)
+		
+		breq .+2
+		mov r24,r19
+
+		breq .+2
+		movw r12,r2
+
 
 		ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw (28*8)
 		mov r10,r16
@@ -758,38 +781,41 @@
 
 
 
-
-	next_text_line:	
+	;****************************************
+	; Rendering main loop starts here
+	;****************************************
+	;r6:r7  = Main area tile table
+	;r8:r9  = Main area address
+	;r10    = total lines to draw
+	;r12:r13= Main tile table or overlay tile table if overlay_height>0
+	;r24	= vertical tiles to draw before reloading vram adress (for overlay)
+	;Y      = vram or overlay_ram if overlay_height>0
+	;
+	next_tile_line:	
 		rcall hsync_pulse
 
-		WAIT r19,245 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
+		WAIT r19,250 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
 		;***draw line***
 		call render_tile_line
 
-		ldi r19,7 + 4 - CENTER_ADJUSTMENT	
-		dec r19			
-		brne .-4
-	
-		;rjmp .
+		WAIT r19,47 - CENTER_ADJUSTMENT	
 
 		dec r10
-		breq text_frame_end
+		breq frame_end
 	
 		inc r22
 		lpm ;3 nop
 
 		cpi r22,TILE_HEIGHT ;last char line? 1
-		breq next_text_row 
+		breq next_tile_row 
 	
 		;wait to align with next_tile_row instructions (+1 cycle for the breq)
-		lpm ;3 nop
-		lpm ;3 nop
-		lpm ;3 nop
-		nop
-		rjmp next_text_line	
+		WAIT r19,11
+		
+		rjmp next_tile_line	
 
-	next_text_row:
+	next_tile_row:
 		clr r22		;current char line			;1	
 
 		clr r0
@@ -797,17 +823,18 @@
 		add YL,r19
 		adc YH,r0
 
-		lpm
-		nop
+		dec r24		;overlay done?
+		brne .+2
+		movw YL,r8	;main vram
+		brne .+2
+		movw r12,r6	;main tile table
 
-		rjmp next_text_line
+	
+		rjmp next_tile_line
 
-	text_frame_end:
+	frame_end:
 
-		ldi r19,5
-		dec r19			
-		brne .-4
-		rjmp .
+		WAIT r19,18
 
 		rcall hsync_pulse ;145
 	
@@ -840,10 +867,6 @@
 	; r22     = Y offset in tiles
 	; r23 	  = tile width in bytes
 	; Y       = VRAM adress to draw from (must not be modified)
-	;
-	; Can destroy: r0,r1,r2,r3,r4,r5,r6,r7,r13,r16,r17,r18,r19,r20,r21,Z
-	; 
-	; cycles  = 1495
 	;*************************************************
 	render_tile_line:
 
@@ -853,10 +876,7 @@
 
 		mul r22,r23
 
-		nop
-
-		lds r16,tile_table_lo 
-		lds r17,tile_table_hi
+		movw r16,r12 ;current tile table (main or overlay)
 		subi r16,lo8(RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH)
 		sbci r17,hi8(RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH)
 
@@ -874,21 +894,21 @@
 		ldi r17,SCREEN_TILES_H
 
 	    ld r18,X+     	;load next tile # from VRAM
-		cpi r18,RAM_TILES_COUNT
-		in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
-		bst r6,SREG_C
 
 		mul r18,r19 	;tile*width*height
 		movw r20,r2		;rom tiles
-		brtc .+2
+		
+		cpi r18,RAM_TILES_COUNT
+		brcc .+2
 		movw r20,r4		;ram tiles
 
 	    add r0,r20    ;add title table address +row offset
 	    adc r1,r21
 
 		movw ZL,r0
-
-		brts ramloop
+		
+		cpi r18,RAM_TILES_COUNT
+		brcs ramloop
 	
 
 	romloop:
@@ -905,8 +925,7 @@
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 3
 		cpi r18,RAM_TILES_COUNT		;is tile in RAM or ROM? (RAM tiles have indexes<RAM_TILES_COUNT)
-		in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
-
+		nop
 
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
@@ -915,14 +934,14 @@
    
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 5
-	    bst r6,SREG_C	;store carry state in T flag for later branch
 		add r0,r20		;add title table address +row offset lsb
-    
+	    adc r1,r21		;add title table address +row offset msb
+
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 6
-		adc r1,r21		;add title table address +row offset msb
+		
+		cpi r18,RAM_TILES_COUNT	
 		dec r17			;decrement tiles to draw on line
-
    
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 7   
@@ -932,7 +951,7 @@
 	    movw ZL,r0   	;copy next tile adress
 
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
-	    brtc romloop
+	    brcc romloop
 	
 		rjmp .
 
@@ -952,13 +971,11 @@
 		nop
 		out _SFR_IO_ADDR(DATA_PORT),r16         ;pixel 3
 		cpi r18,RAM_TILES_COUNT
-		in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
-		bst r6,SREG_C
-   
+   		rjmp .
 
 	    ld r16,Z+
 		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
-		brts .+2 
+		brcs .+2 
 		movw r20,r2 	;ROM title table address +row offset	
    
    
@@ -970,7 +987,7 @@
     
 		ld r16,Z+		
 		out _SFR_IO_ADDR(DATA_PORT),r16       ;pixel 6
-		nop
+		cpi r18,RAM_TILES_COUNT
 		rjmp .  
 
 	    ld r16,Z+	
@@ -983,7 +1000,7 @@
 		movw ZL,r0
 		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
 	
-	    brtc romloop
+	    brcc romloop
 		rjmp ramloop
 	
 	end:
@@ -992,14 +1009,6 @@
 		lpm	
 		nop
 		out _SFR_IO_ADDR(DATA_PORT),r16        
-
-		;wait
-		ldi r16,5
-		dec r16
-		brne .-4
-
-	
-
 
 		ret
 
@@ -1304,8 +1313,8 @@ SetSpritesTileBank:
 .section .text.ClearVram
 ClearVram:
 	//init vram		
-	ldi r30,lo8(VRAM_SIZE)
-	ldi r31,hi8(VRAM_SIZE)
+	ldi r30,lo8(VRAM_SIZE+(VRAM_TILES_H*OVERLAY_LINES))
+	ldi r31,hi8(VRAM_SIZE+(VRAM_TILES_H*OVERLAY_LINES))
 
 	ldi XL,lo8(vram)
 	ldi XH,hi8(vram)
