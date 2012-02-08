@@ -25,7 +25,16 @@
  *
  * ===============================================================================
  */
- #pragma once
+
+#pragma once
 	
-	extern unsigned char vram[];  
+extern u8 vram[];  
+extern u8 ramTiles[];
+extern void SetBackgroundColor(u8 color);
+extern void SetForegroundColor(u8 color);
+extern void ClearBuffer();
+extern void Line2(u8 x1,u8 y1,u8 x2,u8 y2);
+extern void SetPixel2(u8 x,u8 y);
+extern void SetRamTileBaseDrawingIndex(u8 tileIndex);
 		
+extern void SetHsyncCallback(HsyncCallBackFunc);
