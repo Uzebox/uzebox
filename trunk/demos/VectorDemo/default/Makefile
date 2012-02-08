@@ -12,7 +12,8 @@ INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS = -DUZEBOX -DVIDEO_MODE=6 -DINTRO_LOGO=0  -DRAM_TILES_COUNT=255
+KERNEL_OPTIONS = -DVIDEO_MODE=6 -DINTRO_LOGO=0  -DRAM_TILES_COUNT=256 -DSOUND_MIXER=1
+#KERNEL_OPTIONS += -DFIRST_RENDER_LINE=50 -DFRAME_LINES=150
 
 
 ## Options common to compile, link and assembly rules
@@ -20,11 +21,11 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -O0 -fsigned-char -ffunction-sections -fno-toplevel-reorder
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
-
+ 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
@@ -54,7 +55,11 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+all:../data/font.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+
+##build graphics
+../data/font.inc: ../data/font.png ../data/font.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/font.gconvert.xml
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
