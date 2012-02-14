@@ -1,6 +1,0 @@
-#summary Planning of future features
-
-In this page we will maintain a list of planned features and links to their specific pages in the wiki, where implementation details can be discussed and/or described.
-
-
-   * GameLoader - Add SD/MMC support to our bootloader so that games can be loaded from the memory card.
