@@ -293,7 +293,7 @@ mix_loop:
 	movw ZL,r4
 	lpm	r20,Z	;load sample
 	mulsu r20,r17;(sample*mixing vol)
-	clr r0
+	;clr r0
 	sbc r0,r0	;sign extend
 
 	#if MIXER_CHAN4_TYPE == 0 || SOUND_CHANNEL_4_ENABLE == 0
@@ -311,7 +311,7 @@ mix_loop:
 		movw ZL,r10
 		lpm	r20,Z	;load sample
 		mulsu r20,r18;(sample*mixing vol)
-		clr r0
+		;clr r0
 		sbc r0,r0	;sign extend
 		add r28,r1	;add (sample*vol>>8) to mix buffer lsb
 		adc r29,r0	;ajust mix buffer msb
@@ -324,7 +324,7 @@ mix_loop:
 		movw ZL,r14
 		lpm	r20,Z	;load sample
 		mulsu r20,r19;(sample*mixing vol)
-		clr r0
+		;clr r0
 		sbc r0,r0	;sign extend
 		add r28,r1	;add (sample*vol>>8) to mix buffer lsb
 		adc r29,r0	;ajust mix buffer msb
@@ -356,7 +356,7 @@ mix_loop:
 		ldi r20,0x7f ;+127
 
 		mulsu r20,r21;(sample*mixing vol)
-		clr r0
+		;clr r0
 		sbc r0,r0	;sign extend
 		add r28,r1	;add (sample*vol>>8) to mix buffer lsb
 		adc r29,r0	;ajust mix buffer msb

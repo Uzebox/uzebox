@@ -62,11 +62,17 @@
 	#define SCREEN_TILES_V 28
 #endif
 
-#ifndef VRAM_TILES_V
-	#if SCROLLING == 0
+#if SCROLLING == 0
+	#ifndef VRAM_TILES_V
 		#define VRAM_TILES_V SCREEN_TILES_V		
-	#else
+	#endif
+#else
+	#ifndef VRAM_TILES_V
 		#define VRAM_TILES_V 32	
+	#endif
+
+	#if SCROLLING == 1 && (VRAM_TILES_V!=32 && VRAM_TILES_V!=24 && VRAM_TILES_V!=16)
+		#error Invalid VRAM_TILES_V value defined in makefile. Supported values are: 16,24,32.
 	#endif
 #endif
 
@@ -97,8 +103,4 @@
 #define SPRITE_BANK2 2<<6
 #define SPRITE_BANK3 3<<6
 
-//Define the type of sound mixer compatible 
-//with this video mode
-#if SCROLLING == 1 && SOUND_MIXER == MIXER_TYPE_INLINE
-	#error Invalid compilation option (-DSOUND_MIXER=1): Inline audio mixer not supported for video mode 3 with scrolling enabled 
-#endif
+

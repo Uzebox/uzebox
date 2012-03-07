@@ -284,7 +284,7 @@ bool process(){
 
 	if(xform.outputType==NULL || strcmp(xform.outputType,"8bpp")==0){
 
-		//Export tileset in 8 bits per pixel format
+		/*Export tileset in 8 bits per pixel format*/
 	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
 
@@ -305,9 +305,39 @@ bool process(){
 		fprintf(tf,"};\n");
 		totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight);
 
+	}else if(strcmp(xform.outputType,"1bpp")==0){
+
+		/*Export tileset in 1 bits per pixel format*/
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+	    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
+
+		int c=0,t=0,index;
+		unsigned char b;
+		vector<unsigned char*>::iterator it;
+		for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+
+			unsigned char* tile=*it;
+
+			for(int y=0;y<xform.tileHeight;y++){
+				if(c>0)fprintf(tf,",");
+				index=y*xform.tileWidth;
+				b=0;
+				//pack 8 pixels in one byte
+				for(int x=0;x<xform.tileWidth;x++){
+					if(tile[y*xform.tileWidth+x]!=0) b|=(0x80>>x);
+				}
+				fprintf(tf," 0x%x",b);
+				c++;
+			}
+			fprintf(tf,"\t\t //tile:%i\n",t);
+			t++;
+		}
+		fprintf(tf,"};\n");
+		totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight);
+
 	}else if(xform.outputType!=NULL && strcmp(xform.outputType,"code")==0){
 
-		//export "code tiles"
+		/*export "code tiles"*/
 	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (2))) ={\n",xform.tilesVarName);
 

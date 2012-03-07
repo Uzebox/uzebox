@@ -171,8 +171,8 @@ void Initialize(void){
 	
 		//Initialize the mixer buffer
 		//ramp up to avoid initial click
-		for(i=0;i<MIX_BANK_SIZE*2;i++){
-			mix_buf[i]=0x80;//(i<128?i:128);
+		for(int j=0;j<MIX_BANK_SIZE*2;j++){
+			mix_buf[j]=0x80;//(i<128?i:128);
 		}	
 	
 		mix_pos=mix_buf;
