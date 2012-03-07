@@ -91,6 +91,7 @@
 	extern void SetMixerVolume(unsigned char channel,unsigned char volume);
 
 	typedef void (*VsyncCallBackFunc)(void);
+	typedef void (*HsyncCallBackFunc)(void);
 
 	#define TRACK_FLAGS_SLIDING		8
 	#define TRACK_FLAGS_ALLOCATED	16

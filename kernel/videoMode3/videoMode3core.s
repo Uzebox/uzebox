@@ -70,14 +70,25 @@
 
 #define SPRITE_FLIP_X_BIT 0
 
+#if SCROLLING == 1
+	.section .noinit
+#else
+	.section .bss
+#endif 
 
-;.section .noinit
-.section .bss
-	.align 5
-	vram: 	  				.space VRAM_SIZE ;MUST be aligned to 32 bytes
-	overlay_vram:
-	#if OVERLAY_LINES > 0
-							.space VRAM_TILES_H*OVERLAY_LINES
+	.align 5	
+	;VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
+	;To align vram to a 32/256 byte boundary without wasting ram, 
+	;add the following to your makefile's linker section and adjust 
+	;the .data section start to make room for the vram size (including the overlay ram).
+	;By default the vram is 32x32 so 1k is required.
+	;
+	;LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
+	;
+	vram: 	  				.space VRAM_SIZE 
+	
+	#if SCROLLING == 0
+		overlay_vram:			.space VRAM_TILES_H*OVERLAY_LINES
 	#endif
 
 .section .bss
@@ -100,6 +111,7 @@
 	#if SCROLLING == 1
 		screen_scrollX:			.byte 1
 		screen_scrollY:			.byte 1
+		screen_scrollHeight:	.byte 1
 	#endif
 
 .section .text
@@ -117,11 +129,7 @@
 		sts _SFR_MEM_ADDR(TIMSK1),ZL
 
 		;wait cycles to align with next hsync
-		ldi r26,lo8(149)
-		ldi r27,hi8(149)
-		sbiw r26,1
-		brne .-4		
-
+		WAIT r26,197
 	
 		;**********************
 		; This block updates the ram_tiles_restore buffer
@@ -166,14 +174,10 @@
 
 
 		;align in time with maximum numbers of ramtile possible
-		ldi r16,32
+		ldi r16,52
 		subi r16,RAM_TILES_COUNT
-	wait_loop:
-	
-		ldi r17,6		;wait same as previous upd_loop
-		dec r17
-		brne .-4
-
+	wait_loop:	
+		WAIT r17,18		;wait same as previous upd_loop
 		dec r16
 		brne wait_loop
 
@@ -189,31 +193,25 @@
 		//add X scroll (coarse)
 		lds r18,screen_scrollX ;ScreenScrollX
 		mov r25,r18
-		lsr r18
-		lsr r18
-		lsr r18 ;/8
-		clr r17
+		andi r18,0xf8	;(x>>3) * 8 interleave
 		add YL,r18
-		adc YH,r17
 
-		;save wrap adress
+		;save Y wrap adress 
 		movw r12,YL
 	
 
-		//add Y scroll (corse)
+		//add Y scroll (coarse)
 		lds r16,screen_scrollY ;ScreenScrollY
 		mov r22,r16
 		lsr r16
 		lsr r16
 		lsr r16 ;/8
-		ldi r17,VRAM_TILES_H
-		mul r16,r17
-		add YL,r0
-		adc YH,r1	
+		add YH,r16
 		andi r22,0x7	;fine Y scrolling
+		add YL,r22
 
-
-		ldi r17,VRAM_TILES_V
+		;ldi r17,VRAM_TILES_V
+		lds r17,screen_scrollHeight
 		sub r17,r16
 		mov r15,r17	;Y tiles to draw before wrapping
 
@@ -229,7 +227,17 @@
 		mov r24,r15
 		mov r9,r25
 
-		;load value for overlay if it's activated (overlay_height>0)
+		;load values for overlay if it's activated (overlay_height>0)
+		
+		;compute beginning of overlay in vram 
+		lds r16,screen_scrollHeight
+		mov r18,r16
+		lsr r16
+		lsr r16
+		lsr r16			;hi8
+		inc r16			;add 0x100 ram offset
+		andi r18,7		;lo8
+		
 		lds r19,overlay_height	
 		cpi r19,0
 		in r0, _SFR_IO_ADDR(SREG)
@@ -237,15 +245,16 @@
 		sbrs r0,SREG_Z
 		clr r22
 		sbrs r0,SREG_Z
-		ldi YL,lo8(overlay_vram)
+		mov YL,r18		;lo8(overlay_vram)
 		sbrs r0,SREG_Z
-		ldi YH,hi8(overlay_vram)
+		mov YH,r16		;hi8(overlay_vram)
 		sbrs r0,SREG_Z
-		ldi r24,OVERLAY_LINES
+		;ldi r24,OVERLAY_LINES
+		ser r24
 		sbrs r0,SREG_Z
 		clr r9
 
-		ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw (28*8)
+		ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw 
 		mov r8,r16
 
 
@@ -264,13 +273,13 @@
 	;r25 = Main section scrollX
 
 	next_text_line:	
-		;***draw scanline***
+		rcall hsync_pulse
+
+		WAIT r18,225 - AUDIO_OUT_HSYNC_CYCLES
+				
 		call render_tile_line
 
-		ldi r18,4+11+2
-		dec r18
-		brne .-4
-		nop
+		WAIT r18,70
 
 		inc r22
 		dec r8
@@ -279,19 +288,25 @@
 		cpi r22,TILE_HEIGHT ;last char line? 1
 		breq next_text_row 
 
-		ldi r16,4
-		dec r16
-		brne .-4 ;27
-		
 		;wait to align with next_tile_row instructions (+1 cycle for the breq)
-		rjmp .
-		rjmp .
+		WAIT r16,16+5
 		rjmp next_text_line	
 
 	next_text_row:
 
-		clr r22		;current char line			;1	
-		adiw YL,VRAM_TILES_H 	;process next line in VRAM ;2
+		clr r22		;clear current char line
+
+		;increment vram pointer next row
+		mov r16,YL
+		andi r16,0x7
+		cpi r16,7
+		breq 1f
+		inc YL
+		rjmp 2f
+	1:
+		andi YL,0xf8
+		inc YH
+	2:
 
 		dec r24		;wrap section?
 		brne .+2
@@ -309,17 +324,9 @@
 			
 		rjmp next_text_line
 
-
-
-
-
-
 	text_frame_end:
 
-		ldi r18,13
-		dec r18
-		brne .-4
-		nop
+		WAIT r18,24
 
 		rcall hsync_pulse ;145
 	
@@ -334,10 +341,6 @@
 		sts sync_flags,ZL
 	
 		cli 
-
-		lds r20,sync_pulse
-		subi r20,SCREEN_TILES_V*TILE_HEIGHT
-		sts sync_pulse,r20
 
 		;re-activate sync timer interrupts
 		ldi ZL,(1<<OCIE1A)
@@ -370,51 +373,10 @@
 		push r13
 		push r12
 		push r9
-	
-
-
-		;fill the linear line buffer with 29 tiles
-		mov r19,YL
-		andi r19,0xe0 ;restore bits mask
-		ldi XL,lo8(vram_linear_buf)
-		ldi XH,hi8(vram_linear_buf)
-
-		cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2	
-		rcall update_sound_buffer_fast ;27 (destroys Z, r16,r17)
-	
-	.rept 15
-		ld r18,Y
-		st X+,r18
-		inc YL
-		andi YL,31
-		or YL,r19 ;restore hi bits
-	.endr
-
-		ld r18,Y
-
-
-		sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
-
-	.rept 13
-		st X+,r18
-		inc YL
-		andi YL,31
-		or YL,r19 ;restore hi bits
-		ld r18,Y
-	.endr
-
-		st X+,r18
-
-
-		ldi r18,12
-		dec r18
-		brne .-4
 
 		;--------------------------
 		; Rendering 
 		;---------------------------
-		ldi YL,lo8(vram_linear_buf)
-		ldi YH,hi8(vram_linear_buf)
 
 		;get tile row offset
 		ldi r23,TILE_WIDTH ;tile width in pixels
@@ -451,7 +413,9 @@
 
 		;get first pixel of last tile in ROM (for ROM tiles fine scroll)
 		;and adress of next pixel
-		ldd r18,Y+SCREEN_TILES_H
+		movw ZL,YL
+		subi ZL,-(SCREEN_TILES_H*8)
+		ld r18,Z
 		mul r18,r19 	;tile*width*height
 	    add r0,r2    ;add ROM title table address +row offset
 	    adc r1,r3
@@ -459,10 +423,12 @@
 		lpm r9,Z+	;hold first pixel until end 
 		movw r12,ZL ;hold second pixel adress until end
 
+
 		;compute first tile adress
-	    ld r18,Y+     	;load next tile # from VRAM
+	    ld r18,Y     	;load next tile # from VRAM
+		subi YL,-8
 		cpi r18,RAM_TILES_COUNT
-		in r16,_SFR_IO_ADDR(SREG)	;save the carry flag	
+		in r16,_SFR_IO_ADDR(SREG)	;save the carry flag for later	
 		mul r18,r19 	;tile*width*height
 		movw r20,r2		;rom tiles	
 		sbrc r16,SREG_C
@@ -473,9 +439,10 @@
 
 
 		;compute second tile adress
-	    ld r18,Y+     	;load next tile # from VRAM
+	    ld r18,Y     	;load next tile # from VRAM
+		subi YL,-8
 		cpi r18,RAM_TILES_COUNT
-		in r7,_SFR_IO_ADDR(SREG)	;save the carry flag
+		in r7,_SFR_IO_ADDR(SREG)	;save the carry flag for later
 		bst r7,SREG_C
 		mul r18,r19 	;tile*width*height
 		movw r20,r2		;rom tiles
@@ -543,8 +510,6 @@
 		;branch to tile #2
 		brts ramloop
 
-
-	
 	
 	romloop:
 	    lpm r16,Z+
@@ -557,7 +522,7 @@
 
 	    lpm r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 3
-		inc YL
+		subi YL,-8
 		cpi r18,RAM_TILES_COUNT		;is tile in RAM or ROM? (RAM tiles have indexes<RAM_TILES_COUNT)
 		
 	    lpm r16,Z+
@@ -591,23 +556,19 @@
 
 	    ld r16,Z+
 	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 1
-	    ld r18,Y+     ;load next tile # from VRAM
+	    ld r18,Y     ;load next tile # from VRAM
 
 	    ld r16,Z+ 
-		nop   		
+		subi YL,-8   		
 		out _SFR_IO_ADDR(DATA_PORT),r16 		;pixel 2
 		mul r18,r19 ;tile*width*height
-
 
 	    ld r16,Z+
 		nop
 		out _SFR_IO_ADDR(DATA_PORT),r16         ;pixel 3
 		cpi r18,RAM_TILES_COUNT
-		;in r6,_SFR_IO_ADDR(SREG)	;save the carry flag
-		;bst r6,SREG_C
 		rjmp .
    
-
 	    ld r16,Z+
 		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
 		brcs .+2 
@@ -627,7 +588,6 @@
 	
 		movw ZL,r0
 		out _SFR_IO_ADDR(DATA_PORT),r7      ;pixel 7   
-	    ;rjmp .
 		nop
 		cpi r18,RAM_TILES_COUNT	
 	    dec r17
@@ -1341,6 +1301,30 @@ fill_vram_loop:
 .section .text.SetTile
 SetTile:
 
+#if SCROLLING == 1
+	;index formula is vram[((y>>3)*256)+8x+(y&7)]
+	
+	andi r24,0x1f
+	mov r23,r22
+	lsr r22
+	lsr r22
+	lsr r22			;y>>3
+	ldi r18,8		
+	mul r24,r18		;x*8
+	movw XL,r0
+	subi XL,lo8(-(vram))
+	sbci XH,hi8(-(vram))
+	add XH,r22		;vram+((y>>3)*256)
+	andi r23,7		;y&7	
+	add XL,r23
+						
+	subi r20,~(RAM_TILES_COUNT-1)	
+	st X,r20
+
+	ret
+
+#else
+
 	clr r25
 	clr r23	
 
@@ -1361,6 +1345,8 @@ SetTile:
 	clr r1
 
 	ret
+
+#endif
 
 ;***********************************
 ; SET FONT TILE

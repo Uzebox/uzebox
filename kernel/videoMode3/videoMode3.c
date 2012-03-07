@@ -109,7 +109,14 @@
 							}
 							if(wx>=VRAM_TILES_H)wx-=VRAM_TILES_H; //should always be 32
 
-							ramPtr=(wy*VRAM_TILES_H)+wx;
+							#if SCROLLING == 0
+								ramPtr=(wy*VRAM_TILES_H)+wx;
+							#else
+
+								ramPtr=((wy>>3)*256)+(wx*8)+(wy&7);	
+
+							#endif
+
 							bt=vram[ramPtr];						
 
 							if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
@@ -291,9 +298,11 @@
 		}
 		
 		#if SCROLLING == 1
-			for(int i=0;i<(OVERLAY_LINES*VRAM_TILES_H);i++){
-				overlay_vram[i]=RAM_TILES_COUNT;
-			}
+		//	for(int i=0;i<(OVERLAY_LINES*VRAM_TILES_H);i++){
+		//		overlay_vram[i]=RAM_TILES_COUNT;
+		//	}
+			Screen.scrollHeight=28;
+			Screen.overlayHeight=0;
 		#endif
 
 		//set defaults for main screen section

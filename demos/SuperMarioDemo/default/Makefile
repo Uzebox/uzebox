@@ -12,16 +12,16 @@ INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSOUND_CHANNEL_4_ENABLE=0 -DSCROLLING=1
-KERNEL_OPTIONS += -DMAX_SPRITES=14 -DRAM_TILES_COUNT=30 -DSCREEN_TILES_V=27 -DFIRST_RENDER_LINE=24 
-KERNEL_OPTIONS += -DOVERLAY_LINES=4 -DVRAM_TILES_V=24
+KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSOUND_CHANNEL_4_ENABLE=0 -DSCROLLING=1 -DSOUND_MIXER=1
+KERNEL_OPTIONS += -DMAX_SPRITES=14 -DRAM_TILES_COUNT=35 -DSCREEN_TILES_V=27 -DFIRST_RENDER_LINE=24 
+#KERNEL_OPTIONS += -DVRAM_TILES_V=24
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-inline -fno-toplevel-reorder
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
@@ -35,7 +35,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=$(GAME).map 
 LDFLAGS += -Wl,-gc-sections 
-
+LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
 
 
 ## Intel Hex file production flags
@@ -57,6 +57,8 @@ INCLUDES = -I"$(KERNEL_DIR)"
 
 ## Build
 all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+
+## Rebuild graphics ressource
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s

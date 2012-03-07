@@ -95,7 +95,7 @@ int main(){
 	
 
 	//DrawMap2(0,0,map_main);
-	DrawMap2(0,VRAM_TILES_V,map_hud);
+	DrawMap2(0,VRAM_TILES_V-4,map_hud);
 	
 	unsigned char c;
 	for(int y=0;y<23;y++){
@@ -138,7 +138,7 @@ int main(){
 	MoveSprite(goombaSprIndex[1],goombaX[1],176,2,2);
 
 	Screen.scrollY=0;
-	Screen.overlayHeight=OVERLAY_LINES;
+	Screen.overlayHeight=4;//OVERLAY_LINES;
 
 	
 	while(1){

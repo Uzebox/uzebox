@@ -50,6 +50,7 @@ typedef struct {
 	#if SCROLLING == 1		  
 		u8 scrollX;
 		u8 scrollY;
+		u8 scrollHeight;
 	#endif
 } ScreenType;
 
