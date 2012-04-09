@@ -1,3 +1,32 @@
+/*
+ *  Uzebox(tm) Packrom utility
+ *  Copyright (C) 2008 Alec Bourque
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ *  Uzebox is a reserved trade mark
+*/
+
+/* This tool converts standard .HEX files into .UZE file. UZE files are
+ * binary version of HEX files and includes a 512 bytes header. They
+ * are intended to be simpler to load by the Uzebox bootloader.
+ *
+ * Revisions:
+ * ----------
+ * 1.3: 4/9/2012 - Fixed parse_hex_nibble bug (s >= 'a' && s <= 'f')
+ */
+
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,7 +36,7 @@
 
 #define HEADER_VERSION 1
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 2
+#define VERSION_MINOR 3
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
 #define MARKER_SIZE 6
@@ -123,7 +152,7 @@ static inline int parse_hex_nibble(char s)
 		return s - '0';
 	else if (s >= 'A' && s <= 'F')
 		return s - 'A' + 10;
-	else if (s >= 'a' && s <= 'a')
+	else if (s >= 'a' && s <= 'f')
 		return s - 'a' + 10;
 	else
 		return -1;
