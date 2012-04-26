@@ -20,7 +20,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -O0 -fsigned-char -ffunction-sections -fno-toplevel-reorder
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
@@ -59,10 +59,10 @@ all: ../data/tiles.inc ../data/fonts6x8.inc $(TARGET) $(GAME).hex $(GAME).eep $(
 
 ## Rebuild graphics ressource
 ../data/fonts6x8.inc: ../data/fonts6x8.png ../data/font.gconvert.xml
-	gconvert ../data/font.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/font.gconvert.xml
 
 ../data/tiles.inc: ../data/tiles.png ../data/tiles.gconvert.xml
-	gconvert ../data/tiles.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/tiles.gconvert.xml
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
