@@ -1,1 +1,1 @@
-<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA644"/><Files><File00000 Name="C:\work\uzebox\trunk\demos\DrMario\default\DrMario.map" Position="259 124 1226 599" LineCol="0 0"/><File00001 Name="C:\work\uzebox\trunk\demos\DrMario\default\Makefile" Position="284 149 1251 624" LineCol="0 0"/></Files></AVRWorkspace>
+<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA644"/><Files><File00000 Name="C:\work\uzebox\trunk\demos\DrMario\default\Makefile" Position="234 99 1234 510" LineCol="0 0"/></Files></AVRWorkspace>
