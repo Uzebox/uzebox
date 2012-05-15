@@ -1,6 +1,6 @@
 /*
- *  Dr.Mario port for Uzebox
- *  Copyright (C) 2009  Codecrank
+ *  Dr.Mario port for Uzebox ver 1.1
+ *  Copyright (C) 2009  Codecrank, Mapes
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,10 +28,10 @@
 #include "data/fonts.pic.inc"
 #include "data/patches.inc"
 
-#include "drmario_main.c"
-#include "drmario_sprites.c"
-#include "drmario_music.inc"
-#include "drmario_title.c"
+#include "data/drmario_main.c"
+#include "data/drmario_sprites.c"
+#include "data/drmario_music.inc"
+#include "data/drmario_title.c"
 
 
 
@@ -127,6 +127,9 @@ void SplitPill(unsigned short player,unsigned short x , unsigned short y);
 void DropFloaters(unsigned short player);
 void DropFilledSpace(unsigned short player,unsigned short x , unsigned short y);
 void FlingTrash(unsigned short sender);
+void QueTrash(unsigned short sender, unsigned short trash_count);
+
+
 
 struct pill {
 	bool orientation;
@@ -148,12 +151,15 @@ struct bottle {
 	unsigned short sequences_count;
 	bool contains_floaters; 
 	unsigned short dissapear_anim;
+	unsigned short qued_trash;
+	bool new_pill;
 };
 
 
 struct pill current_pill[2]; 
 struct pill next_pill[2];
 unsigned short gravity=60;
+unsigned int round_time;
 bool pill_falling=1;
 unsigned short auto_repeat_counter=0;
 struct bottle bottle[2];
@@ -176,6 +182,7 @@ int main(){
 
 
 	unsigned short i=0;
+	unsigned short j=0;
 
 
    	ClearVram();
@@ -248,7 +255,7 @@ int main(){
 
 			NextPill(PLAYER2);
 			NewPill(PLAYER2);
-
+			round_time = 0;
 			i=0;
 			while ( ! ( round_lost[PLAYER1] || round_lost[PLAYER2] ) )
 			{		
@@ -311,45 +318,85 @@ int main(){
  	
 	
 					// until gravity timer hits
-					if ( i < gravity )
+					if ( i > gravity - 6 * (round_time/1800))
 					{
-
-						 // move pill around unless some pills are dissapearing 
-						if ( bottle[PLAYER1].dissapear_anim ) 
-						{		
-							DissapearAnim(PLAYER1);
-						}	
-						else if ( (move_type=grab_input(PLAYER1)) )
-						{
-							MovePill(PLAYER1, move_type);
-						}
-
-
-						if ( bottle[PLAYER2].dissapear_anim ) 
-						{
-							DissapearAnim(PLAYER2);
-						}
-						else if ( (move_type=grab_input(PLAYER2)) )
-						{
-							MovePill(PLAYER2, move_type);
-						}
-
-						i++;
-
-					}else{
 						// force move down when time hits
 						MovePill(PLAYER1, MOVE_DOWN);
-						MovePill(PLAYER2, MOVE_DOWN);
-									
 						i=0;
 					}
+					 // move pill around unless some pills are dissapearing or there are floaters
+					else if ( bottle[PLAYER1].dissapear_anim) 
+					{		
+						DissapearAnim(PLAYER1);
+					}	
+					else if (bottle[PLAYER1].contains_floaters)
+					{
+					}
+					else if (bottle[PLAYER1].new_pill == true)
+					{ 
+						if (bottle[PLAYER1].qued_trash > 0) 
+						{
+							FlingTrash(PLAYER1);
+						}
+						else
+						{								
+							NewPill(PLAYER1);
+							bottle[PLAYER1].new_pill = false;
+							i=0;
+						}							
+					}
+					else if ( (move_type=grab_input(PLAYER1)) )
+					{
+						MovePill(PLAYER1, move_type);
+						i++;
+					}
+					else
+					{
+						i++;
+					}
+
+					if ( j > gravity - 6 * (round_time/1800))
+					{
+						// force move down when time hits
+						MovePill(PLAYER2, MOVE_DOWN);
+						j=0;
+					}
+					else if ( bottle[PLAYER2].dissapear_anim) 
+					{
+							DissapearAnim(PLAYER2);
+					}
+					else if ( bottle[PLAYER2].contains_floaters )
+					{
+					}
+					else if (bottle[PLAYER2].new_pill == true)
+					{ 
+						if (bottle[PLAYER2].qued_trash > 0) 
+						{
+							FlingTrash(PLAYER2);
+						}
+						else
+						{								
+							NewPill(PLAYER2);
+							bottle[PLAYER2].new_pill = false;
+							j = 0;
+						}
+					}
+					else if ( (move_type=grab_input(PLAYER2)) )
+					{
+						MovePill(PLAYER2, move_type);
+						j++;
+					}
+					else
+					{
+						j++;
+					}
+					round_time++;
+
 				}
+
 			}
 
-				
-
 			RoundOver();
-
  	
 		}
 
@@ -574,7 +621,7 @@ bool MovePill(unsigned short player, unsigned short move_type)
 			if ( current_pill[player].y ==  BOTTLE_LAST_ROW ) 
 			{
 				LockPill(player);
-				NewPill(player);
+				bottle[player].new_pill = true;
 
 				break;
 			}
@@ -586,7 +633,8 @@ bool MovePill(unsigned short player, unsigned short move_type)
 				{
 					
 					LockPill(player);
-					NewPill(player);
+					bottle[player].new_pill = true;
+
 
 				}
 				else
@@ -606,7 +654,7 @@ bool MovePill(unsigned short player, unsigned short move_type)
 				if ( bottle[player].space[current_pill[player].bottle_x][current_pill[player].bottle_y+1] )
 				{
 					LockPill(player);
-					NewPill(player);
+					bottle[player].new_pill = true;
 				}
 				else
 				{		
@@ -1234,7 +1282,7 @@ void DropFloaters(unsigned short player)
 		// send trash if needed
 		if ( bottle[player].sequences_count > 1 )
 		{
-			FlingTrash(player);
+			QueTrash(player, bottle[player].sequences_count);
 		}		
 
 		bottle[player].sequences_count = 0;
@@ -1242,14 +1290,27 @@ void DropFloaters(unsigned short player)
 
 }
 
+void QueTrash(unsigned short sender, unsigned short trash_count)
+{
+	unsigned short receiver;
+
+	if ( sender == PLAYER1 )
+	{
+		receiver = PLAYER2;
+	}
+	else
+	{
+		receiver = PLAYER1;
+	}
+	bottle[receiver].qued_trash += trash_count;
+}
 
 void FlingTrash(unsigned short sender)
 {
-
 	unsigned short receiver;
 	unsigned short first_column; 
 
-	if ( sender == PLAYER1 )
+	if ( sender == PLAYER2 )
 	{
 		receiver = PLAYER2;
 		first_column=BOTTLE2_FIRST_COLUMN;
@@ -1264,7 +1325,7 @@ void FlingTrash(unsigned short sender)
 	
 	z=0;
 
-	while ( z < bottle[sender].sequences_count   )
+	while ( z < bottle[sender].qued_trash   )
 	{
 			
 		x= rand() % BOTTLE_WIDTH ;
@@ -1279,7 +1340,7 @@ void FlingTrash(unsigned short sender)
 
 		}		
 	}
-
+	bottle[sender].qued_trash = 0;
 	TriggerFx(22,0x90,true);
 
 	bottle[receiver].contains_floaters=1;
@@ -1418,7 +1479,7 @@ unsigned short grab_input(unsigned short player)
 
 void InitBottle(unsigned short player)
 {
-
+	unsigned short virus_type;
 
 	unsigned short column,virus_left_column;
 
@@ -1455,16 +1516,37 @@ void InitBottle(unsigned short player)
 	while ( bottle[player].virus_count < z )
 	{ 
 	
-		x= rand() % BOTTLE_WIDTH ;
-		y= ( 7 + ( rand() % ( BOTTLE_DEPTH - 7) ) ) ;
+		x= rand() % BOTTLE_WIDTH;
+		// if difficulty is greater than 15, give the viruses more possible space
+		if (difficulty_level[player] > 15) {
+			y= ( 6 + ( rand() % ( BOTTLE_DEPTH - 6) ) ) ;
+		}
+		else{
+			y= ( 7 + ( rand() % ( BOTTLE_DEPTH - 7) ) ) ;
+		}
+		virus_type = VIRUS_RED1+(rand() % 5);
 
-		if ( !  bottle[player].space[x][y] ) 
+		if ( !  bottle[player].space[x][y]) 
 		{	
-			bottle[player].space[x][y]= VIRUS_RED1 + (rand() % 5);
-
-
-			bottle[player].virus_count++;
-			SetTile(column+x, BOTTLE_FIRST_ROW+y, bottle[player].space[x][y]);
+			if (CheckColorMatch (virus_type, bottle[player].space[x-1][y]) && CheckColorMatch (virus_type, bottle[player].space[x-2][y]))
+			{}
+			else if (CheckColorMatch (virus_type, bottle[player].space[x][y-1]) && CheckColorMatch (virus_type, bottle[player].space[x][y-2]))
+			{}
+			else if (CheckColorMatch (virus_type, bottle[player].space[x+1][y]) && CheckColorMatch (virus_type, bottle[player].space[x+2][y]))
+			{}
+			else if (CheckColorMatch (virus_type, bottle[player].space[x][y+1]) && CheckColorMatch (virus_type, bottle[player].space[x][y+2]))
+			{}
+			else if (CheckColorMatch (virus_type, bottle[player].space[x+1][y]) && CheckColorMatch (virus_type, bottle[player].space[x-1][y]))
+			{}
+			else if (CheckColorMatch (virus_type, bottle[player].space[x][y+1]) && CheckColorMatch (virus_type, bottle[player].space[x][y-1]))
+			{}
+			else 
+			{
+				bottle[player].space[x][y]= virus_type;
+			
+				bottle[player].virus_count++;
+				SetTile(column+x, BOTTLE_FIRST_ROW+y, bottle[player].space[x][y]);
+			}
 		}
 	}
 
@@ -1473,6 +1555,7 @@ void InitBottle(unsigned short player)
 	PrintByte(virus_left_column, VIRUS_LEFT_ROW, bottle[player].virus_count,false);
 
 }
+
 
 
 
