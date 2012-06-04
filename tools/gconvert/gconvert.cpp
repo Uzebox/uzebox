@@ -31,7 +31,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 2
+#define VERSION_MIN 3
 
 void parseXml(TiXmlDocument* doc);
 bool process();
@@ -134,6 +134,17 @@ bool process(){
 		printf("Error: Invalid tile size(%i,%i)\n", xform.tileWidth, xform.tileHeight);
 		return false;
     }
+
+    if((xform.width%xform.tileWidth!=0)){
+    	printf("Error: Image width must an integer multiple of the tile width.\n");
+    	return false;
+    }
+
+    if((xform.height%xform.tileHeight!=0)){
+    	printf("Error: Image height must be an integer multiple of the tile height.\n");
+    	return false;
+    }
+
 
 	printf("File version: %i\n",xform.version);
 	printf("Input file: %s\n",xform.inputFile);
@@ -311,7 +322,7 @@ bool process(){
 	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
 
-		int c=0,t=0,index;
+		int c=0,t=0;
 		unsigned char b;
 		vector<unsigned char*>::iterator it;
 		for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
@@ -320,7 +331,7 @@ bool process(){
 
 			for(int y=0;y<xform.tileHeight;y++){
 				if(c>0)fprintf(tf,",");
-				index=y*xform.tileWidth;
+
 				b=0;
 				//pack 8 pixels in one byte
 				for(int x=0;x<xform.tileWidth;x++){
@@ -352,7 +363,7 @@ bool process(){
 				if(c>0)fprintf(tf,",");
 				pos=xform.tileWidth*index;
 
-				unsigned char col=tile[pos];
+				//unsigned char col=tile[pos];
 
 				//pixel 0
 				if(xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]){
