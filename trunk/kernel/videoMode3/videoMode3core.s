@@ -129,7 +129,7 @@
 		sts _SFR_MEM_ADDR(TIMSK1),ZL
 
 		;wait cycles to align with next hsync
-		WAIT r26,197
+		WAIT r26,188
 	
 		;**********************
 		; This block updates the ram_tiles_restore buffer
@@ -216,10 +216,18 @@
 		mov r15,r17	;Y tiles to draw before wrapping
 
 
-		lds r20,tile_table_lo
-		lds r21,tile_table_hi
-		out _SFR_IO_ADDR(GPIOR1),r20 ;store for later
-		out _SFR_IO_ADDR(GPIOR2),r21
+		;lds r20,tile_table_lo
+		;lds r21,tile_table_hi
+		;out _SFR_IO_ADDR(GPIOR1),r20 ;store for later
+		;out _SFR_IO_ADDR(GPIOR2),r21
+
+		lds r20,overlay_tile_table
+		lds r21,overlay_tile_table+1
+		lds r6,tile_table_lo
+		lds r7,tile_table_hi
+		out _SFR_IO_ADDR(GPIOR1),r6 ;store for later
+		out _SFR_IO_ADDR(GPIOR2),r7
+
 
 		;save main section value	
 		movw r10,YL
@@ -249,18 +257,26 @@
 		sbrs r0,SREG_Z
 		mov YH,r16		;hi8(overlay_vram)
 		sbrs r0,SREG_Z
-		;ldi r24,OVERLAY_LINES
 		ser r24
 		sbrs r0,SREG_Z
 		clr r9
 
-		ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw 
-		mov r8,r16
+		sbrs r0,SREG_Z
+		out _SFR_IO_ADDR(GPIOR1),r20
+		sbrs r0,SREG_Z
+		out _SFR_IO_ADDR(GPIOR2),r21
+
+
+		//ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw
+		//mov r8,r16
+		lds r8,render_lines_count ;total scanlines to draw
+
 
 
 	;*************************************************************
 	; Rendering main loop starts here
 	;*************************************************************
+	;r6:r7   = main area tileset
 	;r8      = Total scanlines to draw
 	;r9      = Current section scrollX
 	;r10:r11 = Main area begin address
@@ -272,27 +288,27 @@
 	;r24 = Current Y tiles to draw before wrapping
 	;r25 = Main section scrollX
 
-	next_text_line:	
+	next_tile_line:
 		rcall hsync_pulse
 
 		WAIT r18,225 - AUDIO_OUT_HSYNC_CYCLES
 				
 		call render_tile_line
 
-		WAIT r18,70
+		WAIT r18,58
 
 		inc r22
 		dec r8
 		breq text_frame_end
 
 		cpi r22,TILE_HEIGHT ;last char line? 1
-		breq next_text_row 
+		breq next_tile_row
 
 		;wait to align with next_tile_row instructions (+1 cycle for the breq)
-		WAIT r16,16+5
-		rjmp next_text_line	
+		WAIT r16,25
+		rjmp next_tile_line
 
-	next_text_row:
+	next_tile_row:
 
 		clr r22		;clear current char line
 
@@ -321,12 +337,17 @@
 		mov r24,r15 ;Y wrapping
 		brne .+2
 		mov r9,r25  ;scrollX
-			
-		rjmp next_text_line
+
+		brne .+2
+		out _SFR_IO_ADDR(GPIOR1),r6  ;tileset
+		brne .+2
+		out _SFR_IO_ADDR(GPIOR2),r7  ;tilset
+
+		rjmp next_tile_line
 
 	text_frame_end:
 
-		WAIT r18,24
+		WAIT r18,28
 
 		rcall hsync_pulse ;145
 	
@@ -373,6 +394,8 @@
 		push r13
 		push r12
 		push r9
+		push r7
+		push r6
 
 		;--------------------------
 		; Rendering 
@@ -636,6 +659,8 @@
 		clr r16	
 		out _SFR_IO_ADDR(DATA_PORT),r16   
 
+		pop r6
+		pop r7
 		pop r9
 		pop r12
 		pop r13
@@ -1321,6 +1346,8 @@ SetTile:
 	subi r20,~(RAM_TILES_COUNT-1)	
 	st X,r20
 
+	clr r1
+
 	ret
 
 #else
@@ -1348,6 +1375,8 @@ SetTile:
 
 #endif
 
+
+
 ;***********************************
 ; SET FONT TILE
 ; C-callable
@@ -1357,6 +1386,34 @@ SetTile:
 ;************************************
 .section .text.SetFont
 SetFont:
+#if SCROLLING == 1
+	;index formula is vram[((y>>3)*256)+8x+(y&7)]
+
+	andi r24,0x1f
+	mov r23,r22
+	lsr r22
+	lsr r22
+	lsr r22			;y>>3
+	ldi r18,8
+	mul r24,r18		;x*8
+	movw XL,r0
+	subi XL,lo8(-(vram))
+	sbci XH,hi8(-(vram))
+	add XH,r22		;vram+((y>>3)*256)
+	andi r23,7		;y&7
+	add XL,r23
+
+	lds r21,font_tile_index
+	;subi r20,~(RAM_TILES_COUNT-1)
+	add r20,r21
+
+	st X,r20
+
+	clr r1
+
+	ret
+
+#else
 	clr r25
 
 	ldi r18,VRAM_TILES_H
@@ -1372,6 +1429,7 @@ SetFont:
 	adc XH,r1
 
 	lds r21,font_tile_index
+	subi r20,~(RAM_TILES_COUNT-1)
 	add r20,r21
 
 	st X,r20
@@ -1379,7 +1437,7 @@ SetFont:
 	clr r1
 
 	ret
-
+#endif
 
 ;***********************************
 ; SET FONT Index

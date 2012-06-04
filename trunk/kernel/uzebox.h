@@ -35,15 +35,27 @@
 	 */
 	extern void FadeIn(unsigned char speed,bool blocking);
 	extern void FadeOut(unsigned char speed,bool blocking);
-
 	extern void SetSpritesOptions(unsigned char params);
 	extern void SetSpritesTileTable(const char *data);
+
+	/**
+	 * Toggles the processing of sprites.
+	 *
+	 * @param visible	When true, sprites are displayed. When set to false, sprites are turned off.
+	 * 					Depending on the video mode, a varying number of cpu cycles normally used
+	 * 					for processing are freed.
+	 */
 	extern void SetSpriteVisibility(bool visible);
 	extern void MapSprite(unsigned char startSprite,const char *map);
 	extern void MapSprite2(unsigned char startSprite,const char *map,u8 spriteFlags);
 	extern void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height);
 	extern void Scroll(char sx,char sy);
 
+	/**
+	 * Fills the entire VRAM with tile #0.
+	 *
+	 * Before calling this function, you must invoke SetTileTable() to specify the tile set to use.
+	 */
 	extern void ClearVram(void);
 	extern void SetTile(char x,char y, unsigned int tileId);
 	extern void SetFont(char x,char y, unsigned char tileId);
@@ -52,7 +64,6 @@
 	extern void SetTileTable(const char *data);
 	extern void DrawMap(unsigned char x,unsigned char y,const int *map); //draw a map in video mode 1
 	extern void DrawMap2(unsigned char x,unsigned char y,const char *map); //draw a map in video mode 2
-
 	extern void Print(int x,int y,const char *string);
 	extern void PrintRam(int x,int y,unsigned char *string);
 	extern void PrintBinaryByte(char x,char y,unsigned char byte);
