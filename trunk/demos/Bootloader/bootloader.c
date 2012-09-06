@@ -39,7 +39,7 @@ The Atmega644 needs to have some fuses set in order to support teh bootloader. F
 /*
  * Game loader version string as display in the menu
  */
-const char strDemo[] PROGMEM = ">> Uzebox game loader 0.4.2 <<";
+const char strDemo[] PROGMEM = ">> Uzebox game loader 0.4.3 <<";
 
 
 /*

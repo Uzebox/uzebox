@@ -152,8 +152,8 @@ io_table:
 	io_set(PORTD,(1<<PD4)+(1<<PD3)+(1<<PD2))		//turn on led & activate power switch pull-ups
 
 	//setup port A for joypads
-	io_set(DDRA, ((1<<PA2) + (1<<PA3)) )
-	io_set(PORTA, ((1<<PA2) + (1<<PA3)) )
+	io_set(DDRA,0b00001100) 	//set only control lines as outputs
+	io_set(PORTA,0b11111011)  //activate pullups on the data lines
 
 	//clear counters
 	io_set(TCNT1H,0x00)
