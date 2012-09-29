@@ -30,8 +30,9 @@
 	#include VMODE_C_SOURCE
 #endif 
 
-#define CHAR_ZERO 16 
-
+#ifndef CHAR_ZERO
+	#define CHAR_ZERO 16 
+#endif
 
 
 
@@ -74,9 +75,9 @@ void PrintLong(int x,int y, unsigned long val){
 	for(i=0;i<10;i++){
 		c=val%10;
 		if(val>0 || i==0){
-			SetFont(x--,y,c+CHAR_ZERO+RAM_TILES_COUNT);
+			SetFont(x--,y,c+CHAR_ZERO);
 		}else{
-			SetFont(x--,y,0+RAM_TILES_COUNT);
+			SetFont(x--,y,0);
 		}
 		val=val/10;
 	}
@@ -90,12 +91,12 @@ void PrintByte(int x,int y, unsigned char val,bool zeropad){
 	for(i=0;i<3;i++){
 		c=val%10;
 		if(val>0 || i==0){
-			SetFont(x--,y,c+CHAR_ZERO+RAM_TILES_COUNT);
+			SetFont(x--,y,c+CHAR_ZERO);
 		}else{
 			if(zeropad){
-				SetFont(x--,y,CHAR_ZERO+RAM_TILES_COUNT);
+				SetFont(x--,y,CHAR_ZERO);
 			}else{
-				SetFont(x--,y,0+RAM_TILES_COUNT);
+				SetFont(x--,y,0);
 			}
 		}
 		val=val/10;
@@ -110,12 +111,12 @@ void PrintInt(int x,int y, unsigned int val,bool zeropad){
 	for(i=0;i<5;i++){
 		c=val%10;
 		if(val>0 || i==0){
-			SetFont(x--,y,c+CHAR_ZERO+RAM_TILES_COUNT);
+			SetFont(x--,y,c+CHAR_ZERO);
 		}else{
 			if(zeropad){
-				SetFont(x--,y,CHAR_ZERO+RAM_TILES_COUNT);
+				SetFont(x--,y,CHAR_ZERO);
 			}else{
-				SetFont(x--,y,0+RAM_TILES_COUNT);
+				SetFont(x--,y,0);
 			}
 		}
 		val=val/10;
@@ -130,9 +131,9 @@ void PrintBinaryByte(char x,char y,unsigned char byte){
 	for(i=0;i<8;i++){
 		
 		if(byte&0x80){
-			SetFont(x+i,y,CHAR_ZERO+1+RAM_TILES_COUNT);
+			SetFont(x+i,y,CHAR_ZERO+1);
 		}else{
-			SetFont(x+i,y,CHAR_ZERO+RAM_TILES_COUNT);
+			SetFont(x+i,y,CHAR_ZERO);
 		}
 		byte<<=1;
 	}
@@ -145,17 +146,17 @@ void PrintHexByte(char x,char y,unsigned char byte){
 	//hi nibble	
 	nibble=(byte>>4);
 	if(nibble<=9){
-		SetFont(x,y,nibble+CHAR_ZERO+ RAM_TILES_COUNT);
+		SetFont(x,y,nibble+CHAR_ZERO);
 	}else{
-		SetFont(x,y,nibble+CHAR_ZERO+7+ RAM_TILES_COUNT);
+		SetFont(x,y,nibble+CHAR_ZERO+7);
 	}
 
 	//lo nibble	
 	nibble=(byte&0xf);
 	if(nibble<=9){		
-		SetFont(x+1,y,nibble+CHAR_ZERO+ RAM_TILES_COUNT);
+		SetFont(x+1,y,nibble+CHAR_ZERO);
 	}else{
-		SetFont(x+1,y,nibble+CHAR_ZERO+7+ RAM_TILES_COUNT);
+		SetFont(x+1,y,nibble+CHAR_ZERO+7);
 	}
 
 }
@@ -184,7 +185,7 @@ void Print(int x,int y,const char *string){
 	while(1){
 		c=pgm_read_byte(&(string[i++]));		
 		if(c!=0){
-			c=((c&127)-32) + RAM_TILES_COUNT;			
+			c=((c&127)-32);			
 			SetFont(x++,y,c);
 		}else{
 			break;
@@ -202,7 +203,7 @@ void PrintRam(int x,int y,unsigned char *string){
 	while(1){
 		c=string[i++];		
 		if(c!=0){
-			c=((c&127)-32) + RAM_TILES_COUNT;			
+			c=((c&127)-32);			
 			SetFont(x++,y,c);
 		}else{
 			break;
@@ -214,7 +215,7 @@ void PrintRam(int x,int y,unsigned char *string){
 //Print a single character
 void PrintChar(int x,int y,char c){
 
-	SetFont(x,y,(c-32)+RAM_TILES_COUNT);
+	SetFont(x,y,(c-32));
 	
 }
 
@@ -235,7 +236,7 @@ void FontFill(int x,int y,int width,int height,int tile){
 	
 	for(cy=0;cy<height;cy++){
 		for(cx=0;cx<width;cx++){		
-			SetFont(x+cx,y+cy,(tile-32)+RAM_TILES_COUNT);
+			SetFont(x+cx,y+cy,(tile-32));
 		}
 	}
 }
