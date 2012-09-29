@@ -1315,7 +1315,19 @@ fill_vram_loop:
 
 	ret
 
-	
+;***********************************
+; SET FONT TILE
+; C-callable
+; r24=X pos (8 bit)
+; r22=Y pos (8 bit)
+; r20=Font tile No (8 bit)
+;************************************
+.section .text.SetFont
+SetFont:
+	lds r21,font_tile_index
+	add r20,21
+	rjmp SetTile	
+
 ;***********************************
 ; SET TILE 8bit mode
 ; C-callable
@@ -1325,7 +1337,6 @@ fill_vram_loop:
 ;************************************
 .section .text.SetTile
 SetTile:
-
 #if SCROLLING == 1
 	;index formula is vram[((y>>3)*256)+8x+(y&7)]
 	
@@ -1366,77 +1377,12 @@ SetTile:
 	adc XH,r1
 	
 	subi r20,~(RAM_TILES_COUNT-1)	
-
 	st X,r20
 
 	clr r1
 
 	ret
 
-#endif
-
-
-
-;***********************************
-; SET FONT TILE
-; C-callable
-; r24=X pos (8 bit)
-; r22=Y pos (8 bit)
-; r20=Font tile No (8 bit)
-;************************************
-.section .text.SetFont
-SetFont:
-#if SCROLLING == 1
-	;index formula is vram[((y>>3)*256)+8x+(y&7)]
-
-	andi r24,0x1f
-	mov r23,r22
-	lsr r22
-	lsr r22
-	lsr r22			;y>>3
-	ldi r18,8
-	mul r24,r18		;x*8
-	movw XL,r0
-	subi XL,lo8(-(vram))
-	sbci XH,hi8(-(vram))
-	add XH,r22		;vram+((y>>3)*256)
-	andi r23,7		;y&7
-	add XL,r23
-
-	lds r21,font_tile_index
-	;subi r20,~(RAM_TILES_COUNT-1)
-	add r20,r21
-
-	st X,r20
-
-	clr r1
-
-	ret
-
-#else
-	clr r25
-
-	ldi r18,VRAM_TILES_H
-
-	mul r22,r18		;calculate Y line addr in vram
-	
-	add r0,r24		;add X offset
-	adc r1,r25
-
-	ldi XL,lo8(vram)
-	ldi XH,hi8(vram)
-	add XL,r0
-	adc XH,r1
-
-	lds r21,font_tile_index
-	subi r20,~(RAM_TILES_COUNT-1)
-	add r20,r21
-
-	st X,r20
-
-	clr r1
-
-	ret
 #endif
 
 ;***********************************
