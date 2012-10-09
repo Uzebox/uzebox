@@ -98,6 +98,9 @@
 
 //Sprite flags
 #define SPRITE_FLIP_X 1
+#define SPRITE_FLIP_Y 2
+#define SPRITE_FLIP_X_BIT 0
+#define SPRITE_FLIP_Y_BIT 1
 #define SPRITE_BANK0 0<<6
 #define SPRITE_BANK1 1<<6
 #define SPRITE_BANK2 2<<6
