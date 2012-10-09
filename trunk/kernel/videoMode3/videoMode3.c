@@ -36,6 +36,7 @@
 	extern unsigned char ram_tiles[];
 	extern struct SpriteStruct sprites[];
 	extern unsigned char *sprites_tiletable_lo;
+	extern unsigned int sprites_tile_banks[];
 	extern unsigned char *tile_table_lo;
 	extern struct BgRestoreStruct ram_tiles_restore[];
 
@@ -56,6 +57,86 @@
 	void SetSpriteVisibility(bool visible){
 		spritesOn=visible;
 	}
+
+	/*
+	//
+	// This C function is the direct equivalent of the assembly
+	// function of the same same.
+	//
+	void BlitSprite(u8 sprNo,u8 ramTileIndex,u16 yx,u16 dydx){
+		u8 dy=dydx>>8;
+		u8 dx=dydx &0xff;
+		u8 flags=sprites[sprNo].flags;
+		u8 destXdiff,ydiff,px,x2,y2;
+		s8 step=1,srcXdiff;
+
+		u16 src=(sprites[sprNo].tileIndex*TILE_HEIGHT*TILE_WIDTH)
+				+sprites_tile_banks[flags>>6];	//add bank adress		
+
+		u8* dest=&ram_tiles[ramTileIndex*TILE_HEIGHT*TILE_WIDTH];
+	
+		if((yx&1)==0){
+			dest+=dx;	
+			destXdiff=dx;
+			srcXdiff=dx;
+					
+			if(flags&SPRITE_FLIP_X){
+				src+=(TILE_WIDTH-1);
+				srcXdiff=((TILE_WIDTH*2)-dx);
+			}
+		}else{
+			destXdiff=(TILE_WIDTH-dx);
+
+			if(flags&SPRITE_FLIP_X){
+				srcXdiff=TILE_WIDTH+dx;
+				src+=dx;
+				src--;
+			}else{
+				srcXdiff=destXdiff;
+				src+=destXdiff;
+			}
+		}
+	
+
+		if((yx&0x0100)==0){
+			dest+=(dy*TILE_WIDTH);
+			ydiff=dy;
+			if(flags&SPRITE_FLIP_Y){
+				src+=(TILE_WIDTH*(TILE_HEIGHT-1));
+			}
+		}else{			
+			ydiff=(TILE_HEIGHT-dy);
+			if(flags&SPRITE_FLIP_Y){
+				src+=((dy-1)*TILE_WIDTH); 
+			}else{
+				src+=(ydiff*TILE_WIDTH);
+			}
+		}
+
+		if(flags&SPRITE_FLIP_X){
+			step=-1;
+		}
+		
+		if(flags&SPRITE_FLIP_Y){
+			srcXdiff-=(TILE_WIDTH*2);
+		}
+
+		for(y2=0;y2<(TILE_HEIGHT-ydiff);y2++){
+			for(x2=0;x2<(TILE_WIDTH-destXdiff);x2++){
+							
+				px=pgm_read_byte(src);
+				if(px!=TRANSLUCENT_COLOR){
+					*dest=px;
+				}
+				dest++;
+				src+=step;
+			}		
+			src+=srcXdiff;
+			dest+=destXdiff;
+		}
+
+	}
+	*/
 
 	void ProcessSprites(){
 	
@@ -134,7 +215,7 @@
 							}
 				
 							if(bt<RAM_TILES_COUNT){				
-								BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);			
+								BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);						
 							}
 
 					//	}

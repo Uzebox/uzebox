@@ -33,6 +33,7 @@
 .global ram_tiles_restore
 .global sprites
 .global overlay_vram
+.global sprites_tile_banks
 .global Screen
 .global SetSpritesTileTable
 .global CopyTileToRam
@@ -68,7 +69,7 @@
 #define sprTileIndex 2
 #define sprFlags 3
 
-#define SPRITE_FLIP_X_BIT 0
+
 
 #if SCROLLING == 1
 	.section .noinit
@@ -76,7 +77,7 @@
 	.section .bss
 #endif 
 
-	.align 5	
+	.align 5
 	;VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
 	;To align vram to a 32/256 byte boundary without wasting ram, 
 	;add the following to your makefile's linker section and adjust 
@@ -1062,6 +1063,247 @@ CopyTileToRam:
 BlitSprite:
 	push r16
 	push r17
+	push YL
+	push YH
+
+	;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
+	ldi r25,SPRITE_STRUCT_SIZE
+	mul r24,r25
+
+	ldi ZL,lo8(sprites)	
+	ldi ZH,hi8(sprites)	
+	add ZL,r0
+	adc ZH,r1
+
+	ldd r16,Z+sprFlags
+
+	;8x16 multiply
+	ldd r24,Z+sprTileIndex
+	ldi r30,TILE_WIDTH*TILE_HEIGHT
+	mul r24,r30
+	movw r26,r0
+	
+	;get tile bank addr
+	ldi r25,4*2
+	mul r16,r25
+	ldi YL,lo8(sprites_tile_banks)	
+	ldi YH,hi8(sprites_tile_banks)	
+	clr r0
+	add YL,r1
+	adc YH,r0		
+	ldd ZL,Y+0
+	ldd ZH,Y+1
+	add ZL,r26	;tile data src
+	adc ZH,r27
+	
+	;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
+	ldi XL,lo8(ram_tiles)	
+	ldi XH,hi8(ram_tiles)
+	ldi r25,TILE_WIDTH*TILE_HEIGHT
+	mul r22,r25
+	add XL,r0
+	adc XH,r1
+
+	/*
+	if((yx&1)==0){
+		dest+=dx;	
+		destXdiff=dx;
+		srcXdiff=dx;
+				
+		if(flags&SPRITE_FLIP_X){
+			src+=(TILE_WIDTH-1);
+			srcXdiff=((TILE_WIDTH*2)-dx);
+		}
+	}else{
+		destXdiff=(TILE_WIDTH-dx);
+
+		if(flags&SPRITE_FLIP_X){
+			srcXdiff=TILE_WIDTH+dx;
+			src+=dx;
+			src--;
+		}else{
+			srcXdiff=destXdiff;
+			src+=destXdiff;
+		}
+	}
+	*/
+	clr r1
+	clr YH		;hi8(srcXdiff)
+
+	cpi r20,0	
+	brne x_2nd_tile
+	
+	add XL,r18	;dest+=dx
+	adc XH,r1
+	mov r24,r18	;destXdiff=dx
+	mov YL,r18	;srcXdiff=dx
+
+	sbrs r16,SPRITE_FLIP_X_BIT
+	rjmp x_check_end
+
+	adiw ZL,(TILE_WIDTH-1)	;src+=7
+	ldi YL,TILE_WIDTH*2		;srcXdiff=((TILE_WIDTH*2)-dx);
+	sub YL,r18	
+	rjmp x_check_end
+
+x_2nd_tile:
+	ldi r24,TILE_WIDTH
+	sub r24,r18		;8-DX = xdiff for dest
+
+	sbrc r16,SPRITE_FLIP_X_BIT
+	rjmp x2_flip_x
+
+	mov YL,r24		;srcXdiff=destXdiff;
+	add ZL,r24		;src+=destXdiff;
+	adc ZH,r1	
+	rjmp x_check_end
+
+x2_flip_x:
+	ldi YL,TILE_WIDTH
+	add YL,r18		;srcXdiff=TILE_WIDTH+dx;	
+	add ZL,r18		;src+=dx;
+	adc ZH,r1
+	sbiw ZL,1		;src--;
+
+x_check_end:
+
+
+
+	/*
+	if((yx&0x0100)==0){
+		dest+=(dy*TILE_WIDTH);
+		ydiff=dy;
+		if(flags&SPRITE_FLIP_Y){
+			src+=(TILE_WIDTH*(TILE_HEIGHT-1));
+		}
+	}else{			
+		ydiff=(TILE_HEIGHT-dy);
+		if(flags&SPRITE_FLIP_Y){
+			src+=((dy-1)*TILE_WIDTH); 
+		}else{
+			src+=(ydiff*TILE_WIDTH);
+		}
+	}
+	*/
+	cpi r21,0
+	brne y_2nd_tile
+
+	ldi r25,TILE_WIDTH	;dest+=(dy*TILE_WIDTH)
+	mul r25,r19			
+	add XL,r0
+	adc XH,r1
+
+	mov r25,r19			;ydiff=dy
+
+	sbrc r16,SPRITE_FLIP_Y_BIT
+	adiw ZL,(TILE_WIDTH*(TILE_HEIGHT-1))	;src+=(TILE_WIDTH*(TILE_HEIGHT-1));		
+
+	rjmp y_check_end
+
+y_2nd_tile:
+	ldi r25,TILE_HEIGHT	;ydiff=(TILE_HEIGHT-dy)
+	sub r25,r19	
+	
+	mov r22,r19			;temp=dy-1
+	dec r22
+	sbrs r16,SPRITE_FLIP_Y_BIT
+	mov r22,r25			;temp=ydiff
+
+	ldi r21,TILE_WIDTH	;src+=(temp*TILE_WIDTH);
+	mul r21,r22
+	add ZL,r0
+	adc ZH,r1	
+y_check_end:	
+	
+	//if(flags&SPRITE_FLIP_X){
+	//	step=-1;
+	//}
+	ser r22		;step=-1
+	ser r23
+	sbrs r16,SPRITE_FLIP_X_BIT
+	ldi r22,1	;step=1
+	sbrs r16,SPRITE_FLIP_X_BIT
+	clr r23
+
+	//if(flags&SPRITE_FLIP_Y){
+	//	srcXdiff-=(TILE_WIDTH*2);
+	//}
+	sbrc r16,SPRITE_FLIP_Y_BIT
+	sbiw YL,(TILE_WIDTH*2)
+
+	/*
+	for(y2=0;y2<(TILE_HEIGHT-ydiff);y2++){
+		for(x2=0;x2<(TILE_WIDTH-destXdiff);x2++){
+						
+			px=pgm_read_byte(src);
+			if(px!=TRANSLUCENT_COLOR){
+				*dest=px;
+			}
+			dest++;
+			src+=step;
+		}		
+		src+=srcXdiff;
+		dest+=destXdiff;
+	}
+	*/
+	;r19 	= translucent color
+	;r20:r21= xspan:yspan
+	;r22:r23= step
+	;r24	= destXdiff
+	;r25	= ydiff
+	;X		= dest
+	;Y		= srcXdiff
+	;Z		= src
+	clr r1
+	ldi r19,TRANSLUCENT_COLOR
+
+	ldi r21,TILE_HEIGHT
+	sub r21,r25 	;yspan=(TILE_HEIGHT-ydiff)
+
+y_loop:
+	ldi r20,TILE_WIDTH
+	sub r20,r24 	;xspan=(TILE_WIDTH-destXdiff)
+
+x_loop:
+	lpm r18,Z		;px=pgm_read_byte(src);
+	cpse r18,r19	;if(px!=TRANSLUCENT_COLOR)
+	st X,r18		;*dest=px;
+	adiw XL,1
+	add ZL,r22		;src+=step;
+	adc ZH,r23
+	dec r20
+	brne x_loop
+
+	add ZL,YL		;src+=srcXdiff
+	adc ZH,YH
+	add XL,r24		;dest+=destXdiff
+	adc XH,r1
+	dec r21
+	brne y_loop
+
+
+	pop YH
+	pop YL
+	pop r17
+	pop r16
+	ret
+
+
+
+
+
+/*
+;***********************************
+; SET TILE 8bit mode
+; C-callable
+; r24=SpriteNo
+; r22=RAM tile index (bt)
+; r21:r20=Y:X
+; r19:r18=DY:DX
+;************************************
+BlitSprite:
+	push r16
+	push r17
 
 	;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
 	ldi r25,SPRITE_STRUCT_SIZE
@@ -1184,22 +1426,21 @@ y_2nd_tile:
 	adc ZH,r1	
 y_check_end:	
 
-/*
-	for(y2=ydiff;y2<TILE_HEIGHT;y2++){
-		for(x2=xdiff;x2<TILE_WIDTH;x2++){
-							
-			px=pgm_read_byte(src++);
-			if(px!=TRANSLUCENT_COLOR){
-				*dest=px;
-			}
-			dest++;
 
-		}		
-		src+=xdiff;
-		dest+=xdiff;
-
-	}
-*/
+//	for(y2=ydiff;y2<TILE_HEIGHT;y2++){
+//		for(x2=xdiff;x2<TILE_WIDTH;x2++){
+//							
+//			px=pgm_read_byte(src++);
+//			if(px!=TRANSLUCENT_COLOR){
+//				*dest=px;
+//			}
+//			dest++;
+//
+//		}		
+//		src+=xdiff;
+//		dest+=xdiff;
+//
+//	}
 
 	clr r1
 	ldi r19,TRANSLUCENT_COLOR
@@ -1253,7 +1494,7 @@ x2_loop_end:
 	pop r17
 	pop r16
 	ret
-
+*/
 
 
 
