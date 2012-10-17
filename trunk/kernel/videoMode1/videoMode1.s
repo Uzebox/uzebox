@@ -1,6 +1,6 @@
 /*
  *  Uzebox Kernel - Video Mode 1
- *  Copyright (C) 2008  Alec Bourque
+ *  Copyright (C) 2008-2012  Alec Bourque
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,17 +26,17 @@
 ; ----
 ; Type:			Tile-based
 ; Cycles/Pixel: 6
-; Tile Size: 	6x8
-; Resolution: 	240x224 pixels (40x28 tiles)
+; Tile Size: 	6x8 or 8x8
+; Resolution: 	240x224 pixels (40x28 tiles or 30x28)
 ; Sprites: 		No
 ; Scrolling: 	No
 ;
 ; Description
 ; -----------
 ; This video mode is tile-based and does not support 
-; sprites or scrolling. Tile are 6x8 pixels
-; (6 horizontally by 8 vertically). The VRAM is organized as
-; a 40x28 array of 16-bits pointers which points
+; sprites or scrolling. Tile are 6x8 (8x8) pixels
+; (i.e.: 6 horizontally by 8 vertically). The VRAM is organized as
+; a 40x28 (30x28) array of 16-bits pointers which points
 ; to individual tiles in flash. Because it is using 
 ; adresses instead of indexes (like most other modes),
 ; more than 256 tiles can be displayed simultaneously.
@@ -74,13 +74,6 @@
 sub_video_mode1:
 
 	;waste line to align with next hsync in render function
-;ldi ZL,222-15-1-12-1-1
-;mode1_render_delay:
-;	rjmp .
-;	rjmp .
-;	dec ZL
-;	brne mode1_render_delay 
-;	lpm
 	WAIT r19,1347
 
 	ldi YL,lo8(vram)
@@ -94,7 +87,7 @@ sub_video_mode1:
 
 
 next_text_line:	
-	rcall hsync_pulse ;3+144=147
+	rcall hsync_pulse
 
 	WAIT r19,264 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
@@ -113,10 +106,6 @@ next_text_line:
 	breq next_text_row 
 	
 	;wait to align with next_tile_row instructions (+1 cycle for the breq)
-	;lpm ;3 nop
-	;lpm ;3 nop
-	;lpm ;3 nop
-	;nop
 	WAIT r19,10
 
 	rjmp next_text_line	
@@ -161,7 +150,9 @@ text_frame_end:
 
 ;*************************************************
 ; Renders a line within the current tile row.
-; Draws 40 tiles wide @ 6 clocks per pixel
+; Draws 1) 40 tiles (6 pixels wide) @ 6 clocks per pixel 
+;       or
+;       2) 30 tiles (8 pixels wide) @ 6 clocks per pixel   
 ;
 ; r22     = Y offset in tile row (0-7)
 ; r23 	  = tile width in bytes
@@ -215,11 +206,20 @@ mode1_loop:
 	movw ZL,r20			;load the next tile's adress in Z
 	dec r18				;decrement horizontal tiles to draw
 
+#if TILE_WIDTH == 8
+	out VIDEO_PORT,r16	;and output it to the video DAC
+	lpm r16,Z+			;get pixel 6 from flash
+	rjmp .				;2 cycles delay
+
+	out VIDEO_PORT,r16	;and output it to the video DAC
+	lpm r16,Z+			;get pixel 7 from flash
+	rjmp .				;2 cycles delay
+#endif
+
 	out VIDEO_PORT,r16	;and output it to the video DAC
 	brne mode1_loop		
 	
-	rjmp .				;2 cycles delay
-	nop					;1 cycle delay
+	lpm					;3 cycles delay
 	clr r16				;set last pixel to zero (black)
 	out VIDEO_PORT,r16
 
@@ -307,7 +307,6 @@ SetTile:
 	clr r25
 	clr r23	
 
-	;ldi r18,40*2
 	ldi r18,VRAM_TILES_H
 	lsl r18	
 
