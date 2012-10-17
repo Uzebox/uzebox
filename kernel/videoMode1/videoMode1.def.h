@@ -1,6 +1,6 @@
 /*
  *  Uzebox(tm) Video Mode 1
- *  Copyright (C) 20098  Alec Bourque
+ *  Copyright (C) 2008-2012  Alec Bourque
  *  
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,14 +32,24 @@
 #define VMODE_C_PROTOTYPES "videoMode1/videoMode1.h"
 #define VMODE_FUNC sub_video_mode1
 
+
+#ifndef TILE_WIDTH
+	#define TILE_WIDTH 6
+	#define VRAM_TILES_H 40 
+	#define SCREEN_TILES_H 40
+#elif TILE_WIDTH == 8
+	#define VRAM_TILES_H 30 
+	#define SCREEN_TILES_H 30	
+#else
+	#error Invalid value defined in the makefile for TILE_WIDTH. Supported values are 6 or 8.
+#endif
+
 #define TILE_HEIGHT 8
-#define TILE_WIDTH 6	
-#define VRAM_TILES_H 40 
 #ifndef VRAM_TILES_V
 	#define VRAM_TILES_V 28
 #endif
-#define SCREEN_TILES_H 40
 #define SCREEN_TILES_V 28 //28
+
 #define FIRST_RENDER_LINE 20
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V*2
 #define VRAM_ADDR_SIZE 2 //in bytes
