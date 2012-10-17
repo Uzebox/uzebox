@@ -59,10 +59,10 @@
 	#define FRAME_LINES SCREEN_TILES_V*TILE_HEIGHT
 #endif
 
-//In mode 1, vsync flag is set only each frame (30Hz)
+//set to MODE1_FAST_VSYNC=0 to sync on fields (30Hz)
 //set to MODE1_FAST_VSYNC=1 to sync on fields (60Hz) like other video modes
 #ifndef MODE1_FAST_VSYNC
-	#define MODE1_FAST_VSYNC 0
+	#define MODE1_FAST_VSYNC 1
 #endif
 
 
