@@ -43,6 +43,8 @@
 ; After initialization, pointers to a tile set and/or font set
 ; must be defined by calling SetTileTable() and SetFontTable().
 ;
+; To define tile width, use makefile parameter -DTILE_WIDTH=n where n=[6|8]
+;
 ; Functions specific to mode 1
 ; ----------------------------
 ; -SetFontTable(): Defines the font set to use with Print() functions
@@ -86,31 +88,30 @@ sub_video_mode1:
 
 
 
-next_text_line:	
+next_tile_line:	
 	rcall hsync_pulse
 
 	WAIT r19,264 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
-
-	;***draw line***
+	
 	call render_tile_line
 
 	WAIT r19,51 - CENTER_ADJUSTMENT
 
 	dec r10
-	breq text_frame_end
+	breq frame_end
 	
 	lpm ;3 nop
 	inc r22
 
-	cpi r22,8 ;last char line? 1
-	breq next_text_row 
+	cpi r22,TILE_HEIGHT ;last char line? 1
+	breq next_tile_row 
 	
 	;wait to align with next_tile_row instructions (+1 cycle for the breq)
 	WAIT r19,10
 
-	rjmp next_text_line	
+	rjmp next_tile_line	
 
-next_text_row:
+next_tile_row:
 	clr r22		;current char line			;1	
 
 	clr r0
@@ -121,14 +122,11 @@ next_text_row:
 	lpm
 	nop
 
-	rjmp next_text_line
+	rjmp next_tile_line
 
-text_frame_end:
+frame_end:
 
-	ldi r19,5
-	dec r19			
-	brne .-4
-	rjmp .
+	WAIT r19,17
 
 	rcall hsync_pulse ;145
 
@@ -203,18 +201,20 @@ mode1_loop:
 	out VIDEO_PORT,r16	;and output it to the video DAC
 
 	lpm r16,Z+			;get pixel 5 from flash
-	movw ZL,r20			;load the next tile's adress in Z
-	dec r18				;decrement horizontal tiles to draw
 
 #if TILE_WIDTH == 8
+	rjmp .				;2 cycles delay
+
 	out VIDEO_PORT,r16	;and output it to the video DAC
 	lpm r16,Z+			;get pixel 6 from flash
 	rjmp .				;2 cycles delay
 
 	out VIDEO_PORT,r16	;and output it to the video DAC
 	lpm r16,Z+			;get pixel 7 from flash
-	rjmp .				;2 cycles delay
 #endif
+
+	movw ZL,r20			;load the next tile's adress in Z
+	dec r18				;decrement horizontal tiles to draw
 
 	out VIDEO_PORT,r16	;and output it to the video DAC
 	brne mode1_loop		

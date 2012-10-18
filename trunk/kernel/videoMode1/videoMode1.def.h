@@ -48,9 +48,13 @@
 #ifndef VRAM_TILES_V
 	#define VRAM_TILES_V 28
 #endif
-#define SCREEN_TILES_V 28 //28
+#ifndef SCREEN_TILES_V
+	#define SCREEN_TILES_V 28
+#endif
+#ifndef FIRST_RENDER_LINE
+	#define FIRST_RENDER_LINE 20
+#endif
 
-#define FIRST_RENDER_LINE 20
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V*2
 #define VRAM_ADDR_SIZE 2 //in bytes
 #define SPRITES_ENABLED 0
