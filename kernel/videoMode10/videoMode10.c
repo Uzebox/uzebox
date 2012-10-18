@@ -26,8 +26,8 @@
 	#include "intro.h"
 	
 	#if INTRO_LOGO !=0
-		#include "data/uzeboxlogo_12x16.pic.inc"
-		#include "data/uzeboxlogo_12x16.map.inc"
+		#include "videoMode10/uzeboxlogo_12x16.pic.inc"
+		#include "videoMode10/uzeboxlogo_12x16.map.inc"
 	#endif
 
 

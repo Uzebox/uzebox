@@ -28,8 +28,8 @@
 	
 
 	#if INTRO_LOGO !=0
-		#include "data/uzeboxlogo_8x8.pic.inc"
-		#include "data/uzeboxlogo_8x8.map.inc"
+		#include "videoMode3/uzeboxlogo_8x8.pic.inc"
+		#include "videoMode3/uzeboxlogo_8x8.map.inc"
 	#endif
 
 	extern unsigned char overlay_vram[];
@@ -338,7 +338,7 @@
 	void DisplayLogo(){
 	
 		#if INTRO_LOGO !=0
-			#define LOGO_X_POS 13
+			#define LOGO_X_POS 12
 			
 			InitMusicPlayer(logoInitPatches);
 			SetTileTable(logo_tileset);

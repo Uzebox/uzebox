@@ -26,25 +26,31 @@
 	#include "intro.h"
 	
 	#if INTRO_LOGO !=0
-		#include "data/uzeboxlogo.pic.inc"
-		#include "data/uzeboxlogo.map.inc"
+		#if TILE_WIDTH == 6
+			#define LOGO_X_POS 18
+			#include "videoMode1/uzeboxlogo_6x8.pic.inc"
+			#include "videoMode1/uzeboxlogo_6x8.map.inc"			
+		#else
+			#define LOGO_X_POS 13
+			#include "videoMode1/uzeboxlogo_8x8.pic.inc"
+			#include "videoMode1/uzeboxlogo_8x8.map.inc"
+		#endif
 	#endif
 
+	 
 
 	//Callback invoked by UzeboxCore.Initialize()
 	void DisplayLogo(){
 	
 		#if INTRO_LOGO !=0
-			#define LOGO_X_POS 18
-			
+						
 			InitMusicPlayer(logoInitPatches);
 			SetTileTable(uzeboxlogo);
 			SetFontTable(uzeboxlogo);
 					
 			//draw logo
 			ClearVram();
-			WaitVsync(15);		
-
+			WaitVsync(15 * (MODE1_FAST_VSYNC+1));		
 
 			#if INTRO_LOGO == 1 
 				TriggerFx(0,0xff,true);
@@ -61,9 +67,9 @@
 				TriggerNote(3,0,16,0xff);
 			#endif 
 		
-			WaitVsync(32);
+			WaitVsync(32 * (MODE1_FAST_VSYNC+1));
 			ClearVram();
-			WaitVsync(10);
+			WaitVsync(10 * (MODE1_FAST_VSYNC+1));
 		#endif	
 	}
 
