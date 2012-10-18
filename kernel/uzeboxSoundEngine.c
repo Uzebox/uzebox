@@ -53,14 +53,18 @@ struct TrackStruct tracks[CHANNELS];
 
 //player vars
 bool playSong=false;
-unsigned int absoluteTime;
-int	nextDeltaTime;
-int	currDeltaTime;
+
+u16	nextDeltaTime; 
+u16	currDeltaTime;
+u8 songSpeed;
+
 unsigned char lastStatus;
 const char *songPos; 
 const char *songStart;
 const char *loopStart;
 unsigned char masterVolume;
+
+
 
 /*
  * Command 00: Set envelope speed per frame +127/-128, 0=no enveloppe
@@ -213,10 +217,8 @@ void StartSong(const char *midiSong){
 	nextDeltaTime=0;
 	currDeltaTime=0;
 	lastStatus=0;
+	songSpeed=0;
 	playSong=true;
-	absoluteTime=0;
-
-	
 }
 
 void RestartSong(){	
@@ -238,6 +240,15 @@ void ResumeSong(){
 	playSong=true;
 }
 
+
+void SetSongSpeed(u8 speed){
+	songSpeed = speed;
+}
+
+u8 GetSongSpeed(){
+	return songSpeed;
+}
+
 #if MIDI_IN == ENABLED
 
 	unsigned char ReadUART(){
@@ -254,9 +265,9 @@ void ResumeSong(){
 
 
 void ProcessMusic(void){
-	unsigned char c1,c2,channel,tmp;
-	int vol;
-	unsigned int uVol,tVol;	
+	u8 c1,c2,channel,tmp,trackVol;
+	s16 vol;
+	u16 uVol,tVol;
 	struct TrackStruct* track;
 
 
@@ -369,14 +380,27 @@ void ProcessMusic(void){
 			}//end if(c1==0xff)
 
 			//read next delta time
-			nextDeltaTime=ReadVarLen(&songPos); //Bug fix: remove divide by two 			
+			nextDeltaTime=ReadVarLen(&songPos);			
 			currDeltaTime=0;
 		
-		}//end while
+			#if SONG_SPEED == 1
+				if(songSpeed != 0){
+					uint32_t l  = (uint32_t)(nextDeltaTime<<8);
 
+					if(songSpeed < 0){//slower
+						(uint32_t)(l += (uint32_t)(-songSpeed*(nextDeltaTime<<1)));
+						(uint32_t)(l >>= 8);
+					}
+					else//faster
+						(uint32_t)(l /= (uint32_t)((1<<8)+(songSpeed<<1)));
+
+					nextDeltaTime = l;
+				}
+			#endif
+
+		}//end while
 		
 		currDeltaTime++;
-		absoluteTime++;
 	
 	}//end if(playSong)
 
@@ -554,9 +578,16 @@ void ProcessMusic(void){
 			}
 
 			//compute final frame volume
-			if(track->noteVol!=0 && track->envelopeVol!=0 && track->trackVol!=0 && masterVolume!=0){
+			if(track->flags&TRACK_FLAGS_PRIORITY){
+				//if an FX, use full track volume.
+				trackVol=0xff;
+			}else{
+				//if regular note, apply MIDI track volume
+				trackVol= track->trackVol;
+			}
+			if(track->noteVol!=0 && track->envelopeVol!=0 && trackVol!=0 && masterVolume!=0){
 
-				uVol=(track->noteVol*track->trackVol)+0x100;
+				uVol=(track->noteVol*trackVol)+0x100;
 				uVol>>=8;
 				uVol=(uVol*track->envelopeVol)+0x100;
 				uVol>>=8;
