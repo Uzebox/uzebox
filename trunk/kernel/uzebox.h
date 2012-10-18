@@ -98,6 +98,8 @@
 	extern void InitMusicPlayer(const struct PatchStruct *patchPointersParam);
 	extern void EnableSoundEngine();
 	extern void DisableSoundEngine();
+	extern void SetSongSpeed(u8 speed);
+	extern	 u8 GetSongSpeed();
 
 
 	/*
