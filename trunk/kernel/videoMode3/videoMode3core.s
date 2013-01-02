@@ -24,8 +24,12 @@
 ;
 ; If the SCROLLING build parameter=0, the scrolling 
 ; code is removed and the screen resolution 
-; increase to 30*28 tiles.
+; increases up to 30*28 tiles.
 ; 
+; For compile time switch and information relating
+; to this video mode see:
+; http://uzebox.org/wiki/index.php?title=Video_Mode_3
+;
 ;***************************************************	
 
 .global vram
@@ -175,13 +179,16 @@
 
 
 		;align in time with maximum numbers of ramtile possible
-		ldi r16,52
-		subi r16,RAM_TILES_COUNT
+	#if RAM_TILES_COUNT == 0 
+		ldi r16,51-RAM_TILES_COUNT 
+	#else
+		ldi r16,52-RAM_TILES_COUNT 
+	#endif
 	wait_loop:	
 		WAIT r17,18		;wait same as previous upd_loop
 		dec r16
 		brne wait_loop
-
+		nop
 
 
 		;**********************
@@ -682,7 +689,7 @@
 	sub_video_mode3:
 
 		;wait cycles to align with next hsync
-		WAIT r16,15
+		WAIT r16,36
 
 		;Set ramtiles indexes in VRAM 
 		ldi ZL,lo8(ram_tiles_restore);
@@ -718,8 +725,12 @@
 		brlo upd_loop ;23
 
 
+	#if RAM_TILES_COUNT == 0 
+		ldi r16,60-RAM_TILES_COUNT 
+	#else
+		ldi r16,61-RAM_TILES_COUNT 
+	#endif
 
-		ldi r16,62-RAM_TILES_COUNT 
 	wait_loop:
 	
 		ldi r17,6
@@ -780,12 +791,12 @@
 	next_tile_line:	
 		rcall hsync_pulse
 
-		WAIT r19,250 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
+		WAIT r19,250 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT + FILL_DELAY
 
 		;***draw line***
 		call render_tile_line
 
-		WAIT r19,47 - CENTER_ADJUSTMENT	
+		WAIT r19,47 + FILL_DELAY - CENTER_ADJUSTMENT	
 
 		dec r10
 		breq frame_end

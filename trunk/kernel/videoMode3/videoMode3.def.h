@@ -48,11 +48,14 @@
 	#define OVERLAY_LINES 0
 #endif
 
+#define CYCLES_PER_PIXELS 6
+
 #if SCROLLING == 0
 	#ifndef VRAM_TILES_H
 		#define VRAM_TILES_H 30
 	#endif
-	#define SCREEN_TILES_H 30
+	#define SCREEN_TILES_H VRAM_TILES_H 
+	#define FILL_DELAY ((CYCLES_PER_PIXELS*TILE_WIDTH)*(30-VRAM_TILES_H))/2
 #else
 	#define VRAM_TILES_H 32
 	#define SCREEN_TILES_H 28
