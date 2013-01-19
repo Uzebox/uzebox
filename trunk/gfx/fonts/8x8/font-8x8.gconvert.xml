@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+
+	<input file="font-8x8-full.png" type="png" tile-width="8" tile-height="8" />
+	<output file="font-8x8-full.inc">
+		<tiles var-name="font"/>
+	</output>
+ 
+</gfx-xform>

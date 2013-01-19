@@ -44,13 +44,18 @@
 	#error Invalid value defined in the makefile for TILE_WIDTH. Supported values are 6 or 8.
 #endif
 
-#define TILE_HEIGHT 8
+#ifndef TILE_HEIGHT
+	#define TILE_HEIGHT 8
+#endif
+
 #ifndef VRAM_TILES_V
-	#define VRAM_TILES_V 28
+	#define VRAM_TILES_V 224/TILE_HEIGHT
 #endif
+
 #ifndef SCREEN_TILES_V
-	#define SCREEN_TILES_V 28
+	#define SCREEN_TILES_V 224/TILE_HEIGHT
 #endif
+
 #ifndef FIRST_RENDER_LINE
 	#define FIRST_RENDER_LINE 20
 #endif
