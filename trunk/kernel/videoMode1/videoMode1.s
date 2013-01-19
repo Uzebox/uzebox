@@ -26,16 +26,18 @@
 ; ----
 ; Type:			Tile-based
 ; Cycles/Pixel: 6
-; Tile Size: 	6x8 or 8x8
-; Resolution: 	240x224 pixels (40x28 tiles or 30x28)
+; Tile Width: 	6 or 8
+; Tile Height:  Variable
+; Resolution: 	240x224 pixels
 ; Sprites: 		No
 ; Scrolling: 	No
 ;
 ; Description
 ; -----------
 ; This video mode is tile-based and does not support 
-; sprites or scrolling. Tile are 6x8 (8x8) pixels
-; (i.e.: 6 horizontally by 8 vertically). The VRAM is organized as
+; sprites or scrolling. Tile are 6 or 8 pixels wide
+; and can have an arbitrary height (i.e: 8, 9, 12 etc). 
+; The VRAM is organized by default as
 ; a 40x28 (30x28) array of 16-bits pointers which points
 ; to individual tiles in flash. Because it is using 
 ; adresses instead of indexes (like most other modes),
