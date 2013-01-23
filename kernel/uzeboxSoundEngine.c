@@ -130,6 +130,7 @@ void PatchCommand07(struct TrackStruct* track,unsigned char trackNo, char param)
 void PatchCommand08(struct TrackStruct* track,unsigned char trackNo, char param){
 	SetMixerNote(trackNo,param);
 	track->note=param;
+	track->flags &= ~(TRACK_FLAGS_SLIDING);	
 }
 
 /*
@@ -777,12 +778,14 @@ void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,un
 	if((tracks[channel].flags&TRACK_FLAGS_PLAYING)==0 || (tracks[channel].flags&TRACK_FLAGS_PRIORITY)==0){
 			
 		if(volume==0){ //note-off received
-			tracks[channel].flags&=(~TRACK_FLAGS_HOLD_ENV);//patchEnvelopeHold=false;
+
 			
-			//cut note if there's no envelope
-			if(tracks[channel].envelopeStep==0){
+			//cut note if there's no envelope & no note hold
+			if(tracks[channel].envelopeStep==0 && !(tracks[channel].flags&TRACK_FLAGS_HOLD_ENV)){
 				tracks[channel].noteVol=0;	
 			}
+
+			tracks[channel].flags&=(~TRACK_FLAGS_HOLD_ENV);//patchEnvelopeHold=false;
 		}else{
 		
 			tracks[channel].flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;	

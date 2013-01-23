@@ -108,6 +108,8 @@ void SetRenderingParameters(u8 firstScanlineToRender, u8 scanlinesToRender){
 
 /*
  * I/O initialization table
+ * The io_set macro is used to build an array of register,value pairs.
+ * Using an array take less flash than discrete AVR instrustructions.
  */
 #define io_set(a,b) ((_SFR_MEM_ADDR(a) & 0xff) + ((b)<<8))
 #define set_io_end  0x0001
@@ -725,7 +727,9 @@ char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
 
 	void UartGoBack(unsigned char count){
 		uart_rx_buf_start-=count;
-		uart_rx_buf_start&=(UART_RX_BUFFER_SIZE-1);
+		#if UART_RX_BUFFER_SIZE<256
+			uart_rx_buf_start&=(UART_RX_BUFFER_SIZE-1);
+		#endif
 	}
 
 	unsigned char UartUnreadCount(){
@@ -736,7 +740,9 @@ char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
 		unsigned char data=0;
 		if(uart_rx_buf_end!=uart_rx_buf_start){
 			data=uart_rx_buf[uart_rx_buf_start++];
-			uart_rx_buf_start&=(UART_RX_BUFFER_SIZE-1);			
+			#if UART_RX_BUFFER_SIZE<256
+				uart_rx_buf_start&=(UART_RX_BUFFER_SIZE-1);			
+			#endif
 		}
 		return data;
 	}
