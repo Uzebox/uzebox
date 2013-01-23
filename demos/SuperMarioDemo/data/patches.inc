@@ -32,7 +32,7 @@
 	only two bytes (no parameter).
 */
 
-
+/*
 //INST: Synth Piano
 const char patch00[] PROGMEM ={ 
 0,PC_WAVE,6,
@@ -54,6 +54,52 @@ const char patch01[] PROGMEM ={
 
 //empty 
 const char patch02[] PROGMEM ={
+0,PATCH_END
+};
+*/
+//Lead Melody
+const char patch00[] PROGMEM ={ 
+0,PC_WAVE,5,
+0,PC_ENV_VOL,60,
+0,PC_ENV_SPEED,-6, 
+0,PC_NOTE_HOLD,0,
+1,PC_TREMOLO_LEVEL,140, 
+0,PC_TREMOLO_RATE,80,
+1,PC_TREMOLO_LEVEL,180, 
+0,PC_TREMOLO_RATE,60, 
+0,PC_WAVE,2,
+1,PC_TREMOLO_LEVEL,200,
+1,PC_ENV_SPEED,-12, 
+0,PC_TREMOLO_RATE,20, 
+4,PC_NOTE_CUT,0,
+0,PATCH_END
+
+
+};
+//Rythm backup(to make it sound right one place, sounds wrong another..artistic liberty)
+const char patch01[] PROGMEM ={ 
+0,PC_TREMOLO_LEVEL,120, 
+0,PC_TREMOLO_RATE,40, 
+0,PC_WAVE,7,
+0,PC_ENV_VOL,65,
+//0,PC_ENV_SPEED,6,
+//2,PC_NOTE_HOLD,0,
+3,PC_TREMOLO_LEVEL,90, 
+0,PC_TREMOLO_RATE,60, 
+3,PC_WAVE,6,
+0,PC_ENV_SPEED,-8,
+16,PC_NOTE_CUT,0,
+0,PATCH_END
+};
+
+//Bass Line
+const char patch02[] PROGMEM ={	
+0,PC_WAVE,4,
+0,PC_ENV_VOL,62,
+0,PC_ENV_SPEED,8,
+1,PC_NOTE_HOLD,0,
+0,PC_ENV_SPEED,-7,
+7,PC_NOTE_CUT,0,
 0,PATCH_END
 };
 
