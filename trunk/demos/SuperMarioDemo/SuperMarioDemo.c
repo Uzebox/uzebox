@@ -48,7 +48,8 @@ the visibility & height of the overlay.
 #include "data/mario_sprites.map.inc"
 #include "data/mario_sprites.pic.inc"
 
-#include "data/nsmb.inc"
+//#include "data/nsmb.inc"
+#include "data/smw2.inc"
 #include "data/patches.inc"
 
 unsigned char sx=0,sy=0, anim=0,frame=0,action=0,stopFrame,sprDir,jmpPos,g,i, active=1,mode=0;
@@ -86,15 +87,15 @@ int main(){
 	ClearVram();
 	InitMusicPlayer(patches);
 	SetMasterVolume(0x40);
-	StartSong(song_nsmb);
+	StartSong(midisong);
 
 	SetSpritesTileTable(mario_sprites_tileset);
 	SetFontTilesIndex(SMB_TILESET_SIZE);
-	//SetColorBurstOffset(4);
 	SetTileTable(smb_tileset);
 	
 
-	//DrawMap2(0,0,map_main);
+    Screen.overlayHeight=4;
+    Screen.overlayTileTable=smb_tileset;
 	DrawMap2(0,VRAM_TILES_V-4,map_hud);
 	
 	unsigned char c;
