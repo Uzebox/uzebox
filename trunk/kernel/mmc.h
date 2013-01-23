@@ -21,6 +21,12 @@
 */
 #pragma once
 
+#define CMD_RESET 0
+#define CMD_INIT 1
+#define CMD_SEND_CSD 9
+#define CMD_SEND_CID 10
+#define CMD_READBLOCK 17
+
 extern uint8_t mmc_readsector(uint32_t lba);
 extern uint8_t mmc_init(uint8_t *buffer);
 extern void mmc_send_command(uint8_t command, uint16_t px, uint16_t py);
