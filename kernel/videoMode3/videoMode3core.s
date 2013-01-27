@@ -103,7 +103,6 @@
 	ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
 
 	sprites_tile_banks: 	.space 8
-	vram_linear_buf:		.space 30
 	tile_table_lo:			.byte 1
 	tile_table_hi:			.byte 1
 	font_tile_index:		.byte 1 
