@@ -133,7 +133,7 @@
 		sts _SFR_MEM_ADDR(TIMSK1),ZL
 
 		;wait cycles to align with next hsync
-		WAIT r26,188
+		WAIT r26,183
 	
 		;**********************
 		; This block updates the ram_tiles_restore buffer
@@ -213,15 +213,19 @@
 		lsr r16
 		lsr r16
 		lsr r16 ;/8
-		add YH,r16
-		andi r22,0x7	;fine Y scrolling
-		add YL,r22
 
-		;ldi r17,VRAM_TILES_V
-		lds r17,screen_scrollHeight
-		sub r17,r16
-		mov r15,r17	;Y tiles to draw before wrapping
+        lds r17,screen_scrollHeight
+        sub r17,r16
+        mov r15,r17 ;Y tiles to draw before wrapping
 
+        mov r17,r16
+        lsr r16
+        lsr r16
+        lsr r16 ;/8
+		add YH,r16      ; (bits 6-7)
+		andi r17,0x7
+        add YL,r17      ;interleave (bits 3-5)
+        andi r22,0x7    ;fine Y scrolling (bits 0-2)
 
 		;lds r20,tile_table_lo
 		;lds r21,tile_table_hi
