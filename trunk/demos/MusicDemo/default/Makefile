@@ -11,17 +11,17 @@ CC = avr-gcc
 INFO=../gameinfo.properties
 
 ## Escape spaces in mixer path (due to custom sounds.inc)
-EMPTY:=
-SPACE:= $(EMPTY) $(EMPTY)
-SPACE_ESC:= \\$(SPACE)
-MIX_PATH:= $(realpath ../data/sounds.inc)
-MIX_PATH_ESC:= $(subst $(SPACE),$(SPACE_ESC),$(MIX_PATH))
+#EMPTY:=
+#SPACE:= $(EMPTY) $(EMPTY)
+#SPACE_ESC:= \\$(SPACE)
+#MIX_PATH:= $(realpath ../data/sounds.inc)
+#MIX_PATH_ESC:= $(subst $(SPACE),$(SPACE_ESC),$(MIX_PATH))
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
 KERNEL_OPTIONS  = -DVIDEO_MODE=1 -DINTRO_LOGO=0 -DMIDI_IN=1 -DMODE1_FAST_VSYNC=0
 KERNEL_OPTIONS += -DSOUND_MIXER=0
-KERNEL_OPTIONS  += -DMIXER_WAVES=\"$(MIX_PATH_ESC)\"
+#KERNEL_OPTIONS  += -DMIXER_WAVES=\"$(MIX_PATH_ESC)\"
 
 
 ## Options common to compile, link and assembly rules
