@@ -155,7 +155,7 @@
 				#if SCROLLING == 1
 					ssx=sprites[i].x+Screen.scrollX;
 					ssy=sprites[i].y+Screen.scrollY;
-				#else
+   				#else
 					ssx=sprites[i].x;
 					ssy=sprites[i].y;
 				#endif
@@ -183,11 +183,19 @@
 						//if( (wx-(Screen.scrollX/8))>0 ) {
 
 							//process X-Y wrapping
-							if(wy>=(VRAM_TILES_V*2)){
-								wy-=(VRAM_TILES_V*2);
-							}else if(wy>=VRAM_TILES_V){
-								wy-=VRAM_TILES_V;
-							}
+                            #if SCROLLING == 0
+							    if(wy>=(VRAM_TILES_V*2)){
+								    wy-=(VRAM_TILES_V*2);
+							    }else if(wy>=VRAM_TILES_V){
+							    	wy-=VRAM_TILES_V;
+							    }
+                            #else
+                                if(wy>=(Screen.scrollHeight*2)){
+								    wy-=(Screen.scrollHeight*2);
+							    }else if(wy>=Screen.scrollHeight){
+							    	wy-=Screen.scrollHeight;
+							    }
+                            #endif
 							if(wx>=VRAM_TILES_H)wx-=VRAM_TILES_H; //should always be 32
 
 							#if SCROLLING == 0
@@ -239,13 +247,13 @@
 		Screen.scrollY+=dy;
 		Screen.scrollX+=dx;
 
-		if(VRAM_TILES_V<32){
+		if(Screen.scrollHeight<32){
 
-			if(Screen.scrollY>=(VRAM_TILES_V*TILE_HEIGHT)){
+			if(Screen.scrollY>=(Screen.scrollHeight*TILE_HEIGHT)){
 				if(dy>=0){	
-					Screen.scrollY=(Screen.scrollY-(VRAM_TILES_V*TILE_HEIGHT));
+					Screen.scrollY=(Screen.scrollY-(Screen.scrollHeight*TILE_HEIGHT));
 				}else{
-					Screen.scrollY=((VRAM_TILES_V*TILE_HEIGHT)-1)-(0xff-Screen.scrollY);
+					Screen.scrollY=((Screen.scrollHeight*TILE_HEIGHT)-1)-(0xff-Screen.scrollY);
 				}			
 			}
 	
@@ -258,8 +266,8 @@
 
 			Screen.scrollX=sx;
 
-			if(VRAM_TILES_V<32){
-				if(sy<(VRAM_TILES_V*TILE_HEIGHT)){
+			if(Screen.scrollHeight<32){
+				if(sy<(Screen.scrollHeight*TILE_HEIGHT)){
 					Screen.scrollY=sy;
 				}
 			}else{
@@ -321,13 +329,22 @@
 			
 				sprites[startSprite].x=x+(TILE_WIDTH*dx);
 			
-				if((VRAM_TILES_V<32) && (y+(TILE_HEIGHT*dy))>(VRAM_TILES_V*TILE_HEIGHT)){
-					unsigned char tmp=(y+(TILE_HEIGHT*dy))-(VRAM_TILES_V*TILE_HEIGHT);
-					sprites[startSprite].y=tmp;
-				}else{
-					sprites[startSprite].y=y+(TILE_HEIGHT*dy);
-				}
-			
+				#if SCROLLING == 1
+					if((Screen.scrollHeight<32) && (y+(TILE_HEIGHT*dy))>(Screen.scrollHeight*TILE_HEIGHT)){
+						unsigned char tmp=(y+(TILE_HEIGHT*dy))-(Screen.scrollHeight*TILE_HEIGHT);
+						sprites[startSprite].y=tmp;
+					}else{
+						sprites[startSprite].y=y+(TILE_HEIGHT*dy);
+					}
+				#else
+					if((VRAM_TILES_V<32) && (y+(TILE_HEIGHT*dy))>(VRAM_TILES_V*TILE_HEIGHT)){
+						unsigned char tmp=(y+(TILE_HEIGHT*dy))-(VRAM_TILES_V*TILE_HEIGHT);
+						sprites[startSprite].y=tmp;
+					}else{
+						sprites[startSprite].y=y+(TILE_HEIGHT*dy);
+					}
+				#endif
+
 				startSprite++;
 			}
 		}	
@@ -382,7 +399,7 @@
 		//	for(int i=0;i<(OVERLAY_LINES*VRAM_TILES_H);i++){
 		//		overlay_vram[i]=RAM_TILES_COUNT;
 		//	}
-			Screen.scrollHeight=28;
+			Screen.scrollHeight=VRAM_TILES_V;
 			Screen.overlayHeight=0;
 		#endif
 
