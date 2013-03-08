@@ -28,8 +28,9 @@ The Atmega644 needs to have some fuses set in order to support teh bootloader. F
 
 Revisions
 ---------
-V0.4.4 27-feb-2013 uze: Fixed controller reading code to be equivalent with the kernel's C version. (Asciipad controller did not work)
-
+V0.4.4 27-feb-2013 
+ -Uze: Fixed controller reading code to be equivalent with the kernel's C version. (Asciipad controller did not work)
+ -Harty: Added wait states to support more SD cards
 */
 
 #include <stdbool.h>
@@ -52,20 +53,6 @@ const char strDemo[] PROGMEM = ">> Uzebox GameLoader 0.4.4 <<";
 
 #define MAX_GAMES 128
 
-/*
-#define BTN_SR	   1
-#define BTN_SL	   2
-#define BTN_X	   4
-#define BTN_A	   8
-#define BTN_RIGHT  16
-#define BTN_LEFT   32
-#define BTN_DOWN   64
-#define BTN_UP     128
-#define BTN_START  256
-#define BTN_SELECT 512
-#define BTN_Y      1024 
-#define BTN_B      2048 
-*/
 #define BTN_SR	   2048
 #define BTN_SL	   1024
 #define BTN_X	   512
@@ -494,7 +481,7 @@ int main(){
 	eeBootloaderFlags=ReadEeprom(EEP_FIELD_FLAGS);
 
 	//wait for SD to stabilize
-	WaitVSync(4); //2
+	WaitVSync(40); //2
 
 	//boot normal game if EEPROM flag is set, no key is pressed and 
 	//theres a jmp instruction at progmem=0
@@ -531,7 +518,7 @@ boot_game:
 	do{
 
 		mmc_readsector(dirTableSector+page);
-
+		WaitVSync(1);
 		//read all entries in the sector
 		for(i=0;i<16;i++){
 			if((sector.files[i].fileAttributes & (FAT_ATTR_HIDDEN|FAT_ATTR_SYSTEM|FAT_ATTR_VOLUME|FAT_ATTR_DIRECTORY|FAT_ATTR_DEVICE))==0){
@@ -570,6 +557,7 @@ browse_files:
 	for(i=0;i<16;i++){
 		mmc_readsector(filesFirstSector[page+i]);
 		Print(((i+Y)*40*2)+(X*2),sector.header.name,0);	
+		WaitVSync(1);
 	}
 	
 	showInfo(fileNo+page);

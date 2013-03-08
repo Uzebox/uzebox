@@ -59,10 +59,12 @@ spibyte_ff:
 spi_byte:
     out _SFR_IO_ADDR(SPDR),r24
 spi_byte_wait:
+	nop
     in r24,_SFR_IO_ADDR(SPSR)    
 	bst r24,SPIF
     brtc spi_byte_wait
     in r24,_SFR_IO_ADDR(SPDR)
+	nop
     ret
 
 
@@ -79,7 +81,8 @@ mmc_get_wait:
 	sbiw r30,1
 	breq mmc_get_end
     rcall spibyte_ff
-    cpi r24,0xff	
+    cpi r24,0xff
+	nop
     breq mmc_get_wait
 mmc_get_end:    
 	ret
@@ -314,12 +317,13 @@ mmc_readsector_loop:
     rcall spibyte_ff
     st X+,r24
 	sbiw r30,1
+	nop
     brne mmc_readsector_loop    
-    
+    nop
     ; ignore dummy checksums and clock out the device
     rcall spibyte_ff
     rcall spibyte_ff
-
+	nop
     rcall mmc_clock_and_release
 
 mmc_readsector_end:
