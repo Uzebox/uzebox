@@ -26,6 +26,10 @@ The bootloader requires 4K of flash.
 
 The Atmega644 needs to have some fuses set in order to support teh bootloader. For setup details see: http://uzebox.org/forums/viewtopic.php?p=3847#p3847
 
+Revisions
+---------
+V0.4.4 27-feb-2013 uze: Fixed controller reading code to be equivalent with the kernel's C version. (Asciipad controller did not work)
+
 */
 
 #include <stdbool.h>
@@ -39,7 +43,7 @@ The Atmega644 needs to have some fuses set in order to support teh bootloader. F
 /*
  * Game loader version string as display in the menu
  */
-const char strDemo[] PROGMEM = ">> Uzebox game loader 0.4.3 <<";
+const char strDemo[] PROGMEM = ">> Uzebox GameLoader 0.4.4 <<";
 
 
 /*
@@ -48,6 +52,7 @@ const char strDemo[] PROGMEM = ">> Uzebox game loader 0.4.3 <<";
 
 #define MAX_GAMES 128
 
+/*
 #define BTN_SR	   1
 #define BTN_SL	   2
 #define BTN_X	   4
@@ -60,6 +65,20 @@ const char strDemo[] PROGMEM = ">> Uzebox game loader 0.4.3 <<";
 #define BTN_SELECT 512
 #define BTN_Y      1024 
 #define BTN_B      2048 
+*/
+#define BTN_SR	   2048
+#define BTN_SL	   1024
+#define BTN_X	   512
+#define BTN_A	   256
+#define BTN_RIGHT  128
+#define BTN_LEFT   64
+#define BTN_DOWN   32
+#define BTN_UP     16
+#define BTN_START  8
+#define BTN_SELECT 4
+#define BTN_Y      2
+#define BTN_B      1
+
 
 //SD Card defines
 #define BYTES_PER_SECTOR 512 	//fixed for regular SD
@@ -614,8 +633,6 @@ browse_files:
 
 	}
 
-
-	while(1);
 }
 
 

@@ -96,6 +96,41 @@
 .global DrawBar
 .global Print
 
+;Global delay macro for 0 to 1275 (old:767) cycles
+;Parameters: reg=Registerto use in inner loop (will be destroyed)
+;            clocks=CPU clocks to wait
+.macro WAIT reg,clocks	
+	.if (\clocks) > 767
+	 	ldi	\reg, (\clocks)/6    
+	 	dec	\reg
+		jmp . 
+	 	brne .-8
+		.if ((\clocks) % 6) == 1
+			nop
+		.elseif ((\clocks) % 6) == 2
+			rjmp .
+		.elseif ((\clocks) % 6) == 3
+			jmp .
+		.elseif ((\clocks) % 6) == 4
+			rjmp .
+			rjmp .
+		.elseif ((\clocks) % 6) == 5
+			rjmp .
+			jmp .
+		.endif
+	.else
+		.if (\clocks) > 2
+		 	ldi	\reg, (\clocks)/3    
+		 	dec	\reg                    
+		 	brne   .-4
+		.endif
+		.rept (\clocks) % 3
+		 	nop
+		.endr
+	.endif
+.endm 
+
+
 .section .bss
 	//vram is organized as 16 bit per tile index: 
 	//byte0=tile index,byte1=background color
@@ -199,8 +234,8 @@ set_io_end
 sub_video_mode1:
 
 	;waste time to align with next hsync in render function ;1554
-	ldi r24,lo8(390-32-4-1-3)
-	ldi r25,hi8(390-32-4-1-3)
+	ldi r24,lo8(350)
+	ldi r25,hi8(350)
 	sbiw r24,1
 	brne .-4	
 	rjmp .
@@ -420,49 +455,36 @@ read_joypads:
 
 	//latch data
 	sbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_LATCH_PIN
-	jmp . ; wait ~200ns
-	jmp . ;(6 cycles)
+	WAIT r25,8
 	cbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_LATCH_PIN
 	
 	//clear button state bits
-	clr ZL //P1
+	clr ZL 
 	clr ZH
 
-	;wait 12 cycles
-	ldi r24,4
-	dec r24
-	brne .-4
-
-;29
 	ldi r24,12 //number of buttons to fetch
-read_joypads_loop:	
-	;read data pin
+read_p1_joypad_loop:	
+	
+	;shift bits 
+	lsr ZH
+	ror ZL
 
-	lsl ZL
-	rol ZH
-	sbic _SFR_IO_ADDR(JOYPAD_IN_PORT),JOYPAD_DATA1_PIN
-	ori ZL,1
+	WAIT r25,8
 
-	;pulse clock pin
-	sbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_CLOCK_PIN
-	jmp . ;wait 6 cycles
-	jmp .
+	;clear clock pin
 	cbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_CLOCK_PIN
 
-	ldi r25,3
-	dec r25
-	brne .-4
+	WAIT r25,8
 
-	;jmp .
-	;jmp .
-	;jmp .
-	;jmp .
-
+	;read data bit
+	sbis _SFR_IO_ADDR(JOYPAD_IN_PORT),JOYPAD_DATA1_PIN
+	ori ZH,(1<<3)
+	
+	;set clock pin 
+	sbi _SFR_IO_ADDR(JOYPAD_OUT_PORT),JOYPAD_CLOCK_PIN
+	
 	dec r24
-	brne read_joypads_loop ;232
-
-	com ZL 
-	com ZH
+	brne read_p1_joypad_loop 
 
 #if JOYSTICK == TYPE_NES
 	;Do some bit transposition
@@ -821,103 +843,17 @@ InitVideo:
 
 
     //setup I/O (port, timer and etc.)
-   ldi YH, 0x00
-   ldi ZL, lo8(io_table)
-   ldi ZH, hi8(io_table)
+    ldi YH, 0x00
+    ldi ZL, lo8(io_table)
+    ldi ZH, hi8(io_table)
 
 loop_of_io_setup:
-   lpm YL, Z+
-   lpm r16, Z+
-   ST Y, r16
-   cpi YL, 0x00
-   brne loop_of_io_setup
+    lpm YL, Z+
+    lpm r16, Z+
+    st Y, r16
+    cpi YL, 0x00
+	brne loop_of_io_setup
 
-/*
-
-	clr r20
-	sts wave_vol,r20
-	sts first_render_line_tmp,r20
-	sts screen_tiles_v_tmp,r20
-	;stop timers	
-	sts _SFR_MEM_ADDR(TCCR1B),r20
-	sts _SFR_MEM_ADDR(TCCR0B),r20
-	;clear counters
-	sts _SFR_MEM_ADDR(TCNT1H),r20
-	sts _SFR_MEM_ADDR(TCNT1L),r20	
-		
-
-	// *** Set params *****
-
-	;set port directions
-	ldi r20,0xff
-	out _SFR_IO_ADDR(DDRC),r20 ;video dac
-	out _SFR_IO_ADDR(DDRB),r20 ;h-sync for ad725
-
-	ldi r20,(1<<AUDIO_OUT_PIN)+(1<<LED_PIN)
-	out _SFR_IO_ADDR(DDRD),r20 ;audio-out + led
-
-
-	;setup port A for joypads
-	ldi r20,_SFR_IO_ADDR(DDRA)
-	andi r20,0b11111100 ;data in 
-	ori  r20,0b00001100 ;control lines
-	out _SFR_IO_ADDR(DDRA),r20
-	cbi _SFR_IO_ADDR(PORTA),PA2
-	cbi _SFR_IO_ADDR(PORTA),PA3
-
-
-	;set sync parameters
-	;starts at odd field, in pre-eq pulses, line 1
-	
-	ldi r16,SYNC_PHASE_PRE_EQ
-	sts sync_phase,r16
-	ldi r16,SYNC_PRE_EQ_PULSES
-	sts sync_pulse,r16
-
-
-	;set sync generator counter on TIMER1
-	ldi r20,hi8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AH),r20
-	
-	ldi r20,lo8(HDRIVE_CL_TWICE)
-	sts _SFR_MEM_ADDR(OCR1AL),r20
-
-
-	ldi r20,(1<<WGM12)+(1<<CS10) 
-	sts _SFR_MEM_ADDR(TCCR1B),r20;CTC mode, use OCR1A for match
-
-	ldi r20,(1<<OCIE1A)
-	sts _SFR_MEM_ADDR(TIMSK1),r20 ;generate interrupt on match
-
-
-
-	;set clock divider counter for AD725 on TIMER0
-	;outputs 14.31818Mhz (4FSC)
-	ldi r20,(1<<COM0A0)+(1<<WGM01)  ;toggle on compare match + CTC
-	sts _SFR_MEM_ADDR(TCCR0A),r20
-
-	ldi r20,0
-	sts _SFR_MEM_ADDR(OCR0A),r20	;divide main clock by 2
-
-	ldi r20,(1<<CS00)  ;enable timer, no pre-scaler
-	sts _SFR_MEM_ADDR(TCCR0B),r20
-
-
-	;set sound PWM on TIMER2
-	ldi r20,(1<<COM2A1)+(1<<WGM21)+(1<<WGM20)   ;Fast PWM	
-	sts _SFR_MEM_ADDR(TCCR2A),r20
-
-	ldi r20,0
-	sts _SFR_MEM_ADDR(OCR2A),r20	;duty cycle (amplitude)
-
-	ldi r20,(1<<CS20)  ;enable timer, no pre-scaler
-	sts _SFR_MEM_ADDR(TCCR2B),r20
-
-	ldi r20,(1<<SYNC_PIN)+(1<<VIDEOCE_PIN)
-	out _SFR_IO_ADDR(SYNC_PORT),r20	;set sync line to hi & enable AD723
-
-
-*/
 
 	ldi r20,FIRST_RENDER_LINE
 	sts first_render_line,r20
