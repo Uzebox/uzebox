@@ -246,8 +246,10 @@ void ReadButtons(){
 			WaitUs(1);
 		}else{
 			Wait200ns();
+			Wait200ns();
 		}	
 	#else
+		Wait200ns();
 		Wait200ns();
 	#endif
 	JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));
@@ -258,30 +260,36 @@ void ReadButtons(){
 
 		p1ButtonsLo>>=1;
 		p2ButtonsLo>>=1;
-	
-		//pulse clock pin		
-		JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
+
 		#if SNES_MOUSE == 1
 			if(snesMouseEnabled){
 				WaitUs(5);
 			}else{
 				Wait200ns();
+				Wait200ns();
 			}	
 		#else
 			Wait200ns();
+			Wait200ns();
 		#endif
+			
+		//pulse clock pin		
+		JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
 		
 		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsLo|=(1<<15);
 		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsLo|=(1<<15);
 		
 		JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
+		
 		#if SNES_MOUSE == 1
 			if(snesMouseEnabled){
 				WaitUs(5);
 			}else{
 				Wait200ns();
+				Wait200ns();
 			}	
 		#else
+			Wait200ns();
 			Wait200ns();
 		#endif
 
@@ -516,7 +524,8 @@ void ProcessMouseMovement(void){
 #endif
 
 /* Detects what devices are connected to the game ports.
- * Note: If a mouse is expected to be connected, 
+ *
+ * IMPORTANT: If a mouse is expected to be connected, 
  * the first time this function is called, enough time must be given
  * to the mouse to settle by calling WaitVsync(8) before
  * invoking this function.
@@ -538,10 +547,6 @@ void ProcessMouseMovement(void){
 unsigned char DetectControllers(){
 	//unsigned int joy;
 	unsigned char resp=0;
-
-	//wait a couple frames for mouse to settle
-	WaitVsync(3);
-	
 
 	if(joypadsConnectionStatus&1){
 
