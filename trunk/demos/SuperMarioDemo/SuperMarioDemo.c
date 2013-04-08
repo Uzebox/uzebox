@@ -92,14 +92,16 @@ int main(){
 	SetSpritesTileTable(mario_sprites_tileset);
 	SetFontTilesIndex(SMB_TILESET_SIZE);
 	SetTileTable(smb_tileset);
+
+    Screen.scrollHeight = 23;
 	
 
     Screen.overlayHeight=4;
     Screen.overlayTileTable=smb_tileset;
-	DrawMap2(0,VRAM_TILES_V-4,map_hud);
+	DrawMap2(0,Screen.scrollHeight,map_hud);
 	
 	unsigned char c;
-	for(int y=0;y<23;y++){
+	for(int y=0;y<22;y++){
 		for(int x=0;x<30;x++){
 			c=pgm_read_byte(&(map_main[(y*MAP_MAIN_WIDTH)+x+2]));
 			SetTile(x,y+1,c);
@@ -198,7 +200,7 @@ void loadNextStripe(){
 	static unsigned int srcX=30;
 	static unsigned char destX=30;
 
-	for(int y=0;y<23;y++){
+	for(int y=0;y<22;y++){
 		SetTile(destX,y+1,pgm_read_byte(&(map_main[(y*MAP_MAIN_WIDTH)+srcX+2])));		
 	}
 
