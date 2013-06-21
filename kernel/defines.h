@@ -456,7 +456,6 @@
 	#define EEPROM_ERROR_BLOCK_NOT_FOUND 0x3
 	#define EEPROM_ERROR_NOT_FORMATTED 0x4
 
-
 	#if VIDEO_MODE == 1 
 		#include "videoMode1/videoMode1.def.h"
 	#elif VIDEO_MODE == 2
@@ -477,6 +476,10 @@
 		#include "videoMode9/videoMode9.def.h"
 	#elif VIDEO_MODE == 10
 		#include "videoMode10/videoMode10.def.h"
+	#elif VIDEO_MODE == 11
+		#include "videoMode11/videoMode11.def.h"
+	#elif VIDEO_MODE == 99
+		#include "videoMode/videoMode.def.h"
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif
