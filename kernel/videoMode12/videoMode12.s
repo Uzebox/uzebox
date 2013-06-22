@@ -32,6 +32,7 @@
 .global sub_mode
 .global BlitSprite
 .global SetVramPointer
+.global SetSubVideoMode
 
 .section .bss
 	
@@ -80,12 +81,12 @@ sub_video_mode12:
 next_scan_line:	
 	rcall hsync_pulse 
 
-	WAIT r19,330 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT -43+5
+	WAIT r19,330 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT -43+2-3
 
 	;***draw line***
 	rcall render_tile_line
 
-	WAIT r19,118 - CENTER_ADJUSTMENT -44-5
+	WAIT r19,118 - CENTER_ADJUSTMENT -44-3-2
 
 
 	;repeat each line
@@ -141,7 +142,12 @@ render_tile_line:
 	movw r2,YL ;push
 	mov r18,r24
 
+	clr r1
+	lds r16,sub_mode
+	cpse r16,r1
+	rjmp render_submode1
 
+	nop
 ///64 pixels wide submode @ 22 cycles per pixel///
 	ld r16,Y+ ;load next 8 pixels
 main_loop_64:		
@@ -213,6 +219,78 @@ main_loop_64:
 
 	dec r18
 	brne main_loop_64
+
+	rjmp .
+	clr r0
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;clear last pixel
+
+
+	movw YL,r2 ;pop
+	ret
+
+///128 pixels wide submode @ 11 cycles per pixel///
+render_submode1:
+	ld r16,Y+ ;load next 8 pixels
+main_loop_128:		
+
+	rol r16
+	sbc r0,r0	
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 0
+	lpm
+	lpm
+	rjmp .
+
+	rol r16
+	sbc r0,r0	
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 1
+	lpm
+	lpm
+	rjmp .
+
+	rol r16
+	sbc r0,r0	
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 2
+	lpm
+	lpm
+	rjmp .
+
+	rol r16
+	sbc r0,r0	
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 3
+	lpm
+	lpm
+	rjmp .
+
+	rol r16
+	sbc r0,r0	
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 4
+	lpm
+	lpm
+	rjmp .
+
+	rol r16
+	sbc r0,r0	
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 5
+	lpm
+	lpm
+	rjmp .
+
+	rol r16
+	sbc r0,r0	
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 6
+	lpm
+	lpm
+	rjmp .
+
+	rol r16
+	sbc r0,r0	
+	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 7
+	lpm
+
+	ld r16,Y+ ;load next 8 pixels
+
+	dec r18
+	brne main_loop_128
 
 	rjmp .
 	clr r0
@@ -322,6 +400,31 @@ BlitSprite:
 
 	ret
 
+;***********************************
+; SetSubVideoMode
+; Fill the screen with the specified tile
+; C-callable
+;
+; r24=video mode
+;     0=64x32  1bpp
+;     1=128x64 1bpp
+;     2=36x28  text mode
+;************************************
+.section .text.SetSubVideoMode
+SetSubVideoMode:
+	sts sub_mode,r24
+
+	ldi r25,8	;64x32 mode
+	
+	cpi r24,1
+	brne ssvm_end
+	ldi r25,16	;128x64
+
+ssvm_end:
+	sts bytes_per_row,r25	
+
+	ret 
+
 
 ;***********************************
 ; CLEAR VRAM
@@ -336,11 +439,19 @@ ClearVram:
 	cpc XH,r1
 	brne .+2
 	ret 
+	
+	lds r25,sub_mode
 
 	//submode 0 vram_size
-	ldi r24,lo8(256/4)	
+	ldi r24,lo8(256/8)	
+	cpse r25,r1
+	ldi r24,lo8(1024/8)
 
 clear_loop:	
+	st X+,r1
+	st X+,r1
+	st X+,r1
+	st X+,r1
 	st X+,r1
 	st X+,r1
 	st X+,r1
