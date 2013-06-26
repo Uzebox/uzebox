@@ -20,7 +20,9 @@
 
 ;****************************************************
 ; Video Mode 11 - Chip8
-; Bitmappep mode: 1bpp with 64x32 and 128x64
+; Bitmappep mode: 1bpp 
+; Submode 0: 64x32 
+; Submode 1: 128x64
 ;****************************************************	
 	
 .global InitializeVideoMode
@@ -33,6 +35,7 @@
 .global BlitSprite
 .global SetVramPointer
 .global SetSubVideoMode
+.global SetPalette
 
 .section .bss
 	
@@ -41,7 +44,11 @@
 	vram_ptr:		.word 0
 	sub_mode:		.byte 0
 	bytes_per_row:	.byte 8
-	
+	h_res:			.byte 64
+	v_res:			.byte 32
+	bg_color:		.byte 0
+	fg_color:		.byte 0xff
+		
 .section .text
 
 sub_video_mode12:
@@ -81,12 +88,12 @@ sub_video_mode12:
 next_scan_line:	
 	rcall hsync_pulse 
 
-	WAIT r19,330 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT -43+2-3
+	WAIT r19,282 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT -3
 
 	;***draw line***
 	rcall render_tile_line
 
-	WAIT r19,118 - CENTER_ADJUSTMENT -44-3-2
+	WAIT r19,68 - CENTER_ADJUSTMENT +3
 
 
 	;repeat each line
@@ -142,85 +149,90 @@ render_tile_line:
 	movw r2,YL ;push
 	mov r18,r24
 
+	lds r14,fg_color
+	lds r15,bg_color
+
 	clr r1
 	lds r16,sub_mode
 	cpse r16,r1
 	rjmp render_submode1
 
 	nop
+
 ///64 pixels wide submode @ 22 cycles per pixel///
 	ld r16,Y+ ;load next 8 pixels
 main_loop_64:		
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,7
+	mov r0,r15
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 0
 	ldi r17,6
 	dec r17
 	brne .-4
-	nop
-
-	rol r16
-	sbc r0,r0	
+	
+	mov r0,r14
+	sbrs r16,6
+	mov r0,r15
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 1
 	ldi r17,6
 	dec r17
 	brne .-4
-	nop
-
-	rol r16
-	sbc r0,r0	
+	
+	mov r0,r14
+	sbrs r16,5
+	mov r0,r15	
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 2
 	ldi r17,6
 	dec r17
 	brne .-4
-	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,4
+	mov r0,r15
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 3
 	ldi r17,6
 	dec r17
 	brne .-4
-	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,3
+	mov r0,r15	
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 4
 	ldi r17,6
 	dec r17
 	brne .-4
-	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,2
+	mov r0,r15	
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 5
 	ldi r17,6
 	dec r17
 	brne .-4
-	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,1
+	mov r0,r15
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 6
 	ldi r17,6
 	dec r17
 	brne .-4
-	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,0
+	mov r0,r15
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 7
 	ldi r17,4
 	dec r17
 	brne .-4
-	rjmp .
+	nop
 	ld r16,Y+ ;load next 8 pixels
 
 	dec r18
 	brne main_loop_64
 
-	rjmp .
+	lpm
 	clr r0
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;clear last pixel
 
@@ -233,66 +245,74 @@ render_submode1:
 	ld r16,Y+ ;load next 8 pixels
 main_loop_128:		
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,7
+	mov r0,r15
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 0
 	lpm
 	lpm
-	rjmp .
+	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,6
+	mov r0,r15	
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 1
 	lpm
 	lpm
-	rjmp .
+	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,5
+	mov r0,r15		
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 2
 	lpm
 	lpm
-	rjmp .
+	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,4
+	mov r0,r15	
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 3
 	lpm
 	lpm
-	rjmp .
+	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,3
+	mov r0,r15
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 4
 	lpm
 	lpm
-	rjmp .
+	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,2
+	mov r0,r15	
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 5
 	lpm
 	lpm
-	rjmp .
+	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,1
+	mov r0,r15
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 6
 	lpm
 	lpm
-	rjmp .
+	nop
 
-	rol r16
-	sbc r0,r0	
+	mov r0,r14
+	sbrs r16,0
+	mov r0,r15	
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;pixel 7
-	lpm
+	rjmp .
 
 	ld r16,Y+ ;load next 8 pixels
 
 	dec r18
 	brne main_loop_128
 
-	rjmp .
+	lpm
 	clr r0
 	out _SFR_IO_ADDR(DATA_PORT),r0 ;clear last pixel
 
@@ -326,6 +346,20 @@ BlitSprite:
 	push r16
 	push r17
 
+	;check bounds
+	lds r16,h_res
+	lds r17,v_res
+	cp r24,r16
+	brsh off_screen
+	cp r22,r17
+	brsh off_screen
+
+	;clip sprite height
+	sub r17,r22		;vres-Y
+	cp r18,r17		;height>space left?
+	brlo .+2
+	mov r18,r17
+
 	movw XL,r20
 
 	lds ZL,vram_ptr
@@ -358,18 +392,18 @@ BlitSprite:
 	mov r19,r24	
 	andi r19,7	;pixel offset to shift	
 	clr r24
-	main_loop:	
+main_loop:	
 	clr r23
 	ld r22,X+	;load next sprite byte
 	mov r20,r19	;copy number of pixels to shift
 	cpi r20,0
 	breq no_shift
-	shift_loop:	
+shift_loop:	
 	lsr r22	 ;shift bit into next vram address
 	ror r23
 	dec r20
 	brne shift_loop
-	no_shift:
+no_shift:
 
 	ld r20,Z
 	ldd r21,Z+1
@@ -393,11 +427,13 @@ BlitSprite:
 	brne main_loop
 
 	andi r24,1	;return if collision was detected
-	clr r1
-
 	pop r17
 	pop r16
-
+	ret
+off_screen:
+	clr r24
+	pop r17
+	pop r16
 	ret
 
 ;***********************************
@@ -414,15 +450,23 @@ BlitSprite:
 SetSubVideoMode:
 	sts sub_mode,r24
 
-	ldi r25,8	;64x32 mode
-	
-	cpi r24,1
-	brne ssvm_end
-	ldi r25,16	;128x64
-
-ssvm_end:
+	cpi r24,0	;64x32 mode
+	brne sub1
+	ldi r25,8	
 	sts bytes_per_row,r25	
+	ldi r25,64
+	sts h_res,r25
+	ldi r25,32
+	sts v_res,r25
+	ret
 
+sub1:
+	ldi r25,16	;128x64
+	sts bytes_per_row,r25	
+	ldi r25,128
+	sts h_res,r25
+	ldi r25,64
+	sts v_res,r25
 	ret 
 
 
@@ -460,6 +504,20 @@ clear_loop:
 	brne clear_loop
 
 	ret
+
+;***********************************
+; SetPalette
+; Sets the colors for foreground and background
+; C-callable
+;
+; r24=foreground color
+; r22=background color
+;************************************
+.section .text.SetPalette
+SetPalette:
+	sts fg_color,r24
+	sts bg_color,r22
+	ret 
 
 
 ;Nothing to do in this mode
