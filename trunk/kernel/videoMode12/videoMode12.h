@@ -31,3 +31,4 @@ extern void ClearVram(void);
 extern void SetVramPointer(u8* vramPtr);
 extern void SetSubVideoMode(u8 mode);
 extern u8 BlitSprite(u8 x,u8 y, u8* sprite_data, u8 height);
+extern void SetPalette(u8 foregroundColor,u8 backgroundColor);
