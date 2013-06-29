@@ -523,7 +523,7 @@ FRESULT dir_find (
 /*-----------------------------------------------------------------------*/
 /* Read an object from the directory                                     */
 /*-----------------------------------------------------------------------*/
-#if _USE_DIR
+#if _FS_USE_DIR
 static
 FRESULT dir_read (
 	DIR *dj,		/* Pointer to the directory object to store read object name */
@@ -612,7 +612,7 @@ FRESULT create_name (
 /*-----------------------------------------------------------------------*/
 /* Get file information from directory entry                             */
 /*-----------------------------------------------------------------------*/
-#if _USE_DIR
+#if _FS_USE_DIR
 static
 void get_fileinfo (		/* No return code */
 	DIR *dj,			/* Pointer to the directory object */
@@ -647,7 +647,7 @@ void get_fileinfo (		/* No return code */
 	}
 	*p = 0;
 }
-#endif /* _USE_DIR */
+#endif /* _FS_USE_DIR */
 
 
 
@@ -850,7 +850,7 @@ FRESULT pf_open (
 /*-----------------------------------------------------------------------*/
 /* Read File                                                             */
 /*-----------------------------------------------------------------------*/
-#if _USE_READ
+#if _FS_USE_READ
 
 FRESULT pf_read (
 	void* buff,		/* Pointer to the read buffer (NULL:Forward data to the stream)*/
@@ -908,7 +908,7 @@ fr_abort:
 /*-----------------------------------------------------------------------*/
 /* Write File                                                            */
 /*-----------------------------------------------------------------------*/
-#if _USE_WRITE
+#if _FS_USE_WRITE
 
 FRESULT pf_write (
 	const void* buff,	/* Pointer to the data to be written */
@@ -979,7 +979,7 @@ fw_abort:
 /*-----------------------------------------------------------------------*/
 /* Seek File R/W Pointer                                                 */
 /*-----------------------------------------------------------------------*/
-#if _USE_LSEEK
+#if _FS_USE_LSEEK
 
 FRESULT pf_lseek (
 	DWORD ofs		/* File pointer from top of file */
@@ -1034,7 +1034,7 @@ fe_abort:
 /*-----------------------------------------------------------------------*/
 /* Create a Directroy Object                                             */
 /*-----------------------------------------------------------------------*/
-#if _USE_DIR
+#if _FS_USE_DIR
 
 FRESULT pf_opendir (
 	DIR *dj,			/* Pointer to directory object to create */
@@ -1110,5 +1110,5 @@ FRESULT pf_readdir (
 	return res;
 }
 
-#endif /* _USE_DIR */
+#endif /* _FS_USE_DIR */
 
