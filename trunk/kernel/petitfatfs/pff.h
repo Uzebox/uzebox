@@ -26,14 +26,21 @@
 #ifndef _FATFS
 #define _FATFS
 
+#ifndef _FS_USE_READ
+	#define	_FS_USE_READ	1	/* 1:Enable pf_read() */
+#endif
 
-#define	_USE_READ	1	/* 1:Enable pf_read() */
+#ifndef _FS_USE_DIR
+	#define	_FS_USE_DIR		1	/* 1:Enable pf_opendir() and pf_readdir() */
+#endif
 
-#define	_USE_DIR	1	/* 1:Enable pf_opendir() and pf_readdir() */
+#ifndef _FS_USE_LSEEK
+	#define	_FS_USE_LSEEK	1	/* 1:Enable pf_lseek() */
+#endif
 
-#define	_USE_LSEEK	1	/* 1:Enable pf_lseek() */
-
-#define	_USE_WRITE	1	/* 1:Enable pf_write() */
+#ifndef _FS_USE_WRITE
+	#define	_FS_USE_WRITE	1	/* 1:Enable pf_write() */
+#endif
 
 #define _FS_FAT12	1	/* 1:Enable FAT12 support */
 #define _FS_FAT32	1	/* 1:Enable FAT32 support */
