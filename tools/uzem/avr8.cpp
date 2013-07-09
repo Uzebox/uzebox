@@ -1,10 +1,7 @@
 /*
-NOTE THIS IS AN EXPERIMENTAL BRANCH OF THE UZEBOX EMULATOR
-PLEASE SEE THE FORUM FOR MORE DETAILS:  http://uzebox.org/forums/
-
 (The MIT License)
 
-Copyright (c) 2008, 2009, David Etherton, Eric Anderton
+Copyright (c) 2008-2013 David Etherton, Eric Anderton, Alec Bourque et al.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +21,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+/*
+Revision Log
+------------
+7/8/2013 V1.16 Added emulation for Timer1 Overflow interrupt
+
+More info at uzebox.org
+
+*/
+
 
 #include <algorithm>
 
@@ -66,9 +73,11 @@ THE SOFTWARE.
 #define EEPE  0x02
 #define EERE  0x01
 
+//Interrupts vector adresses
 #define INT_RESET		0x00
 #define TIMER1_COMPA	0x1A
 #define TIMER1_COMPB	0x1C
+#define TIMER1_OVF		0x1E
 #define SPI_STC     	0x26
 
 #define REG_TCNT1L		0x84
@@ -83,6 +92,11 @@ THE SOFTWARE.
 #define OCIE1A			2
 #define OCIE1B			4
 #define ICIE1			32
+
+//TCCR1B flags
+#define CS10			1
+#define WGM12			8
+
 
 static const char *port_name(int);
 
@@ -1456,7 +1470,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 void avr8::trigger_interrupt(int location)
 {
 #if DISASM
-		printf("INTERRUPT triggered at cycleCounter = %u\n",cycleCounter);
+		printf("INTERRUPT %d triggered at cycleCounter = %u\n", (location/2), cycleCounter);
 #endif
 
 		// clear interrupt flag
@@ -2011,18 +2025,32 @@ void avr8::update_hardware(int cycles)
 		u16 OCR1A = OCR1AL | (OCR1AH<<8);
 		u16 OCR1B = OCR1BL | (OCR1BH<<8);
 
-		if ((TIMSK1 & OCIE1B) && TCNT1 < OCR1B && (TCNT1 + cycles) >= OCR1B){
-			TIFR1|=OCF1B; //CTC match flag
-		}
+		if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
 
-		if (TCNT1 < OCR1A && TCNT1 + cycles >= OCR1A)
-		{
-			TCNT1 -= (OCR1A - cycles);
-			if (TIMSK1 & OCIE1A)
-				TIFR1|=OCF1A; //CTC match flag
-		}
-		else
+			if (TCNT1 < OCR1B && (TCNT1 + cycles) >= OCR1B){
+				if (TIMSK1 & OCIE1B){
+					TIFR1|=OCF1B; //CTC match flag interrupt
+				}
+			}
+
+			if (TCNT1 < OCR1A && TCNT1 + cycles >= OCR1A){
+				TCNT1 -= (OCR1A - cycles);
+				if (TIMSK1 & OCIE1A){
+					TIFR1|=OCF1A; //CTC match flag interrupt
+				}
+			}else{
+				TCNT1 += cycles;
+			}
+
+		}else{	//timer in normal mode: counts up to 0xffff then rolls over
+
+			if (TCNT1 > (0xFFFF - cycles)){
+				if (TIMSK1 & TOIE1){
+					 TIFR1|=TOV1; //overflow interrupt
+				}
+			}
 			TCNT1 += cycles;
+		}
 
 		TCNT1L = (u8) TCNT1;
 		TCNT1H = (u8) (TCNT1>>8);
@@ -2129,6 +2157,11 @@ void avr8::update_hardware(int cycles)
 
 			TIFR1&= ~OCF1B; //clear CTC match flag
 			trigger_interrupt(TIMER1_COMPB);
+
+		}else if (TIFR1 & TOV1){
+
+			TIFR1&= ~TOV1; //clear TOV1 flag
+			trigger_interrupt(TIMER1_OVF);
 		}
 	}
 
