@@ -85,6 +85,9 @@ THE SOFTWARE.
 #define JOY_DIR_COUNT 4
 #define JOY_AXIS_UNUSED -1
 
+#define VIZ_READ (255<<8)
+#define VIZ_WRITE 255
+
 #define JOY_MASK_UP 0x11111111
 #define JOY_MASK_RIGHT 0x22222222
 #define JOY_MASK_DOWN 0x44444444
@@ -269,7 +272,7 @@ struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0), new_input_mode(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
+		prevWDR(0), frameCounter(0), visualize(false), new_input_mode(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
         spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),joystickFile(0),
 
 
@@ -283,6 +286,8 @@ struct avr8
 		memset(sram, 0, sizeof(sram));
 		memset(eeprom, 0, sizeof(eeprom));
 		memset(progmem,0,progSize);
+		memset(progmemviz,0,progSize);
+		memset(sramviz, 0, sramSize);
 
 		PIND = 8;
 		SPL = (SRAMBASE+sramSize-1) & 0x00ff;
@@ -296,6 +301,8 @@ struct avr8
 	}
 
 	u16 progmem[progSize/2];
+  u16 progmemviz[progSize/2];
+  u16 sramviz[sramSize];
 	u16 pc;
 	u16 breakpoint;
 
@@ -309,7 +316,7 @@ struct avr8
 	u8 TEMP;				// for 16-bit timers
 	u32 cycleCounter, prevPortB, prevWDR;
 	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
-		new_input_mode;
+		new_input_mode, visualize;
 	int interruptLevel;
 	u32 lastFlip;
 	u32 inset;
@@ -449,6 +456,7 @@ struct avr8
 	inline u8 read_progmem(u16 addr)
 	{
 		u16 word = progmem[addr>>1];
+		progmemviz[addr>>1] |= VIZ_READ;
 		return (addr&1)? word>>8 : word;
 	}
 
@@ -462,6 +470,7 @@ struct avr8
 			//if (addr >= SRAMBASE + sramSize)
 			//	printf("illegal write of %x to addr %x, pc = %x\n",value,addr,pc-1);
 			sram[(addr - SRAMBASE) & (sramSize-1)] = value;
+			sramviz[(addr - SRAMBASE) & (sramSize-1)] |= VIZ_WRITE;
 		}
 	}
 
@@ -474,6 +483,7 @@ struct avr8
 		else {
 			//if (addr >= SRAMBASE + sramSize)
 			//	printf("illegal read from addr %x, pc = %x\n",addr,pc-1);
+			sramviz[(addr - SRAMBASE) & (sramSize-1)] |= VIZ_READ;
 			return sram[(addr - SRAMBASE) & (sramSize-1)];
 		}
 	}
@@ -503,6 +513,7 @@ struct avr8
 	void map_joysticks(SDL_Event &ev);
 	void load_joystick_file(const char* filename);
 	void guithread();
+	void draw_memorymap();
 #endif
 	void trigger_interrupt(int location);
 	u8 exec(bool disasmOnly,bool verbose);

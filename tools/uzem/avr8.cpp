@@ -386,6 +386,9 @@ void avr8::write_io(u8 addr,u8 value)
                 if (frameCounter & 1) {
                     currentFrame++;
 
+                    if (visualize)
+                      draw_memorymap();
+
                     /* Tell GUI thread to update screen */
                     cVSync.notify_one();
                 }
@@ -601,7 +604,64 @@ u8 avr8::read_io(u8 addr)
 		return io[addr];
 }
 
+/*
+	Someone awesome should optimize this
+*/
+inline void avr8::draw_memorymap()
+{
+	int sramaddr = 0;
+	int startx = inset + 630 + 5;
+	int starty = 20;
+	SDL_Surface *surface = frameBuffer[currentFrameBuffer];
 
+	/* SRAM */
+	for (int y = 0; y < 64; ++y) {
+		for (int x = 0; x < 32; ++x) {
+			u32 *pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx + x;
+			*pixel = (sramviz[sramaddr++] << 8);
+			if ((sramviz[sramaddr-1] & 0xff) > 8) sramviz[sramaddr-1]-=8;
+			if (((sramviz[sramaddr-1]>>8) & 0xff) > 8) sramviz[sramaddr-1] = (sramviz[sramaddr-1] & 0xff) | (((sramviz[sramaddr-1]>>8) - 8)<<8);
+		}
+	}
+	int white = SDL_MapRGB(screen->format,255,255,255);
+	for (int x = 0; x < 32; ++x) {
+		u32 *pixel = (u32*)((u8*)surface->pixels + ((starty - 1) * surface->pitch)) + startx + x;
+		*pixel = white;
+		pixel = (u32*)((u8*)surface->pixels + ((starty + 64) * surface->pitch)) + startx + x;
+		*pixel = white;
+	}
+	for (int y = 0; y < 64; ++y) {
+		u32 *pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx - 1;
+		*pixel = white;
+		pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx + 32;
+		*pixel = white;
+	}
+
+	/* Progmem */
+	starty = 20 + 64 + 20;
+	sramaddr = 0;
+	startx = inset + 630 + 5;
+	for (int y = 0; y < 200; ++y) {
+		for (int x = 0; x < 160; ++x) {
+			u32 *pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx + x;
+			*pixel = (progmemviz[sramaddr++] << 8);
+			if ((progmemviz[sramaddr-1] & 0xff) > 8) progmemviz[sramaddr-1]-=8;
+			if (((progmemviz[sramaddr-1]>>8) & 0xff) > 8) progmemviz[sramaddr-1] = (progmemviz[sramaddr-1] & 0xff) | (((progmemviz[sramaddr-1]>>8) - 8)<<8);
+		}
+	}
+	for (int x = 0; x < 160; ++x) {
+		u32 *pixel = (u32*)((u8*)surface->pixels + ((starty - 1) * surface->pitch)) + startx + x;
+		*pixel = white;
+		pixel = (u32*)((u8*)surface->pixels + ((starty + 200) * surface->pitch)) + startx + x;
+		*pixel = white;
+	}
+	for (int y = 0; y < 200; ++y) {
+		u32 *pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx - 1;
+		*pixel = white;
+		pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx + 160;
+		*pixel = white;
+	}
+}
 
 u8 avr8::exec(bool disasmOnly,bool verbose)
 {
@@ -644,6 +704,8 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 	char insnBuf[32];
 	sprintf(insnBuf,"?$%04x",insn);
 #endif
+
+	progmemviz[lastpc] |= VIZ_WRITE;
 
 	// The "DIS" macro must be first, or at least before any side effects on machine state occur.  
 	// This is because depending on the configuration, we can build one of three ways; no 
@@ -1564,7 +1626,7 @@ bool avr8::init_gui()
 	if (fullscreen)
 		screen = SDL_SetVideoMode(800,600,32,sdl_flags | SDL_FULLSCREEN);
 	else
-		screen = SDL_SetVideoMode(630,448,32,sdl_flags);
+		screen = SDL_SetVideoMode(visualize ? 800 : 630,448,32,sdl_flags);
 
 	frameBuffer[0] = SDL_CreateRGBSurface( sdl_flags, screen->w, screen->h, 32, screen->format->Rmask, screen->format->Gmask, screen->format->Bmask, screen->format->Amask );
 	frameBuffer[1] = SDL_CreateRGBSurface( sdl_flags, screen->w, screen->h, 32, screen->format->Rmask, screen->format->Gmask, screen->format->Bmask, screen->format->Amask );
