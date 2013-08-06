@@ -35,7 +35,7 @@ THE SOFTWARE.
 #if defined(__WIN32__)
     #include <windows.h> // Win32 memory mapped I/O
     #include <winioctl.h>
-#elif defined(LINUX)
+#elif defined(LINUX) || defined(__APPLE__)
     #include <sys/mman.h> // Linux memory mapped I/O
 #else
     #include <sys/mmap.h> // Unix memory mapped I/O
@@ -58,6 +58,10 @@ THE SOFTWARE.
 #pragma comment(lib, "SDL.lib")
 #pragma comment(lib, "SDLmain.lib")
 #endif
+
+// Threading
+#include <boost/thread.hpp>
+#include <boost/bind.hpp>
 
 // Joysticks
 #define MAX_JOYSTICKS 2
@@ -142,13 +146,13 @@ namespace ports
 		TCCR2A, TCCR2B, TCNT2, OCR2A, OCR2B, resb5, ASSR, resb7,
 		TWBR, TWSR, TWAR, TWDR, TWCR, TWAMR, resbe, resbf,
 		UCSR0A, UCSR0B, UCSR0C, resc3, UBRR0L, UBRR0H, UDR0, resc7,
-        resc8, resc9, resca, rescb, rescc, rescd, resce, rescf,
-        resd0, resd1, resd2, resd3, resd4, resd5, resd6, resd7,
-        resd8, resd9, resda, resdb, resdc, resdd, resde, resdf,
-        rese0, rese1, rese2, rese3, rese4, rese5, rese6, rese7,
-        rese8, rese9, resea, reseb, resec, resed, resee, resef,
-        resf0, resf1, resf2, resf3, resf4, resf5, resf6, resf7,
-        resf8, resf9, resfa, resfb, resfc, resfd, resfe, resff
+		resc8, resc9, resca, rescb, rescc, rescd, resce, rescf,
+		resd0, resd1, resd2, resd3, resd4, resd5, resd6, resd7,
+		resd8, resd9, resda, resdb, resdc, resdd, resde, resdf,
+		rese0, rese1, rese2, rese3, rese4, rese5, rese6, rese7,
+		rese8, rese9, resea, reseb, resec, resed, resee, resef,
+		resf0, resf1, resf2, resf3, resf4, resf5, resf6, resf7,
+		resf8, resf9, resfa, resfb, resfc, resfd, resfe, resff
 	};
 }
 
@@ -286,6 +290,8 @@ struct avr8
         	spiTransfer = 0;
 #if GUI
 		pad_mode = SNES_PAD;
+		currentFrame = 0;
+		exitThreads = false;
 #endif
 	}
 
@@ -308,6 +314,15 @@ struct avr8
 	u32 lastFlip;
 	u32 inset;
 #if GUI
+	boost::mutex mtxVSync;
+	boost::condition_variable cVSync;
+	boost::condition_variable cVSDone;
+	boost::thread_group tgroup;
+	boost::mutex mtxUpdateScreen;
+	volatile int currentFrame;
+	bool exitThreads;
+	volatile int currentFrameBuffer;
+	SDL_Surface *frameBuffer[2];
 	SDL_Surface *screen;
 	joystickState joysticks[MAX_JOYSTICKS];
 	joyMapSettings jmap;
@@ -416,13 +431,13 @@ struct avr8
 				u8 TCCR2A, TCCR2B, TCNT2, OCR2A, OCR2B, resb5, ASSR, resb7;
 				u8 TWBR, TWSR, TWAR, TWDR, TWCR, TWAMR, resbe, resbf;
 				u8 UCSR0A, UCSR0B, UCSR0C, resc3, UBRR0L, UBRR0H, UDR0, resc7;
-                u8 resc8, resc9, resca, rescb, rescc, rescd, resce, rescf;
-                u8 resd0, resd1, resd2, resd3, resd4, resd5, resd6, resd7;
-                u8 resd8, resd9, resda, resdb, resdc, resdd, resde, resdf;
-                u8 rese0, rese1, rese2, rese3, rese4, rese5, rese6, rese7;
-                u8 rese8, rese9, resea, reseb, resec, resed, resee, resef;
-                u8 resf0, resf1, resf2, resf3, resf4, resf5, resf6, resf7;
-                u8 resf8, resf9, resfa, resfb, resfc, resfd, resfe, resff;
+				u8 resc8, resc9, resca, rescb, rescc, rescd, resce, rescf;
+				u8 resd0, resd1, resd2, resd3, resd4, resd5, resd6, resd7;
+				u8 resd8, resd9, resda, resdb, resdc, resdd, resde, resdf;
+				u8 rese0, rese1, rese2, rese3, rese4, rese5, rese6, rese7;
+				u8 rese8, rese9, resea, reseb, resec, resed, resee, resef;
+				u8 resf0, resf1, resf2, resf3, resf4, resf5, resf6, resf7;
+				u8 resf8, resf9, resfa, resfb, resfc, resfd, resfe, resff;
 			};
 		};
 		u8 sram[sramSize];
@@ -487,6 +502,7 @@ struct avr8
 	void set_jmap_state(int state);
 	void map_joysticks(SDL_Event &ev);
 	void load_joystick_file(const char* filename);
+	void guithread();
 #endif
 	void trigger_interrupt(int location);
 	u8 exec(bool disasmOnly,bool verbose);

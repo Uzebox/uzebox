@@ -39,6 +39,7 @@ endif
 # Global Flags
 ######################################
 CPPFLAGS += $(SDL_FLAGS) -D$(OS) -D_GNU_SOURCE=1 -DGUI=1 -DJOY_ANALOG_DEADZONE=8192
+# Note: You may comment out boost if you disable GUI if you want
 # TODO: fix warnings before enable 'CPPFLAGS += -Wall'
 
 ######################################
@@ -76,7 +77,7 @@ ifeq ($(UNAME),Linux)
 OS := LINUX
 PLATFORM := Unix
 SDL_FLAGS := $(shell sdl-config --cflags)
-LDFLAGS += $(shell sdl-config --libs)
+LDFLAGS += $(shell sdl-config --libs) -lboost_thread-mt -lboost_system-mt
 CC := g++
 MKDIR := mkdir -p
 RM := rm -rf
@@ -88,7 +89,7 @@ ifeq ($(UNAME),Darwin)
 OS := MACOSX
 PLATFORM := Unix
 SDL_FLAGS := $(shell sdl-config --cflags)
-LDFLAGS += $(shell sdl-config --libs)
+LDFLAGS += $(shell sdl-config --libs) -lboost_thread-mt -lboost_system-mt
 CPPFLAG += -framework Cocoa
 CC := g++
 MKDIR := mkdir -p
@@ -129,7 +130,7 @@ ifeq ($(SDL_FLAGS),)
 endif
 
 SDL_DLL := $(BIN_DIR)SDL.dll
-LDFLAGS += -lws2_32 -static-libgcc -static-libstdc++
+LDFLAGS += -lws2_32 -static-libgcc -static-libstdc++ -DBOOST_THREAD_USE_LIB libboost_thread-mgw45-mt-sd-1_44.a libboost_system-mgw45-mt-sd-1_44.a
 LDFLAGS += -lmingw32 -lSDLmain -lSDL #keeping in this order is important
 CC := g++
 MKDIR := mkdir -p

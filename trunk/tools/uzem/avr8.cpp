@@ -41,6 +41,13 @@ More info at uzebox.org
 #include "avr8.h"
 #include "gdbserver.h"
 
+#if GUI
+#include <boost/thread.hpp>
+#include <boost/bind.hpp>
+#endif
+
+#define FPS 30
+
 #define X		((XL)|(XH<<8))
 #define DEC_X	(XL-- || XH--)
 #define INC_X	(++XL || ++XH)
@@ -285,6 +292,55 @@ void avr8::spi_calculateClock(){
     SPI_DEBUG("SPI divider set to : %d (%d cycles per byte)\n",spiClockDivider,spiCycleWait);
 }
 
+#if GUI
+void avr8::guithread() {
+	static unsigned int lastFrame;
+	static unsigned int previousTime;
+	unsigned int timeDelta;
+	SDL_Rect rect;
+	rect.x = 0;
+	rect.y = 0;
+	rect.w = screen->w;
+	rect.h = screen->h;
+
+	while (!exitThreads) {
+		boost::mutex::scoped_lock lock(mtxVSync);
+		int blitFrameBuffer;
+
+		/* Wait for "VSync" */
+		cVSync.wait(lock);
+		if (exitThreads) return;
+
+		blitFrameBuffer = currentFrameBuffer;
+		currentFrameBuffer ^= 1;
+
+		/* Tell CPU it's safe to continue drawing */
+		cVSDone.notify_one();
+
+		/* Unlock surface for blitting */
+		if (SDL_MUSTLOCK(frameBuffer[blitFrameBuffer]))
+			SDL_UnlockSurface(frameBuffer[blitFrameBuffer]);
+
+		/* Actually draw the buffer to the screen */
+		SDL_BlitSurface( frameBuffer[blitFrameBuffer], &rect, screen, &rect );
+
+		/* Lock surface to gain pixel access */
+		if (SDL_MUSTLOCK(frameBuffer[blitFrameBuffer]))
+			SDL_LockSurface(frameBuffer[blitFrameBuffer]);
+
+		/* Flip screen buffer */
+		SDL_Flip(screen);
+
+		/* Sync to FPS fps */
+		timeDelta = SDL_GetTicks() - previousTime;
+		if (timeDelta < 1000 / FPS) {
+			SDL_Delay((1000 / FPS) - (timeDelta-1));
+		}
+		previousTime = SDL_GetTicks();
+	}
+}
+#endif
+
 void avr8::write_io(u8 addr,u8 value)
 {
 	// p106 in 644 manual; 16-bit values are latched
@@ -313,7 +369,7 @@ void avr8::write_io(u8 addr,u8 value)
             ++scanline_count;
             current_cycle = left_edge;
 
-            current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
+            current_scanline = (u32*)((u8*)frameBuffer[currentFrameBuffer]->pixels + scanline_count * 2 * screen->pitch + inset);
             if (interlaced)
             {
                 if (frameCounter & 1)
@@ -325,11 +381,14 @@ void avr8::write_io(u8 addr,u8 value)
 
             if (scanline_count == 224) 
             {
-                if (SDL_MUSTLOCK(screen))
-                    SDL_UnlockSurface(screen);
-                if (frameCounter & 1)
-                    SDL_Flip(screen);
+
                 // framelock no longer necessary, audio buffer full takes care of it for us.
+                if (frameCounter & 1) {
+                    currentFrame++;
+
+                    /* Tell GUI thread to update screen */
+                    cVSync.notify_one();
+                }
 
                 SDL_Event event;
                 while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
@@ -385,8 +444,6 @@ void avr8::write_io(u8 addr,u8 value)
                     buttons[0] |= 0xFFFF8000;
                 singleStep = nextSingleStep;
 
-                if (SDL_MUSTLOCK(screen))
-                    SDL_LockSurface(screen);
                 scanline_count = -999;
                 ++frameCounter;
             }
@@ -1507,22 +1564,34 @@ bool avr8::init_gui()
 	if (fullscreen)
 		screen = SDL_SetVideoMode(800,600,32,sdl_flags | SDL_FULLSCREEN);
 	else
-		screen = SDL_SetVideoMode(720,448,32,sdl_flags);
-	if (!screen)
+		screen = SDL_SetVideoMode(630,448,32,sdl_flags);
+
+	frameBuffer[0] = SDL_CreateRGBSurface( sdl_flags, screen->w, screen->h, 32, screen->format->Rmask, screen->format->Gmask, screen->format->Bmask, screen->format->Amask );
+	frameBuffer[1] = SDL_CreateRGBSurface( sdl_flags, screen->w, screen->h, 32, screen->format->Rmask, screen->format->Gmask, screen->format->Bmask, screen->format->Amask );
+
+	if (!screen || !frameBuffer[0] || !frameBuffer[1]) 
 	{
-		fprintf(stderr, "Unable to set 720x448x32 video mode.\n");
+		fprintf(stderr, "Unable to set 630x448x32 video mode.\n");
 		return false;
 	}
 	else if (fullscreen)	// Center in fullscreen
-		inset = ((600-448)/2) * screen->pitch + 4 * ((800-720)/2);
-
-	if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) < 0)
-		return false;
+		inset = ((600-448)/2) * screen->pitch + 4 * ((800-630)/2);
 
 	if (fullscreen)
 	{
 		SDL_ShowCursor(0);
 	}
+
+	if (SDL_MUSTLOCK(frameBuffer[1]))
+		SDL_UnlockSurface(frameBuffer[1]);
+
+	if (SDL_MUSTLOCK(frameBuffer[0]))
+		SDL_UnlockSurface(frameBuffer[0]);
+
+	currentFrameBuffer = 0;
+
+	/* Start SDL blitter thread */
+	tgroup.create_thread(boost::bind(&avr8::guithread, this));
 
 	// Open audio driver
 	SDL_AudioSpec desired;
@@ -2062,9 +2131,9 @@ void avr8::update_hardware(int cycles)
 	{
 		while (cycles)
 		{
-			if (current_cycle >= 0 && current_cycle < 1440 && (current_cycle&1))
-				current_scanline[current_cycle>>1] = 
-				next_scanline[current_cycle>>1] = pixel;
+			if (current_cycle >= 0 && current_cycle < 1440)
+				current_scanline[(current_cycle*7)>>4] = 
+				next_scanline[(int)(current_cycle*7)>>4] = pixel;
 			++current_cycle;
 			--cycles;
 		}
@@ -2677,6 +2746,16 @@ void avr8::shutdown(int errcode){
         }
     }
 #if GUI
+  /* Stop SDL thread */
+  exitThreads = 1;
+
+  /* wake up SDL thread, to let it finish */
+  cVSync.notify_one();
+  mtxVSync.unlock();
+
+  /* Wait for threads to finish */
+  tgroup.join_all();
+
 	if (joystickFile) {
 		FILE* f = fopen(joystickFile,"wb");
 
