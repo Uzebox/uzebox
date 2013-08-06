@@ -49,6 +49,7 @@ static const struct option longopts[] ={
     { "boot"       , no_argument,       NULL, 'b' },
     { "gdbserver"  , no_argument,       NULL, 'd' },
     { "port"       , required_argument, NULL, 't' },
+    { "visualize"  , no_argument,       NULL, 'v' },
 #if defined(DISASM)
     { "bp"         , required_argument, NULL, 'k' },
 #endif
@@ -59,9 +60,9 @@ static const struct option longopts[] ={
 };
 
 #if defined(__WIN32__)
-    static const char* shortopts = "hnfwxim2g:re:p:bdt:k:s:";
+    static const char* shortopts = "hnfwxim2g:re:p:bdt:k:s:v";
 #else
-    static const char* shortopts = "hnfwxim2g:re:p:bdt:k:";
+    static const char* shortopts = "hnfwxim2g:re:p:bdt:k:v";
 #endif
 
 #define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
@@ -89,6 +90,7 @@ void showHelp(char* programName){
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
     printerr("\t--gdbserver -d      Debug mode. Start the built-in gdb support.\n");
     printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
+    printerr("\t--visualize         Visualize SRAM and Progmem access\n");
     #if defined(__WIN32__)
         printerr("\t--sd -s <letter>    Map drive letter as SD device\n");
     #endif
@@ -162,6 +164,9 @@ int main(int argc,char **argv)
             break;
         case 'r':
             //TODO: implement MBR emulation option
+            break;
+        case 'v':
+            uzebox.visualize = true;
             break;
 #if defined(__WIN32__)
         case 's':
