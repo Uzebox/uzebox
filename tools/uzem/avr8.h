@@ -59,10 +59,6 @@ THE SOFTWARE.
 #pragma comment(lib, "SDLmain.lib")
 #endif
 
-// Threading
-#include <boost/thread.hpp>
-#include <boost/bind.hpp>
-
 // Joysticks
 #define MAX_JOYSTICKS 2
 #define NUM_JOYSTICK_BUTTONS 8
@@ -321,11 +317,11 @@ struct avr8
 	u32 lastFlip;
 	u32 inset;
 #if GUI
-	boost::mutex mtxVSync;
-	boost::condition_variable cVSync;
-	boost::condition_variable cVSDone;
-	boost::thread_group tgroup;
-	boost::mutex mtxUpdateScreen;
+	SDL_mutex *mtxVSync;
+	SDL_cond *cVSync;
+	SDL_cond *cVSDone;
+	SDL_mutex *mtxUpdateScreen;
+	SDL_Thread *tgui;
 	volatile int currentFrame;
 	bool exitThreads;
 	volatile int currentFrameBuffer;
@@ -512,7 +508,7 @@ struct avr8
 	void set_jmap_state(int state);
 	void map_joysticks(SDL_Event &ev);
 	void load_joystick_file(const char* filename);
-	void guithread();
+	static int guithread(void *ptr);
 	void draw_memorymap();
 #endif
 	void trigger_interrupt(int location);

@@ -41,11 +41,6 @@ More info at uzebox.org
 #include "avr8.h"
 #include "gdbserver.h"
 
-#if GUI
-#include <boost/thread.hpp>
-#include <boost/bind.hpp>
-#endif
-
 #define FPS 30
 
 #define X		((XL)|(XH<<8))
@@ -293,43 +288,48 @@ void avr8::spi_calculateClock(){
 }
 
 #if GUI
-void avr8::guithread() {
+int avr8::guithread(void *ptr) {
 	static unsigned int lastFrame;
 	static unsigned int previousTime;
 	unsigned int timeDelta;
+	avr8 *self = (avr8 *)ptr;
 	SDL_Rect rect;
 	rect.x = 0;
 	rect.y = 0;
-	rect.w = screen->w;
-	rect.h = screen->h;
+	rect.w = self->screen->w;
+	rect.h = self->screen->h;
 
-	while (!exitThreads) {
-		boost::mutex::scoped_lock lock(mtxVSync);
+	while (!self->exitThreads) {
 		int blitFrameBuffer;
 
-		/* Wait for "VSync" */
-		cVSync.wait(lock);
-		if (exitThreads) return;
+		SDL_LockMutex(self->mtxVSync);
 
-		blitFrameBuffer = currentFrameBuffer;
-		currentFrameBuffer ^= 1;
+		/* Wait for "VSync" */
+		SDL_CondWait(self->cVSync, self->mtxVSync);
+
+		SDL_UnlockMutex(self->mtxVSync);
+
+		blitFrameBuffer = self->currentFrameBuffer ^ 1;
+
+		if (self->exitThreads)
+			return 0;
 
 		/* Tell CPU it's safe to continue drawing */
-		cVSDone.notify_one();
+		//cVSDone.notify_one();
 
 		/* Unlock surface for blitting */
-		if (SDL_MUSTLOCK(frameBuffer[blitFrameBuffer]))
-			SDL_UnlockSurface(frameBuffer[blitFrameBuffer]);
+		if (SDL_MUSTLOCK(self->frameBuffer[blitFrameBuffer]))
+			SDL_UnlockSurface(self->frameBuffer[blitFrameBuffer]);
 
 		/* Actually draw the buffer to the screen */
-		SDL_BlitSurface( frameBuffer[blitFrameBuffer], &rect, screen, &rect );
+		SDL_BlitSurface( self->frameBuffer[blitFrameBuffer], &rect, self->screen, &rect );
 
 		/* Lock surface to gain pixel access */
-		if (SDL_MUSTLOCK(frameBuffer[blitFrameBuffer]))
-			SDL_LockSurface(frameBuffer[blitFrameBuffer]);
+		if (SDL_MUSTLOCK(self->frameBuffer[blitFrameBuffer]))
+			SDL_LockSurface(self->frameBuffer[blitFrameBuffer]);
 
 		/* Flip screen buffer */
-		SDL_Flip(screen);
+		SDL_Flip(self->screen);
 
 		/* Sync to FPS fps */
 		timeDelta = SDL_GetTicks() - previousTime;
@@ -337,7 +337,9 @@ void avr8::guithread() {
 			SDL_Delay((1000 / FPS) - (timeDelta-1));
 		}
 		previousTime = SDL_GetTicks();
+
 	}
+	return 0;
 }
 #endif
 
@@ -390,7 +392,10 @@ void avr8::write_io(u8 addr,u8 value)
                       draw_memorymap();
 
                     /* Tell GUI thread to update screen */
-                    cVSync.notify_one();
+                    SDL_LockMutex(mtxVSync);
+										currentFrameBuffer ^= 1;
+                    SDL_CondSignal(cVSync);
+                    SDL_UnlockMutex(mtxVSync);
                 }
 
                 SDL_Event event;
@@ -1653,7 +1658,7 @@ bool avr8::init_gui()
 	currentFrameBuffer = 0;
 
 	/* Start SDL blitter thread */
-	tgroup.create_thread(boost::bind(&avr8::guithread, this));
+	tgui = SDL_CreateThread(&avr8::guithread, this);
 
 	// Open audio driver
 	SDL_AudioSpec desired;
@@ -2812,11 +2817,12 @@ void avr8::shutdown(int errcode){
   exitThreads = 1;
 
   /* wake up SDL thread, to let it finish */
-  cVSync.notify_one();
-  mtxVSync.unlock();
+  SDL_CondSignal(cVSync);
+  /* Ensure that mutex is unlocked */
+  //SDL_UnlockMutex(mtxVSync);
 
   /* Wait for threads to finish */
-  tgroup.join_all();
+  SDL_WaitThread(tgui, NULL);
 
 	if (joystickFile) {
 		FILE* f = fopen(joystickFile,"wb");
