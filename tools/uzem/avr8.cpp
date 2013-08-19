@@ -40,6 +40,7 @@ More info at uzebox.org
 
 #include "avr8.h"
 #include "gdbserver.h"
+#include "SDEmulator.h"
 
 #define FPS 30
 
@@ -106,11 +107,7 @@ static const char *port_name(int);
 static const char* joySettingsFilename = "joystick-settings";
 #endif
 
-#if defined(__WIN32__)
-    #define SD_ENABLED() (hDisk || sdImage)
-#else
-    #define SD_ENABLED() sdImage
-#endif
+#define SD_ENABLED() SDpath
 
 #define D3	((insn >> 4) & 7)
 #define R3	(insn & 7)
@@ -1520,6 +1517,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		break;
 	}
 
+		//printf("$%04x [%04x]  %-23.23s",lastpc,progmem[lastpc],insnBuf);
 #if DISASM
 	// Don't spew disassembly during interrupts
 	if (singleStep && !interruptLevel)
@@ -1617,6 +1615,29 @@ void avr8::trigger_interrupt(int location)
 //		++interruptLevel;
 }
 
+bool avr8::init_sd()
+{
+	if (SDemulator.init_with_directory(SDpath) < 0) {
+		return false;
+	}
+	SDPartitionEntry entry;
+	sectorSize = 512;
+
+	entry.state = 0x00;
+	entry.startCylinder = 0;//TODO
+	entry.startHead = 0x00; //TODO
+	entry.startCylinder = 0x0002; //TODO
+	entry.type = 0x06; // FAT16 >32MB
+	entry.endHead = 0; //TODO
+	entry.endCylinder = 0; //TODO
+	entry.sectorOffset = 1;
+	entry.sectorCount = 4294967296/512; // TODO, update with more realistic info
+
+	SDBuildMBR(&entry);
+
+	return true;
+}
+
 #if GUI
 bool avr8::init_gui()
 {
@@ -1626,6 +1647,7 @@ bool avr8::init_gui()
 		return false;
 	}
 	atexit(SDL_Quit);
+
 	init_joysticks();
 
 	if (fullscreen)
@@ -1658,7 +1680,21 @@ bool avr8::init_gui()
 	currentFrameBuffer = 0;
 
 	/* Start SDL blitter thread */
+	mtxVSync = SDL_CreateMutex();
+	if (!mtxVSync) {
+		fprintf(stderr, "Error creating mutex for SDL blitting\n");
+		shutdown(1);
+	}
+	cVSync = SDL_CreateCond();
+	if (!cVSync) {
+		fprintf(stderr, "Error creating condition variable for SDL blitting\n");
+		shutdown(1);
+	}
 	tgui = SDL_CreateThread(&avr8::guithread, this);
+	if (!tgui) {
+		fprintf(stderr, "Error spawning SDL blitting thread\n");
+		shutdown(1);
+	}
 
 	// Open audio driver
 	SDL_AudioSpec desired;
@@ -2409,6 +2445,7 @@ void avr8::update_spi(){
             spiByteCount = 512;
             break;            
         default:
+						printf("Unknown SPI command: %d\n", spiCommand);
             SPDR = 0x00;
             spiState = SPI_RESPOND_SINGLE;
             spiResponseBuffer[0] = 0x02; // data accepted
@@ -2517,7 +2554,7 @@ void avr8::update_spi(){
             spiResponsePtr = spiResponseBuffer;
             spiResponseEnd = spiResponsePtr+2;
             spiState = SPI_RESPOND_SINGLE;
-            SDCommit();
+            //SDCommit();
         }
         break;    
     }    
@@ -2562,11 +2599,12 @@ void avr8::SDLoadImage(char* filename){
 
 void avr8::SDBuildMBR(SDPartitionEntry* entry){
     // create the needed buffer for the entire MBR
+printf("Sector offset: %d, sectrosize: %d\n", entry->sectorOffset, sectorSize);
     emulatedMBRLength = entry->sectorOffset * sectorSize;
     emulatedMBR = (u8*)malloc(emulatedMBRLength);
     memset(emulatedMBR,0,emulatedMBRLength);
     
-    printf("emulatedMBRLength: %d\n",emulatedMBRLength);
+    printf("emulatedMBRLength: %u\n", emulatedMBRLength);
 
     // build a replica of the MBR for a single-partition image (common for SD media)
     memcpy(emulatedMBR + 0x1BE,entry,sizeof(SDPartitionEntry));                
@@ -2576,130 +2614,23 @@ void avr8::SDBuildMBR(SDPartitionEntry* entry){
     emulatedMBR[0x1FF] = 0xAA;
 }
     
-#if defined(__WIN32__)
-void avr8::SDMapDrive(const char* driveLetter){
-    DWORD dwNotUsed;
-    DISK_GEOMETRY disk;
-    PARTITION_INFORMATION partition;  
-    char drivePath[] = "\\\\.\\X:";
-        
-    if(hDisk != INVALID_HANDLE_VALUE){
-        printf("Error: SD drive already specified.");
-        shutdown(1);
-    }
-    
-    if(strlen(driveLetter)>1){
-        printf("Error: Invalid Drive letter: %s\n",driveLetter);
-        shutdown(1);
-    }
-    
-    // attempt to get the requested drive
-    drivePath[4] = driveLetter[0];
-    hDisk = CreateFile (drivePath, GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,NULL);
-    if (hDisk == INVALID_HANDLE_VALUE){
-        printf("Error mapping drive: %d\n",GetLastError());
-        shutdown(1);
-    }
-
-    // query the drive geometry
-    if (!DeviceIoControl (hDisk, IOCTL_DISK_GET_DRIVE_GEOMETRY,NULL, 0, &disk, sizeof(disk), &dwNotUsed, NULL)){
-        printf("Error mapping drive: %d\n",GetLastError());
-        shutdown(1);
-    }
-    
-    sectorSize = disk.BytesPerSector;  // 2 sectors
-    __int64 cylinders = *((__int64*)&disk);
-    __int64 sectors = cylinders * disk.TracksPerCylinder * disk.SectorsPerTrack;
-    __int64 totalSize = sectors*sectorSize;
-    __int64 i;
-
-    #ifdef USE_SPI_DEBUG
-        printf("Cylinders %lld\nTracks Per Cylinder: %d\nSectors Per Track %d\nSector Size: %d\n",cylinders,disk.TracksPerCylinder,disk.SectorsPerTrack,sectorSize);
-        printf("Total Sectors: %lld\n",sectors);
-        printf("Media Size: %lld\n",totalSize);
-    #endif
-            
-    SDPartitionEntry entry;    
-    
-    // query system about partition and fill out the partition structure
-    if(!DeviceIoControl(hDisk, IOCTL_DISK_GET_PARTITION_INFO, NULL, 0, &partition, sizeof(PARTITION_INFORMATION), &dwNotUsed, NULL)){
-        printf("Error reading parition info: %d\n",GetLastError());
-        shutdown(1);
-    }
-    entry.state = 0x00;
-    entry.startCylinder = 0;//TODO
-    entry.startHead = 0x00; //TODO
-    entry.startCylinder = 0x0000; //TODO
-    entry.type = partition.PartitionType;
-    entry.endHead = 0x00; //TODO
-    entry.endCylinder = 0x0000; //TODO
-    entry.sectorOffset = partition.HiddenSectors;
-    entry.sectorCount = (*(__int64*)(&partition.PartitionLength))/sectorSize;
-    
-    #ifdef USE_SPI_DEBUG
-        printf("----------\n");
-        printf("state: %04X\n",entry.state);
-        // printf("startHead: %0.4X\n",entry.startHead);
-        // printf("startCylinder: %0.4X\n",entry.startCylinder);
-        printf("type: %02X\n",entry.type);
-        //  printf("endHead: %0.4X\n",entry.endHead);
-        //  printf("endCylinder: %0.4X\n",entry.endCylinder);
-        printf("sectorCount: %08X\n",entry.sectorCount);
-        printf("sectorOffset: %08X\n",entry.sectorOffset);
-    #endif
-    
-    SDBuildMBR(&entry);
-    
-    lpSector = (LPBYTE)VirtualAlloc (NULL, sectorSize,MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-}
-#endif
-
-
 u8 avr8::SDReadByte(){
     u8 result;
     
     if(emulatedMBR && emulatedReadPos != 0xFFFFFFFF){
-        //printf("reading with MBR emulation.\n");
+        //printf("reading with MBR emulation %d.\n", emulatedReadPos);
         result = emulatedMBR[emulatedReadPos];
         emulatedReadPos++;
     }
-#if defined(__WIN32__)
-    else if(hDisk != INVALID_HANDLE_VALUE){
-        //printf("reading from hDisk with MBR emulation %0.8X[%0.8X].\n",lpSector,lpSectorIndex);
-        result = lpSector[lpSectorIndex];
-        lpSectorIndex++;
-    }
-#endif
     else{
         //printf("Performing normal read.\n");
-        if(!fread(&result,1,1,sdImage)){
-            printf("Error reading SD image\n");
-            shutdown(1);
-        }
+        SDemulator.read(&result,1);
     }
     return result;
 }
 
 void avr8::SDWriteByte(u8 value){    
-    if(emulatedMBR && emulatedReadPos != 0xFFFFFFFF){
-        //printf("writing with MBR emulation.\n");
-        emulatedMBR[emulatedReadPos] = value;
-        emulatedReadPos++;
-    }
-#if defined(__WIN32__)
-    else if(hDisk != INVALID_HANDLE_VALUE){
-        //printf("writng to hDisk with MBR emulation %0.8X[%0.8X].\n",lpSector,lpSectorIndex);
-        lpSector[lpSectorIndex] = value;
-        lpSectorIndex++;
-    }
-#endif
-    else{
-        //printf("Performing normal read.\n");
-        if(!fwrite(&value,1,1,sdImage)){
-            printf("Error writing to SD image\n");
-            shutdown(1);
-        }
-    }
+    fprintf(stderr, "No write support in SD emulation\n");
 }
 
 void avr8::SDSeekToOffset(u32 pos){
@@ -2709,62 +2640,15 @@ void avr8::SDSeekToOffset(u32 pos){
             // seek to somewhere within the MBR
             emulatedReadPos = pos;
         }
-    #if defined(__WIN32__)
-        else if(hDisk != INVALID_HANDLE_VALUE){
-            //printf("using hDisk %0.8X.\n",pos-emulatedMBRLength);
-            if(SetFilePointer (hDisk, pos-emulatedMBRLength, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER){
-                printf("Error seeking into disk: %d\n",GetLastError());
-                shutdown(1);
-            }      
-            DWORD dwIgnored;
-            if(ReadFile(hDisk,lpSector,sectorSize,&dwIgnored,NULL)==0){
-                printf("Error reading disk: %d\n",GetLastError());
-                shutdown(1);
-            }
-            // reset the read position for writing later
-            if(SetFilePointer (hDisk, pos-emulatedMBRLength, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER){
-                printf("Error seeking into disk: %d\n",GetLastError());
-                shutdown(1);
-            }                  
-            lpSectorIndex=0;
-            emulatedReadPos = 0xFFFFFFFF;            
-        }
-    #endif    
         else{
-            // offset the read by the size of the MBR
-            fseek(sdImage,pos-emulatedMBRLength,SEEK_SET);
+            SDemulator.seek(pos);
             emulatedReadPos = 0xFFFFFFFF;
         }
     }
     else{
-        fseek(sdImage,pos,SEEK_SET);
+        SDemulator.seek(pos);
     }
 }
-
-void avr8::SDCommit(){
-    #if defined(__WIN32__)
-    if(emulatedReadPos > emulatedMBRLength && hDisk != INVALID_HANDLE_VALUE){
-        DWORD dwNotUsed;
-        // lock down the filesystem to make writing possible
-        if(DeviceIoControl(hDisk, FSCTL_LOCK_VOLUME, NULL, 0, NULL, 0, &dwNotUsed, NULL) == 0){
-            printf("Error locking volume: %d\n",GetLastError());
-            shutdown(1);
-        }         
-        // commit the data
-        //printf("writing data.\n");
-        if(WriteFile(hDisk,lpSector,sectorSize,&dwNotUsed,NULL)==0){
-            printf("Error writing to disk: %d\n",GetLastError());
-            shutdown(1);
-        }
-        // unlock
-        if(DeviceIoControl(hDisk, FSCTL_UNLOCK_VOLUME, NULL, 0, NULL, 0, &dwNotUsed, NULL) == 0){
-            printf("Error un-locking volume: %d\n",GetLastError());
-            shutdown(1);
-        }         
-    }
-    #endif
-}
-
 
 void avr8::LoadEEPROMFile(char* filename){
     eepromFile = filename;
@@ -2823,6 +2707,11 @@ void avr8::shutdown(int errcode){
 
   /* Wait for threads to finish */
   SDL_WaitThread(tgui, NULL);
+
+  if (mtxVSync)
+    SDL_DestroyMutex(mtxVSync);
+  if (cVSync)
+    SDL_DestroyCond(cVSync);
 
 	if (joystickFile) {
 		FILE* f = fopen(joystickFile,"wb");

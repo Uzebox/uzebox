@@ -16,7 +16,7 @@ TARGETS = debug release
 ######################################
 # Sources
 ######################################
-SRCS := uzem.cpp avr8.cpp uzerom.cpp gdbserver.cpp
+SRCS := uzem.cpp avr8.cpp uzerom.cpp gdbserver.cpp SDEmulator.cpp
 
 ######################################
 # Architecture
