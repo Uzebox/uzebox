@@ -93,6 +93,7 @@ int SDEmu::init_with_directory(const char *path) {
 	i = 1;
 	struct dirent *entry;
 	int freecluster = 2;
+	printf("SD Emulation of following files:\n");
 	while ((entry = readdir(dir))) {
 		if (entry->d_name && entry->d_name[0] != '.') {
 			char *statpath = (char *)malloc(strlen(path) + strlen(entry->d_name) + 2);
@@ -108,7 +109,7 @@ int SDEmu::init_with_directory(const char *path) {
 			toc[i].attrib = SDEFA_ARCHIVE;
 			toc[i].cluster_no = freecluster; /* TODO: Fill FAT */
 			toc[i].filesize = st.st_size;
-			printf("%d: File: %s Size: %u Cluster_no: %u\n", i, entry->d_name, st.st_size, toc[i].cluster_no);
+			printf("\t%d: %s\n", i, entry->d_name, st.st_size, toc[i].cluster_no);
 			freecluster += ceil(st.st_size / (bootsector.sectors_per_cluster * 512.0f));
 			if (++i == MAX_FILES) {
 				break;
@@ -168,7 +169,7 @@ int SDEmu::read(unsigned char *ptr, int len) {
 							if (fp != NULL) {
 								fclose(fp);
 							}
-							printf("Opening file: %s\n", paths[i]);
+							//printf("Opening file: %s\n", paths[i]);
 							fp = fopen(paths[i], "r");
 							break;
 						}
