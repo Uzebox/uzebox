@@ -1,7 +1,4 @@
 /*
-NOTE THIS IS NOT THE OFFICIAL BRANCH OF THE UZEBOX EMULATOR
-PLEASE SEE THE FORUM FOR MORE DETAILS:  http://uzebox.org/forums/
-
 (The MIT License)
 
 Copyright (c) 2008,2009, David Etherton, Eric Anderton
@@ -59,11 +56,7 @@ static const struct option longopts[] ={
     {NULL          , 0                , NULL, 0}
 };
 
-#if defined(__WIN32__)
-    static const char* shortopts = "hnfwxim2g:re:p:bdt:k:s:v";
-#else
-    static const char* shortopts = "hnfwxim2g:re:p:bdt:k:v";
-#endif
+   static const char* shortopts = "hnfwxim2re:p:bdt:k:s:v";
 
 #define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
 
@@ -84,16 +77,12 @@ void showHelp(char* programName){
     printerr("\t--interlaced -i     Turn on interlaced rendering\n");
     printerr("\t--mouse -m          Start with emulated mouse enabled\n");
     printerr("\t--2p -2             Start with snes 2p mode enabled\n");
-    printerr("\t--img -g <file>     SD card emulation w/image file\n");
-    printerr("\t--mbr -r            Enable MBR emulation (use w/--img for images w/o MBR)\n");
+    printerr("\t--sd -s <path>      SD card emulation from contents of path\n");
     printerr("\t--eeprom -e <file>  Use following filename for EEPRROM data (default is eeprom.bin).\n");
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
     printerr("\t--gdbserver -d      Debug mode. Start the built-in gdb support.\n");
     printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
-    printerr("\t--visualize         Visualize SRAM and Progmem access\n");
-    #if defined(__WIN32__)
-        printerr("\t--sd -s <letter>    Map drive letter as SD device\n");
-    #endif
+    printerr("\t--visualize -v      Visualize SRAM and Progmem access\n");
 }
 
 // header for use with UzeRom files
@@ -120,8 +109,6 @@ int main(int argc,char **argv)
 
     int opt;
     char* heximage = NULL;
-    char* sdimage = NULL;
-    char* sddrive = NULL;
    // char* eepromFile = NULL;
     int bootsize = 0;
 
@@ -159,26 +146,21 @@ int main(int argc,char **argv)
         case '2':
 			uzebox.pad_mode = avr8::SNES_PAD2;
             break;
-        case 'g':
-            sdimage = optarg;
-            break;
         case 'r':
             //TODO: implement MBR emulation option
             break;
         case 'v':
             uzebox.visualize = true;
             break;
-#if defined(__WIN32__)
         case 's':
-            sddrive = optarg;
+            uzebox.SDpath = optarg;
             break;
-#endif
         case 'e':
             //eepromFile = optarg;
-        	uzebox.eepromFile=optarg;
+            uzebox.eepromFile=optarg;
             break;
         case 'b':
-            uzebox.pc = 0xF000; //set start for boot image
+            uzebox.pc = 0x7800;//0xF000; //set start for boot image
             break;
 	case 'd':
             uzebox.enableGdb = true;
@@ -211,24 +193,6 @@ int main(int argc,char **argv)
         return 1;
     }
 
-    // establish SD emulation if selected
-    if(sdimage && sddrive){
-        printerr("Error: Cannot specify both an SD image file and an SD drive letter.\n\n");
-        showHelp(argv[0]);
-        return 1;
-    }
-    else if(sddrive){
-#if defined(__WIN32__)
-        uzebox.SDMapDrive(sddrive);
-#else
-	printerr("Error: Using SD Drive is not implemented for this platform.\n\n");
-        return 1;
-#endif
-    }
-    else if(sdimage){
-        uzebox.SDLoadImage(sdimage);
-    }
-    
     // start EEPROM emulation if appropriate
     if(uzebox.eepromFile){
         uzebox.LoadEEPROMFile(uzebox.eepromFile);
@@ -267,6 +231,14 @@ int main(int argc,char **argv)
             }
         }
     }
+		
+	if (uzebox.SDpath != NULL) {
+		if (!uzebox.init_sd()) {
+			printerr("Error: cannot load directory for SD emulation '%s'.\n\n", uzebox.SDpath);
+			showHelp(argv[0]);
+			return 1;
+		}
+	}
     
 	// init the GUI
 	if (!uzebox.init_gui()){

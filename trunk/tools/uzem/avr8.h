@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include <stdint.h>
 
 #include "gdbserver.h"
+#include "SDEmulator.h"
 
 #if defined(__WIN32__)
     #include <windows.h> // Win32 memory mapped I/O
@@ -268,7 +269,7 @@ struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0), visualize(false), new_input_mode(false),gdb(0),enableGdb(false), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
+		prevWDR(0), frameCounter(0), visualize(false), new_input_mode(false),gdb(0),enableGdb(false), SDpath(NULL), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
         spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),joystickFile(0),
 
 
@@ -302,6 +303,8 @@ struct avr8
 	u16 pc;
 	u16 breakpoint;
 
+	struct SDEmu SDemulator;
+	char *SDpath;
 	GdbServer *gdb;
 	bool enableGdb;
 	bool gdbBreakpointFound;
@@ -498,6 +501,7 @@ struct avr8
 			return 1;
 	}
 
+	bool init_sd();
 #if GUI
 	bool init_gui();
 	void init_joysticks();
