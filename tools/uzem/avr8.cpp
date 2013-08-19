@@ -41,6 +41,7 @@ More info at uzebox.org
 #include "avr8.h"
 #include "gdbserver.h"
 #include "SDEmulator.h"
+#include "logo.h"
 
 #define FPS 30
 
@@ -1679,6 +1680,11 @@ bool avr8::init_gui()
 
 	currentFrameBuffer = 0;
 
+	SDL_Surface *slogo;
+	slogo = SDL_CreateRGBSurfaceFrom((void *)&logo,32,32,32,32*4,0xFF,0xff00,0xff0000,0xff000000);
+	SDL_WM_SetIcon(slogo, NULL);
+	SDL_FreeSurface(slogo);
+
 	/* Start SDL blitter thread */
 	mtxVSync = SDL_CreateMutex();
 	if (!mtxVSync) {
@@ -2599,13 +2605,10 @@ void avr8::SDLoadImage(char* filename){
 
 void avr8::SDBuildMBR(SDPartitionEntry* entry){
     // create the needed buffer for the entire MBR
-printf("Sector offset: %d, sectrosize: %d\n", entry->sectorOffset, sectorSize);
     emulatedMBRLength = entry->sectorOffset * sectorSize;
     emulatedMBR = (u8*)malloc(emulatedMBRLength);
     memset(emulatedMBR,0,emulatedMBRLength);
     
-    printf("emulatedMBRLength: %u\n", emulatedMBRLength);
-
     // build a replica of the MBR for a single-partition image (common for SD media)
     memcpy(emulatedMBR + 0x1BE,entry,sizeof(SDPartitionEntry));                
 
