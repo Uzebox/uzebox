@@ -129,7 +129,7 @@ ifeq ($(SDL_FLAGS),)
 endif
 
 SDL_DLL := $(BIN_DIR)SDL.dll
-LDFLAGS += -lws2_32 -static-libgcc -static-libstdc++ -DBOOST_THREAD_USE_LIB
+LDFLAGS += -lws2_32 -static-libgcc -static-libstdc++ 
 LDFLAGS += -lmingw32 -lSDLmain -lSDL #keeping in this order is important
 CC := g++
 MKDIR := mkdir -p

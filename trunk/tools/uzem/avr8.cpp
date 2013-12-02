@@ -520,7 +520,7 @@ void avr8::write_io(u8 addr,u8 value)
             SPSR ^= 0x80; // clear interrupt
             //SPI_DEBUG("spiClock: %0.2X\n",spiClock);
         }
-        //SPI_DEBUG("SPDR: %0.2X\n",value);
+       // SPI_DEBUG("SPDR: %0.2X\n",value);
         io[addr] = value;
     }
     else if(addr == ports::SPCR)
@@ -2357,6 +2357,119 @@ char ascii(unsigned char ch){
 
 #endif
 
+/*
+void avr8::update_spi(){
+
+	 switch(spiState){
+	    case SPI_IDLE_STATE:
+	        if(spiByte == 0xff){
+	            SPDR = 0x01; // echo back that we're ready
+	            break;
+	        }
+	        spiCommand = spiByte;
+	        SPDR = 0x00;
+	        spiState = SPI_ARG_X_HI;
+	        break;
+	    case SPI_ARG_X_HI:
+	        SPI_DEBUG("x hi: %02X\n",spiByte);
+	        spiArgXhi = spiByte;
+	        SPDR = 0x00;
+	        spiState = SPI_ARG_X_LO;
+	        break;
+	    case SPI_ARG_X_LO:
+	        SPI_DEBUG("x lo: %02X\n",spiByte);
+	        spiArgXlo = spiByte;
+	        SPDR = 0x00;
+	        spiState = SPI_ARG_Y_HI;
+	        break;
+	    case SPI_ARG_Y_HI:
+	        SPI_DEBUG("y hi: %02X\n",spiByte);
+	        spiArgYhi = spiByte;
+	        SPDR = 0x00;
+	        spiState = SPI_ARG_Y_LO;
+	        break;
+	    case SPI_ARG_Y_LO:
+	        SPI_DEBUG("y lo: %02X\n",spiByte);
+	        spiArgYlo = spiByte;
+	        SPDR = 0x00;
+	        spiState = SPI_ARG_CRC;
+	        break;
+	    case SPI_ARG_CRC:
+	        SPI_DEBUG("SPI - CMD%d (%02X) X:%04X Y:%04X CRC: %02X\n",spiCommand^0x40,spiCommand,spiArgX,spiArgY,spiByte);
+
+	        // ignore CRC and process commands
+			 switch(spiCommand){
+				 case 0x40: //CMD0 =  RESET / GO_IDLE_STATE
+					 SPDR = 0x00;
+					 spiState = SPI_RESPOND_R1;
+					 spiResponseBuffer[0] = 0xFF;	//Simulate 1 token delay
+					 spiResponseBuffer[1] = 0x01;	//Return Idle state flag
+					 spiByteCount = 2;
+					 break;
+
+				 case 0x41: //CMD1 =  INIT / SEND_OP_COND
+					 SPDR = 0x00;
+					 spiState = SPI_RESPOND_SINGLE;
+					 spiResponseBuffer[0] = 0x00; // 8-clock wait
+					 spiResponseBuffer[1] = 0x00; // no error
+					 spiResponsePtr = spiResponseBuffer;
+					 spiResponseEnd = spiResponsePtr+2;
+					 spiByteCount = 0;
+					 break;
+				 case 0x51: //CMD17 =  READ_BLOCK
+					 SPDR = 0x00;
+					 spiState = SPI_RESPOND_SINGLE;
+					 spiResponseBuffer[0] = 0x00; // 8-clock wait
+					 spiResponseBuffer[1] = 0x00; // no error
+					 spiResponseBuffer[2] = 0xFE; // start block
+					 spiResponsePtr = spiResponseBuffer;
+					 spiResponseEnd = spiResponsePtr+3;
+					 SDSeekToOffset(spiArg);
+					 spiByteCount = 512;
+					 break;
+				 case 0x52: //CMD18 =  MULTI_READ_BLOCK
+					 SPDR = 0x00;
+					 spiState = SPI_RESPOND_MULTI;
+					 spiResponseBuffer[0] = 0x00; // 8-clock wait
+					 spiResponseBuffer[1] = 0x00; // no error
+					 spiResponseBuffer[2] = 0xFE; // start block
+					 spiResponsePtr = spiResponseBuffer;
+					 spiResponseEnd = spiResponsePtr+3;
+					 SDSeekToOffset(spiArg);
+					 spiByteCount = 512;
+					 break;
+				 case 0x58: //CMD24 =  WRITE_BLOCK
+					 SPDR = 0x00;
+					 spiState = SPI_WRITE_SINGLE;
+					 spiResponseBuffer[0] = 0x00; // 8-clock wait
+					 spiResponseBuffer[1] = 0x00; // no error
+					 spiResponseBuffer[2] = 0xFE; // start block
+					 spiResponsePtr = spiResponseBuffer;
+					 spiResponseEnd = spiResponsePtr+3;
+					 SDSeekToOffset(spiArg);
+					 spiByteCount = 512;
+					 break;
+				 default:
+								printf("Unknown SPI command: %d\n", spiCommand);
+					 SPDR = 0x00;
+					 spiState = SPI_RESPOND_SINGLE;
+					 spiResponseBuffer[0] = 0x02; // data accepted
+					 spiResponseBuffer[1] = 0x05;  //i illegal command
+					 spiResponsePtr = spiResponseBuffer;
+					 spiResponseEnd = spiResponsePtr+2;
+					 break;
+				 }
+				 break;
+
+			 case SPI_RESPOND_R1:
+
+
+				 break;
+
+	 }
+}
+*/
+
 void avr8::update_spi(){
     // SPI state machine
     //SPI_DEBUG("byte: %02x\n",spiByte);
@@ -2364,7 +2477,8 @@ void avr8::update_spi(){
     switch(spiState){
     case SPI_IDLE_STATE:
         if(spiByte == 0xff){
-            SPDR = 0x01; // echo back that we're ready
+        	//SPI_DEBUG("Idle->0xff\n");
+            SPDR = 0xff; // echo back that we're ready
             break;
         }
         spiCommand = spiByte;
@@ -2402,11 +2516,12 @@ void avr8::update_spi(){
         case 0x40: //CMD0 =  RESET / GO_IDLE_STATE
             SPDR = 0x00;
             spiState = SPI_RESPOND_SINGLE;
-            spiResponseBuffer[0] = 0x00; // 8-clock wait
-            spiResponseBuffer[1] = 0x01; // no errors, going idle
+            spiResponseBuffer[0] = 0xff; // 8 clock wait
+            spiResponseBuffer[1] = 0x01; // send command response R1->idle flag
             spiResponsePtr = spiResponseBuffer;
             spiResponseEnd = spiResponsePtr+2;
             spiByteCount = 0;
+            //spiInitWaitState=1;
             break;
         case 0x41: //CMD1 =  INIT / SEND_OP_COND
             SPDR = 0x00;
@@ -2417,10 +2532,25 @@ void avr8::update_spi(){
             spiResponseEnd = spiResponsePtr+2;
             spiByteCount = 0;
             break;
+
+        case 0x48: //CMD8 =  INIT / SEND_IF_COND
+            SPDR = 0x00;
+            spiState = SPI_RESPOND_SINGLE;
+            spiResponseBuffer[0] = 0xff; // 8-clock wait
+            spiResponseBuffer[1] = 0x01; // return command response R7
+            spiResponseBuffer[2] = 0x00; // return command response R7
+            spiResponseBuffer[3] = 0x00; // return command response R7
+            spiResponseBuffer[4] = 0x01; // return command response R7 voltage accepted
+            spiResponseBuffer[5] = spiArgYlo; // return command response R7 check pattern
+            spiResponsePtr = spiResponseBuffer;
+            spiResponseEnd = spiResponsePtr+6;
+            spiByteCount = 0;
+            break;
+
         case 0x51: //CMD17 =  READ_BLOCK
             SPDR = 0x00;
             spiState = SPI_RESPOND_SINGLE;
-            spiResponseBuffer[0] = 0x00; // 8-clock wait
+            spiResponseBuffer[0] = 0xFF; // 8-clock wait
             spiResponseBuffer[1] = 0x00; // no error
             spiResponseBuffer[2] = 0xFE; // start block
             spiResponsePtr = spiResponseBuffer;
@@ -2449,9 +2579,50 @@ void avr8::update_spi(){
             spiResponseEnd = spiResponsePtr+3;
             SDSeekToOffset(spiArg);
             spiByteCount = 512;
-            break;            
+            break;
+
+        case 0x69: //ACMD41 =  SD_SEND_OP_COND  (ACMD<n> is the command sequence of CMD55-CMD<n>)
+            SPDR = 0x00;
+            spiState = SPI_RESPOND_SINGLE;
+            spiResponseBuffer[0] = 0xff; // 8 clock wait
+            //if(spiInitWaitState!=0){
+            //	spiResponseBuffer[1] = 0x01; // send command response R1->idle flag
+            //}else{
+            	spiResponseBuffer[1] = 0x00; // send command response R1->OK
+            //}
+            spiResponsePtr = spiResponseBuffer;
+            spiResponseEnd = spiResponsePtr+2;
+            spiByteCount = 0;
+            spiInitWaitState--;
+            break;
+
+        case 0x77: //CMD55 =  APP_CMD  (ACMD<n> is the command sequence of CMD55-CMD<n>)
+            SPDR = 0x00;
+            spiState = SPI_RESPOND_SINGLE;
+            spiResponseBuffer[0] = 0xff; // 8 clock wait
+            spiResponseBuffer[1] = 0x01; // send command response R1->idle flag
+            spiResponsePtr = spiResponseBuffer;
+            spiResponseEnd = spiResponsePtr+2;
+            spiByteCount = 0;
+            break;
+
+
+        case 0x7A: //CMD58 =  READ_OCR
+            SPDR = 0x00;
+            spiState = SPI_RESPOND_SINGLE;
+            spiResponseBuffer[0] = 0xff; // 8 clock wait
+            spiResponseBuffer[1] = 0x00; // send command response R1->ok
+            spiResponseBuffer[2] = 0x80; // return command response R3
+            spiResponseBuffer[3] = 0xff; // return command response R3
+            spiResponseBuffer[4] = 0x80; // return command response R3
+            spiResponseBuffer[5] = 0x00; // return command response R3
+            spiResponsePtr = spiResponseBuffer;
+            spiResponseEnd = spiResponsePtr+6;
+            spiByteCount = 0;
+            break;
+
         default:
-						printf("Unknown SPI command: %d\n", spiCommand);
+			printf("Unknown SPI command: %d\n", spiCommand);
             SPDR = 0x00;
             spiState = SPI_RESPOND_SINGLE;
             spiResponseBuffer[0] = 0x02; // data accepted
@@ -2461,7 +2632,8 @@ void avr8::update_spi(){
             break;
         }
         break;
-    case SPI_RESPOND_SINGLE:
+
+   case SPI_RESPOND_SINGLE:
         SPDR = *spiResponsePtr;
         SPI_DEBUG("SPI - Respond: %02X\n",SPDR);
         spiResponsePtr++;
@@ -2474,6 +2646,16 @@ void avr8::update_spi(){
             }
         }
         break;
+
+    case SPI_RESPOND_MULTI:
+        SPDR = *spiResponsePtr;
+        SPI_DEBUG("SPI - Respond: %02X\n",SPDR);
+        spiResponsePtr++;
+        if(spiResponsePtr == spiResponseEnd){
+            spiState = SPI_READ_MULTIPLE_BLOCK;
+        }
+        break;
+
     case SPI_READ_SINGLE_BLOCK:
         SPDR = SDReadByte();
         #ifdef USE_SPI_DEBUG
@@ -2501,14 +2683,7 @@ void avr8::update_spi(){
             spiState = SPI_RESPOND_SINGLE;
         }
         break;
-    case SPI_RESPOND_MULTI:
-        SPDR = *spiResponsePtr;
-        SPI_DEBUG("SPI - Respond: %02X\n",SPDR);
-        spiResponsePtr++;
-        if(spiResponsePtr == spiResponseEnd){
-            spiState = SPI_READ_MULTIPLE_BLOCK;
-        }
-        break;  
+
     case SPI_READ_MULTIPLE_BLOCK:
         if(SPDR == 0x4C){ //CMD12
             SPDR = SDReadByte();
@@ -2565,6 +2740,7 @@ void avr8::update_spi(){
         break;    
     }    
 }
+
 
 static inline int parse_hex_nibble(char s)
 {

@@ -59,20 +59,22 @@ int SDEmu::init_with_directory(const char *path) {
 	int i;
 	struct stat st;
 
+	//2G SD card, 64k per cluster FAT16
+
 	memcpy(&bootsector.bootjmp, bootjmp, 3);
 	memcpy(&bootsector.oem_name, oem_name, 8);
 	bootsector.bytes_per_sector = 512;
-	bootsector.sectors_per_cluster = 64;
+	bootsector.sectors_per_cluster = 128;
 	bootsector.reserved_sector_count = 1;
 	bootsector.table_count = 2;
 	bootsector.root_entry_count = 512;
 	bootsector.total_sectors_16 = 0;
 	bootsector.media_type = 0xF8;
-	bootsector.sectors_per_fat = 1024; /* Update ? */
+	bootsector.sectors_per_fat = 0x76; //1024; /* Update ? */
 	bootsector.sectors_per_track = 32;
 	bootsector.head_side_count = 32;
 	bootsector.hidden_sector_count = 0;
-	bootsector.total_sectors_32 = 4294967295; /* remember: file system id in mbr must be 06 */
+	bootsector.total_sectors_32 = 3854201; /* remember: file system id in mbr must be 06 */
 	bootsector.drive_no = 4;
 	bootsector.extended_fields = 0x29;
 	bootsector.serial_number = 1234567;
@@ -109,7 +111,7 @@ int SDEmu::init_with_directory(const char *path) {
 			toc[i].attrib = SDEFA_ARCHIVE;
 			toc[i].cluster_no = freecluster; /* TODO: Fill FAT */
 			toc[i].filesize = st.st_size;
-			printf("\t%d: %s\n", i, entry->d_name, st.st_size, toc[i].cluster_no);
+			printf("\t%d: %s:%d\n", i, entry->d_name, st.st_size, toc[i].cluster_no);
 			freecluster += ceil(st.st_size / (bootsector.sectors_per_cluster * 512.0f));
 			if (++i == MAX_FILES) {
 				break;
@@ -130,11 +132,12 @@ int SDEmu::read(unsigned char *ptr, int len) {
 	int posRootDir    = posFatSector + (bootsector.table_count * (bootsector.sectors_per_fat * bootsector.bytes_per_sector));
 	int posDataSector = posRootDir + (((bootsector.root_entry_count * 32) / bootsector.bytes_per_sector) * bootsector.bytes_per_sector);
 	int pos;
+	unsigned char c;
 
 	//printf("posFatSector: %u\nposRootDir: %u\nposDataSector: %u\n", posFatSector, posRootDir, posDataSector);
 
 	for (loop = 0; loop < len; ++loop) {
-			/* < 512 Bootsector */
+			// < 512 Bootsector
 			if (position < posFatSector)	{
 				pos = position - bootsector.bytes_per_sector;
 				unsigned char *boot = (unsigned char *)&bootsector;
@@ -144,7 +147,7 @@ int SDEmu::read(unsigned char *ptr, int len) {
 					*ptr++ = 0;
 				}
 			} else
-			/* Fat table */
+			// Fat table
 			if (position < posRootDir) {
 				pos = position - posFatSector;
 				//printf("sdemu: reading fat: %d\n", pos);
@@ -156,12 +159,13 @@ int SDEmu::read(unsigned char *ptr, int len) {
 				unsigned char *table = (unsigned char *)&toc;
 				*ptr++ = *(table + pos);
 			} else {
+				int cluster=-1;
 				pos = position - posDataSector;
 				if (lastfile == -1 || pos < lastfileStart || pos > lastfileEnd) {
 					int i;
 					lastfile = -1;
 					for (i = 0; i < MAX_FILES; ++i) {
-						int cluster = (pos/512/bootsector.sectors_per_cluster) + 2;
+						cluster = (pos/512/bootsector.sectors_per_cluster) + 2;
 						if (toc[i].name[0] != 0 && cluster >= toc[i].cluster_no && cluster <= toc[i].cluster_no + (toc[i].filesize/512/bootsector.sectors_per_cluster)) {
 							lastfile = i;
 							lastfileStart = (toc[i].cluster_no-2)*512*bootsector.sectors_per_cluster;
@@ -169,8 +173,8 @@ int SDEmu::read(unsigned char *ptr, int len) {
 							if (fp != NULL) {
 								fclose(fp);
 							}
-							//printf("Opening file: %s\n", paths[i]);
-							fp = fopen(paths[i], "r");
+							//printf("Opening file: %s, start=%d, end=%d, cluster=%d\n", paths[i],lastfileStart,lastfileEnd, cluster);
+							fp = fopen(paths[i], "rb");
 							break;
 						}
 					}
@@ -178,7 +182,8 @@ int SDEmu::read(unsigned char *ptr, int len) {
 				if (lastfile == -1 || fp <= 0) { *ptr++ = 0; }
 				else {
 					fseek(fp, pos - ((toc[lastfile].cluster_no-2)*512*bootsector.sectors_per_cluster), SEEK_SET);
-					*ptr++ = fgetc(fp);
+					c= fgetc(fp);
+					*ptr++ =c;
 				}
 			}
 			position++;

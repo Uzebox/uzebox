@@ -51,6 +51,35 @@ union SDEmu_time {
 #define SDEFA_ARCHIVE 0x20
 #define SDEFA_LONGFILENAME 0x0F
 
+
+typedef struct fat_BS
+{
+	uint8_t		bootjmp[3];
+	uint8_t		oem_name[8];
+	uint16_t	bytes_per_sector;
+	uint8_t		sectors_per_cluster;
+	uint16_t		reserved_sector_count;
+	uint8_t		table_count;	//number of copies of FAT
+	uint16_t	root_entry_count;
+	uint16_t	total_sectors_16;
+	uint8_t		media_type;
+	uint16_t	sectors_per_fat;
+	uint16_t	sectors_per_track;
+	uint16_t	head_side_count;
+	uint32_t	hidden_sector_count;
+	uint32_t	total_sectors_32;
+	uint16_t	drive_no;
+	uint8_t 	extended_fields; // 0x29
+	uint32_t	serial_number;
+	uint8_t		volume_label[11];
+	uint8_t		filesystem_type[8]; // FAT16
+	uint8_t		extended_section[448]; //exectutable code
+	uint8_t   	signature[2]; // aa55
+
+}__attribute__((packed)) fat_BS_t;
+
+
+/*
 typedef struct fat_BS
 {
 	unsigned char			bootjmp[3];
@@ -71,14 +100,15 @@ typedef struct fat_BS
 	//this will be cast to it's specific type once the driver actually knows what type of FAT this is.
 	unsigned char   drive_no;
 	unsigned char   ntreserved;
-	unsigned char   extended_fields; /* 0x29 */
+	unsigned char   extended_fields; // 0x29
 	unsigned int   serial_number;
 	unsigned char   volume_label[11];
-	unsigned char		filesystem_type[8]; /* FAT16 */
+	unsigned char		filesystem_type[8]; // FAT16
 	unsigned char		extended_section[448];
-	unsigned char   signature[2]; /* aa55 */
+	unsigned char   signature[2]; // aa55
  
 }__attribute__((packed)) fat_BS_t;
+*/
 
 struct SDEmu_file {
 	uint8_t name[8];

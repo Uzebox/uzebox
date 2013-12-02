@@ -201,6 +201,11 @@ enum{
     SPI_READ_MULTIPLE_BLOCK,
     SPI_WRITE_SINGLE,
     SPI_WRITE_SINGLE_BLOCK,
+    SPI_RESPOND_R1,
+    SPI_RESPOND_R1B,
+    SPI_RESPOND_R2,
+    SPI_RESPOND_R3,
+    SPI_RESPOND_R7,
 };
 
 struct SDPartitionEntry{
@@ -362,6 +367,7 @@ struct avr8
     u16 spiCycleWait;
     u8 spiState;
     u8 spiCommand;
+    u8 spiInitWaitState;
     union{
         u32 spiArg;
         union{
