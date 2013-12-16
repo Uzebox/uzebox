@@ -181,6 +181,8 @@ inline void set_bit(u8 &dest,int bit,int value)
 static const char brbc[8][5] = {"BRCC", "BRNE", "BRPL", "BRVC", "BRGE", "BRHC", "BRTC", "BRID"};
 static const char brbs[8][5] = {"BRCS", "BREQ", "BRMI", "BRVS", "BRLT", "BRHS", "BRTS", "BRIE"};
 
+static u8 inDebug=0;
+
 static const char *reg_pair(int reg)
 {
 	static const char names[16][8] = {
@@ -273,10 +275,10 @@ void avr8::spi_calculateClock(){
     // calculate the number of cycles before the write completes
     u16 spiClockDivider;
     switch(SPCR & 0x03){
-    case 0: spiClockDivider = 4; break;
-    case 1: spiClockDivider = 16; break;
-    case 2: spiClockDivider = 64; break;
-    case 3: spiClockDivider = 128; break;
+		case 0: spiClockDivider = 4; break;
+		case 1: spiClockDivider = 16; break;
+		case 2: spiClockDivider = 64; break;
+		case 3: spiClockDivider = 128; break;
     }
     if(SPSR & 0x01){
         spiClockDivider = spiClockDivider >> 1; // double the speed
@@ -343,8 +345,12 @@ int avr8::guithread(void *ptr) {
 
 void avr8::write_io(u8 addr,u8 value)
 {
+	if (addr == ports::PORTC)
+	{
+	     pixel = palette[value & DDRC];
+	}
 	// p106 in 644 manual; 16-bit values are latched
-	if (addr == ports::TCNT1H || addr == ports::ICR1H)
+	else if (addr == ports::TCNT1H || addr == ports::ICR1H)
 		TEMP = value;
 	else if (addr == ports::TCNT1L || addr == ports::ICR1L)
 	{
@@ -355,6 +361,12 @@ void avr8::write_io(u8 addr,u8 value)
 	{        
         // write value with respect to DDRD register
         io[addr] = value & DDRD;
+
+        //detect if are enabling the SD CE
+     //   if(!SD_ENABLED() && ((value & DDRD)&0x40)){
+       // 	SDpath
+
+        //}
     }
 #if GUI    
 	else if (addr == ports::PORTB)
@@ -482,7 +494,7 @@ void avr8::write_io(u8 addr,u8 value)
 			latched_buttons[1] >>= 1;
 			if ((latched_buttons[1] < 0xFFFFF) && !new_input_mode)
 			{
-				printf("New input routines detected, switching emulation method.\n");
+				//printf("New input routines detected, switching emulation method.\n");
 				new_input_mode = true;
 			}
 		}
@@ -504,10 +516,10 @@ void avr8::write_io(u8 addr,u8 value)
 			SDL_UnlockAudio();
 		}
 	}
-	else if (addr == ports::PORTC)
-	{
-        pixel = palette[value & DDRC];
-	}
+	//else if (addr == ports::PORTC)
+	//{
+    //    pixel = palette[value & DDRC];
+	//}
 #endif	// GUI
 
     else if(addr == ports::SPDR)
@@ -526,13 +538,13 @@ void avr8::write_io(u8 addr,u8 value)
     else if(addr == ports::SPCR)
     {
         SPI_DEBUG("SPCR: %02X\n",value);
-        if(SD_ENABLED()) spi_calculateClock();
         io[addr] = value;
+        if(SD_ENABLED()) spi_calculateClock();
     }
     else if(addr == ports::SPSR){
         SPI_DEBUG("SPSR: %02X\n",value);
-        if(SD_ENABLED()) spi_calculateClock();
         io[addr] = value;
+        if(SD_ENABLED()) spi_calculateClock();
     }
 
     else if(addr == ports::EECR){
@@ -1217,9 +1229,10 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			    break;
 			case 0x95A8:
 			    DIS("WDR");
+			    inDebug=1;
 			    // Implement this if/when we need watchdog timer functionality.
 			    if(prevWDR){
-			        printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
+			       // printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
 			        prevWDR = 0;
 			}else
 			    prevWDR = cycleCounter + 1;
@@ -1431,6 +1444,9 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		if (insn & 0x0800) // OUT
 		{
 			DIS("OUT    @%s,%s",port_name(Rr),reg_name(Rd));
+			//if(inDebug==1){
+			//	printf("Break!");
+			//}
 			write_io(Rr,r[Rd]);
 		}
 		else	// IN
@@ -2234,7 +2250,7 @@ void avr8::update_hardware(int cycles)
 		TCNT1H = (u8) (TCNT1>>8);
 	}
 
-
+/*
 #if GUI && VIDEO_METHOD == 1
 	if (scanline_count >= 0 && current_cycle < 1440)
 	{
@@ -2248,6 +2264,7 @@ void avr8::update_hardware(int cycles)
 		}
 	}
 #endif
+*/
     // clock the SPI hardware. 
     if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled
         //TODO: test for master/slave modes (assume master for now)
@@ -2342,6 +2359,20 @@ void avr8::update_hardware(int cycles)
 			trigger_interrupt(TIMER1_OVF);
 		}
 	}
+
+#if GUI && VIDEO_METHOD == 1
+	if (scanline_count >= 0 && current_cycle < 1440)
+	{
+		while (cycles)
+		{
+			if (current_cycle >= 0 && current_cycle < 1440)
+				current_scanline[(current_cycle*7)>>4] =
+				next_scanline[(int)(current_cycle*7)>>4] = pixel;
+			++current_cycle;
+			--cycles;
+		}
+	}
+#endif
 
 }
 
@@ -2521,7 +2552,6 @@ void avr8::update_spi(){
             spiResponsePtr = spiResponseBuffer;
             spiResponseEnd = spiResponsePtr+2;
             spiByteCount = 0;
-            //spiInitWaitState=1;
             break;
         case 0x41: //CMD1 =  INIT / SEND_OP_COND
             SPDR = 0x00;
@@ -2547,6 +2577,17 @@ void avr8::update_spi(){
             spiByteCount = 0;
             break;
 
+        case 0x4c: //CMD12 =  STOP_TRANSMISSION
+            SPDR = 0x00;
+            spiState = SPI_RESPOND_SINGLE;
+            spiResponseBuffer[0] = 0x4; // card is in "trans" state
+            spiResponseBuffer[1] = 0xff; //ready
+            spiResponsePtr = spiResponseBuffer;
+            spiResponseEnd = spiResponsePtr+2;
+            spiByteCount = 0;
+            break;
+
+
         case 0x51: //CMD17 =  READ_BLOCK
             SPDR = 0x00;
             spiState = SPI_RESPOND_SINGLE;
@@ -2561,13 +2602,14 @@ void avr8::update_spi(){
         case 0x52: //CMD18 =  MULTI_READ_BLOCK
             SPDR = 0x00;
             spiState = SPI_RESPOND_MULTI;
-            spiResponseBuffer[0] = 0x00; // 8-clock wait
+            spiResponseBuffer[0] = 0xFF; // 8-clock wait
             spiResponseBuffer[1] = 0x00; // no error
             spiResponseBuffer[2] = 0xFE; // start block
             spiResponsePtr = spiResponseBuffer;
             spiResponseEnd = spiResponsePtr+3;
+            spiCommandDelay=0;
             SDSeekToOffset(spiArg);
-            spiByteCount = 512;
+            spiByteCount = 0;
             break;   
         case 0x58: //CMD24 =  WRITE_BLOCK
             SPDR = 0x00;
@@ -2585,15 +2627,10 @@ void avr8::update_spi(){
             SPDR = 0x00;
             spiState = SPI_RESPOND_SINGLE;
             spiResponseBuffer[0] = 0xff; // 8 clock wait
-            //if(spiInitWaitState!=0){
-            //	spiResponseBuffer[1] = 0x01; // send command response R1->idle flag
-            //}else{
-            	spiResponseBuffer[1] = 0x00; // send command response R1->OK
-            //}
+           	spiResponseBuffer[1] = 0x00; // send command response R1->OK
             spiResponsePtr = spiResponseBuffer;
             spiResponseEnd = spiResponsePtr+2;
             spiByteCount = 0;
-            spiInitWaitState--;
             break;
 
         case 0x77: //CMD55 =  APP_CMD  (ACMD<n> is the command sequence of CMD55-CMD<n>)
@@ -2648,11 +2685,23 @@ void avr8::update_spi(){
         break;
 
     case SPI_RESPOND_MULTI:
+    	if(spiCommandDelay!=0){
+    		spiCommandDelay--;
+    		SPDR=0xff;
+    		break;
+    	}
+
         SPDR = *spiResponsePtr;
         SPI_DEBUG("SPI - Respond: %02X\n",SPDR);
         spiResponsePtr++;
+
+        if(SPDR==0 && spiByteCount==0){
+        	spiCommandDelay=250; //average delay based on a sample of cards
+        }
+
         if(spiResponsePtr == spiResponseEnd){
             spiState = SPI_READ_MULTIPLE_BLOCK;
+            spiByteCount = 512;
         }
         break;
 
@@ -2685,12 +2734,22 @@ void avr8::update_spi(){
         break;
 
     case SPI_READ_MULTIPLE_BLOCK:
-        if(SPDR == 0x4C){ //CMD12
-            SPDR = SDReadByte();
-            memset(spiResponseBuffer,0xFF,9); // Q&D - return garbage in response to the whole command
-            spiResponsePtr = spiResponseBuffer;
-            spiResponseEnd = spiResponsePtr+9;
+        if(SPDR == 0x4C){ //CMD12 - stop multiple read transmission
+            //SPDR = 127;
+            //memset(spiResponseBuffer,0xFF,9); // Q&D - return garbage in response to the whole command
+            //spiResponsePtr = spiResponseBuffer;
+            //spiResponseEnd = spiResponsePtr+9;
+
+        //    spiResponseBuffer[0] = 127; //junk byte varies from card to card
+//            spiResponseBuffer[0] = 0x0; //card is busy
+  //          spiResponseBuffer[1] = 0xff; //ready
+    //        spiResponsePtr = spiResponseBuffer;
+      //      spiResponseEnd = spiResponsePtr+2;
             spiState = SPI_RESPOND_SINGLE;
+
+        	spiCommand = 0x4C;
+        	SPDR = 0x00;
+        	spiState = SPI_ARG_X_HI;
             spiByteCount = 0;
             break;
         }
@@ -2699,18 +2758,22 @@ void avr8::update_spi(){
         }
         SPI_DEBUG("SPI - Data[%d]: %02X\n",512-spiByteCount,SPDR);
         spiByteCount--;
+        //inter-sector
         if(spiByteCount == 0){
             spiResponseBuffer[0] = 0x00; //CRC
             spiResponseBuffer[1] = 0x00; //CRC
-            spiResponseBuffer[2] = 0xFE; // start block
+            spiResponseBuffer[2] = 0xff; //delay
+            spiResponseBuffer[3] = 0xff; //delay
+            spiResponseBuffer[4] = 0xFE; // start block
             spiResponsePtr = spiResponseBuffer;
-            spiResponseEnd = spiResponsePtr+3;
+            spiResponseEnd = spiResponsePtr+5;
             spiArg+=512; // automatically move to next block
             SDSeekToOffset(spiArg);
             spiByteCount = 512;
             spiState = SPI_RESPOND_MULTI;
         }
         break;
+
     case SPI_WRITE_SINGLE:
         SPDR = *spiResponsePtr;
         SPI_DEBUG("SPI - Respond: %02X\n",SPDR);
@@ -2803,7 +2866,7 @@ u8 avr8::SDReadByte(){
     }
     else{
         //printf("Performing normal read.\n");
-        SDemulator.read(&result,1);
+        SDemulator.read(&result);
     }
     return result;
 }
