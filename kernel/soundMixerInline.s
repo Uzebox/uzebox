@@ -91,6 +91,7 @@
 	tr4_divider:	 .byte 1 ;current divider accumulator
 	tr4_reserved1:	 .byte 1
 
+#if SOUND_CHANNEL_5_ENABLE==1
 	tr5_vol:		 .byte 1
 	tr5_step_lo:	 .byte 1
 	tr5_step_hi:	 .byte 1
@@ -101,7 +102,7 @@
 	tr5_loop_start_hi: .byte 1
 	tr5_loop_end_lo: .byte 1
 	tr5_loop_end_hi: .byte 1
-
+#endif
 
 .section .text
 
@@ -259,8 +260,8 @@ ch4_end:
 	adc r29,r0	;ajust mix buffer msb
 
 ;142
-
-	;channel 5 PCM 
+#if SOUND_CHANNEL_5_ENABLE==1
+	;channel 5 PCM -- 43 cycles
 
 	;add fractional part
 	lds r16,tr5_pos_frac
@@ -301,6 +302,7 @@ ch4_end:
 	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
 	adc r29,r0	;adjust mix buffer msb	
 ;186	
+#endif
 	
 	;final processing
 

@@ -45,6 +45,7 @@
 ; r22: -MIDI note, 69=A5(440) for waves channels (0,1,2)
 ;      -Noise params for channel 3
 ;***********************
+.section .text.SetMixerNote
 SetMixerNote:
 	clr r25
 	clr r23
@@ -94,6 +95,7 @@ set_note_waves:
 ;(C-call compatible)
 ; r24: noise divider
 ;*****************
+.section .text.SetMixerNoiseParams
 SetMixerNoiseParams:
 	;preserve wave type (7/15 bit)
 	lds r25,tr4_params
@@ -114,6 +116,7 @@ SetMixerNoiseParams:
 ;         Noise channel: 0xfe=7 bit lfsr, 0xff=15 bit lfsr
 ;                 
 ;***********************
+.section .text.SetMixerWave
 SetMixerWave:
 	clr r25
 	clr r23
@@ -159,6 +162,7 @@ esmw:
 ; r24 channel (0,1,2,3)
 ; r22 volume (0x00-0xff)
 ;***********************
+.section .text.SetMixerVolume
 SetMixerVolume:
 	clr r25
 	clr r23

@@ -672,17 +672,19 @@ void TriggerCommon(u8 channel,u8 patch,u8 volume,u8 note){
 			if(!isFx) patch=note;			
 			mixer.channels.type.noise.barrel=0x0101;				
 			mixer.channels.type.noise.params=1; //default (15bits,no divider)
-		
-		}else if(channel==4){
 
-			//PCM channel					
-			mixer.channels.type.pcm.positionFrac=0;
-			const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
-			mixer.channels.type.pcm.position=pos;
-			mixer.pcmLoopStart=pos+pgm_read_word(&(patchPointers[patch].loopStart));
-			mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
-			SetMixerNote(channel,note);
-	
+		#if SOUND_CHANNEL_5_ENABLE==1		
+
+		}else if(channel==4){
+				//PCM channel					
+				mixer.channels.type.pcm.positionFrac=0;
+				const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
+				mixer.channels.type.pcm.position=pos;
+				mixer.pcmLoopStart=pos+pgm_read_word(&(patchPointers[patch].loopStart));
+				mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
+				SetMixerNote(channel,note);
+		#endif	
+
 		}else{					
 			//wave channels					
 			SetMixerWave(channel,0);//default wave

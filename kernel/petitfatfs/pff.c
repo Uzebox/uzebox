@@ -24,7 +24,8 @@
 
 #include "pff.h"		/* Petit FatFs configurations and declarations */
 #include "diskio.h"		/* Declarations of low level disk I/O functions */
-
+#include <avr/pgmspace.h>
+#include <uzebox.h>
 
 
 /*--------------------------------------------------------------------------
@@ -501,13 +502,17 @@ FRESULT dir_find (
 
 
 	res = dir_rewind(dj);			/* Rewind directory object */
+
 	if (res != FR_OK) return res;
 
 	do {
+
 		res = disk_readp(dir, dj->sect, (WORD)((dj->index % 16) * 32), 32)	/* Read an entry */
 			? FR_DISK_ERR : FR_OK;
+
 		if (res != FR_OK) break;
 		c = dir[DIR_Name];	/* First character */
+
 		if (c == 0) { res = FR_NO_FILE; break; }	/* Reached to end of table */
 		if (!(dir[DIR_Attr] & AM_VOL) && !mem_cmp(dir, dj->fn, 11)) /* Is it a valid entry? */
 			break;
@@ -670,14 +675,17 @@ FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 	dj->sclust = 0;						/* Set start directory (always root dir) */
 
 	if ((BYTE)*path <= ' ') {			/* Null path means the root directory */
+		
 		res = dir_rewind(dj);
 		dir[0] = 0;
 
 	} else {							/* Follow path */
+	
 		for (;;) {
 			res = create_name(dj, &path);	/* Get a segment */
 			if (res != FR_OK) break;
 			res = dir_find(dj, dir);		/* Find it */
+					
 			if (res != FR_OK) {				/* Could not find the object */
 				if (res == FR_NO_FILE && !*(dj->fn+11))
 					res = FR_NO_PATH;
@@ -689,6 +697,7 @@ FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 			}
 			dj->sclust = LD_CLUST(dir);
 		}
+
 	}
 
 	return res;
@@ -751,6 +760,7 @@ FRESULT pf_mount (
 	/* Search FAT partition on the drive */
 	bsect = 0;
 	fmt = check_fs(buf, bsect);			/* Check sector 0 as an SFD format */
+
 	if (fmt == 1) {						/* Not an FAT boot record, it may be FDISK format */
 		/* Check a partition listed in top of the partition table */
 		if (disk_readp(buf, bsect, MBR_Table, 16)) {	/* 1st partition entry */
@@ -762,8 +772,14 @@ FRESULT pf_mount (
 			}
 		}
 	}
-	if (fmt == 3) return FR_DISK_ERR;
-	if (fmt) return FR_NO_FILESYSTEM;	/* No valid FAT patition is found */
+	if (fmt == 3){
+	 	return FR_DISK_ERR;
+	}
+
+	if (fmt){
+		return FR_NO_FILESYSTEM;	/* No valid FAT patition is found */
+	}
+
 
 	/* Initialize the file system object */
 	if (disk_readp(buf, bsect, 13, sizeof(buf))) return FR_DISK_ERR;
@@ -772,18 +788,30 @@ FRESULT pf_mount (
 	if (!fsize) fsize = LD_DWORD(buf+BPB_FATSz32-13);
 
 	fsize *= buf[BPB_NumFATs-13];						/* Number of sectors in FAT area */
+
 	fs->fatbase = bsect + LD_WORD(buf+BPB_RsvdSecCnt-13); /* FAT start sector (lba) */
+
 	fs->csize = buf[BPB_SecPerClus-13];					/* Number of sectors per cluster */
+
+
 	fs->n_rootdir = LD_WORD(buf+BPB_RootEntCnt-13);		/* Nmuber of root directory entries */
+
 	tsect = LD_WORD(buf+BPB_TotSec16-13);				/* Number of sectors on the file system */
+
+
 	if (!tsect) tsect = LD_DWORD(buf+BPB_TotSec32-13);
+
 	mclst = (tsect						/* Last cluster# + 1 */
 		- LD_WORD(buf+BPB_RsvdSecCnt-13) - fsize - fs->n_rootdir / 16
 		) / fs->csize + 2;
 	fs->n_fatent = (CLUST)mclst;
 
+
+
+
 	fmt = FS_FAT16;							/* Determine the FAT sub type */
 	if (mclst < 0xFF7) 						/* Number of clusters < 0xFF5 */
+
 #if _FS_FAT12
 		fmt = FS_FAT12;
 #else
@@ -797,10 +825,14 @@ FRESULT pf_mount (
 #endif
 
 	fs->fs_type = fmt;		/* FAT sub-type */
-	if (_FS_FAT32 && fmt == FS_FAT32)
+
+	if (_FS_FAT32 && fmt == FS_FAT32){
 		fs->dirbase = LD_DWORD(buf+(BPB_RootClus-13));	/* Root directory start cluster */
-	else
+	}else{
 		fs->dirbase = fs->fatbase + fsize;				/* Root directory start sector (lba) */
+	}
+
+	
 	fs->database = fs->fatbase + fsize + fs->n_rootdir / 16;	/* Data start sector (lba) */
 
 	fs->flag = 0;
@@ -832,7 +864,9 @@ FRESULT pf_open (
 	fs->flag = 0;
 	dj.fn = sp;
 	res = follow_path(&dj, dir, path);	/* Follow the file path */
+	
 	if (res != FR_OK) return res;		/* Follow failed */
+	
 	if (!dir[0] || (dir[DIR_Attr] & AM_DIR))	/* It is a directory */
 		return FR_NO_FILE;
 
@@ -893,6 +927,7 @@ FRESULT pf_read (
 		if (dr) goto fr_abort;
 		fs->fptr += rcnt; rbuff += rcnt;			/* Update pointers and counters */
 		btr -= rcnt; *br += rcnt;
+
 	}
 
 	return FR_OK;
