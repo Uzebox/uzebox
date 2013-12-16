@@ -367,7 +367,7 @@ struct avr8
     u16 spiCycleWait;
     u8 spiState;
     u8 spiCommand;
-    u8 spiInitWaitState;
+    u8 spiCommandDelay;
     union{
         u32 spiArg;
         union{

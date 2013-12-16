@@ -141,7 +141,7 @@ struct SDEmu
 	int position;
 
 	int init_with_directory(const char *path);
-	int read(unsigned char *ptr, int len);
+	int read(unsigned char *ptr);
 	int seek(int pos);
 };
 

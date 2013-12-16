@@ -36,6 +36,12 @@ THE SOFTWARE.
 unsigned char bootjmp[3] = { 0xeb, 0x3c, 0x90 };
 unsigned char oem_name[8] = "uzemSDe";
 
+static int posBootsector;
+static int posFatSector;
+static int posRootDir;
+static int posDataSector;
+static int clusterSize;
+
 static void long2shortfilename(char *dst, char *src) {
 	int i;
 	for (i = 0; i < 8; ++i) {
@@ -83,6 +89,12 @@ int SDEmu::init_with_directory(const char *path) {
 	bootsector.signature[0] = 0x55;
 	bootsector.signature[1] = 0xAA;
 
+	posBootsector = 0;
+	posFatSector  = bootsector.bytes_per_sector + (bootsector.reserved_sector_count * bootsector.bytes_per_sector);
+	posRootDir    = posFatSector + (bootsector.table_count * (bootsector.sectors_per_fat * bootsector.bytes_per_sector));
+	posDataSector = posRootDir + (((bootsector.root_entry_count * 32) / bootsector.bytes_per_sector) * bootsector.bytes_per_sector);
+	clusterSize =  512*bootsector.sectors_per_cluster;
+
 	DIR *dir = opendir(path);
 	if (dir < 0) {
 		return -1;
@@ -121,73 +133,81 @@ int SDEmu::init_with_directory(const char *path) {
 	return 0;
 }
 
-int SDEmu::read(unsigned char *ptr, int len) {
+int SDEmu::read(unsigned char *ptr) {
 	static int lastfile=-1;
 	static int lastfileStart=0;
 	static int lastfileEnd=0;
 	static FILE *fp=0;
-	int loop = 0;
-	int posBootsector = 0;
-	int posFatSector  = bootsector.bytes_per_sector + (bootsector.reserved_sector_count * bootsector.bytes_per_sector);
-	int posRootDir    = posFatSector + (bootsector.table_count * (bootsector.sectors_per_fat * bootsector.bytes_per_sector));
-	int posDataSector = posRootDir + (((bootsector.root_entry_count * 32) / bootsector.bytes_per_sector) * bootsector.bytes_per_sector);
+	static int lastPos=0;
+
 	int pos;
 	unsigned char c;
 
-	//printf("posFatSector: %u\nposRootDir: %u\nposDataSector: %u\n", posFatSector, posRootDir, posDataSector);
-
-	for (loop = 0; loop < len; ++loop) {
-			// < 512 Bootsector
-			if (position < posFatSector)	{
-				pos = position - bootsector.bytes_per_sector;
-				unsigned char *boot = (unsigned char *)&bootsector;
-				if (pos < sizeof(bootsector)) {
-					*ptr++ = *(boot + (pos));
-				} else {
-					*ptr++ = 0;
-				}
-			} else
-			// Fat table
-			if (position < posRootDir) {
-				pos = position - posFatSector;
-				//printf("sdemu: reading fat: %d\n", pos);
-				unsigned char *table = (unsigned char *)&clusters;
-				*ptr++ = *(table + pos);
-			}
-			else if (position < posDataSector) {
-				pos = position - posRootDir;
-				unsigned char *table = (unsigned char *)&toc;
-				*ptr++ = *(table + pos);
-			} else {
-				int cluster=-1;
-				pos = position - posDataSector;
-				if (lastfile == -1 || pos < lastfileStart || pos > lastfileEnd) {
-					int i;
-					lastfile = -1;
-					for (i = 0; i < MAX_FILES; ++i) {
-						cluster = (pos/512/bootsector.sectors_per_cluster) + 2;
-						if (toc[i].name[0] != 0 && cluster >= toc[i].cluster_no && cluster <= toc[i].cluster_no + (toc[i].filesize/512/bootsector.sectors_per_cluster)) {
-							lastfile = i;
-							lastfileStart = (toc[i].cluster_no-2)*512*bootsector.sectors_per_cluster;
-							lastfileEnd = lastfileStart + toc[i].filesize;
-							if (fp != NULL) {
-								fclose(fp);
-							}
-							//printf("Opening file: %s, start=%d, end=%d, cluster=%d\n", paths[i],lastfileStart,lastfileEnd, cluster);
-							fp = fopen(paths[i], "rb");
-							break;
-						}
-					}
-				}
-				if (lastfile == -1 || fp <= 0) { *ptr++ = 0; }
-				else {
-					fseek(fp, pos - ((toc[lastfile].cluster_no-2)*512*bootsector.sectors_per_cluster), SEEK_SET);
-					c= fgetc(fp);
-					*ptr++ =c;
-				}
-			}
-			position++;
+	// < 512 Bootsector
+	if (position < posFatSector)	{
+		pos = position - bootsector.bytes_per_sector;
+		unsigned char *boot = (unsigned char *)&bootsector;
+		if (pos < sizeof(bootsector)) {
+			*ptr++ = *(boot + (pos));
+		} else {
+			*ptr++ = 0;
+		}
+	} else
+	// Fat table
+	if (position < posRootDir) {
+		pos = position - posFatSector;
+		//printf("sdemu: reading fat: %d\n", pos);
+		unsigned char *table = (unsigned char *)&clusters;
+		*ptr++ = *(table + pos);
 	}
+	else if (position < posDataSector) {
+		pos = position - posRootDir;
+		unsigned char *table = (unsigned char *)&toc;
+		*ptr++ = *(table + pos);
+	} else {
+		int cluster=-1;
+		pos = position - posDataSector;
+		if (lastfile == -1 || pos < lastfileStart || pos > lastfileEnd) {
+			int i;
+			lastfile = -1;
+			for (i = 0; i < MAX_FILES; ++i) {
+				cluster = (pos/512/bootsector.sectors_per_cluster) + 2;
+				if (toc[i].name[0] != 0 && cluster >= toc[i].cluster_no && cluster <= toc[i].cluster_no + (toc[i].filesize/512/bootsector.sectors_per_cluster)) {
+					lastfile = i;
+					lastfileStart = (toc[i].cluster_no-2)*clusterSize;
+
+					//lastfileEnd = lastfileStart + toc[i].filesize;
+					lastfileEnd = lastfileStart + (((toc[i].filesize/clusterSize)+1)*clusterSize)-1; //account for cluster size padding
+
+					if (fp != NULL) {
+						fclose(fp);
+					}
+					//printf("Opening file: %s, start=%d, end=%d, cluster=%d\n", paths[i],lastfileStart,lastfileEnd, cluster);
+					fp = fopen(paths[i], "rb");
+					lastPos=pos-1;
+					break;
+				}
+			}
+		}
+		if (lastfile == -1 || fp <= 0) { *ptr++ = 0; }
+		else {
+			if(pos!=(lastPos+1)){
+				fseek(fp, pos - ((toc[lastfile].cluster_no-2)*clusterSize), SEEK_SET);
+			}
+
+			if(pos<(lastfileStart+toc[lastfile].filesize)){
+				c= fgetc(fp);
+			}else{
+				c=0;
+			}
+
+			lastPos=pos;
+			*ptr++ =c;
+		}
+	}
+	position++;
+
+
 }
 
 int SDEmu::seek(int pos) {

@@ -230,6 +230,25 @@ int main(int argc,char **argv)
                 return 1;
             }
         }
+
+        //if user did not specify a path for the sd card, use the rom's path
+        if(uzebox.SDpath == NULL){
+        	//extract path
+        	char *pfile;
+			pfile = heximage + strlen(heximage);
+			for (; pfile > heximage; pfile--)
+			{
+				if ((*pfile == '\\') || (*pfile == '/'))
+				{
+					*pfile=0;
+					pfile = heximage;
+					break;
+				}
+			}
+			uzebox.SDpath=pfile;
+			printf("\nUsing HEX path for SD emulation: %s\n",pfile);
+        }
+
     }
 		
 	if (uzebox.SDpath != NULL) {
