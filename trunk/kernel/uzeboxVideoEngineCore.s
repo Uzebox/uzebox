@@ -90,10 +90,9 @@
 .global render_lines_count
 
 
-;*** IMPORTANT ***
-;Some video modes MUST have some variables aligned on a 8-bit boundary.
-;This is done by putting uzeboxVideoEngineCore.o as first in the linking 
-;phase and insure a location of 0x100.
+
+;Includes the video mode selected by
+;the -DVIDEO_MODE compile switch
 #include VMODE_ASM_SOURCE
 
 .section .bss
@@ -683,6 +682,23 @@ internal_spi_byte:
 	brne .-4 ;wait 15 cycles
 	in r24,_SFR_IO_ADDR(SPSR) ;clear flag
 	in r24,_SFR_IO_ADDR(SPDR) ;read next pixel
+	ret
+
+
+;****************************
+; Wait for the specified amount of clocks * 4
+; Note this is approximative. 
+; C callable
+; r25:r24 - clocks to wait
+;****************************
+.global WaitClocks
+.section .text.WaitClocks
+WaitClocks:
+
+1:	
+	sbiw r24,1
+	brne 1b
+		
 	ret
 
 

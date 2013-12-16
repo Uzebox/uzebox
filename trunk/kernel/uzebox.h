@@ -145,11 +145,25 @@
 	/*
 	 * Misc functions
 	 */
+	extern void WaitClocks(u16 clocks);
 	extern void WaitUs(unsigned int microseconds);
 	extern void SoftReset(void);
 	extern bool IsRunningInEmulator(void);
 
 	extern void SetUserPreVsyncCallback(VsyncCallBackFunc);
 	extern void SetUserPostVsyncCallback(VsyncCallBackFunc);
+
+
+	//Debug
+	extern void debug_clear();
+	extern void debug_char(char c);
+	extern void debug_hex(char c);
+	extern void debug_str_p(const char* data);
+	extern void debug_str_r(char* data,u8 size,bool hex);
+	extern void debug_byte(unsigned char val);
+	extern void debug_int(u16 i);
+	extern void debug_long_hex(u32 i);
+	extern void debug_long(unsigned long val);
+
 
 #endif

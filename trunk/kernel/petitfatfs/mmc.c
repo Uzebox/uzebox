@@ -4,6 +4,8 @@
 
 #include "pff.h"
 #include "diskio.h"
+#include <avr/pgmspace.h>
+#include <uzebox.h>
 
 /*-------------------------------------------------------------------------*/
 /* Platform dependent macros and functions needed to be modified           */
@@ -28,7 +30,7 @@
 //void xmit_spi (BYTE d);		/* Send a byte to the MMC (usi.S) */
 //BYTE rcv_spi (void);		/* Send a 0xFF to the MMC and get the received byte (usi.S) */
 
-extern void WaitUs(int delay);
+extern void WaitUs(unsigned int delay);
 
 /*--------------------------------------------------------------------------
 
@@ -62,21 +64,22 @@ void dly_100us (void){
 
 
 /* Exchange a byte */
-static
 void xmit_spi (		/* Returns received data */
 	BYTE dat		/* Data to be sent */
 )
 {
 	SPDR = dat;
+
 	loop_until_bit_is_set(SPSR, SPIF);
 }
 
 /* Send a 0xFF to the MMC and get the received byte (usi.S) */
-static
+
 BYTE rcv_spi (void)	/* Returns received data */
 {
 	SPDR = 0xff;
 	loop_until_bit_is_set(SPSR, SPIF);
+
 	return SPDR;
 }
 
@@ -92,9 +95,13 @@ void init_spi (void)
 	DDRD  |=  (1<<PD6);	 		/*configure chip select as output*/
 
 
-	//SPCR = 0x52;				/* Enable SPI function in mode 0 */
-	SPCR = (1<<MSTR)|(1<<SPE) ;
-	SPSR = 0x01;				/* SPI 2x mode */
+					
+	//SPCR = (1<<MSTR)|(1<<SPE) ; /* Enable SPI function in mode 0 */
+	//SPSR = 0x01;				/* SPI 2x mode */
+
+	SPCR = (1<<MSTR)|(1<<SPE)|(1<<SPR1)|(1<<SPR0) ; /* Enable SPI function in mode 0 */
+	SPSR = 0x00;				/* SPI clk @ 200khz for init */
+
 }
 
 /*
@@ -114,12 +121,13 @@ void stop_spi (void)
 static
 BYTE CardType;
 
+u8 tokenWait;
 
 /*-----------------------------------------------------------------------*/
 /* Send a command packet to MMC                                          */
 /*-----------------------------------------------------------------------*/
 
-static
+
 BYTE send_cmd (
 	BYTE cmd,		/* 1st byte (Start + Index) */
 	DWORD arg		/* Argument (32 bits) */
@@ -127,10 +135,10 @@ BYTE send_cmd (
 {
 	BYTE n, res;
 
-
 	if (cmd & 0x80) {	/* ACMD<n> is the command sequense of CMD55-CMD<n> */
 		cmd &= 0x7F;
 		res = send_cmd(CMD55, 0);
+
 		if (res > 1) return res;
 	}
 
@@ -181,18 +189,27 @@ DSTATUS disk_initialize (void)
 #if _PF_USE_WRITE
 	if (CardType && MMC_SEL) disk_writep(0, 0);	/* Finalize write process if it is in progress */
 #endif
+
 	init_spi();		/* Initialize ports to control MMC */
 	DESELECT();
-	for (n = 10; n; n--) rcv_spi();	/* 80 dummy clocks with CS=H */
+	for (n = 100; n; n--) rcv_spi();	/* 80*10 dummy clocks with CS=H */
 
 	ty = 0;
 	if (send_cmd(CMD0, 0) == 1) {			/* Enter Idle state */
+
 		if (send_cmd(CMD8, 0x1AA) == 1) {	/* SDv2 */
+
 			for (n = 0; n < 4; n++) ocr[n] = rcv_spi();		/* Get trailing return value of R7 resp */
+		
 			if (ocr[2] == 0x01 && ocr[3] == 0xAA) {			/* The card can work at vdd range of 2.7-3.6V */
 				for (tmr = 10000; tmr && send_cmd(ACMD41, 1UL << 30); tmr--) dly_100us();	/* Wait for leaving idle state (ACMD41 with HCS bit) */
+				
+			
 				if (tmr && send_cmd(CMD58, 0) == 0) {		/* Check CCS bit in the OCR */
+
+
 					for (n = 0; n < 4; n++) ocr[n] = rcv_spi();
+
 					ty = (ocr[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2;	/* SDv2 (HC or SC) */
 				}
 			}
@@ -206,10 +223,16 @@ DSTATUS disk_initialize (void)
 			if (!tmr || send_cmd(CMD16, 512) != 0)			/* Set R/W block length to 512 */
 				ty = 0;
 		}
+
 	}
 	CardType = ty;
 	DESELECT();
 	rcv_spi();
+
+	//full speed SPI
+	SPCR = (1<<MSTR)|(1<<SPE);
+	SPSR = 0x01;				/* SPI clk 2X */
+
 
 	return ty ? 0 : STA_NOINIT;
 }
@@ -232,10 +255,13 @@ DRESULT disk_readp (
 	WORD bc;
 
 
+
 	if (!(CardType & CT_BLOCK)) lba *= 512;		/* Convert to byte address if needed */
 
 	res = RES_ERROR;
 	if (send_cmd(CMD17, lba) == 0) {		/* READ_SINGLE_BLOCK */
+
+
 
 		bc = 40000;
 		do {							/* Wait for data packet */
@@ -244,6 +270,7 @@ DRESULT disk_readp (
 
 		if (rc == 0xFE) {				/* A data packet arrived */
 			bc = 514 - ofs - cnt;
+
 
 			/* Skip leading bytes */
 			if (ofs) {
@@ -267,6 +294,7 @@ DRESULT disk_readp (
 			res = RES_OK;
 		}
 	}
+
 
 	DESELECT();
 	rcv_spi();

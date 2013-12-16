@@ -218,29 +218,30 @@
 	#endif
 
 	/*
-	 * These are are temp fix when using video mode 3.
-	 * Since that mode takes a lot of cycles to
-	 * blit sprites, not enough CPU is left
-	 * and the program can crash. Disable 1
-	 * or more sound channels mixing to 
-	 * regain enough CPU. 
+	 * Disable 1 or more sound channels mixing to 
+	 * regain CPU cycles. 
 	 *
-	 * Sound channel 1 is always enabled. 
-	 * Applies only with the Vsync audio mixer.
+	 * Sound channel 1 is always enabled. 	 
 	 *
 	 * 0=disable
 	 * 1=enable
 	 */
+	
+	//Applies only with the Vsync audio mixer.
 	#ifndef SOUND_CHANNEL_2_ENABLE
 		#define SOUND_CHANNEL_2_ENABLE 1
 	#endif
-
+	//Applies only with the Vsync audio mixer.
 	#ifndef SOUND_CHANNEL_3_ENABLE
 		#define SOUND_CHANNEL_3_ENABLE 1
 	#endif
-	
+	//Applies only with the Vsync audio mixer.
 	#ifndef SOUND_CHANNEL_4_ENABLE
 		#define SOUND_CHANNEL_4_ENABLE 1
+	#endif
+	//Applies only with the inline audio mixer.
+	#ifndef SOUND_CHANNEL_5_ENABLE
+		#define SOUND_CHANNEL_5_ENABLE 1
 	#endif
 
 	/*
@@ -291,10 +292,10 @@
 	/*
 	 * Determines the type of audio mixer to use. Currently two mixer are available:
 	 * 
-	 * MIXER_TYPE_VSYNC		Mixes 262 samples during each VSYNC. Requires a 524 RAM buffer. (Default)
-	 * MIXER_TYPE_INLINE	Mixes 1 sample each HSYNC. Does not require a RAM buffer. 
-	 *						Note: Video modes 2 and 3 with scrolling don't have enough free cycles
-	 *						      during HBLANK to use this mixer. 
+	 * MIXER_TYPE_VSYNC  (0)	Mixes 262 samples during each VSYNC. Requires a 524 RAM buffer. (Default)
+	 * MIXER_TYPE_INLINE (1)	Mixes 1 sample each HSYNC. Does not require a RAM buffer. 
+	 *							Note: Video modes 2 and 3 with scrolling don't have enough free cycles
+	 *						    during HBLANK to use this mixer. 
 	 */
 	#ifndef SOUND_MIXER
 		#define SOUND_MIXER MIXER_TYPE_VSYNC
@@ -381,16 +382,22 @@
 
 
 	#if SOUND_MIXER == MIXER_TYPE_INLINE
-
 		#define WAVE_CHANNELS 3
 		#define NOISE_CHANNELS 1
-		#define PCM_CHANNELS 1
 		#define MIXER_CHAN4_TYPE 0
-		#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
 		#define CHANNEL_STRUCT_SIZE 6
 
-		#define AUDIO_OUT_HSYNC_CYCLES 212
-		#define AUDIO_OUT_VSYNC_CYCLES 212
+		#if SOUND_CHANNEL_5_ENABLE==1
+			#define PCM_CHANNELS 1
+			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
+			#define AUDIO_OUT_HSYNC_CYCLES 212
+			#define AUDIO_OUT_VSYNC_CYCLES 212
+		#else
+			#define PCM_CHANNELS 0
+			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS
+			#define AUDIO_OUT_HSYNC_CYCLES 212-43
+			#define AUDIO_OUT_VSYNC_CYCLES 212-43
+		#endif
 	#else
 
 		#if MIXER_CHAN4_TYPE == 0

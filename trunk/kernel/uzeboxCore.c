@@ -758,3 +758,154 @@ char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
 	}
 
 #endif
+
+
+
+#if DEBUG==1
+
+//prints char to console
+u8 _x=2,_y=1;
+
+void debug_clear(){
+	ClearVram();
+	_x=2,_y=1;
+}
+
+void debug_scroll(){
+	if(_y>(SCREEN_TILES_V-2)){
+		//scroll all lines up 
+		
+		for(u16 i=0;i<(VRAM_TILES_H*(SCREEN_TILES_V-2));i++){
+			vram[i]=vram[(i+VRAM_TILES_H)];
+		}
+
+		//clear last line
+		for(u8 i=0;i<VRAM_TILES_H;i++){
+			SetFont(i,SCREEN_TILES_V-2,0);
+			//vram[(VRAM_TILES_H*(SCREEN_TILES_V-2))+i]=32;
+		}
+
+		_y=SCREEN_TILES_V-2;
+		_x=2;
+	}
+}
+
+void debug_int(u16 i){
+	debug_hex(i>>8);
+	debug_hex(i&0xff);
+}
+
+void debug_long_hex(u32 i){
+	debug_hex((i>>24)&0xff);
+	debug_hex((i>>16)&0xff);
+	debug_hex((i>>8)&0xff);
+	debug_hex(i&0xff);
+}
+
+
+
+void debug_hex(char c){
+	if(_x>=SCREEN_TILES_H-4){
+		_x=2;
+		_y++;
+	}
+
+	PrintChar(_x,_y,'<');
+	PrintHexByte(_x+1,_y,c);
+	PrintChar(_x+3,_y,'>');
+	_x+=4;
+	
+	debug_scroll();
+
+}
+
+void debug_byte(unsigned char val){
+	unsigned char c;
+
+	if(_x>=SCREEN_TILES_H-4){
+		_x=2;
+		_y++;
+	}
+
+	for(char i=2;i>-1;i--){
+		c=val%10;
+		if(val>0 || i==2){
+			SetFont(i+_x,_y,c+16);
+		}else{
+			SetFont(i+_x,_y,16);
+		}		
+		val=val/10;
+	}
+	_x+=3;
+	
+	debug_scroll();
+
+}
+
+void debug_long(unsigned long val){
+	u32 c;
+	if(_x>=SCREEN_TILES_H-10){
+		_x=2;
+		_y++;
+	}
+
+	for(char i=9;i>-1;i--){
+		c=val%10;
+		if(val>0 || i==9){
+			SetFont(i+_x,_y,c+16);
+		}else{
+			SetFont(i+_x,_y,16);
+		}		
+		val=val/10;
+	}
+	_x+=10;
+	
+	debug_scroll();
+		
+}
+
+void debug_char(char c){
+	if(c==0x0d){
+		//PrintChar(_x++,_y,'{');
+	}else if(c==0x0a){
+		//PrintChar(_x,_y,'|');
+		_x=2;
+		_y++;				
+	}else if(c<32 || c>'z'){
+		PrintChar(_x,_y,'<');
+		PrintHexByte(_x+1,_y,c);
+		PrintChar(_x+3,_y,'>');
+		_x+=4;
+	}else{
+		PrintChar(_x++,_y,c);		
+	}
+	if(_x>=(SCREEN_TILES_H-1)){
+		_x=2;
+		_y++;
+	}
+
+	debug_scroll();
+}
+
+void debug_str_p(const char* data){
+	char c;
+	while(1){
+		c=pgm_read_byte(data);
+		if(c==0) break;
+		debug_char(c);
+		data++;
+	}
+}
+
+void debug_str_r(char* data,u8 size, bool hex)
+{
+	for(u8 i=0;i<size;i++){
+		if(hex){
+			debug_hex(data[i]);	
+		}else{
+			debug_char(data[i]);	
+		}
+	}
+
+
+#endif

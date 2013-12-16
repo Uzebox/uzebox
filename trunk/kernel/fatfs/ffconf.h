@@ -14,19 +14,23 @@
 / Functions and Buffer Configurations
 /----------------------------------------------------------------------------*/
 
-#define	_FS_TINY		1	/* 0:Normal or 1:Tiny */
+#ifndef _FS_TINY
+	#define	_FS_TINY		1	/* 0:Normal or 1:Tiny */
+#endif 
 /* When _FS_TINY is set to 1, FatFs uses the sector buffer in the file system
 /  object instead of the sector buffer in the individual file object for file
 /  data transfer. This reduces memory consumption 512 bytes each file object. */
 
-
-#define _FS_READONLY	1	/* 0:Read/Write or 1:Read only */
+#ifndef _FS_READONLY
+	#define _FS_READONLY	1	/* 0:Read/Write or 1:Read only */
+#endif
 /* Setting _FS_READONLY to 1 defines read only configuration. This removes
 /  writing functions, f_write, f_sync, f_unlink, f_mkdir, f_chmod, f_rename,
 /  f_truncate and useless f_getfree. */
 
-
-#define _FS_MINIMIZE	1	/* 0 to 3 */
+#ifndef _FS_MINIMIZE
+	#define _FS_MINIMIZE	1	/* 0 to 3 */
+#endif
 /* The _FS_MINIMIZE option defines minimization level to remove some functions.
 /
 /   0: Full function.
@@ -35,24 +39,29 @@
 /   2: f_opendir and f_readdir are removed in addition to 1.
 /   3: f_lseek is removed in addition to 2. */
 
-
-#define	_USE_STRFUNC	0	/* 0:Disable or 1-2:Enable */
+#ifndef _USE_STRFUNC
+	#define	_USE_STRFUNC	0	/* 0:Disable or 1-2:Enable */
+#endif
 /* To enable string functions, set _USE_STRFUNC to 1 or 2. */
 
-
-#define	_USE_MKFS		1	/* 0:Disable or 1:Enable */
+#ifndef _USE_MKFS
+	#define	_USE_MKFS		0	/* 0:Disable or 1:Enable */
+#endif
 /* To enable f_mkfs function, set _USE_MKFS to 1 and set _FS_READONLY to 0 */
 
-
-#define	_USE_FASTSEEK	0	/* 0:Disable or 1:Enable */
+#ifndef _USE_FASTSEEK
+	#define	_USE_FASTSEEK	0	/* 0:Disable or 1:Enable */
+#endif
 /* To enable fast seek feature, set _USE_FASTSEEK to 1. */
 
-
-#define _USE_LABEL		0	/* 0:Disable or 1:Enable */
+#ifndef _USE_LABEL
+	#define _USE_LABEL		0	/* 0:Disable or 1:Enable */
+#endif
 /* To enable volume label functions, set _USE_LAVEL to 1 */
 
-
-#define	_USE_FORWARD	0	/* 0:Disable or 1:Enable */
+#ifndef _USE_FORWARD
+	#define	_USE_FORWARD	0	/* 0:Disable or 1:Enable */
+#endif
 /* To enable f_forward function, set _USE_FORWARD to 1 and set _FS_TINY to 1. */
 
 
@@ -60,7 +69,7 @@
 / Locale and Namespace Configurations
 /----------------------------------------------------------------------------*/
 
-#define _CODE_PAGE	932
+#define _CODE_PAGE	1
 /* The _CODE_PAGE specifies the OEM code page to be used on the target system.
 /  Incorrect setting of the code page can cause a file open failure.
 /
@@ -112,8 +121,9 @@
 /* To switch the character code set on FatFs API to Unicode,
 /  enable LFN feature and set _LFN_UNICODE to 1. */
 
-
-#define _FS_RPATH		2	/* 0 to 2 */
+#ifndef _FS_RPATH
+	#define _FS_RPATH		0	/* 0 to 2 */
+#endif
 /* The _FS_RPATH option configures relative path feature.
 /
 /   0: Disable relative path feature and remove related functions.

@@ -42,8 +42,8 @@
 	#define	_FS_USE_WRITE	1	/* 1:Enable pf_write() */
 #endif
 
-#define _FS_FAT12	1	/* 1:Enable FAT12 support */
-#define _FS_FAT32	1	/* 1:Enable FAT32 support */
+#define _FS_FAT12	0	/* 1:Enable FAT12 support */
+#define _FS_FAT32	0	/* 1:Enable FAT32 support */
 
 
 #define	_CODE_PAGE	1
