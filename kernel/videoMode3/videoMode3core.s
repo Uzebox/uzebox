@@ -49,6 +49,7 @@
 .global SetTile
 .global BlitSprite
 .global SetFont
+.global GetTile
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -134,7 +135,7 @@
 
 		;wait cycles to align with next hsync
 		WAIT r26,183
-	
+
 		;**********************
 		; This block updates the ram_tiles_restore buffer
 		; with the actual VRAM. This is required because since the time
@@ -1663,3 +1664,65 @@ SetTileTable:
 	sts tile_table_lo,r24
 	sts tile_table_hi,r25	
 	ret
+
+
+
+;***********************************
+; Get the tile index at the specified position 
+; C-callable
+; r24=X pos (8 bit)
+; r22=Y pos (8 bit)
+; Returns: Tile No (8 bit)
+;************************************
+.section .text.GetTile
+GetTile:
+#if SCROLLING == 1
+	;index formula is vram[((y>>3)*256)+8x+(y&7)]
+	
+	andi r24,0x1f
+	mov r23,r22
+	lsr r22
+	lsr r22
+	lsr r22			;y>>3
+	ldi r18,8		
+	mul r24,r18		;x*8
+	movw XL,r0
+	subi XL,lo8(-(vram))
+	sbci XH,hi8(-(vram))
+	add XH,r22		;vram+((y>>3)*256)
+	andi r23,7		;y&7	
+	add XL,r23
+
+	ld r24,X						
+	subi r24,RAM_TILES_COUNT
+	
+	clr r25
+	clr r1
+
+	ret
+
+#else
+
+	clr r25
+	clr r23	
+
+	ldi r18,VRAM_TILES_H
+
+	mul r22,r18		;calculate Y line addr in vram
+	add r0,r24		;add X offset
+	adc r1,r25
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+	add XL,r0
+	adc XH,r1
+	
+	ld r24,X
+	subi r24,RAM_TILES_COUNT
+
+	clr r25
+	clr r1
+
+	ret
+
+#endif
+

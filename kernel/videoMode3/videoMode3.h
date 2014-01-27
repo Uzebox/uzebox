@@ -57,3 +57,4 @@ typedef struct {
 extern ScreenType Screen;
 
 extern void SetSpritesTileBank(u8 bank,const char* tileData);
+extern u8 GetTile(u8 x,u8 y);
