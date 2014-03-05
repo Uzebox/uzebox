@@ -181,7 +181,7 @@ inline void set_bit(u8 &dest,int bit,int value)
 static const char brbc[8][5] = {"BRCC", "BRNE", "BRPL", "BRVC", "BRGE", "BRHC", "BRTC", "BRID"};
 static const char brbs[8][5] = {"BRCS", "BREQ", "BRMI", "BRVS", "BRLT", "BRHS", "BRTS", "BRIE"};
 
-static u8 inDebug=0;
+
 
 static const char *reg_pair(int reg)
 {
@@ -1229,7 +1229,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			    break;
 			case 0x95A8:
 			    DIS("WDR");
-			    inDebug=1;
+			    //SDemulator.debug(true);
 			    // Implement this if/when we need watchdog timer functionality.
 			    if(prevWDR){
 			       // printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
@@ -2759,6 +2759,10 @@ void avr8::update_spi(){
         SPI_DEBUG("SPI - Data[%d]: %02X\n",512-spiByteCount,SPDR);
         spiByteCount--;
         //inter-sector
+        //NOTE: Current MoviePlayer.hex does not work with two delay bytes after the CRC. It has
+        //been coded to work with a MicroSD card. These cards usually have only 1 delay byte after the CRC.
+        //Uzem uses two delay bytes after the CRC since it is what regular SD cards does
+        //and we want to emulate the "worst" case.
         if(spiByteCount == 0){
             spiResponseBuffer[0] = 0x00; //CRC
             spiResponseBuffer[1] = 0x00; //CRC

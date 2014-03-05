@@ -143,6 +143,7 @@ struct SDEmu
 	int init_with_directory(const char *path);
 	int read(unsigned char *ptr);
 	int seek(int pos);
+	void debug(bool value);
 };
 
 #endif
