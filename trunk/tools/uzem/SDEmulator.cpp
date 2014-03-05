@@ -42,6 +42,12 @@ static int posRootDir;
 static int posDataSector;
 static int clusterSize;
 
+static bool hexDebug=false;
+
+void SDEmu::debug(bool value){
+	hexDebug=value;
+}
+
 static void long2shortfilename(char *dst, char *src) {
 	int i;
 	for (i = 0; i < 8; ++i) {
@@ -65,12 +71,11 @@ int SDEmu::init_with_directory(const char *path) {
 	int i;
 	struct stat st;
 
-	//2G SD card, 64k per cluster FAT16
-
+	//2G SD card, 32k per cluster FAT16
 	memcpy(&bootsector.bootjmp, bootjmp, 3);
 	memcpy(&bootsector.oem_name, oem_name, 8);
 	bootsector.bytes_per_sector = 512;
-	bootsector.sectors_per_cluster = 128;
+	bootsector.sectors_per_cluster =64; //32K cluster size
 	bootsector.reserved_sector_count = 1;
 	bootsector.table_count = 2;
 	bootsector.root_entry_count = 512;
@@ -93,7 +98,7 @@ int SDEmu::init_with_directory(const char *path) {
 	posFatSector  = bootsector.bytes_per_sector + (bootsector.reserved_sector_count * bootsector.bytes_per_sector);
 	posRootDir    = posFatSector + (bootsector.table_count * (bootsector.sectors_per_fat * bootsector.bytes_per_sector));
 	posDataSector = posRootDir + (((bootsector.root_entry_count * 32) / bootsector.bytes_per_sector) * bootsector.bytes_per_sector);
-	clusterSize =  512*bootsector.sectors_per_cluster;
+	clusterSize =  bootsector.bytes_per_sector*bootsector.sectors_per_cluster;
 
 	DIR *dir = opendir(path);
 	if (dir < 0) {
@@ -121,10 +126,18 @@ int SDEmu::init_with_directory(const char *path) {
 			long2shortfilename((char *)toc[i].name, (char *)entry->d_name);
 
 			toc[i].attrib = SDEFA_ARCHIVE;
-			toc[i].cluster_no = freecluster; /* TODO: Fill FAT */
+			toc[i].cluster_no = freecluster;
+
+			//Fill the FAT with the file's cluster chain
+			int fileClustersCount=ceil(st.st_size / (bootsector.sectors_per_cluster * 512.0f));
+			for(int j=freecluster;j<(freecluster+fileClustersCount-1);j++){
+				clusters[j]=j+1;
+			}
+			clusters[freecluster+fileClustersCount-1]=0xffff; //Last cluster in file marker (EOC)
+
 			toc[i].filesize = st.st_size;
 			printf("\t%d: %s:%d\n", i, entry->d_name, st.st_size, toc[i].cluster_no);
-			freecluster += ceil(st.st_size / (bootsector.sectors_per_cluster * 512.0f));
+			freecluster += fileClustersCount;
 			if (++i == MAX_FILES) {
 				break;
 			}
@@ -175,8 +188,6 @@ int SDEmu::read(unsigned char *ptr) {
 				if (toc[i].name[0] != 0 && cluster >= toc[i].cluster_no && cluster <= toc[i].cluster_no + (toc[i].filesize/512/bootsector.sectors_per_cluster)) {
 					lastfile = i;
 					lastfileStart = (toc[i].cluster_no-2)*clusterSize;
-
-					//lastfileEnd = lastfileStart + toc[i].filesize;
 					lastfileEnd = lastfileStart + (((toc[i].filesize/clusterSize)+1)*clusterSize)-1; //account for cluster size padding
 
 					if (fp != NULL) {
@@ -184,7 +195,7 @@ int SDEmu::read(unsigned char *ptr) {
 					}
 					//printf("Opening file: %s, start=%d, end=%d, cluster=%d\n", paths[i],lastfileStart,lastfileEnd, cluster);
 					fp = fopen(paths[i], "rb");
-					lastPos=pos-1;
+					lastPos=-1;
 					break;
 				}
 			}

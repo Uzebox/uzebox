@@ -270,6 +270,8 @@ private:
 	u8 *buffer;
 };
 
+
+
 struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
@@ -301,6 +303,8 @@ struct avr8
 		exitThreads = false;
 #endif
 	}
+
+
 
 	u16 progmem[progSize/2];
   u16 progmemviz[progSize/2];
