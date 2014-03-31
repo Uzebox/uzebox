@@ -46,13 +46,14 @@
 	unsigned char free_tile_index;
 	bool spritesOn=true;
 
-	void RestoreBackground(){
-		unsigned char i;
-		for(i=0;i<free_tile_index;i++){			
-			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
-		}	
-	}
-
+	#if VRAM_RESTORE_BUFFER == 1
+		void RestoreBackground(){
+			unsigned char i;
+			for(i=0;i<free_tile_index;i++){			
+				vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+			}	
+		}
+	#endif 
 
 	void SetSpriteVisibility(bool visible){
 		spritesOn=visible;
@@ -210,11 +211,13 @@
 
 							if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
 
+								#if VRAM_RESTORE_BUFFER == 1
+									ram_tiles_restore[free_tile_index].addr=ramPtr;
+									ram_tiles_restore[free_tile_index].tileIndex=bt;
+								#endif
+
 								//tile is mapped to flash. Copy it to next free RAM tile.
-								//if no ram free ignore tile
-								ram_tiles_restore[free_tile_index].addr=ramPtr;
-								ram_tiles_restore[free_tile_index].tileIndex=bt;
-													
+								//if no ram free ignore tile													
 								CopyTileToRam(bt,free_tile_index);
 
 								vram[ramPtr]=free_tile_index;
@@ -234,10 +237,10 @@
 			}//	if(bx<(SCREEN_TILES_H*TILE_WIDTH))		
 		}
 
-
-		//restore BG tiles
-		RestoreBackground();
-
+		#if VRAM_RESTORE_BUFFER == 1
+			//restore BG tiles
+			RestoreBackground();
+		#endif
 	}
 
 	#if SCROLLING == 1

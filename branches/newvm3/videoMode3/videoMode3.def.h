@@ -99,6 +99,10 @@
 
 #define SPRITES_ENABLED 1
 
+#ifndef VRAM_RESTORE_BUFFER
+	#define VRAM_RESTORE_BUFFER 1
+#endif
+
 //Sprite flags
 #define SPRITE_FLIP_X 1
 #define SPRITE_FLIP_Y 2

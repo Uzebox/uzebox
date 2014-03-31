@@ -101,7 +101,10 @@
 	.align 1
 	sprites:				.space SPRITE_STRUCT_SIZE*MAX_SPRITES
 	ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
-	ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
+	
+	#if VRAM_RESTORE_BUFFER == 1
+		ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
+	#endif
 
 	sprites_tile_banks: 	.space 8
 	tile_table_lo:			.byte 1
@@ -136,6 +139,7 @@
 		;wait cycles to align with next hsync
 		WAIT r26,183
 
+	#if VRAM_RESTORE_BUFFER == 1
 		;**********************
 		; This block updates the ram_tiles_restore buffer
 		; with the actual VRAM. This is required because since the time
@@ -158,7 +162,7 @@
 	upd_loop:	
 		ldd XL,Z+0
 		ldd XH,Z+1
-	
+
 		add XL,YL
 		adc XH,YH
 
@@ -170,7 +174,7 @@
 		mov r17,r16
 	noov:
 		st X,r17
-	
+
 		adiw ZL,3 ;sizeof(ram_tiles_restore)
 
 		inc r16
@@ -189,6 +193,10 @@
 		dec r16
 		brne wait_loop
 		nop
+
+	#else
+		WAIT r17,1099
+	#endif
 
 
 		;**********************
@@ -364,7 +372,10 @@
 		rcall hsync_pulse ;145
 	
 		clr r1
-		call RestoreBackground
+
+		#if VRAM_RESTORE_BUFFER == 1
+			call RestoreBackground
+		#endif
 
 		;set vsync flag & flip field
 		lds ZL,sync_flags
