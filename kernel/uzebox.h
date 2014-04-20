@@ -153,6 +153,9 @@
 	extern void SetUserPreVsyncCallback(VsyncCallBackFunc);
 	extern void SetUserPostVsyncCallback(VsyncCallBackFunc);
 
+	extern void SetLedOn();
+	extern void SetLedOff();
+	extern void ToggleLed();
 
 	//Debug
 	extern void debug_clear();
