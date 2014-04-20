@@ -671,20 +671,6 @@ IsRunningInEmulator:
 	ret
 
 
-//for debug
-.global internal_spi_byte
-.section .text.internal_spi_byte
-internal_spi_byte:
-
-	out _SFR_IO_ADDR(SPDR),r24
-	ldi r25,5
-	dec r25
-	brne .-4 ;wait 15 cycles
-	in r24,_SFR_IO_ADDR(SPSR) ;clear flag
-	in r24,_SFR_IO_ADDR(SPDR) ;read next pixel
-	ret
-
-
 ;****************************
 ; Wait for the specified amount of clocks * 4
 ; Note this is approximative. 
@@ -701,5 +687,46 @@ WaitClocks:
 		
 	ret
 
+;****************************
+; Turns on the onboard LED on PD4
+; C callable
+;****************************
+.global SetLedOn
+.section .text.SetLedOn
+SetLedOn:
+	sbi _SFR_IO_ADDR(PORTD),PD4
+	ret
+
+;****************************
+; Turns off the onboard LED on PD4
+; C callable
+;****************************
+.global SetLedOff
+.section .text.SetLedOff
+SetLedOff:
+	cbi _SFR_IO_ADDR(PORTD),PD4
+	ret
+
+;****************************
+; Toggles the onboard LED on PD4
+; C callable
+;****************************
+.global ToggleLed
+.section .text.ToggleLed
+ToggleLed:
+	sbi _SFR_IO_ADDR(PIND),PD4
+	ret
 
 
+//for internal debug use
+.global internal_spi_byte
+.section .text.internal_spi_byte
+internal_spi_byte:
+
+	out _SFR_IO_ADDR(SPDR),r24
+	ldi r25,5
+	dec r25
+	brne .-4 ;wait 15 cycles
+	in r24,_SFR_IO_ADDR(SPSR) ;clear flag
+	in r24,_SFR_IO_ADDR(SPDR) ;read next pixel
+	ret

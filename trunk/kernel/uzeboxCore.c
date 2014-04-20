@@ -907,5 +907,5 @@ void debug_str_r(char* data,u8 size, bool hex)
 		}
 	}
 
-
+}
 #endif
