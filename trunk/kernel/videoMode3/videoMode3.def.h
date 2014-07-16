@@ -99,6 +99,11 @@
 
 #define SPRITES_ENABLED 1
 
+#if RAM_TILES_COUNT==0 && MAX_SPRITES>0
+	#error Sprites are used (MAX_SPRITES>0) but RAM_TILES_COUNT==0 or is undefined.
+#endif
+
+
 //Sprite flags
 #define SPRITE_FLIP_X 1
 #define SPRITE_FLIP_Y 2

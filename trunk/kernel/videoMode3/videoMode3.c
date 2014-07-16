@@ -293,32 +293,38 @@
 	}
 
 
-	void MapSprite2(unsigned char startSprite,const char *map,u8 spriteFlags){	
-		unsigned char tile;
+	void MapSprite2(unsigned char startSprite,const char *map,u8 spriteFlags){      
+    
 		unsigned char mapWidth=pgm_read_byte(&(map[0]));
 		unsigned char mapHeight=pgm_read_byte(&(map[1]));
+		s8 x,y,dx,dy,t; 
 
-		
-		
 		if(spriteFlags & SPRITE_FLIP_X){
-			for(unsigned char dy=0;dy<mapHeight;dy++){
-				for(s8 dx=(mapWidth-1);dx>=0;dx--){
-				 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
-					sprites[startSprite].tileIndex=tile ;
-					sprites[startSprite++].flags=spriteFlags;
-				}			
-			}
+			x=(mapWidth-1);
+			dx=-1;
 		}else{
-			for(unsigned char dy=0;dy<mapHeight;dy++){
-				for(unsigned char dx=0;dx<mapWidth;dx++){
-				 	tile=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));		
-					sprites[startSprite].tileIndex=tile;
-					sprites[startSprite++].flags=spriteFlags;
-				}			
-			}
+			x=0;
+			dx=1;
 		}
-	
 
+		if(spriteFlags & SPRITE_FLIP_Y){
+			y=(mapHeight-1);
+			dy=-1;
+		}else{
+			y=0;
+			dy=1;
+		}
+
+		for(u8 cy=0;cy<mapHeight;cy++){
+			for(u8 cx=0;cx<mapWidth;cx++){
+				t=pgm_read_byte(&(map[(y*mapWidth)+x+2])); 
+				sprites[startSprite].tileIndex=t;
+				sprites[startSprite++].flags=spriteFlags;
+				x+=dx;
+			}
+			y+=dy;
+			x=(spriteFlags & SPRITE_FLIP_X)?(mapWidth-1):0;
+	    }
 	}
 
 
