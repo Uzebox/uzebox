@@ -80,7 +80,8 @@
 			struct SubChannelsStruct type;	
 		}channels;
 
-		const char *pcmLoopStart;		//PCM channel's absolute adress of PCM loop start
+		//const char *pcmLoopStart;		//PCM channel's absolute adress of PCM loop start
+		int pcmLoopLenght;
 		const char *pcmLoopEnd;			//PCM channel's absolute adress of PCM loop end.
 	};
 

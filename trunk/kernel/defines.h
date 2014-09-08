@@ -128,6 +128,19 @@
 	#endif
 
 	/*
+	 * Adds support to generate a true random seed upon
+	 * startup. This uses the watchdog timer RC oscillator
+	 * entropy to generate a non-deterministic seed that can
+	 * be used in rand().
+	 *
+	 * 0 = no support
+	 * 1 = support enabled
+	 */
+	#ifndef TRUE_RANDOM_GEN
+		#define TRUE_RANDOM_GEN 0
+	#endif
+
+	/*
 	 * Adds support  code for the SNES mouse.
 	 *
 	 * 0 = no support
@@ -390,13 +403,23 @@
 		#if SOUND_CHANNEL_5_ENABLE==1
 			#define PCM_CHANNELS 1
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
-			#define AUDIO_OUT_HSYNC_CYCLES 212
-			#define AUDIO_OUT_VSYNC_CYCLES 212
+			#if UART_RX_BUFFER == 1
+				#define AUDIO_OUT_HSYNC_CYCLES 230
+				#define AUDIO_OUT_VSYNC_CYCLES 230
+			#else
+				#define AUDIO_OUT_HSYNC_CYCLES 212
+				#define AUDIO_OUT_VSYNC_CYCLES 212
+			#endif 
 		#else
 			#define PCM_CHANNELS 0
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS
-			#define AUDIO_OUT_HSYNC_CYCLES 212-43
-			#define AUDIO_OUT_VSYNC_CYCLES 212-43
+			#if UART_RX_BUFFER == 1
+				#define AUDIO_OUT_HSYNC_CYCLES 185
+				#define AUDIO_OUT_VSYNC_CYCLES 185
+			#else
+				#define AUDIO_OUT_HSYNC_CYCLES 167 
+				#define AUDIO_OUT_VSYNC_CYCLES 167 
+			#endif
 		#endif
 	#else
 

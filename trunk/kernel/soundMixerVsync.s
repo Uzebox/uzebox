@@ -215,8 +215,16 @@ end_set_bank:
 			lds r8,tr4_loop_end_lo
 			lds r9,tr4_loop_end_hi
 
-			lds r10,tr4_loop_start_lo
-			lds r11,tr4_loop_start_hi
+			//lds r10,tr4_loop_start_lo
+			//lds r11,tr4_loop_start_hi
+			
+			;compute loop lenght
+			lds ZL,tr4_loop_start_lo
+			lds ZH,tr4_loop_start_hi
+			movw r10,r8
+			sub r10,ZL
+			sbc r11,ZH
+			
 
 			movw r2,XL	;push
 
@@ -230,8 +238,9 @@ end_set_bank:
 
 			cp r22,r8
 			cpc r23,r9
-			brlo .+2
-			movw r22,r10
+			brlo .+4
+			sub r22,r10	;substract loop lenght
+			sbc r23,r11 
 
 			movw ZL,r22
 			lpm	r20,Z	;load sample

@@ -157,6 +157,8 @@
 	extern void SetLedOff();
 	extern void ToggleLed();
 
+	extern u16  GetRandomSeed();
+
 	//Debug
 	extern void debug_clear();
 	extern void debug_char(char c);
