@@ -98,8 +98,10 @@
 	tr5_pos_frac:	 .byte 1
 	tr5_pos_lo:		 .byte 1
 	tr5_pos_hi:		 .byte 1
-	tr5_loop_start_lo: .byte 1
-	tr5_loop_start_hi: .byte 1
+;	tr5_loop_start_lo: .byte 1
+;	tr5_loop_start_hi: .byte 1
+	tr5_loop_len_lo: .byte 1
+	tr5_loop_len_hi: .byte 1
 	tr5_loop_end_lo: .byte 1
 	tr5_loop_end_hi: .byte 1
 #endif
@@ -149,10 +151,10 @@ update_sound:
 	sts tr1_pos_frac,r17
 	lds r17,tr1_vol
 	mulsu r16,r17;(sample*mixing vol)
-	clr r0
 	sbc r0,r0	;sign extend	
 	mov r28,r1	;set (sample*vol>>8) to mix buffer lsb
 	mov r29,r0	;set mix buffer msb	
+	nop
 
 ;38
 	
@@ -168,8 +170,6 @@ update_sound:
 	sts tr2_pos_lo,ZL
 	sts tr2_pos_frac,r17
 	lds r17,tr2_vol
-	;clr r17
-	;nop
 
 	;*** Video sync update ***
 	sbrc r18,0								;pre-eq/post-eq sync
@@ -198,7 +198,6 @@ update_sound:
 	sts tr3_pos_frac,r17
 	lds r17,tr3_vol
 	mulsu r16,r17			;(sample*mixing vol)
-	clr r0
 	sbc r0,r0				;sign extend
 	add r28,r1				;add (sample*vol>>8) to mix buffer lsb
 	adc r29,r0				;ajust mix buffer msb
@@ -238,7 +237,7 @@ ch4_no_shift:
 ch4_end:
 
 	sts tr4_divider,ZL
-;126
+	ldi r17,0x80 ;-128
 	
 	;*** Video sync update ***
 	sbrc r18,1								;hsync
@@ -247,21 +246,19 @@ ch4_end:
 	rjmp .
 	;*************************
 	
-	ldi r17,0x80 ;-128
 	sbrc r16,0
 	ldi r17,0x7f ;+127
 	
 	lds r16,tr4_vol
 
 	mulsu r17,r16;(sample*mixing vol)
-	clr r0
 	sbc r0,r0	;sign extend
 	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
 	adc r29,r0	;ajust mix buffer msb
 
 ;142
 #if SOUND_CHANNEL_5_ENABLE==1
-	;channel 5 PCM -- 43 cycles
+	;channel 5 PCM -- 45 cycles
 
 	;add fractional part
 	lds r16,tr5_pos_frac
@@ -279,11 +276,13 @@ ch4_end:
 	ldi r16,0
 	adc ZH,r16
 
+	movw r16,ZL
+	lds r0,tr5_loop_len_lo
+	lds r1,tr5_loop_len_hi	
+	sub r16,r0
+	sbc r17,r1
 	lds r0,tr5_loop_end_lo
 	lds r1,tr5_loop_end_hi
-
-	lds r16,tr5_loop_start_lo
-	lds r17,tr5_loop_start_hi	
 
 	cp ZL,r0
 	cpc ZH,r1
@@ -297,7 +296,6 @@ ch4_end:
 	lds r17,tr5_vol
 
 	mulsu r16,r17;(sample*mixing vol)
-	clr r0
 	sbc r0,r0	;sign extend
 	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
 	adc r29,r0	;adjust mix buffer msb	
@@ -322,6 +320,29 @@ ch4_end:
 	subi r28,128	;convert to unsigned		
 	sts _SFR_MEM_ADDR(OCR2A),r28 ;output sound byte
 	
+
+#if UART_RX_BUFFER == 1
+	;read UART/MIDI-in data (18 cycles)
+	
+	ldi ZL,lo8(uart_rx_buf)
+	ldi ZH,hi8(uart_rx_buf)
+	lds r16,uart_rx_buf_end
+	
+	clr r17
+	add ZL,r16
+	adc ZH,r17
+
+	lds r17,_SFR_MEM_ADDR(UCSR0A)	
+	lds r18,_SFR_MEM_ADDR(UDR0)
+
+	st Z,r18
+	
+	sbrc r17,RXC0
+	inc r16
+	andi r16,(UART_RX_BUFFER_SIZE-1) ;wrap
+	sts uart_rx_buf_end,r16
+#endif
+
 	pop r29
 	pop r28
 	pop r18

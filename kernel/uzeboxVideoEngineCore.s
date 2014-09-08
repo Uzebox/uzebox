@@ -90,7 +90,6 @@
 .global render_lines_count
 
 
-
 ;Includes the video mode selected by
 ;the -DVIDEO_MODE compile switch
 #include VMODE_ASM_SOURCE
@@ -111,7 +110,6 @@
 
 	first_render_line_tmp:	.byte 1
 	render_lines_count_tmp: .byte 1
-
 	
 	;last read results of joypads
 	joypad1_status_lo:	.byte 1
@@ -123,9 +121,14 @@
 						.byte 1
 	joypad2_status_hi:	.byte 1
 						.byte 1
-
+	
+#if TRUE_RANDOM_GEN == 1
+	random_value:			.word 1
+#endif
 
 .section .text
+
+
 
 ;***************************************************************************
 ; Main Video sync interrupt
@@ -363,7 +366,7 @@ push_loop:
 	;timing compensation
 	;to insure we always call the video mode 
 	;routine at the same cycle	
-	WAIT r16,18+212-AUDIO_OUT_HSYNC_CYCLES
+	WAIT r16,230-(AUDIO_OUT_HSYNC_CYCLES)
 
 	call VMODE_FUNC		;TCNT1=0x234
 
@@ -717,7 +720,6 @@ ToggleLed:
 	sbi _SFR_IO_ADDR(PIND),PD4
 	ret
 
-
 //for internal debug use
 .global internal_spi_byte
 .section .text.internal_spi_byte
@@ -730,3 +732,104 @@ internal_spi_byte:
 	in r24,_SFR_IO_ADDR(SPSR) ;clear flag
 	in r24,_SFR_IO_ADDR(SPDR) ;read next pixel
 	ret
+
+
+
+#if TRUE_RANDOM_GEN == 1
+	;****************************
+	; Generates a true 16-bit random number
+	; based upon the watchdog timer RC oscillator
+	; entropy. Should not be called by user code because it
+	; messes timer1. This function is invoke upon 
+	; initialization by wdt_init(void)
+	;****************************
+
+	.global wdt_randomize
+	.section .text.wdt_randomize
+	wdt_randomize:
+
+		;set timer 1 full speed count to 0xffff
+		ldi r24,0
+		sts sync_pulse,r24
+
+		sts _SFR_MEM_ADDR(TCCR1A),r24	
+		ldi 24,(1<<CS10)
+		sts _SFR_MEM_ADDR(TCCR1B),r24
+
+		cli
+		;enable watchdog at fastest speed and generate interrupts
+		ldi r24,0
+		sts _SFR_MEM_ADDR(MCUSR),r24	
+		ldi r25,(1<<WDIE)+(1<<WDE)+(0<<WDP3)+(0<<WDP2)+(0<<WDP1)+(0<<WDP0)
+		lds r24,_SFR_MEM_ADDR(WDTCSR)
+		ori r24,(1<<WDCE)+(1<<WDE)
+		sts _SFR_MEM_ADDR(WDTCSR),r24
+		sts _SFR_MEM_ADDR(WDTCSR),r25
+	
+		sei
+
+		;generate 8 random cycles
+	wait:
+		lds r24,sync_pulse ;using the yet unalocated "sync_pulse" as a temp variable
+		cpi r24,8
+		brlo wait
+
+		ret
+
+	;********************************
+	; Returns the random seed generated
+	; at startup
+	; C-Callable
+	; Returns: r24:r25(u16)
+	;********************************
+
+	.global GetRandomSeed
+	.section .text.GetRandomSeed
+	GetRandomSeed:
+		lds r24,random_value
+		lds r25,random_value+1
+		ret
+
+	.global WDT_vect
+	.section .text.WDT_vect
+	;*************************************
+	; Watchdog timer interrupt
+	;*************************************
+	WDT_vect:
+		;save flags & status register
+		push r16
+		push r17
+	
+		in r16,_SFR_IO_ADDR(SREG)
+		push r16
+
+		lds r16,sync_pulse
+		inc r16
+		sts sync_pulse,r16
+
+		;XOR succesive timer1 LSB into a int
+		sbrc r16,0
+		rjmp 1f
+		lds r17,random_value
+		lds r16,_SFR_MEM_ADDR(TCNT1L)
+		eor r17,r16
+		sts random_value,r17
+		rjmp 2f
+	1:
+		lds r17,random_value+1
+		lds r16,_SFR_MEM_ADDR(TCNT1L)
+		eor r17,r16
+		sts random_value+1,r17
+	2:
+
+		ldi r16,(1<<WDIE)+(1<<WDE)
+		sts _SFR_MEM_ADDR(WDTCSR),r16
+
+		;restore flags
+		pop r16
+		out _SFR_IO_ADDR(SREG),r16
+	
+		pop r17
+		pop r16
+		reti
+#endif

@@ -76,12 +76,19 @@ const u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 								   };
 
 
-void wdt_init(void) __attribute__((naked)) __attribute__((section(".init3")));
-void Initialize(void) __attribute__((naked)) __attribute__((section(".init8")));
 
+extern void wdt_randomize(void);
+
+void wdt_init(void) __attribute__((naked)) __attribute__((section(".init7")));
+void Initialize(void) __attribute__((naked)) __attribute__((section(".init8")));
 
 void wdt_init(void)
 {
+
+#if TRUE_RANDOM_GEN == 1	
+	wdt_randomize();
+#endif
+
     MCUSR = 0;
     wdt_disable();
     return;
