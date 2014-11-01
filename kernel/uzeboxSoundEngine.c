@@ -51,20 +51,33 @@ extern u16 steptable[];
 
 struct TrackStruct tracks[CHANNELS];
 
-//player vars
+//Common player vars
 bool playSong=false;
-
-u16	nextDeltaTime; 
-u16	currDeltaTime;
-u8 songSpeed;
-
 unsigned char lastStatus;
 const char *songPos; 
 const char *songStart;
 const char *loopStart;
 unsigned char masterVolume;
+u8 songSpeed;
+u8 step;
+
+#if MUSIC_ENGINE == MIDI
+	//MIDI player vars
+	u16	nextDeltaTime;
+	u16	currDeltaTime;
+#else
+	//MOD players vars
+	u8 currentTick;
+	u8 currentStep;
+	u8 modChannels;
+	u8 songLength;
+	const u16 *patternOffsets;
+	const char *patterns;
+#endif
 
 
+
+		
 
 /*
  * Command 00: Set envelope speed per frame +127/-128, 0=no enveloppe
@@ -207,24 +220,103 @@ void InitMusicPlayer(const struct PatchStruct *patchPointersParam){
 
 }
 
-void StartSong(const char *midiSong){
+#if MUSIC_ENGINE == MIDI
+
+void StartSong(const char *song){
 	for(unsigned char t=0;t<CHANNELS;t++){
-		tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;	
+		tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
 	}
 
-	songPos=midiSong+1; //skip first delta-time
-	songStart=midiSong+1;//skip first delta-time
-	loopStart=midiSong+1;
+#if MUSIC_ENGINE == MIDI
+	songPos=song+1; //skip first delta-time
+	songStart=song+1;//skip first delta-time
+	loopStart=song+1;
 	nextDeltaTime=0;
 	currDeltaTime=0;
-	lastStatus=0;
 	songSpeed=0;
+#else
+
+	u8 headerSize;
+	u8 patternsCount;
+	u8 restartPosition;
+
+	//MOD setup
+	headerSize=pgm_read_byte(song+0);
+	modChannels=pgm_read_byte(song+1);
+	patternsCount=pgm_read_byte(song+2);
+	step=pgm_read_byte(song+3);
+	songSpeed=pgm_read_byte(song+4);
+	songLength=pgm_read_byte(song+5);
+	restartPosition=pgm_read_byte(song+6);
+
+	songPos=song+headerSize; //poinst to orders
+	songStart=song+headerSize; //poinst to orders
+	loopStart=song+headerSize+(restartPosition*modChannels);
+
+	patternOffsets=song+headerSize+(songLength*modChannels);
+	patterns=song+headerSize+(songLength*modChannels)+(patternsCount*2);
+
+	//TODO: remove
+	songPos+=(19*4*modChannels);
+
+	currentTick=0;
+	currentStep=0;
+
+
+
+
+#endif
+
+	lastStatus=0;
 	playSong=true;
+
 }
 
-void RestartSong(){	
-	StartSong(songStart);
-}
+#else
+
+	void StartSong(const char *song, u16 startPos, bool loop){
+		for(unsigned char t=0;t<CHANNELS;t++){
+			tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
+		}
+
+		u8 headerSize;
+		u8 patternsCount;
+		u8 restartPosition;
+
+		//MOD setup
+		headerSize=pgm_read_byte(song+0);
+		modChannels=pgm_read_byte(song+1);
+		patternsCount=pgm_read_byte(song+2);
+		step=pgm_read_byte(song+3);
+		songSpeed=pgm_read_byte(song+4);
+		songLength=pgm_read_byte(song+5);
+		restartPosition=pgm_read_byte(song+6);
+
+		songPos=song+headerSize; //poinst to orders
+		songStart=song+headerSize; //poinst to orders
+		if(loop){
+			loopStart=song+headerSize+(restartPosition*modChannels);
+		}else{
+			loopStart=NULL;
+		}
+
+		patternOffsets=song+headerSize+(songLength*modChannels);
+		patterns=song+headerSize+(songLength*modChannels)+(patternsCount*2);
+
+		songPos+=(startPos*modChannels);
+
+		currentTick=0;
+		currentStep=0;
+
+		lastStatus=0;
+		playSong=true;
+
+	}
+
+
+#endif
+
+
 
 
 void StopSong(){
@@ -266,7 +358,7 @@ u8 GetSongSpeed(){
 
 
 void ProcessMusic(void){
-	u8 c1,c2,channel,tmp,trackVol;
+	u8 c1,c2,tmp,trackVol;
 	s16 vol;
 	u16 uVol,tVol;
 	struct TrackStruct* track;
@@ -306,104 +398,221 @@ void ProcessMusic(void){
 	//Process song MIDI notes
 	if(playSong){
 	
-		//process all simultaneous events
-		while(currDeltaTime==nextDeltaTime){
 
-			c1=pgm_read_byte(songPos++);
-			
-			if(c1==0xff){
-				//META data type event
+		#if MUSIC_ENGINE == MIDI
+			u8 channel;
+
+			//process all simultaneous events
+			while(currDeltaTime==nextDeltaTime){
+
 				c1=pgm_read_byte(songPos++);
+			
+				if(c1==0xff){
+					//META data type event
+					c1=pgm_read_byte(songPos++);
 
 				
-				if(c1==0x2f){ //end of song
-					playSong=false;
-					break;	
-				}else if(c1==0x6){ //marker
-					c1=pgm_read_byte(songPos++); //read len
-					c2=pgm_read_byte(songPos++); //read data
-					if(c2=='S'){ //loop start
-						loopStart=songPos;
-					}else if(c2=='E'){//loop end
-						songPos=loopStart;
-					}
-				}
-				
-
-			}else{
-
-				if(c1&0x80) lastStatus=c1;					
-				channel=lastStatus&0x0f;
-				
-				//get next data byte
-				//Note: maybe we should not advance the cursor
-				//in case we receive an unsupported command				
-				if(c1&0x80) c1=pgm_read_byte(songPos++); 
-
-				switch(lastStatus&0xf0){
-
-					//note-on
-					case 0x90:
-						//c1 = note						
-						c2=pgm_read_byte(songPos++)<<1; //get volume
-						
-						if(tracks[channel].flags|TRACK_FLAGS_ALLOCATED){ //allocated==true
-							TriggerNote(channel,tracks[channel].patchNo,c1,c2);
+					if(c1==0x2f){ //end of song
+						playSong=false;
+						break;	
+					}else if(c1==0x6){ //marker
+						c1=pgm_read_byte(songPos++); //read len
+						c2=pgm_read_byte(songPos++); //read data
+						if(c2=='S'){ //loop start
+							loopStart=songPos;
+						}else if(c2=='E'){//loop end
+							songPos=loopStart;
 						}
-						break;
-
-					//controllers
-					case 0xb0:
-						///c1 = controller #
-						c2=pgm_read_byte(songPos++); //get controller value
-						
-						if(c1==CONTROLER_VOL){
-							tracks[channel].trackVol=c2<<1;
-						}else if(c1==CONTROLER_EXPRESSION){
-							tracks[channel].expressionVol=c2<<1;
-						}else if(c1==CONTROLER_TREMOLO){
-							tracks[channel].tremoloLevel=c2<<1;
-						}else if(c1==CONTROLER_TREMOLO_RATE){
-							tracks[channel].tremoloRate=c2<<1;
-						}
-						
-						break;
-
-					//program change
-					case 0xc0:
-						// c1 = patch #						
-						tracks[channel].patchNo=c1;
-						break;
-
-				}//end switch(c1&0xf0)
-
-
-			}//end if(c1==0xff)
-
-			//read next delta time
-			nextDeltaTime=ReadVarLen(&songPos);			
-			currDeltaTime=0;
-		
-			#if SONG_SPEED == 1
-				if(songSpeed != 0){
-					uint32_t l  = (uint32_t)(nextDeltaTime<<8);
-
-					if(songSpeed < 0){//slower
-						(uint32_t)(l += (uint32_t)(-songSpeed*(nextDeltaTime<<1)));
-						(uint32_t)(l >>= 8);
 					}
-					else//faster
-						(uint32_t)(l /= (uint32_t)((1<<8)+(songSpeed<<1)));
+				
 
-					nextDeltaTime = l;
-				}
-			#endif
+				}else{
 
-		}//end while
+					if(c1&0x80) lastStatus=c1;					
+					channel=lastStatus&0x0f;
+				
+					//get next data byte
+					//Note: maybe we should not advance the cursor
+					//in case we receive an unsupported command				
+					if(c1&0x80) c1=pgm_read_byte(songPos++); 
+
+					switch(lastStatus&0xf0){
+
+						//note-on
+						case 0x90:
+							//c1 = note						
+							c2=pgm_read_byte(songPos++)<<1; //get volume
+						
+							if(tracks[channel].flags|TRACK_FLAGS_ALLOCATED){ //allocated==true
+								TriggerNote(channel,tracks[channel].patchNo,c1,c2);
+							}
+							break;
+
+						//controllers
+						case 0xb0:
+							///c1 = controller #
+							c2=pgm_read_byte(songPos++); //get controller value
+						
+							if(c1==CONTROLER_VOL){
+								tracks[channel].trackVol=c2<<1;
+							}else if(c1==CONTROLER_EXPRESSION){
+								tracks[channel].expressionVol=c2<<1;
+							}else if(c1==CONTROLER_TREMOLO){
+								tracks[channel].tremoloLevel=c2<<1;
+							}else if(c1==CONTROLER_TREMOLO_RATE){
+								tracks[channel].tremoloRate=c2<<1;
+							}
+						
+							break;
+
+						//program change
+						case 0xc0:
+							// c1 = patch #						
+							tracks[channel].patchNo=c1;
+							break;
+
+					}//end switch(c1&0xf0)
+
+
+				}//end if(c1==0xff)
+
+				//read next delta time
+				nextDeltaTime=ReadVarLen(&songPos);			
+				currDeltaTime=0;
 		
-		currDeltaTime++;
+				#if SONG_SPEED == 1
+					if(songSpeed != 0){
+						uint32_t l  = (uint32_t)(nextDeltaTime<<8);
+
+						if(songSpeed < 0){//slower
+							(uint32_t)(l += (uint32_t)(-songSpeed*(nextDeltaTime<<1)));
+							(uint32_t)(l >>= 8);
+						}
+						else//faster
+							(uint32_t)(l /= (uint32_t)((1<<8)+(songSpeed<<1)));
+
+						nextDeltaTime = l;
+					}
+				#endif
+
+			}//end while
+		
+			currDeltaTime++;
 	
+		#else
+			
+			u8 patternNo,data, note,data2,flags;
+			u16 tmp1;
+
+			if(currentTick==0){
+				//process next MOD row
+				for(u8 trackNo=0;trackNo<modChannels;trackNo++){
+					track=&tracks[trackNo];
+					const char* patPos;
+					
+					if(currentStep==0){
+						//get pattern order
+						patternNo=pgm_read_byte(songPos+trackNo);
+						//get pattern address
+						tmp1=pgm_read_word(&(patternOffsets[patternNo]));
+						patPos=patterns+tmp1;
+					}else{
+						patPos=track->patternPos;
+					}
+
+					data=pgm_read_byte(patPos++);
+					note=data&0x7f;
+					if(note!=0) track->note=note;
+
+					/*Pack format:
+					 *
+					 * byte1: [msb,6-0]  msb->inst,vol or fx follows, 6-0: note. 0=no note
+					 * byte2: [7-5,4-0] 7-5=001 -> 4-0=instrument
+					 *                     =010 -> 4-0=volume
+					 *                     =011 -> 4-0=instrument, next byte is volume
+					 *                     =100 -> 4-0=FX type, next byte is fx param
+					 *                     =101 -> 4-0=instr, next 2 bytes fx type & fx param
+					 *                     =110 -> 4-0=vol,  next 2 bytes fx type & fx param
+					 *                     =111 -> 4-0=instr, next 3 bytes vol, fx type & fx param
+					 */
+					if((data&0x80)!=0){
+						data2=pgm_read_byte(patPos++);
+						flags=data2>>5;
+						data2&=0x1f;
+						track->noteVol=255; //default vol
+
+
+						switch(flags){
+							case 0x01:
+								//instrument byte
+								track->patchNo=data2;
+								break;
+							case 0x02:
+								track->noteVol=(data2<<3);
+								break;
+							case 0x03:
+								track->patchNo=data2;
+								track->noteVol=(pgm_read_byte(patPos++)<<2);
+								break;
+							case 0x04:
+								patPos+=2; //TODO: skip 2 effects bytes
+								break;
+							case 0x05:
+								track->patchNo=data2;
+								patPos+=2; //TODO: skip 2 effects bytes
+								break;
+							case 0x06:
+								track->noteVol=(data2<<2);
+								patPos+=2; //TODO: skip 2 effects bytes
+								break;
+							case 0x07:
+								track->patchNo=data2;
+								track->noteVol=(pgm_read_byte(patPos++)<<2);
+								patPos+=2; //TODO: skip 2 effects bytes
+								break;
+						
+						}
+					}
+					if(note!=0){
+						if(track->flags|TRACK_FLAGS_ALLOCATED){ //allocated==true
+							if(trackNo==3){
+								TriggerNote(trackNo,0,track->patchNo,track->noteVol); //on noise channel, note actually selects the patch
+							}else{
+								TriggerNote(trackNo,track->patchNo,note,track->noteVol);
+							}
+						}
+						
+					}
+					track->patternPos=patPos;										
+				}
+			}
+			currentTick++;
+			if(currentTick>songSpeed){
+				currentTick=0;
+				currentStep++;
+				if(currentStep==step){
+					currentStep=0;
+					songPos+=modChannels;
+
+					//handle loop
+					if(songPos>=songStart+(songLength*modChannels)){
+						if(loopStart!=NULL){
+							songPos=loopStart;
+						}else{
+							StopSong();
+						}
+					}
+
+				}
+			}
+
+			
+	
+		#endif
+
+
 	}//end if(playSong)
+
 
 
 
