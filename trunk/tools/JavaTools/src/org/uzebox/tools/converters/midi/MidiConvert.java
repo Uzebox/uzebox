@@ -1,4 +1,4 @@
-package com.belogic.uzebox.tools.converters.midi;
+package org.uzebox.tools.converters.midi;
 
 import java.io.File;
 import java.util.HashMap;
@@ -55,10 +55,11 @@ public class MidiConvert {
 			options.addOption("s", true, "Force a loop start (specified in tick). Any existing loop start in the input will be discarded.");
 			options.addOption("e", true, "Force a loop end (specified in tick). Any existing loop end in the input will be discarded.");
 			options.addOption("f", true, "Speed correction factor (double). Defaults to "+DEFAULT_SPEED_FACTOR);
-			options.addOption("no1", false, "Include note off events for channel 0");
-			options.addOption("no2", false, "Include note off events for channel 1");
-			options.addOption("no3", false, "Include note off events for channel 2");
-			options.addOption("no4", false, "Include note off events for channel 2");
+			options.addOption("no1", false, "Include note off events for channel 1");
+			options.addOption("no2", false, "Include note off events for channel 2");
+			options.addOption("no3", false, "Include note off events for channel 3");
+			options.addOption("no4", false, "Include note off events for channel 4");
+			options.addOption("no5", false, "Include note off events for channel 5");
 			//options.addOption("o", false, "Include note off messages. Note off can be explicit note-off or note-on with zero volume.");
 			options.addOption("h", false, "Prints this screen.");
 			options.addOption("d", false, "Prints debug info.");
@@ -93,7 +94,7 @@ public class MidiConvert {
 			if(cmd.hasOption("no2")) converter.setIncludeNoteOffEvents(1);
 			if(cmd.hasOption("no3")) converter.setIncludeNoteOffEvents(2);
 			if(cmd.hasOption("no4")) converter.setIncludeNoteOffEvents(3);
-
+			if(cmd.hasOption("no5")) converter.setIncludeNoteOffEvents(4);
 			
 			//remaining args must be the input & output filenames
 			if(cmd.getArgs().length!=2){
