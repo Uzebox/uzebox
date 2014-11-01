@@ -132,6 +132,10 @@
 		unsigned char patchCurrDeltaTime;
 		unsigned char patchPlayingTime;	//used by fx to steal oldest voice
 		const char *patchCommandStreamPos;
+		
+		#if MUSIC_ENGINE == MOD
+			const char *patternPos;
+		#endif
 	};
 
 

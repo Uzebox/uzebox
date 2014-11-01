@@ -93,7 +93,11 @@
 	extern void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,unsigned char volume);
 	extern void TriggerFx(unsigned char patch,unsigned char volume, bool retrig); //uses a simple voice stealing algorithm
 	extern void StopSong();
-	extern void StartSong(const char *midiSong);
+	#if MUSIC_ENGINE == MIDI
+		extern void StartSong(const char *midiSong);
+	#else
+		extern void StartSong(const char *song, u16 startPos, bool loop);
+	#endif
 	extern void ResumeSong();
 	extern void InitMusicPlayer(const struct PatchStruct *patchPointersParam);
 	extern void EnableSoundEngine();

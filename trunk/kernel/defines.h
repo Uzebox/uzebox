@@ -81,6 +81,9 @@
 	#define MIXER_TYPE_VSYNC 	0
 	#define MIXER_TYPE_INLINE	1
 
+	#define MIDI 0
+	#define MOD	 1
+
  	/*
 	 * Defines the video mode to use. 
 	 *
@@ -312,6 +315,11 @@
 	 */
 	#ifndef SOUND_MIXER
 		#define SOUND_MIXER MIXER_TYPE_VSYNC
+	#endif
+
+
+	#ifndef MUSIC_ENGINE
+		#define MUSIC_ENGINE MIDI
 	#endif
 
 	/*
