@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.    
  */
 
-package com.belogic.uzebox.tools.converters.gfx;
+package org.uzebox.tools.converters.gfx;
 
 public class TileMap{
 	private int x,y,width,height;

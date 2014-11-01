@@ -15,13 +15,15 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.    
  */
-package com.belogic.uzebox.tools.converters.gfx;
+package org.uzebox.tools.converters.gfx;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -47,7 +49,7 @@ public class Main {
 	protected static final int TILE_Y_POS=7;
 	protected static final int DATA_START_POS=8;
 	//private static String path="C:\\Documents and Settings\\Admin\\My Documents\\projet\\atmel\\uzebox2\\";
-	private static String path="c:\\work\\uzebox\\sources\\rev4-beta\\";
+	private static String path="c:\\work\\uzebox\\trunk\\";
 		
 	final static byte R16 =0; 
 	final static byte R17 =1;
@@ -369,7 +371,10 @@ public class Main {
 		 * 
 		 */	
 		
-		convertRawToIncludeFile(path+"demos\\BitmapDemo\\data","sprite",2,16,30);
+		//convertWave(path+"kernel\\waves\\sample-3.new.raw", path+"\\kernel\\waves\\sample-3.new.raw.inc","Sqare 25% Light filter");
+		//convertWave(path+"kernel\\waves\\sample-4.new.raw", path+"\\kernel\\waves\\sample-4.new.raw.inc","Sqare 50% Light filter");
+		
+		//convertRawToIncludeFile(path+"demos\\BitmapDemo\\data","sprite",2,16,30);
 		
 		//doPictureToTiles(path+"tetris\\tetris-tiles.raw","tetrisTiles",40,46,6,8,tetrisMaps,16);
 		//doPictureToTiles(path+"gfx\\fonts_full.raw","fontsFull",91,1,6,8,null,8);
@@ -470,6 +475,13 @@ public class Main {
 		//doReverseConvert();
 		//createPatterns();		
 		//doPicture("vidtest2");
+		
+		
+		//toMonoFrame();
+		
+		convertWave("C:/work/uzebox/trunk/demos/MusicDemo_Tempest2000/data/play.raw", 
+					"C:/work/uzebox/trunk/demos/MusicDemo_Tempest2000/data/play.inc",
+					"play", "play");
 	}
 	
 	
@@ -1415,17 +1427,21 @@ public class Main {
 		
 	}
 
-	private static void convertWave(String inFile, String destFile,String desc) throws Exception{
+	private static void convertWave(String inFile, String destFile,String desc, String var) throws Exception{
 
 		byte[] in=FileUtils.readFileToByteArray(new File(inFile));		
 		File outFile=new File(destFile);	
 		
-		StringBuffer str=new StringBuffer("//Wave: "+desc+"\r\n//File="+inFile);
+		StringBuffer str=new StringBuffer("//"+desc+"\r\n//File="+inFile+"\r\n");
+		
+		str.append("#define sizeof_"+var+" ");
+		str.append(in.length);
+		str.append("\r\n");
+		str.append("const char "+var+"[] PROGMEM ={\r\n");
 		
 		for(int i=0;i<in.length/16;i++){
-			str.append(".byte ");
 			for(int j=0;j<16;j++){
-				if(j>0)str.append(",");
+				if(i>0 || j>0)str.append(",");
 				int o=(in[(i*16)+j] & 0xff) ;
 				if(o<=0xf){
 					str.append("0x0"+Integer.toHexString(o));
@@ -1435,6 +1451,7 @@ public class Main {
 			}
 			str.append("\r\n");
 		}
+		str.append("};\r\n");
 		
 	   FileUtils.writeStringToFile(outFile, str.toString());
 	     
@@ -1622,4 +1639,62 @@ public class Main {
         return bytes;
     }
 	
+    
+    //256x224 PRAW 2 colors to packed 1bpp bytes 
+    public static void toMonoFrame() throws IOException{
+    	
+    	String outFilename="c://work//uzebox//trunk//demos//tutorial-sdcard//data//logo.dat";
+    	//byte[] in=FileUtils.readFileToByteArray(new File("c://work//uzebox//trunk//demos//tutorial-sdcard//data//logo.raw"));	
+//    	System.out.println("in size="+in.length);
+    			
+		File outFile=new File(outFilename);	
+		if(outFile.exists()){
+			outFile.delete();
+		}
+    	FileOutputStream fs=FileUtils.openOutputStream(outFile);
+    	
+    	NumberFormat formatter = new DecimalFormat("000");
+
+    	byte[] in;
+    	for(int i=1;i<404;i++){
+            
+        	in=FileUtils.readFileToByteArray(new File("c://Temp//conv//foo-"+formatter.format(i).toString()+".raw"));
+    		IOUtils.write(in, fs);
+    	}
+    	/*
+    	byte[] out=new byte[256*224/8];
+    	int c=0;
+    	int b;
+    	
+    	for(int y=0;y<224;y++){
+    		for(int x=0;x<256;x+=8){
+    			if(((y*256)+x)==0x9860){
+    				System.out.println("Debug");
+    			}
+    			b=0;
+    			b|=(in[(y*256)+x+0])<<7;
+    			b|=(in[(y*256)+x+1])<<6;
+    			b|=(in[(y*256)+x+2])<<5;
+    			b|=(in[(y*256)+x+3])<<4;
+    			b|=(in[(y*256)+x+4])<<3;
+    			b|=(in[(y*256)+x+5])<<2;
+    			b|=(in[(y*256)+x+6])<<1;
+    			b|=(in[(y*256)+x+7]);
+    			out[c++]=(byte)(b&0xff);
+    		}
+    	}
+    	
+    	//duplicate frames for 60 fps 
+    	for(int i=0;i<(60*5);i++){
+    		IOUtils.write(out, fs);
+    	}
+    	*/
+    	fs.flush();
+		fs.close();
+		
+	   System.out.println("Done processing file: "+outFilename+" !");
+    }
+    
+    
+    
 }

@@ -15,15 +15,18 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.    
  */
-package com.belogic.uzebox.tools.converters.midi;
+package org.uzebox.tools.converters.midi;
 
-public class Command{
-	public String name;
-	public boolean supported;
-	
-	public Command(String name, boolean supported) {
-		super();
-		this.name = name;
-		this.supported = supported;
-	}		
+public class MetaEvent {
+
+
+		public String name;
+		public boolean supported;
+		
+		public MetaEvent(String name, boolean supported) {
+			super();
+			this.name = name;
+			this.supported = supported;
+		}		
+
 }
