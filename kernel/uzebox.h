@@ -81,7 +81,9 @@
 	extern void WaitVsync(int count);
 	extern void ClearVsyncFlag(void);
 	extern   u8 GetVsyncFlag(void);
-	
+	extern void ClearVsyncCounter();
+	extern u16	GetVsyncCounter();	
+
 	extern void SetRenderingParameters(u8 firstScanlineToRender, u8 verticalTilesToRender);
 
 
