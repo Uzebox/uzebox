@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+
+	<input file="../data/powerlevel.png" type="png" tile-width="6" tile-height="8" />
+	<output file="../data/power-mode9.inc" type="code">
+		<tiles var-name="powerlevel_tileset"/>
+	</output>
+ 
+</gfx-xform>
