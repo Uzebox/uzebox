@@ -193,7 +193,8 @@ int main(){
 	
 	debug_str_p(PSTR("Connect to web server...\r\n"));
 	//SendAndWait(PSTR("AT+CIPSTART=0,\"TCP\",\"belogic.com\",80\r\n"),PSTR("OK\r\nLinked\r\n"));
-	SendAndWait(PSTR("AT+CIPSTART=0,\"TCP\",\"216.189.148.140\",50697\r\n"),PSTR("OK\r\nLinked\r\n"));
+	//SendAndWait(PSTR("AT+CIPSTART=0,\"TCP\",\"216.189.148.140\",50697\r\n"),PSTR("OK\r\nLinked\r\n"));
+	SendAndWait(PSTR("AT+CIPSTART=0,\"TCP\",\"uzebox.net\",50697\r\n"),PSTR("OK\r\nLinked\r\n"));
 	connOpen=true;
 
 	debug_str_p(PSTR("Send chat login request...\r\n"));
