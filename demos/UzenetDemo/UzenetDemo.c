@@ -31,6 +31,7 @@
 #define WIFI_OK 			0
 #define WIFI_TIMEOUT 		1
 
+bool connOpen=false;
 
 u16 wifi_timeout=5*60;
 
@@ -105,6 +106,13 @@ void timeout(){
 void SendAndWait(const char* strToSend, const char* strToWait){
 	wifi_SendStringP(strToSend);
 	if(wifi_WaitForStringP(strToWait, NULL)==WIFI_TIMEOUT){
+		
+		if(connOpen){
+			wifi_SendStringP(PSTR("AT+CIPCLOSE=0\r\n"));
+			wifi_WaitForStringP(PSTR("OK\r\n"), NULL);
+			connOpen=false;
+		}
+	
 		timeout();
 	}
 }
@@ -126,6 +134,8 @@ int main(){
 	UBRR0H=0;	
 	/*
 	http://wormfood.net/avrbaudcalc.php
+	This is for single speed mode. Double the 
+	values for UART double speed mode.
 	Baud  UBRR0L	Error%
 	9600	185		0.2
 	14400	123		0.2
@@ -182,17 +192,58 @@ int main(){
 	SendAndWait(PSTR("AT+CIPMUX=1\r\n"),PSTR("OK\r\n"));
 	
 	debug_str_p(PSTR("Connect to web server...\r\n"));
-	SendAndWait(PSTR("AT+CIPSTART=0,\"TCP\",\"belogic.com\",80\r\n"),PSTR("OK\r\nLinked\r\n"));
+	//SendAndWait(PSTR("AT+CIPSTART=0,\"TCP\",\"belogic.com\",80\r\n"),PSTR("OK\r\nLinked\r\n"));
+	SendAndWait(PSTR("AT+CIPSTART=0,\"TCP\",\"216.189.148.140\",50697\r\n"),PSTR("OK\r\nLinked\r\n"));
+	connOpen=true;
 
-	debug_str_p(PSTR("Send request...\r\n"));
-	SendAndWait(PSTR("AT+CIPSEND=0,49\r\nGET /hello.txt HTTP/1.0\r\nHost: belogic.com:80\r\n\r\n"),PSTR("SEND OK\r\n"));
+	debug_str_p(PSTR("Send chat login request...\r\n"));
+	//SendAndWait(PSTR("AT+CIPSEND=0,49\r\nGET /hello.txt HTTP/1.0\r\nHost: belogic.com:80\r\n\r\n"),PSTR("SEND OK\r\n"));
+	
+	SendAndWait(PSTR("AT+CIPSEND=0,7\r\nUZECHAT"),PSTR("ENTER USER NAME:\r\nOK\r\n"));
 
+	debug_str_p(PSTR("Send username...\r\n"));
+	
+	SendAndWait(PSTR("AT+CIPSEND=0,10\r\nMASTER_UZE"),PSTR("OK\0\r\nOK\r\n"));
+	
+	//wifi_WaitForStringP(PSTR, NULL);
+	
+	SendAndWait(PSTR("AT+CIPSEND=0,16\r\nHi Lee, wazzup?!"),PSTR("OK\r\n"));
+	
+	//wifi_SendStringP(PSTR("MASTER_UZE\r\n"));
+
+	//SendAndWait(PSTR("AT+CIPCLOSE=0\r\n"),PSTR("OK\r\n"));
+
+	u16 joy;
 	while(true){
 
 		while(UartUnreadCount()>0){
 			c=UartReadChar();
 			debug_char(c);
 		}
+		
+		joy=ReadJoypad(0);
+		if(joy!=0){
+			while(ReadJoypad(0)!=0);
+			switch(joy){
+				case BTN_A:
+				SendAndWait(PSTR("AT+CIPSEND=0,16\r\nHi Lee, wazzup?!"),PSTR("OK\r\n"));
+				break;
+				
+				case BTN_B:
+				SendAndWait(PSTR("AT+CIPSEND=0,13\r\nAnybody here?"),PSTR("OK\r\n"));
+				break;
+				
+				case BTN_X:
+				SendAndWait(PSTR("AT+CIPSEND=0,13\r\nUzebox rules!"),PSTR("OK\r\n"));
+				break;
+				
+				case BTN_Y:
+				SendAndWait(PSTR("AT+CIPSEND=0,3\r\nYo!"),PSTR("OK\r\n"));
+				break;
+				
+			}
+		}
+		
 	}
 
 
