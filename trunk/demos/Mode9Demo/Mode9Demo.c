@@ -23,8 +23,8 @@
 #include <uzebox.h>
 
 
-#include "data/fonts6x8.inc"
-
+#include "data/fonts6x8_code80.inc"
+//#include "data/fonts6x8.inc"
 
 int main(){
 
@@ -37,15 +37,19 @@ int main(){
 	ClearVram();
 
 	//define background color for text rows 10,12 & 14
+	backgroundColor[9]=1;
 	backgroundColor[10]=2;
+	backgroundColor[11]=4;	
 	backgroundColor[12]=6;
+	backgroundColor[13]=4;	
 	backgroundColor[14]=2;
+	backgroundColor[15]=1;
 
 	//Prints a string on the screen. Note that PSTR() is a macro 
 	//that tells the compiler to store the string in flash.
-	Print(0,10,PSTR("012345678901234567890123456789012345678901234567890123456789"));
-	Print(9,12,PSTR("HIGH RESOLUTION MODE DEMO 60X28 - 6X8 TILES"));
-	Print(0,14,PSTR("012345678901234567890123456789012345678901234567890123456789"));
+	Print(0,10,PSTR("01234567890123456789012345678901234567890123456789012345678901234567890123456789"));
+	Print(0,12,PSTR("               ULTRA HIGH RESOLUTION MODE DEMO 80X28 - 6X8 TILES"));
+	Print(0,14,PSTR("01234567890123456789012345678901234567890123456789012345678901234567890123456789"));
 	
 
 	while(1);
