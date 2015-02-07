@@ -75,6 +75,8 @@
 .global SetUserPostVsyncCallback
 .global UartInitRxBuffer
 .global IsRunningInEmulator
+.global GetVsyncCounter
+.global ClearVsyncCounter
 
 ;Public variables
 .global sync_pulse
@@ -121,6 +123,8 @@
 						.byte 1
 	joypad2_status_hi:	.byte 1
 						.byte 1
+
+	vsync_counter:		.word 1
 	
 #if TRUE_RANDOM_GEN == 1
 	random_value:			.word 1
@@ -420,6 +424,14 @@ no_render:
 	lds ZH,render_lines_count_tmp
 	sts render_lines_count,ZH
 
+	;increment the vsync counter
+	lds r24,vsync_counter
+	lds r25,vsync_counter+1
+	adiw r24,1
+	sts vsync_counter,r24
+	sts vsync_counter+1,r25
+
+
 	;process user pre callback
 	lds ZL,pre_vsync_user_callback+0
 	lds ZH,pre_vsync_user_callback+1
@@ -502,7 +514,7 @@ hsync_pulse:
 ; This flag is set on each VSYNC by
 ; the engine. This func is used to
 ; synchronize the programs on frame
-; rate (30hz).
+; rate (60hz).
 ;
 ; C-callable
 ;************************************
@@ -523,6 +535,33 @@ ClearVsyncFlag:
 	andi r18,~SYNC_FLAG_VSYNC
 	sts sync_flags,r18
 	ret
+
+
+;************************************
+; Read the current vsync counter.
+; This value is incremented by the kernel
+; on each vertical sync (60hz). Can be used
+; for timeout functions.
+;
+; C-callable
+;************************************
+.section .text.GetVsyncCounter
+GetVsyncCounter:
+	lds r24,vsync_counter
+	lds r25,vsync_counter+1
+	ret
+
+;************************************
+; Clear the vsync counter.
+;
+; C-callable
+;************************************
+.section .text.ClearVsyncCounter
+ClearVsyncCounter:
+	sts vsync_counter,r1
+	sts vsync_counter+1,r1
+	ret
+
 
 ;*****************************
 ; Return joypad 1 or 2 buttons status
