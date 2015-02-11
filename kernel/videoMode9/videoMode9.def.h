@@ -63,4 +63,7 @@
 #define FONT_TILE_WIDTH 21 //in words
 #define FONT_TILE_SIZE FONT_TILE_WIDTH*TILE_HEIGHT //Size in words: 27 instructions * 8 rows
 
+#define HSYNC_USABLE_CYCLES 249 //Maximum free cycles usable by the hysnc and audio
+
+
 

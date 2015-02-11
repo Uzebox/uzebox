@@ -64,14 +64,14 @@ sub_video_mode9:
 	ld r2,X+	;load background color for current text line
 
 next_text_line:	
-	rcall hsync_pulse ;3+144=147
+	rcall hsync_pulse 
 
-	WAIT r19,249 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
+	WAIT r19,HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES 
 
 	;***draw line***
 	call render_tile_line
 
-	WAIT r19,48 - CENTER_ADJUSTMENT
+	WAIT r19,48 
 
 	dec r10
 	breq text_frame_end

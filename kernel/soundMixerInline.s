@@ -126,8 +126,8 @@ process_music:
 ; Inline sound mixing
 ; In: ZL = video phase (1=pre-eq/post-eq, 2=hsync)
 
-; Destroys: ZL (r30)
-; cycles: 212
+; Destroys: Z,r0,r1
+; cycles: 212+
 ;****************************
 update_sound:
 	push r16
@@ -321,27 +321,63 @@ ch4_end:
 	sts _SFR_MEM_ADDR(OCR2A),r28 ;output sound byte
 	
 
-#if UART_RX_BUFFER == 1
-	;read UART/MIDI-in data (18 cycles)
+#if UART == 1
+	;read UART data (23 cycles)
 	
 	ldi ZL,lo8(uart_rx_buf)
 	ldi ZH,hi8(uart_rx_buf)
-	lds r16,uart_rx_buf_end
-	
-	clr r17
+	lds r16,uart_rx_head
+
+	clr r0
 	add ZL,r16
-	adc ZH,r17
+	adc ZH,r0
 
 	lds r17,_SFR_MEM_ADDR(UCSR0A)	
-	lds r18,_SFR_MEM_ADDR(UDR0)
 
+	sbrs r17,RXC0	;data in?
+	rjmp 1f
+
+	lds r18,_SFR_MEM_ADDR(UDR0)
 	st Z,r18
-	
-	sbrc r17,RXC0
 	inc r16
 	andi r16,(UART_RX_BUFFER_SIZE-1) ;wrap
-	sts uart_rx_buf_end,r16
+	sts uart_rx_head,r16
+	rjmp uart_tx
+1:
+	WAIT r28,9
+
+uart_tx:
+	;send UART data (24 cycles)
+	
+	ldi ZL,lo8(uart_tx_buf)
+	ldi ZH,hi8(uart_tx_buf)
+	lds r16,uart_tx_tail
+	lds r29,uart_tx_head
+	
+	add ZL,r16
+	adc ZH,r0	;r0=0
+
+	lds r28,_SFR_MEM_ADDR(UCSR0A)
+	andi r28,(1<<UDRE0)	 	//UCSR0A & (1<<UDRE0)
+
+	;if(ring_head == ring_tail || (UCSR0A & (1<<UDRE0)==0 ), nothing to send
+	sub r29,r16
+	mul r28,r29
+	breq 1f		
+
+	ld r18,Z
+	sts _SFR_MEM_ADDR(UDR0),r18	;TCNT1=0x134
+	inc r16
+	andi r16,(UART_TX_BUFFER_SIZE-1) ;wrap
+	sts uart_tx_tail,r16
+	rjmp update_sound_end
+1:
+	WAIT r28,9
+
 #endif
+
+
+update_sound_end:
 
 	pop r29
 	pop r28

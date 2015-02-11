@@ -30,6 +30,41 @@
 .global SetMixerWave
 .global SetMixerNoiseParams
 
+;Assembly delay macro for 0 to 1275 (old:767) cycles
+;Parameters: reg=Registerto use in inner loop (will be destroyed)
+;            clocks=CPU clocks to wait
+.macro WAIT reg,clocks	
+	.if (\clocks) > 767
+	 	ldi	\reg, (\clocks)/6    
+	 	dec	\reg
+		jmp . 
+	 	brne .-8
+		.if ((\clocks) % 6) == 1
+			nop
+		.elseif ((\clocks) % 6) == 2
+			rjmp .
+		.elseif ((\clocks) % 6) == 3
+			jmp .
+		.elseif ((\clocks) % 6) == 4
+			rjmp .
+			rjmp .
+		.elseif ((\clocks) % 6) == 5
+			rjmp .
+			jmp .
+		.endif
+	.else
+		.if (\clocks) > 2
+		 	ldi	\reg, (\clocks)/3    
+		 	dec	\reg                    
+		 	brne   .-4
+		.endif
+		.rept (\clocks) % 3
+		 	nop
+		.endr
+	.endif
+.endm 
+
+
 #if SOUND_MIXER == MIXER_TYPE_INLINE
 	#include "soundMixerInline.s"
 #else

@@ -152,9 +152,9 @@
 	extern struct TrackStruct tracks[CHANNELS];			//music player tracks
 	extern void ProcessMusic(void);
 
-	extern unsigned char uart_rx_buf_start;
-	extern unsigned char uart_rx_buf_end;
-	extern unsigned char uart_rx_buf[];
+	extern volatile u8 uart_rx_buf_start;
+	extern volatile u8 uart_rx_buf_end;
+	extern volatile u8 uart_rx_buf[];
 
 	struct  PatchStruct{   
    		unsigned char type;

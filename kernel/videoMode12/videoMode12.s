@@ -19,7 +19,7 @@
 */
 
 ;****************************************************
-; Video Mode 11 - Chip8
+; Video Mode 12 - Chip8
 ; Bitmappep mode: 1bpp 
 ; Submode 0: 64x32 
 ; Submode 1: 128x64

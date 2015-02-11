@@ -93,7 +93,7 @@ sub_video_mode1:
 next_tile_line:	
 	rcall hsync_pulse
 
-	WAIT r19,264 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
+	WAIT r19,HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 	
 	call render_tile_line
 
