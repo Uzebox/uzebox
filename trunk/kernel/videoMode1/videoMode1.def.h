@@ -75,3 +75,4 @@
 #endif
 
 
+#define HSYNC_USABLE_CYCLES 264 //Maximum free cycles usable by the hysnc and audio

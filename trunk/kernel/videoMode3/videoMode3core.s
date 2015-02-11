@@ -93,8 +93,9 @@
 	;
 	vram: 	  				.space VRAM_SIZE 
 	
-	#if SCROLLING == 0
-		overlay_vram:			.space VRAM_TILES_H*OVERLAY_LINES
+	overlay_vram:
+	#if SCROLLING == 0 && OVERLAY_LINES >0
+							.space VRAM_TILES_H*OVERLAY_LINES
 	#endif
 
 .section .bss
@@ -303,7 +304,7 @@
 	next_tile_line:
 		rcall hsync_pulse
 
-		WAIT r18,225 - AUDIO_OUT_HSYNC_CYCLES
+		WAIT r18,HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 				
 		call render_tile_line
 

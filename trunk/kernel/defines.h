@@ -163,22 +163,22 @@
 	#ifndef MIDI_IN
 		#define MIDI_IN 0
 	#elif MIDI_IN == 1
-		#define UART_RX_BUFFER 1
+		#define UART 1
 	#endif
 
 	/*
-	 * Activates the UART receive buffer 
+	 * Activates the UART receive and transmit ring buffers
 	 * Not supported with video mode 2.
 	 *
 	 * 0 = no
 	 * 1 = yes
 	 */
-	#ifndef UART_RX_BUFFER
-		#define UART_RX_BUFFER 0
+	#ifndef UART
+		#define UART 0
 	#endif
 
 	/*
-	 * Activates the UART receive buffer 
+	 * Define the UART receive buffer size. Must be a power of 2.
 	 * Not supported with video mode 2.
 	 *
 	 * 0 = no
@@ -191,6 +191,21 @@
 			UART_RX_BUFFER_SIZE !=16 &&  UART_RX_BUFFER_SIZE !=32 && UART_RX_BUFFER_SIZE !=64 && \
 			UART_RX_BUFFER_SIZE !=128 && UART_RX_BUFFER_SIZE !=256
 			#error Invalid size for UART_RX_BUFFER_SIZE: must be a power of 2.
+		#endif
+	#endif
+
+	/*
+	 * Define the UART receive buffer size. Must be a power of 2.
+	 * Not supported with video mode 2.
+	 *
+	 * 0 = no
+	 * 1 = yes
+	 */
+	#ifndef UART_TX_BUFFER_SIZE
+		#define UART_TX_BUFFER_SIZE 128
+	#else
+		#if UART_TX_BUFFER_SIZE % 2 != 0
+			#error Invalid size for UART_TX_BUFFER_SIZE: must be a power of 2.
 		#endif
 	#endif
 
@@ -411,19 +426,21 @@
 		#if SOUND_CHANNEL_5_ENABLE==1
 			#define PCM_CHANNELS 1
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
-			#if UART_RX_BUFFER == 1
-				#define AUDIO_OUT_HSYNC_CYCLES 230
-				#define AUDIO_OUT_VSYNC_CYCLES 230
+			
+			#if UART == 1
+				#define AUDIO_OUT_HSYNC_CYCLES 258 
+				#define AUDIO_OUT_VSYNC_CYCLES 258 
 			#else
-				#define AUDIO_OUT_HSYNC_CYCLES 212
-				#define AUDIO_OUT_VSYNC_CYCLES 212
+				#define AUDIO_OUT_HSYNC_CYCLES 212 
+				#define AUDIO_OUT_VSYNC_CYCLES 212 
 			#endif 
 		#else
 			#define PCM_CHANNELS 0
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS
-			#if UART_RX_BUFFER == 1
-				#define AUDIO_OUT_HSYNC_CYCLES 185
-				#define AUDIO_OUT_VSYNC_CYCLES 185
+			
+			#if UART == 1
+				#define AUDIO_OUT_HSYNC_CYCLES 213 
+				#define AUDIO_OUT_VSYNC_CYCLES 213 
 			#else
 				#define AUDIO_OUT_HSYNC_CYCLES 167 
 				#define AUDIO_OUT_VSYNC_CYCLES 167 
@@ -448,7 +465,6 @@
 		#define AUDIO_OUT_VSYNC_CYCLES 68
 
 	#endif
-
 
 	#define SWEEP_UP   0x80
 	#define SWEEP_DOWN 0x00
@@ -522,5 +538,10 @@
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif
 
+	#ifdef HSYNC_USABLE_CYCLES 
+		#if HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES <0
+			#error There is not enough CPU cycles to support the build options. Disable the UART (-DUART=0), audio channel 5 (-DSOUND_CHANNEL_5_ENABLE=0) or the inline mixer (-DSOUND_MIXER=0).
+		#endif 
+	#endif
 
 #endif

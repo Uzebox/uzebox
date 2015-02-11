@@ -26,6 +26,8 @@
 #include <avr/wdt.h>
 #include "uzebox.h"
 
+#include <util/atomic.h> 
+
 #define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
 #define Wait100ns() asm volatile("lpm\n\t");
 
@@ -195,9 +197,9 @@ void Initialize(void){
 		tr4_params=0b00000001; //15 bits no divider (1)
 	#endif
 
-	#if UART_RX_BUFFER == 1
-		uart_rx_buf_start=0;
-		uart_rx_buf_end=0;
+	#if UART == 1
+		InitUartRxBuffer();
+		InitUartTxBuffer();
 	#endif
 
 
@@ -728,44 +730,85 @@ char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
 }
 
 
-/*
- * UART Receive buffer function
- */
-#if UART_RX_BUFFER == 1
 
-	u8 uart_rx_buf_start;
-	u8 uart_rx_buf_end;
-	u8 uart_rx_buf[UART_RX_BUFFER_SIZE];
+#if UART == 1
+	/*
+	 * UART RX/TX buffer functions
+	 */
 
-	void UartGoBack(unsigned char count){
-		uart_rx_buf_start-=count;
-		#if UART_RX_BUFFER_SIZE<256
-			uart_rx_buf_start&=(UART_RX_BUFFER_SIZE-1);
-		#endif
+	volatile u8 uart_rx_tail;
+	volatile u8 uart_rx_head;
+	volatile u8 uart_rx_buf[UART_RX_BUFFER_SIZE];
+
+	//obsolete
+	void UartGoBack(u8 count){
+		uart_rx_tail-=count;
+		uart_rx_tail&=(UART_RX_BUFFER_SIZE-1);		//wrap pointer to buffer size
 	}
 
-	unsigned char UartUnreadCount(){
-		return (abs(uart_rx_buf_end-uart_rx_buf_start));
+	//obsolete
+	u8 UartUnreadCount(){
+		return uart_rx_head-uart_rx_tail;
 	}
 
-	unsigned char UartReadChar(){
-		unsigned char data=0;
-		if(uart_rx_buf_end!=uart_rx_buf_start){
-			data=uart_rx_buf[uart_rx_buf_start++];
-			#if UART_RX_BUFFER_SIZE<256
-				uart_rx_buf_start&=(UART_RX_BUFFER_SIZE-1);			
-			#endif
+	bool IsUartRxBufferEmpty(){
+		return (uart_rx_tail==uart_rx_head);
+	}
+
+	s16 UartReadChar(){
+
+		if(uart_rx_head != uart_rx_tail){
+
+			u8 data=uart_rx_buf[uart_rx_tail];
+			uart_rx_tail=((uart_rx_tail+1) & (UART_RX_BUFFER_SIZE-1));	//wrap pointer to buffer size			
+			return (data&0xff);
+
+		}else{
+			return -1;	//no data in buffer
 		}
-		return data;
 	}
 
-	void UartInitRxBuffer(){
-		uart_rx_buf_start=0;
-		uart_rx_buf_end=0;
+	void InitUartRxBuffer(){
+		uart_rx_tail=0;
+		uart_rx_head=0;
+	}
+
+	/*
+	 * UART Transmit buffer function
+	 */
+	volatile u8 uart_tx_tail;
+	volatile u8 uart_tx_head;
+	volatile u8 uart_tx_buf[UART_TX_BUFFER_SIZE];
+
+
+	bool IsUartTxBufferEmpty(){
+		return (uart_tx_tail==uart_tx_head);
+	}
+
+	bool IsUartTxBufferFull(){
+		u8 next_head = ((uart_tx_head + 1) & (UART_TX_BUFFER_SIZE-1));
+		return (next_head == uart_tx_tail);
+	}
+
+	s8 UartSendChar(u8 data){
+
+ 		u8 next_head = ((uart_tx_head + 1) & (UART_TX_BUFFER_SIZE-1));
+
+		if (next_head != uart_tx_tail) {
+			uart_tx_buf[uart_tx_head]=data;
+			uart_tx_head=next_head;		
+			return 0;
+		}else{
+			return -1; //buffer full
+		}
+	}
+
+	void InitUartTxBuffer(){
+		uart_tx_tail=0;
+		uart_tx_head=0;
 	}
 
 #endif
-
 
 
 #if DEBUG==1
@@ -812,6 +855,9 @@ void debug_long_hex(u32 i){
 
 
 void debug_hex(char c){
+
+
+
 	if(_x>=SCREEN_TILES_H-4){
 		_x=2;
 		_y++;
@@ -823,6 +869,7 @@ void debug_hex(char c){
 	_x+=4;
 	
 	debug_scroll();
+
 
 }
 
@@ -872,10 +919,12 @@ void debug_long(unsigned long val){
 }
 
 void debug_char(char c){
+
+
 	if(c==0x0d){
-		//PrintChar(_x++,_y,'{');
+		PrintChar(_x++,_y,'{');
 	}else if(c==0x0a){
-		//PrintChar(_x,_y,'|');
+		PrintChar(_x,_y,'|');
 		_x=2;
 		_y++;				
 	}else if(c<32 || c>'z'){
@@ -892,6 +941,7 @@ void debug_char(char c){
 	}
 
 	debug_scroll();
+
 }
 
 void debug_str_p(const char* data){

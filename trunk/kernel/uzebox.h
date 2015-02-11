@@ -141,12 +141,16 @@
 
 
 	/*
-	 * UART RX buffer
-	 */
-	extern void UartInitRxBuffer();
+	 * UART
+	 */	
 	extern void UartGoBack(unsigned char count);
-	extern unsigned char UartUnreadCount();
-	extern unsigned char UartReadChar();
+	extern u8 UartUnreadCount();
+	extern s16 UartReadChar();
+	extern s8 UartSendChar(u8 data);		
+	extern bool IsUartTxBufferEmpty();
+	extern bool IsUartTxBufferFull();
+	extern void InitUartTxBuffer();
+	extern void InitUartRxBuffer();
 
 	/*
 	 * Misc functions

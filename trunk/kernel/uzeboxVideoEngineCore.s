@@ -27,7 +27,7 @@
 #include <avr/io.h>
 #include "defines.h"
 
-;Global delay macro for 0 to 1275 (old:767) cycles
+;Global assembly delay macro for 0 to 1275 (old:767) cycles
 ;Parameters: reg=Registerto use in inner loop (will be destroyed)
 ;            clocks=CPU clocks to wait
 .macro WAIT reg,clocks	
