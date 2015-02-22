@@ -402,11 +402,11 @@ void SetFontinternal(unsigned char x,unsigned char y,unsigned char c){
 	if(c!=0){
 
 		if(c==32){
-			c=0+RAM_TILES_COUNT;
+			c=0;
 		}else if(c>=48 && c<=58){
-			c=((c&127)-32-16+1)+RAM_TILES_COUNT;			
+			c=((c&127)-32-16+1);		
 		}else{
-			c=((c&127)-60+6)+RAM_TILES_COUNT;	
+			c=((c&127)-60+6);	
 		}
 
 		SetFont(x++,y,c);
