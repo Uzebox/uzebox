@@ -201,7 +201,7 @@ void InitMusicPlayer(const struct PatchStruct *patchPointersParam){
 	masterVolume=DEFAULT_MASTER_VOL;
 
 #if MIDI_IN == ENABLED
-	UartInitRxBuffer();
+	InitUartRxBuffer();
 	lastMidiInStatus=0;
 #endif
 
@@ -361,6 +361,7 @@ void ProcessMusic(void){
 	u8 c1,c2,tmp,trackVol;
 	s16 vol;
 	u16 uVol,tVol;
+	u8 channel;
 	struct TrackStruct* track;
 
 
@@ -398,10 +399,8 @@ void ProcessMusic(void){
 	//Process song MIDI notes
 	if(playSong){
 	
-
 		#if MUSIC_ENGINE == MIDI
-			u8 channel;
-
+			
 			//process all simultaneous events
 			while(currDeltaTime==nextDeltaTime){
 

@@ -185,24 +185,22 @@
 	 * 1 = yes
 	 */
 	#ifndef UART_RX_BUFFER_SIZE
-		#define UART_RX_BUFFER_SIZE 128
+		#define UART_RX_BUFFER_SIZE 0
 	#else
-		#if UART_RX_BUFFER_SIZE !=2 &&   UART_RX_BUFFER_SIZE !=4 &&  UART_RX_BUFFER_SIZE !=8 && \
-			UART_RX_BUFFER_SIZE !=16 &&  UART_RX_BUFFER_SIZE !=32 && UART_RX_BUFFER_SIZE !=64 && \
-			UART_RX_BUFFER_SIZE !=128 && UART_RX_BUFFER_SIZE !=256
+		#if UART_RX_BUFFER_SIZE % 2 != 0
 			#error Invalid size for UART_RX_BUFFER_SIZE: must be a power of 2.
 		#endif
 	#endif
 
 	/*
-	 * Define the UART receive buffer size. Must be a power of 2.
+	 * Define the UART transmit buffer size. Must be a power of 2.
 	 * Not supported with video mode 2.
 	 *
 	 * 0 = no
 	 * 1 = yes
 	 */
 	#ifndef UART_TX_BUFFER_SIZE
-		#define UART_TX_BUFFER_SIZE 128
+		#define UART_TX_BUFFER_SIZE 0
 	#else
 		#if UART_TX_BUFFER_SIZE % 2 != 0
 			#error Invalid size for UART_TX_BUFFER_SIZE: must be a power of 2.
