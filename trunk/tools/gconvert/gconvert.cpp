@@ -31,7 +31,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 3
+#define VERSION_MIN 4
 
 void parseXml(TiXmlDocument* doc);
 bool process();
@@ -346,11 +346,12 @@ bool process(){
 		fprintf(tf,"};\n");
 		totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight);
 
-	}else if(xform.outputType!=NULL && strcmp(xform.outputType,"code")==0){
+	}else if(xform.outputType!=NULL && (strcmp(xform.outputType,"code")==0 || strcmp(xform.outputType,"code60")==0)){
 
 		/*export "code tiles"*/
+		fprintf(tf,"#if !(VIDEO_MODE==9 && SCREEN_TILES_H==60) \r\n#error The included code-tiles data is only compatible with video mode 9 with 60 columns.\r\n#endif\r\n");
 	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
-	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (2))) ={\n",xform.tilesVarName);
+	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (4))) ={\n",xform.tilesVarName);
 
 		int c=0,t=0;
 		vector<unsigned char*>::iterator it;
@@ -434,8 +435,115 @@ bool process(){
 		}
 		fprintf(tf,"};\n");
 		totalSize+=(uniqueTiles.size()*xform.tileHeight*21*2);
-	}
+	
+	}else if(xform.outputType!=NULL && strcmp(xform.outputType,"code80")==0){
 
+		/*export "code tiles"*/
+		fprintf(tf,"#if !(VIDEO_MODE==9 && SCREEN_TILES_H==80) \r\n#error The included code-tiles data is only compatible with video mode 9 with 80 columns.\r\n#endif\r\n");
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (2))) ={\n",xform.tilesVarName);
+
+		int c=0,t=0;
+		vector<unsigned char*>::iterator it;
+		for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+
+			unsigned char* tile=*it;
+			int pos;
+
+			for(int index=0;index<xform.tileHeight;index++){
+				if(c>0)fprintf(tf,",");
+				pos=xform.tileWidth*index;
+
+				/*
+				Generate assembly code (pixel color control if r2 (bg) or r3 (fg) is assembled):
+				
+				out 0x08,r2
+				ld	r17, Y+
+
+				out 0x08,r3
+				mul	r17, r21
+
+				out 0x08,r2
+				add	r0, r24
+				adc	r1, r25
+
+				out 0x08,r3
+				movw r30, r18
+				dec	r20
+
+				out 0x08,r2
+				breq	.+2
+				movw	r30, r0
+
+				out 0x08,r3
+				ijmp
+				*/
+				
+
+				//pixel 0
+				if((xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]) || tile[pos]==0){
+					fprintf(tf,"0x28,0xb8,"); 										//28 b8			out 0x08,r2
+				}else{
+					fprintf(tf,"0x38,0xb8,"); 										//38 b8			out 0x08,r3
+				}				
+				fprintf(tf,"0x19,0x91,"); 											//19 91       	ld	r17, Y+
+				pos++;
+
+				//pixel 1
+				if((xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]) || tile[pos]==0){
+					fprintf(tf,"0x28,0xb8,"); 										//28 b8			out 0x08,r2
+				}else{
+					fprintf(tf,"0x38,0xb8,"); 										//38 b8			out 0x08,r3
+				}	
+				fprintf(tf,"0x15,0x9f,");									 		//15 9f       	mul	r17, r21
+				pos++;
+
+				//pixel 2
+				if((xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]) || tile[pos]==0){
+					fprintf(tf,"0x28,0xb8,"); 										//28 b8			out 0x08,r2
+				}else{
+					fprintf(tf,"0x38,0xb8,"); 										//38 b8			out 0x08,r3
+				}	
+				fprintf(tf,"0x08,0x0e,"); 											//08 0e       	add	r0, r24
+				fprintf(tf,"0x19,0x1e,"); 											//19 1e       	adc	r1, r25
+				pos++;
+
+				//pixel 3
+				if((xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]) || tile[pos]==0){
+					fprintf(tf,"0x28,0xb8,"); 										//28 b8			out 0x08,r2
+				}else{
+					fprintf(tf,"0x38,0xb8,"); 										//38 b8			out 0x08,r3
+				}	
+				fprintf(tf,"0xf9,0x01,"); 											//f9 01       	movw r30, r18
+				fprintf(tf,"0x4a,0x95,"); 											//4a 95       	dec	r20
+				pos++;
+
+				//pixel 4
+				if((xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]) || tile[pos]==0){
+					fprintf(tf,"0x28,0xb8,"); 										//28 b8			out 0x08,r2
+				}else{
+					fprintf(tf,"0x38,0xb8,"); 										//38 b8			out 0x08,r3
+				}	
+				fprintf(tf,"0x09,0xf0,");											//09 f0       	breq	.+2
+				fprintf(tf,"0xf0,0x01,"); 											//f0 01       	movw	r30, r0
+				pos++;
+
+				//pixel 5
+				if((xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]) || tile[pos]==0){
+					fprintf(tf,"0x28,0xb8,"); 										//28 b8			out 0x08,r2
+				}else{
+					fprintf(tf,"0x38,0xb8,"); 										//38 b8			out 0x08,r3
+				}
+				fprintf(tf,"0x09,0x94 "); 											//09 94       	ijmp
+
+				c++;
+			}
+			fprintf(tf,"\t\t //tile:%i\n",t);
+			t++;
+		}
+		fprintf(tf,"};\n");
+		totalSize+=(uniqueTiles.size()*xform.tileHeight*21*2);
+	}
 	fclose(tf);
 	free(buffer);
 	printf("File exported successfully!\nUnique tiles found: %i\nTotal size (tiles + maps): %i bytes\n",uniqueTiles.size(),totalSize);

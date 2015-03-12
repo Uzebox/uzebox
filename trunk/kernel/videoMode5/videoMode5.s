@@ -85,10 +85,7 @@ next_text_line:
 	;***draw line***
 	call render_tile_line
 
-	ldi r19,16 - CENTER_ADJUSTMENT
-	dec r19			
-	brne .-4
-
+	WAIT r19,48 - CENTER_ADJUSTMENT
 
 	dec r10
 	breq text_frame_end

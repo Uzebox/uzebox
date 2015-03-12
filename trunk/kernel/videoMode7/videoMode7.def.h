@@ -39,6 +39,7 @@
 #define SCREEN_TILES_V 28 
 #define FIRST_RENDER_LINE 20
 #define VRAM_SIZE 1 
+#define VRAM_PTR_TYPE char
 #define VRAM_ADDR_SIZE 1
 #define FRAME_LINES 228
 

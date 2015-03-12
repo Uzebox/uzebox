@@ -530,8 +530,6 @@
 		#include "videoMode10/videoMode10.def.h"
 	#elif VIDEO_MODE == 12
 		#include "videoMode12/videoMode12.def.h"
-	#elif VIDEO_MODE == 13
-		#include "videoMode13/videoMode13.def.h"
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif

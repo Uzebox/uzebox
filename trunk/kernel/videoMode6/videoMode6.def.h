@@ -44,7 +44,7 @@
 #endif
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V	
 #define VRAM_ADDR_SIZE 1 //in bytes
-
+#define VRAM_PTR_TYPE char
 
 #ifndef FRAME_LINES
 	#define FRAME_LINES SCREEN_TILES_V*TILE_HEIGHT

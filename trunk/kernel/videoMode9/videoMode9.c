@@ -1,5 +1,5 @@
 /*
- *  Uzebox Kernel - Mode 3
+ *  Uzebox Kernel - Mode 9
  *  Copyright (C) 2008  Alec Bourque
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -25,8 +25,11 @@
 	#include <avr/interrupt.h>
 	#include "uzebox.h"
 
+	extern u8 foregroundColor;
+
 	//Callback invoked by UzeboxCore.Initialize()
 	void InitializeVideoMode(){
+		foregroundColor=0xff; //for 80 cols mode
 	}
 
 	//Callback invoked during hsync

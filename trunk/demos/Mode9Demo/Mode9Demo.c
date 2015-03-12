@@ -24,7 +24,7 @@
 
 
 #include "data/fonts6x8_code80.inc"
-//#include "data/fonts6x8.inc"
+//#include "data/fonts6x8_code60.inc"
 
 int main(){
 

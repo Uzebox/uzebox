@@ -42,7 +42,7 @@ import org.apache.log4j.Logger;
 public class Main {
 	static Logger logger = Logger.getLogger(Main.class);
 	
-
+	public enum Language {C, ASM};
 
 	
 	protected static final int TILE_X_POS=6;
@@ -468,7 +468,8 @@ public class Main {
 		/*
 		 * Those ones should be used only for kernel stuff. 
 		 */
-		//convertWave(path+"SoundDriver\\waves\\sample-9.raw",path+"SoundDriver\\waves\\sample-9.inc","Soft Square");
+		//convertWave(path+"C:\\work\\uzebox\\trunk\\demos\\MusicDemo_Tempest2000\\datasample-9.raw",path+"SoundDriver\\waves\\sample-9.inc","Soft Square");
+		
 		//doSrollingTable();		
 		//doLfsrTable();
 		//doFrequencyTable();
@@ -479,9 +480,9 @@ public class Main {
 		
 		//toMonoFrame();
 		
-		convertWave("C:/work/uzebox/trunk/demos/MusicDemo_Tempest2000/data/play.raw", 
-					"C:/work/uzebox/trunk/demos/MusicDemo_Tempest2000/data/play.inc",
-					"play", "play");
+		convertWave("C:/work/uzebox/trunk/demos/MusicDemo_Tempest2000/data/sample-hollow.raw", 
+					"C:/work/uzebox/trunk/demos/MusicDemo_Tempest2000/data/sample-hollow.inc",
+					"play", "play", Language.ASM);
 	}
 	
 	
@@ -1427,35 +1428,55 @@ public class Main {
 		
 	}
 
-	private static void convertWave(String inFile, String destFile,String desc, String var) throws Exception{
+	
+	
+	private static void convertWave(String inFile, String destFile,String desc, String var, Language lang ) throws Exception{
 
 		byte[] in=FileUtils.readFileToByteArray(new File(inFile));		
 		File outFile=new File(destFile);	
-		
-		StringBuffer str=new StringBuffer("//"+desc+"\r\n//File="+inFile+"\r\n");
-		
-		str.append("#define sizeof_"+var+" ");
-		str.append(in.length);
-		str.append("\r\n");
-		str.append("const char "+var+"[] PROGMEM ={\r\n");
-		
-		for(int i=0;i<in.length/16;i++){
-			for(int j=0;j<16;j++){
-				if(i>0 || j>0)str.append(",");
-				int o=(in[(i*16)+j] & 0xff) ;
-				if(o<=0xf){
-					str.append("0x0"+Integer.toHexString(o));
-				}else{
-					str.append("0x"+Integer.toHexString(o));
-				}
-			}
+		StringBuffer str=new StringBuffer();
+				
+		if(lang.equals(Language.C)){
+			str.append("//"+desc+"\r\n//File="+inFile+"\r\n");		
+			str.append("#define sizeof_"+var+" ");
+			str.append(in.length);
 			str.append("\r\n");
+			str.append("const char "+var+"[] PROGMEM ={\r\n");
+			
+			for(int i=0;i<in.length/16;i++){
+				for(int j=0;j<16;j++){
+					if(i>0 || j>0)str.append(",");
+					int o=(in[(i*16)+j] & 0xff) ;
+					if(o<=0xf){
+						str.append("0x0"+Integer.toHexString(o));
+					}else{
+						str.append("0x"+Integer.toHexString(o));
+					}
+				}
+				str.append("\r\n");
+			}
+			str.append("};\r\n");
+			
+		}else{
+	        
+			str.append("//Wave: "+desc+"\r\n//File="+inFile+"\r\n");	        
+	        for(int i=0;i<in.length/16;i++){
+	                str.append(".byte ");
+	                for(int j=0;j<16;j++){
+	                        if(j>0)str.append(",");
+	                        int o=(in[(i*16)+j] & 0xff) ;
+	                        if(o<=0xf){
+	                                str.append("0x0"+Integer.toHexString(o));
+	                        }else{
+	                                str.append("0x"+Integer.toHexString(o));
+	                        }
+	                }
+	                str.append("\r\n");
+	        }		
 		}
-		str.append("};\r\n");
 		
-	   FileUtils.writeStringToFile(outFile, str.toString());
-	     
-	System.out.println("Processing file "+inFile+"...Done!");
+	   FileUtils.writeStringToFile(outFile, str.toString());	     
+	   System.out.println("Processing file "+inFile+"...Done!");
 		
 	}
 

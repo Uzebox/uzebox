@@ -61,9 +61,8 @@
 	extern void SetFont(char x,char y, unsigned char tileId);
 	extern void SetFontTilesIndex(unsigned char index);
 	extern void SetFontTable(const char *data);
-	extern void SetTileTable(const char *data);
-	extern void DrawMap(unsigned char x,unsigned char y,const int *map); //draw a map in video mode 1
-	extern void DrawMap2(unsigned char x,unsigned char y,const char *map); //draw a map in video mode 2
+	extern void SetTileTable(const char *data);	
+	extern void DrawMap(unsigned char x,unsigned char y,const VRAM_PTR_TYPE *map); 	
 	extern void Print(int x,int y,const char *string);
 	extern void PrintRam(int x,int y,unsigned char *string);
 	extern void PrintBinaryByte(char x,char y,unsigned char byte);
@@ -179,6 +178,12 @@
 	extern void debug_int(u16 i);
 	extern void debug_long_hex(u32 i);
 	extern void debug_long(unsigned long val);
+	extern void debug_crlf();
+
+	/*
+	 * Deprecated functions
+	 */
+	 extern void DrawMap2(unsigned char x,unsigned char y,const char *map) __attribute__ ((deprecated)); // Use generalized DrawMap() function
 
 
 #endif

@@ -36,6 +36,7 @@
 
 #define VRAM_SIZE (SCREEN_WIDTH*SCREEN_HEIGHT)/4
 #define VRAM_ADDR_SIZE 1
+#define VRAM_PTR_TYPE char
 #define VRAM_TILES_H 15	
 
 #define FIRST_RENDER_LINE 36

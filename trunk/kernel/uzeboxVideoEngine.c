@@ -37,36 +37,40 @@
 
 
 //Draws a map of tile at the specified position
-
-void DrawMap2(unsigned char x,unsigned char y,const char *map){
-	//unsigned char i;
-	u8 mapWidth=pgm_read_byte(&(map[0]));
-	u8 mapHeight=pgm_read_byte(&(map[1]));
-	for(u8 dy=0;dy<mapHeight;dy++){
-		for(u8 dx=0;dx<mapWidth;dx++){			
-			SetTile(x+dx,y+dy,pgm_read_byte(&(map[(dy*mapWidth)+dx+2])));					
+#if VRAM_ADDR_SIZE == 1
+	void DrawMap(unsigned char x,unsigned char y,const VRAM_PTR_TYPE *map) {
+		//unsigned char i;
+		u8 mapWidth=pgm_read_byte(&(map[0]));
+		u8 mapHeight=pgm_read_byte(&(map[1]));
+		
+		for(u8 dy=0;dy<mapHeight;dy++){
+			for(u8 dx=0;dx<mapWidth;dx++){			
+				SetTile(x+dx,y+dy,pgm_read_byte(&(map[(dy*mapWidth)+dx+2])));					
+			}
 		}
+
 	}
 
-}
+	void DrawMap2(unsigned char x,unsigned char y,const char *map) __attribute__((alias("DrawMap"))) __attribute__ ((deprecated));
+#else
 
+	//Draws a map of tile at the specified position
 
+	void DrawMap(unsigned char x,unsigned char y,const VRAM_PTR_TYPE *map){
+		int i;
+		int mapWidth=pgm_read_word(&(map[0]));
+		int mapHeight=pgm_read_word(&(map[1]));
 
-//Draws a map of tile at the specified position
-
-void DrawMap(unsigned char x,unsigned char y,const int *map){
-	int i;
-	int mapWidth=pgm_read_word(&(map[0]));
-	int mapHeight=pgm_read_word(&(map[1]));
-
-	for(unsigned char dy=0;dy<mapHeight;dy++){
-		for(unsigned char dx=0;dx<mapWidth;dx++){			
-			i=pgm_read_word(&(map[(dy*mapWidth)+dx+2]));			
-			SetTile(x+dx,y+dy,i);	
+		for(unsigned char dy=0;dy<mapHeight;dy++){
+			for(unsigned char dx=0;dx<mapWidth;dx++){			
+				i=pgm_read_word(&(map[(dy*mapWidth)+dx+2]));			
+				SetTile(x+dx,y+dy,i);	
+			}
 		}
-	}
 
-}
+	}
+#endif
+
 
 //Print an unsigned long in decimal
 void PrintLong(int x,int y, unsigned long val){

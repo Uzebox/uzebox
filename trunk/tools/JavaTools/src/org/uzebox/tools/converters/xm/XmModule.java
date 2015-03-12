@@ -116,7 +116,8 @@ public class XmModule {
 				for(int chan=0;chan<channelsCount;chan++){
 					b=data[ptr++];
 					if((b&0x80)!=0){ //"compression" is used
-						if(b!=0x80){ //if row is not empty								
+						if(b!=0x80){ //if row is not empty
+												
 							if((b&0x01)!=0){
 								patterns[pat].tracks[chan].getRows()[row].setNote(data[ptr++]);
 							}
@@ -124,7 +125,36 @@ public class XmModule {
 								patterns[pat].tracks[chan].getRows()[row].setInstrument(data[ptr++]);
 							}
 							if((b&0x04)!=0){
-								patterns[pat].tracks[chan].getRows()[row].setVolume(data[ptr++]);
+								/*
+								 *********************************
+								   *   Effects in volume column:   *
+								   *********************************
+
+								   All effects in the volume column should work as the standard effects.
+								   The volume column is interpreted before the standard effects, so
+								   some standard effects may override volume column effects.
+
+								   Value      Meaning
+
+								      0       Do nothing
+								    $10-$50   Set volume Value-$10
+								      :          :        :
+								      :          :        :
+								    $60-$6f   Volume slide down
+								    $70-$7f   Volume slide up
+								    $80-$8f   Fine volume slide down
+								    $90-$9f   Fine volume slide up
+								    $a0-$af   Set vibrato speed
+								    $b0-$bf   Vibrato
+								    $c0-$cf   Set panning
+								    $d0-$df   Panning slide left
+								    $e0-$ef   Panning slide right
+								    $f0-$ff   Tone porta
+								    */
+								byte d=data[ptr++];
+								if(d>=0x10 && d<0x50){
+									patterns[pat].tracks[chan].getRows()[row].setVolume(d-0x10);
+								}
 							}
 
 							
@@ -155,7 +185,7 @@ public class XmModule {
 				logger.debug("patRows: "+patRows);
 				logger.debug("patSize: "+patSize);
 				
-			/*
+			
 				StringBuffer str=new StringBuffer("\r\n");
 				for(int row=0;row<patRows;row++){
 					str.append(fmt2.format(row));
@@ -166,7 +196,7 @@ public class XmModule {
 				}
 				
 				logger.debug(str.toString());
-				*/
+				
 			}
 			
 										
