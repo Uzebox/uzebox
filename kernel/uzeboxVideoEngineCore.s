@@ -544,6 +544,7 @@ ClearVsyncFlag:
 ; for timeout functions.
 ;
 ; C-callable
+; returns: (unsigned int) r25:r24
 ;************************************
 .section .text.GetVsyncCounter
 GetVsyncCounter:

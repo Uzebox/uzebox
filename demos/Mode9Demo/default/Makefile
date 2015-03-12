@@ -1,5 +1,5 @@
 ###############################################################################
-# Makefile for the project SpriteDemo
+# Makefile for the project
 ###############################################################################
 
 ## General Flags
@@ -12,7 +12,7 @@ INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=13 -DINTRO_LOGO=0 -DSOUND_MIXER=1
+KERNEL_OPTIONS  = -DVIDEO_MODE=9 -DSCREEN_TILES_H=80 -DINTRO_LOGO=0 -DSOUND_MIXER=1
 
 
 ## Options common to compile, link and assembly rules

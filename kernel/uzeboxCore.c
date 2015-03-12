@@ -821,6 +821,10 @@ void debug_clear(){
 	_x=2,_y=1;
 }
 
+void debug_crlf(){
+	debug_char(0x0a);
+}
+
 void debug_scroll(){
 	if(_y>(SCREEN_TILES_V-2)){
 		//scroll all lines up 
@@ -922,9 +926,9 @@ void debug_char(char c){
 
 
 	if(c==0x0d){
-		PrintChar(_x++,_y,'{');
+	//	PrintChar(_x++,_y,'{');
 	}else if(c==0x0a){
-		PrintChar(_x,_y,'|');
+	//	PrintChar(_x,_y,'|');
 		_x=2;
 		_y++;				
 	}else if(c<32 || c>'z'){

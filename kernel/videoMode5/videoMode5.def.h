@@ -43,6 +43,7 @@
 #define FIRST_RENDER_LINE 20
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V
 #define VRAM_ADDR_SIZE 1 //in bytes
+#define VRAM_PTR_TYPE char
 #define SPRITES_ENABLED 0
 
 #ifndef FRAME_LINES

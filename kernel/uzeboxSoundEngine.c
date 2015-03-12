@@ -74,9 +74,6 @@ u8 step;
 	const u16 *patternOffsets;
 	const char *patterns;
 #endif
-
-
-
 		
 
 /*
@@ -255,9 +252,6 @@ void StartSong(const char *song){
 
 	patternOffsets=song+headerSize+(songLength*modChannels);
 	patterns=song+headerSize+(songLength*modChannels)+(patternsCount*2);
-
-	//TODO: remove
-	songPos+=(19*4*modChannels);
 
 	currentTick=0;
 	currentStep=0;
@@ -500,6 +494,7 @@ void ProcessMusic(void){
 	
 		#else
 			
+
 			u8 patternNo,data, note,data2,flags;
 			u16 tmp1;
 
@@ -533,6 +528,8 @@ void ProcessMusic(void){
 					 *                     =101 -> 4-0=instr, next 2 bytes fx type & fx param
 					 *                     =110 -> 4-0=vol,  next 2 bytes fx type & fx param
 					 *                     =111 -> 4-0=instr, next 3 bytes vol, fx type & fx param
+					 * Notes:
+					 *       volumes are stored as 0x00-0x1f (0-31)
 					 */
 					if((data&0x80)!=0){
 						data2=pgm_read_byte(patPos++);
@@ -551,7 +548,7 @@ void ProcessMusic(void){
 								break;
 							case 0x03:
 								track->patchNo=data2;
-								track->noteVol=(pgm_read_byte(patPos++)<<2);
+								track->noteVol=(pgm_read_byte(patPos++)<<3);
 								break;
 							case 0x04:
 								patPos+=2; //TODO: skip 2 effects bytes
@@ -561,12 +558,12 @@ void ProcessMusic(void){
 								patPos+=2; //TODO: skip 2 effects bytes
 								break;
 							case 0x06:
-								track->noteVol=(data2<<2);
+								track->noteVol=(data2<<3);
 								patPos+=2; //TODO: skip 2 effects bytes
 								break;
 							case 0x07:
 								track->patchNo=data2;
-								track->noteVol=(pgm_read_byte(patPos++)<<2);
+								track->noteVol=(pgm_read_byte(patPos++)<<3);
 								patPos+=2; //TODO: skip 2 effects bytes
 								break;
 						

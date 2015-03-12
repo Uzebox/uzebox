@@ -48,7 +48,8 @@
 #define SPRITE_STRUCT_SIZE 3
 #define TRANSLUCENT_COLOR 0xfe	
 #define X_SCROLL_WRAP VRAM_TILES_H*TILE_WIDTH
-#define VRAM_ADDR_SIZE 1 //in bytes		
+#define VRAM_ADDR_SIZE 1 //in bytes	
+#define VRAM_PTR_TYPE char	
 #define SPRITES_ENABLED 1
 #define SCREEN_SECTION_STRUCT_SIZE 15
 

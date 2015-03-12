@@ -35,6 +35,7 @@
 .global SetTile
 .global SetFont
 .global backgroundColor
+.global foregroundColor
 
 .section .bss
 	vram: 	  		.space VRAM_SIZE	;allocate space for the video memory (VRAM)
@@ -42,6 +43,7 @@
 	tile_table_hi:	.byte 1
 	font_tile_index:.byte 1
 	backgroundColor:.space VRAM_TILES_V
+	foregroundColor:.byte 1
 
 .section .text
 
@@ -50,18 +52,19 @@
 sub_video_mode9:
 
 	;waste line to align with next hsync in render function
-	WAIT r19,1344
+	WAIT r19,1342
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
-
+	
 	ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw (28*8)
 	mov r10,r16
 	clr r22
 
 	ldi XL,lo8(backgroundColor)
 	ldi XH,hi8(backgroundColor)
-	ld r2,X+	;load background color for current text line
+	ld  r2,X+	;load background color for current text line
+	lds r3,foregroundColor //only for 80 col mode
 
 next_text_line:	
 	rcall hsync_pulse 
@@ -150,10 +153,7 @@ render_tile_line:
 	lds r25,tile_table_hi
    	lsr r25				;divide by 2 because we point to a program adress
 	ror r24
-	//ldi r24,lo8(pm(codetiles_table))
-	//ldi r25,hi8(pm(codetiles_table))
-	//nop
-	//nop
+
 	mul r22,r23			;compute Y offset in current tile row
 	add r24,r0			;add to title table base adress	
 	adc r25,r1
@@ -164,250 +164,22 @@ render_tile_line:
 	adc r1,r25
 
 	movw ZL,r0	 		;copy to Z, the register used by ijmp
+#if SCREEN_TILES_H==80
+	clr r4				;black pixel for end of line 
+#endif
 
     ldi r20,SCREEN_TILES_H ;tiles to render
 	ijmp      ;jump to first codetile
 
-
-
 render_tile_line_end:   
-	;set black pixel
-   	clr r16
-   	out VIDEO_PORT,r16
+#if SCREEN_TILES_H==60
+   	clr r4
+#endif
+   	out VIDEO_PORT,r4
 
 	pop YH
 	pop YL
 	ret
-
-
-  ;21 bytes/row*2*8=432 bytes per code tile
-
-codetiles_table:   
-
-;line 1
-   ldi r16,1		;load pixel #1
-   out VIDEO_PORT,r16
-   ld r17,Y+      	;next tile in vram
-   
-   ldi r16,2		;load pixel #2
-   out VIDEO_PORT,r16
-   mul r17,r21		;multiply by tile size in words
-   
-   ldi r16,3		;load pixel #3
-   out VIDEO_PORT,r16
-   add r0,r24      	;add codetiles table addr+y offset
-   adc r1,r25
-     
-   ldi r16,4		;load pixel #4
-   out VIDEO_PORT,r16   
-   movw ZL,r18      ;load return adress
-   dec r20			;decrement tiles to draw on line
-   
-   ldi r16,5		;load pixel #5
-   out VIDEO_PORT,r16
-   breq .+2
-   movw ZL,r0		;load next codetile adress
-   
-   ldi r16,6		;load pixel #6
-   out VIDEO_PORT,r16
-   ijmp
-
-;line 2
-line2:
-   ldi r16,1		;load pixel #1
-   out VIDEO_PORT,r16
-   ld r17,Y+      	;next tile in vram
-   
-   ldi r16,2		;load pixel #2
-   out VIDEO_PORT,r16
-   mul r17,r21		;multiply by tile size in words
-   
-   ldi r16,3		;load pixel #3
-   out VIDEO_PORT,r16
-   add r0,r24      	;add codetiles table addr+y offset
-   adc r1,r25
-     
-   ldi r16,4		;load pixel #4
-   out VIDEO_PORT,r16   
-   movw ZL,r18      ;load return adress
-   dec r20			;decrement tiles to draw on line
-   
-   ldi r16,5		;load pixel #5
-   out VIDEO_PORT,r16
-   breq .+4
-   movw ZL,r0		;load next codetile adress
-   
-   ldi r16,6		;load pixel #6
-   out VIDEO_PORT,r16
-   ijmp
-
-;line 3
-   ldi r16,1		;load pixel #1
-   out VIDEO_PORT,r16
-   ld r17,Y+      	;next tile in vram
-   
-   ldi r16,2		;load pixel #2
-   out VIDEO_PORT,r16
-   mul r17,r21		;multiply by tile size in words
-   
-   ldi r16,3		;load pixel #3
-   out VIDEO_PORT,r16
-   add r0,r24      	;add codetiles table addr+y offset
-   adc r1,r25
-     
-   ldi r16,4		;load pixel #4
-   out VIDEO_PORT,r16   
-   movw ZL,r18      ;load return adress
-   dec r20			;decrement tiles to draw on line
-   
-   ldi r16,5		;load pixel #5
-   out VIDEO_PORT,r16
-   breq .+4
-   movw ZL,r0		;load next codetile adress
-   
-   ldi r16,6		;load pixel #6
-   out VIDEO_PORT,r16
-   ijmp
-
-;line 4
-   ldi r16,1		;load pixel #1
-   out VIDEO_PORT,r16
-   ld r17,Y+      	;next tile in vram
-   
-   ldi r16,2		;load pixel #2
-   out VIDEO_PORT,r16
-   mul r17,r21		;multiply by tile size in words
-   
-   ldi r16,3		;load pixel #3
-   out VIDEO_PORT,r16
-   add r0,r24      	;add codetiles table addr+y offset
-   adc r1,r25
-     
-   ldi r16,4		;load pixel #4
-   out VIDEO_PORT,r16   
-   movw ZL,r18      ;load return adress
-   dec r20			;decrement tiles to draw on line
-   
-   ldi r16,5		;load pixel #5
-   out VIDEO_PORT,r16
-   breq .+4
-   movw ZL,r0		;load next codetile adress
-   
-   ldi r16,6		;load pixel #6
-   out VIDEO_PORT,r16
-   ijmp
-
-;line 5
-   ldi r16,1		;load pixel #1
-   out VIDEO_PORT,r16
-   ld r17,Y+      	;next tile in vram
-   
-   ldi r16,2		;load pixel #2
-   out VIDEO_PORT,r16
-   mul r17,r21		;multiply by tile size in words
-   
-   ldi r16,3		;load pixel #3
-   out VIDEO_PORT,r16
-   add r0,r24      	;add codetiles table addr+y offset
-   adc r1,r25
-     
-   ldi r16,4		;load pixel #4
-   out VIDEO_PORT,r16   
-   movw ZL,r18      ;load return adress
-   dec r20			;decrement tiles to draw on line
-   
-   ldi r16,5		;load pixel #5
-   out VIDEO_PORT,r16
-   breq .+4
-   movw ZL,r0		;load next codetile adress
-   
-   ldi r16,6		;load pixel #6
-   out VIDEO_PORT,r16
-   ijmp
-
-;line 6
-   ldi r16,1		;load pixel #1
-   out VIDEO_PORT,r16
-   ld r17,Y+      	;next tile in vram
-   
-   ldi r16,2		;load pixel #2
-   out VIDEO_PORT,r16
-   mul r17,r21		;multiply by tile size in words
-   
-   ldi r16,3		;load pixel #3
-   out VIDEO_PORT,r16
-   add r0,r24      	;add codetiles table addr+y offset
-   adc r1,r25
-     
-   ldi r16,4		;load pixel #4
-   out VIDEO_PORT,r16   
-   movw ZL,r18      ;load return adress
-   dec r20			;decrement tiles to draw on line
-   
-   ldi r16,5		;load pixel #5
-   out VIDEO_PORT,r16
-   breq .+4
-   movw ZL,r0		;load next codetile adress
-   
-   ldi r16,6		;load pixel #6
-   out VIDEO_PORT,r16
-   ijmp
-
-;line 7
-   ldi r16,1		;load pixel #1
-   out VIDEO_PORT,r16
-   ld r17,Y+      	;next tile in vram
-   
-   ldi r16,2		;load pixel #2
-   out VIDEO_PORT,r16
-   mul r17,r21		;multiply by tile size in words
-   
-   ldi r16,3		;load pixel #3
-   out VIDEO_PORT,r16
-   add r0,r24      	;add codetiles table addr+y offset
-   adc r1,r25
-     
-   ldi r16,4		;load pixel #4
-   out VIDEO_PORT,r16   
-   movw ZL,r18      ;load return adress
-   dec r20			;decrement tiles to draw on line
-   
-   ldi r16,5		;load pixel #5
-   out VIDEO_PORT,r16
-   breq .+4
-   movw ZL,r0		;load next codetile adress
-   
-   ldi r16,6		;load pixel #6
-   out VIDEO_PORT,r16
-   ijmp
-
-;line 8
-   ldi r16,1		;load pixel #1
-   out VIDEO_PORT,r16
-   ld r17,Y+      	;next tile in vram
-   
-   ldi r16,2		;load pixel #2
-   out VIDEO_PORT,r16
-   mul r17,r21		;multiply by tile size in words
-   
-   ldi r16,3		;load pixel #3
-   out VIDEO_PORT,r16
-   add r0,r24      	;add codetiles table addr+y offset
-   adc r1,r25
-     
-   ldi r16,4		;load pixel #4
-   out VIDEO_PORT,r16   
-   movw ZL,r18      ;load return adress
-   dec r20			;decrement tiles to draw on line
-   
-   ldi r16,5		;load pixel #5
-   out VIDEO_PORT,r16
-   breq .+4
-   movw ZL,r0		;load next codetile adress
-   
-   ldi r16,6		;load pixel #6
-   out VIDEO_PORT,r16
-   ijmp
 
 
 ;***********************************

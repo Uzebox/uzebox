@@ -26,8 +26,8 @@ public class XmConvert {
 		String basePath="C:/work/uzebox/trunk/demos/MusicDemo_Tempest2000/data/";
 		
 		XmConvert conv=new XmConvert();
-		conv.setInputFile(new File(basePath+"mindseye_3.xm"));
-		conv.setOutputFile(new File(basePath+"mindseye.inc"));
+		conv.setInputFile(new File(basePath+"tempest_intro_uze.xm"));
+		conv.setOutputFile(new File(basePath+"intro.inc"));
 		conv.convertSong();
 		
 	}
@@ -71,7 +71,7 @@ public class XmConvert {
 		XmModule mod2=mod.resizePatterns(64,16);
 		
 		UzeboxModule uze=new UzeboxModule(mod2);
-		uze.export(outputFile,"mindseye");
+		uze.export(outputFile,"intro");
 		
 		
 	}

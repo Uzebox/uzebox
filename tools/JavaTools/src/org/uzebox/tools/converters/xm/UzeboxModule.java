@@ -134,7 +134,7 @@ public class UzeboxModule {
 		}
 		
 		//output patterns
-		for(int i=0;i<patterns.size();i++){
+		for(int i=0;i<patterns.size();i++){			
 			out.addByteArray(this.packPattern(i));
 		}
 		
@@ -196,6 +196,7 @@ public class UzeboxModule {
 			boolean b2Set=false,b3Set=false,b4Set=false,b5Set=false;
 			
 			if(row.isNoteSet()){
+				
 				b1=(byte)((row.getNote()&0x7f)-1);
 			}
 			if(row.isInstrumentSet()||row.isVolumeSet()||row.isEffectTypeSet()){
@@ -214,6 +215,7 @@ public class UzeboxModule {
 									
 					if(row.isVolumeSet()){
 						b3=(byte)((row.getVolume()>>1)&0x1f);
+												
 						b3Set=true;
 						if(row.isEffectTypeSet()){
 							b4|=(byte)((row.getEffectType())&0x1f);
