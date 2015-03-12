@@ -69,12 +69,12 @@ sub_video_mode9:
 next_text_line:	
 	rcall hsync_pulse 
 
-	WAIT r19,HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES 
+	WAIT r19,HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
 	;***draw line***
 	call render_tile_line
 
-	WAIT r19,48 
+	WAIT r19,48 + ((RESOLUTION-SCREEN_TILES_H)*TILE_WIDTH*CYCLES_PER_PIXEL) - CENTER_ADJUSTMENT
 
 	dec r10
 	breq text_frame_end
@@ -164,7 +164,7 @@ render_tile_line:
 	adc r1,r25
 
 	movw ZL,r0	 		;copy to Z, the register used by ijmp
-#if SCREEN_TILES_H==80
+#if RESOLUTION==80
 	clr r4				;black pixel for end of line 
 #endif
 
@@ -172,7 +172,7 @@ render_tile_line:
 	ijmp      ;jump to first codetile
 
 render_tile_line_end:   
-#if SCREEN_TILES_H==60
+#if RESOLUTION==60
    	clr r4
 #endif
    	out VIDEO_PORT,r4

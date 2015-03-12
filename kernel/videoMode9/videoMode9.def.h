@@ -37,13 +37,17 @@
 
 #define TILE_WIDTH 6
 
-#ifndef SCREEN_TILES_H
-	#define SCREEN_TILES_H 60	
+#ifndef RESOLUTION
+	#define RESOLUTION 60
 #else
-	#if SCREEN_TILES_H != 60 && SCREEN_TILES_H != 80
-		#error Invalid value for compile switch SCREEN_TILES_H: Valid values are 60 or 80.
+	#if RESOLUTION != 60 && RESOLUTION != 80
+		#error Invalid value for compile switch RESOLUTION: Valid values are 60 or 80.
 	#endif
 #endif
+
+#ifndef SCREEN_TILES_H
+	#define SCREEN_TILES_H 60	
+#endif 
 
 #define VRAM_TILES_H SCREEN_TILES_H
 
@@ -68,10 +72,12 @@
 #define VRAM_ADDR_SIZE 1 //in bytes
 #define VRAM_PTR_TYPE char
 
-#if SCREEN_TILES_H==60
+#if RESOLUTION==60
 	#define FONT_TILE_WIDTH 21 //in words
+	#define CYCLES_PER_PIXEL 4
 #else
 	#define FONT_TILE_WIDTH 15 //in words
+	#define CYCLES_PER_PIXEL 3
 #endif
 #define FONT_TILE_SIZE FONT_TILE_WIDTH*TILE_HEIGHT //Size in words: n instructions * 8 rows
 

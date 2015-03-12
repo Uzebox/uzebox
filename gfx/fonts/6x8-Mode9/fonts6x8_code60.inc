@@ -5,7 +5,7 @@
  * Tile height: 8px
  * Output format: code60
  */
-  #if !(VIDEO_MODE==9 && SCREEN_TILES_H==60) 
+  #if !(VIDEO_MODE==9 && RESOLUTION==60) 
 
 #error The included code-tiles data is only compatible with video mode 9 with 60 columns.
 

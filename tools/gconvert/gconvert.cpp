@@ -349,7 +349,7 @@ bool process(){
 	}else if(xform.outputType!=NULL && (strcmp(xform.outputType,"code")==0 || strcmp(xform.outputType,"code60")==0)){
 
 		/*export "code tiles"*/
-		fprintf(tf,"#if !(VIDEO_MODE==9 && SCREEN_TILES_H==60) \r\n#error The included code-tiles data is only compatible with video mode 9 with 60 columns.\r\n#endif\r\n");
+		fprintf(tf,"#if !(VIDEO_MODE==9 && RESOLUTION==60) \r\n#error The included code-tiles data is only compatible with video mode 9 with 60 columns.\r\n#endif\r\n");
 	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (4))) ={\n",xform.tilesVarName);
 
@@ -439,7 +439,7 @@ bool process(){
 	}else if(xform.outputType!=NULL && strcmp(xform.outputType,"code80")==0){
 
 		/*export "code tiles"*/
-		fprintf(tf,"#if !(VIDEO_MODE==9 && SCREEN_TILES_H==80) \r\n#error The included code-tiles data is only compatible with video mode 9 with 80 columns.\r\n#endif\r\n");
+		fprintf(tf,"#if !(VIDEO_MODE==9 && RESOLUTION==80) \r\n#error The included code-tiles data is only compatible with video mode 9 with 80 columns.\r\n#endif\r\n");
 	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (2))) ={\n",xform.tilesVarName);
 
