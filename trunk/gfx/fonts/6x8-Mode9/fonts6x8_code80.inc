@@ -5,7 +5,7 @@
  * Tile height: 8px
  * Output format: code80
  */
-#if !(VIDEO_MODE==9 && SCREEN_TILES_H==80) 
+#if !(VIDEO_MODE==9 && RESOLUTION==80) 
 #error The included code-tiles data is only compatible with video mode 9 with 80 columns.
 #endif
 #define FONT_SIZE 93
