@@ -21,8 +21,10 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
+#include <avr/interrupt.h>
 
-#include "data/font-8x8-full.inc"
+//#include "data/font-8x8-full.inc"
+#include "data/fonts6x8_code80.inc"
 
 #include "data/scancodes.inc"
 
@@ -49,6 +51,12 @@ extern u8 _x,_y;
 u8 cnt=0;
 bool readKeys=true;
 
+int freeRam() {
+  extern int __heap_start, *__brkval; 
+  int v; 
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
+}
+
 void VsyncHandler(){
 
 	if(readKeys){
@@ -59,8 +67,8 @@ void VsyncHandler(){
 			decode(key);
 		}
 	}
-
 }
+
 
 int main(){
 
@@ -73,10 +81,16 @@ int main(){
 	//Clear the screen (fills the vram with tile zero)
 	ClearVram();
 
-	debug_str_p(PSTR("   ***Keyboard Demo***\r\n\r\n"));
+	debug_str_p(PSTR("GW-BASIC 3.23\r\n"));
+	debug_str_p(PSTR("(C) Copyright Microsoft 1983,1984,1985,1986,1987,19883\r\n"));
+	debug_int(freeRam());
+	debug_str_p(PSTR(" Bytes free\r\n"));
+	debug_str_p(PSTR("Ok\r\n\r\n"));
 
 	u8 curDelay=0,curState=0;
 	while(1){
+
+
 		WaitVsync(1);
 		//animate cusrsor
 		curDelay++;
@@ -261,7 +275,7 @@ void decode(unsigned char sc)
 				mode = 0;
 				break;
 			case 0x06 :// F2
-//				clr();
+				debug_clear();
 				break;
 		}
 	}
@@ -287,7 +301,7 @@ void debug_char2(unsigned char c){
 		}		
 		PrintChar(_x,_y,' ');
 
-	}else if(c<32 || c>'z'){
+	}else if(c<32 || c>=0x7f){
 		PrintChar(_x,_y,'<');
 		PrintHexByte(_x+1,_y,c);
 		PrintChar(_x+3,_y,'>');
