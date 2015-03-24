@@ -57,6 +57,8 @@ DEMOS += Whack-a-Mole
 ######################################
 RM := rm -rf
 CP := cp
+MKDIR := mkdir
+RMDIR := rmdir
 
 ######################################
 # Directories
@@ -104,10 +106,12 @@ tools: $(ALL_TARGETS_TOOLS)
 
 .PHONY: $(ALL_TARGETS_TOOLS)
 $(ALL_TARGETS_TOOLS):
+	$(shell [ -d $(BIN_DIR) ] || $(MKDIR) $(BIN_DIR))
 	$(MAKE) -C $@ $(CLEAN) $(DEST_FLAG)
 
 .PHONY: $(ALL_TARGETS_DEMOS)
 $(ALL_TARGETS_DEMOS): $(ALL_TARGETS_TOOLS_DEP)
+	$(shell [ -d $(ROMS_DIR) ] || $(MKDIR) $(ROMS_DIR))
 	@echo ===================================
 	@echo Building demo: $@
 	@echo ===================================
@@ -118,12 +122,11 @@ ifeq ($(CLEAN),)
 		$(CP) $@/$(patsubst $(DEMOS_DIR)/%/default,%,$@).uze $(ROMS_DIR)) || echo
 endif
 
-clean: $(ALL_TARGETS)
-
-
-cleanall:
+clean:	$(ALL_TARGETS)
 	$(RM) $(BIN_DIR)/*
 	$(RM) $(ROMS_DIR)/*
+	$(RMDIR) $(BIN_DIR)
+	$(RMDIR) $(ROMS_DIR)
 
 .PHONY: help
 help:
@@ -135,7 +138,7 @@ help:
 	@echo --------------------------
 	@echo \'make\' or \'make all\' - Build all tools and demos
 	@echo \'make tools\' - Build only the tools and copy them to \'bin\' directory
-	@echo \'make demos\' - Build only the demos and copy the iHex files to \'bin\' directory
+	@echo \'make demos\' - Build only the demos and copy the iHex and UZE files to \'roms\' directory
 	@echo \'make clean\' - clean all the generated files
 	@echo \'make help\' - This help :-\)
 	@echo Flags:
