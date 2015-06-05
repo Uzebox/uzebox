@@ -41,7 +41,13 @@ More info at uzebox.org
 #include "avr8.h"
 #include "gdbserver.h"
 #include "SDEmulator.h"
+#include "Keyboard.h"
 #include "logo.h"
+
+#include <iostream>
+#include <queue>
+using namespace std;
+
 
 #define FPS 30
 
@@ -398,8 +404,8 @@ void avr8::write_io(u8 addr,u8 value)
                 if (frameCounter & 1) {
                     currentFrame++;
 
-                    if (visualize)
-                      draw_memorymap();
+                    //if (visualize)
+                    //  draw_memorymap();
 
                     /* Tell GUI thread to update screen */
                     SDL_LockMutex(mtxVSync);
@@ -472,6 +478,8 @@ void avr8::write_io(u8 addr,u8 value)
 		u8 changed = value ^ io[addr];
 		u8 went_low = changed & io[addr];
 		// u8 went_hi = changed & value;
+
+
 		if (went_low == (1<<2))		// LATCH
 		{
 			for (int i=0; i<2; i++)
@@ -488,20 +496,81 @@ void avr8::write_io(u8 addr,u8 value)
 		}
 		else if (went_low == (1<<3))	// CLOCK
 		{
-			if (new_input_mode)
-				PINA = u8((latched_buttons[0] & 1) | ((latched_buttons[1] & 1) << 1));
+			if (new_input_mode)	PINA = u8((latched_buttons[0] & 1) | ((latched_buttons[1] & 1) << 1));
 			latched_buttons[0] >>= 1;
 			latched_buttons[1] >>= 1;
+
 			if ((latched_buttons[1] < 0xFFFFF) && !new_input_mode)
 			{
-				//printf("New input routines detected, switching emulation method.\n");
+				printf("New input routines detected, switching emulation method.\n");
 				new_input_mode = true;
 			}
 		}
-		if (!new_input_mode)
-			PINA = u8((latched_buttons[0] & 1) | ((latched_buttons[1] & 1) << 1));
+		if (!new_input_mode) PINA = u8((latched_buttons[0] & 1) | ((latched_buttons[1] & 1) << 1));
 
-		// printf("(writing %x to PORTA pc = %x) setting PINA to %x\n",value,pc-1,PINA);
+
+		//Uzebox keyboard (always on P2 port)
+		switch(uzeKbState){
+			case KB_STOP:
+				//check uzekeyboard start condition: clock=low & latch=high simultaneously
+				if((value&0x0c)==0x04){
+					uzeKbState=KB_TX_START;
+					if(!uzeKbEnabled) SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,SDL_DEFAULT_REPEAT_INTERVAL);
+					uzeKbEnabled=true;	//enable keyboard capture for Uzebox Keyboard
+				}
+				break;
+
+			case KB_TX_START:
+				//check start condition pulse completed: clock=high & latch=low (normal state)
+				if((value&0x0c)==0x08){
+					uzeKbState=KB_TX_READY;
+					uzeKbClock=8;
+				}
+				break;
+
+			case KB_TX_READY:
+				if (went_low == (1<<3))	// CLOCK
+				{
+					if(uzeKbClock==8){
+						uzeKbDataOut=0;
+						//returns only keys (no commands response yet)
+						if(uzeKbScanCodeQueue.empty()){
+							uzeKbDataIn=0;
+						}else{
+							uzeKbDataIn=uzeKbScanCodeQueue.front();
+							uzeKbScanCodeQueue.pop();
+						}
+					}
+
+
+					//shift data out to keyboard
+					//latch pin is used as "Data Out"
+					uzeKbDataOut<<=1;
+					if(value&0x04){ //latch pin=1?
+						uzeKbDataOut|=1;
+					}
+
+					//shift data in from keyboard
+					if(uzeKbDataIn&0x80){
+						PINA|=(0x02); //set P2 data bit
+					}else{
+						PINA&=~(0x02); //clear P2 data bit
+					}
+					uzeKbDataIn<<=1;
+
+					uzeKbClock--;
+					if(uzeKbClock==0){
+						if(uzeKbDataOut==KB_SEND_END){
+							uzeKbState=KB_STOP;
+						}else{
+							uzeKbClock=8;
+						}
+					}
+				}
+				break;
+		}
+
+
 		io[addr] = value;
 	}
 	else if (addr == ports::OCR2A)
@@ -720,7 +789,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 	sprintf(insnBuf,"?$%04x",insn);
 #endif
 
-	progmemviz[lastpc] |= VIZ_WRITE;
+	//progmemviz[lastpc] |= VIZ_WRITE;
 
 	// The "DIS" macro must be first, or at least before any side effects on machine state occur.  
 	// This is because depending on the configuration, we can build one of three ways; no 
@@ -1762,8 +1831,34 @@ bool avr8::init_gui()
 	return true;
 }
 
+
+void avr8::uzekb_handle_key(SDL_Event &ev){
+
+//	if(ev.key.keysym.sym==SDLK_ESCAPE){
+//		printf("user abort (pressed ESC).\n");
+//        shutdown(0);
+//        /* no break */
+//	}else{
+
+		if(ev.type==SDL_KEYUP)uzeKbScanCodeQueue.push(0xf0);
+
+		u16 i;
+		for(i = 0; uzeKbScancodes[i][1]!=ev.key.keysym.sym && uzeKbScancodes[i][1]; i++);
+		if (uzeKbScancodes[i][1] == ev.key.keysym.sym) {
+			uzeKbScanCodeQueue.push(uzeKbScancodes[i][0]);
+		}
+
+//	}
+}
+
 void avr8::handle_key_down(SDL_Event &ev)
 {
+	if(uzeKbEnabled){
+		uzekb_handle_key(ev);
+		return;
+	}
+
+
 	if (jmap.jstate == JMAP_IDLE)
 		update_buttons(ev.key.keysym.sym,true);
 	static int ssnum = 0;
@@ -1870,6 +1965,11 @@ void avr8::audio_callback(Uint8 *stream,int len)
 
 void avr8::handle_key_up(SDL_Event &ev)
 {
+	if(uzeKbEnabled){
+		uzekb_handle_key(ev);
+		return;
+	}
+
 	update_buttons(ev.key.keysym.sym,false);
 	if (ev.key.keysym.sym == SDLK_p)
 		PIND |= 8;
@@ -2005,7 +2105,7 @@ void avr8::set_jmap_state(int state)
 			break;
 		case JMAP_DONE:
 			jmap.jstate = JMAP_IDLE;
-			joystickFile = (char*)joySettingsFilename;	// Save on exit
+			joystickFile = joySettingsFilename;	// Save on exit
 			printf("\nJoystick mappings complete.\n");
 			fflush(stdout);
 			state = JMAP_IDLE;
@@ -2896,7 +2996,7 @@ void avr8::SDSeekToOffset(u32 pos){
     }
 }
 
-void avr8::LoadEEPROMFile(char* filename){
+void avr8::LoadEEPROMFile(const char* filename){
     eepromFile = filename;
     memset(eeprom,0xff,eepromSize);
     FILE* f = fopen(filename,"rb");

@@ -29,6 +29,9 @@ THE SOFTWARE.
 
 #include <vector>
 #include <stdint.h>
+//#include <iostream>
+#include <queue>
+//using namespace std;
 
 #include "gdbserver.h"
 #include "SDEmulator.h"
@@ -59,6 +62,18 @@ THE SOFTWARE.
 #pragma comment(lib, "SDL.lib")
 #pragma comment(lib, "SDLmain.lib")
 #endif
+
+//Uzebox keyboard defines
+#define KB_STOP		0
+#define KB_TX_START 1
+#define KB_TX_READY 2
+
+#define KB_SEND_KEY 0x00
+#define KB_SEND_END 0x01
+#define KB_SEND_DEVICE_ID 0x02
+#define KB_SEND_FIRMWARE_REV 0x03
+#define KB_RESET 0x7f
+
 
 // Joysticks
 #define MAX_JOYSTICKS 2
@@ -283,7 +298,8 @@ struct avr8
     #if defined(__WIN32__)
         hDisk(INVALID_HANDLE_VALUE),
     #endif
-        sdImage(0),emulatedMBR(0)        
+
+        sdImage(0),emulatedMBR(0)
 	{
 		memset(r, 0, sizeof(r));
 		memset(io, 0, sizeof(io));
@@ -296,7 +312,10 @@ struct avr8
 		PIND = 8;
 		SPL = (SRAMBASE+sramSize-1) & 0x00ff;
 		SPH = (SRAMBASE+sramSize-1) >> 8;
-        	spiTransfer = 0;
+        spiTransfer = 0;
+
+        uzeKbState=0;
+        uzeKbEnabled=false;
 #if GUI
 		pad_mode = SNES_PAD;
 		currentFrame = 0;
@@ -364,6 +383,14 @@ struct avr8
 	ringBuffer audioRing;
 #endif
     
+	//Uzebox Keyboard variables
+	u8 uzeKbState;
+	u8 uzeKbDataOut;
+	bool uzeKbEnabled;
+	queue <u8> uzeKbScanCodeQueue;
+	u8 uzeKbDataIn;
+	u8 uzeKbClock;
+
     // SPI Emulation
     u8 spiByte;
     u8 spiTransfer;
@@ -405,8 +432,8 @@ struct avr8
     u32 emulatedReadPos;
     size_t emulatedMBRLength;
     u32 sectorSize;
-    char* eepromFile;
-	char* joystickFile;
+    const char* eepromFile;
+	const char* joystickFile;
     u8 eeprom[eepromSize];
     u8 eeClock;
 
@@ -539,9 +566,11 @@ struct avr8
     u8 SDReadByte();    
     void SDWriteByte(u8 value);    
     void SDCommit();
-    void LoadEEPROMFile(char* filename);
+    void LoadEEPROMFile(const char* filename);
     void shutdown(int errcode);
     void idle(void);
+
+    void uzekb_handle_key(SDL_Event &ev);
 };
 #endif
 

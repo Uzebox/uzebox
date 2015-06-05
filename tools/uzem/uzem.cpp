@@ -27,8 +27,9 @@ THE SOFTWARE.
 #include "uzerom.h"
 #include <getopt.h>
 #include <limits.h>
+#include <string.h>
 
-//TODO: support for .uze files
+
 
 static const struct option longopts[] ={
     { "help"       , no_argument      , NULL, 'h' },
@@ -83,6 +84,18 @@ void showHelp(char* programName){
     printerr("\t--gdbserver -d      Debug mode. Start the built-in gdb support.\n");
     printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
     printerr("\t--visualize -v      Visualize SRAM and Progmem access\n");
+}
+
+int ends_with(const char* name, const char* extension, size_t length)
+{
+ const char* ldot = strrchr(name, '.');
+ if (ldot != NULL)
+ {
+   if (length == 0)
+	 length = strlen(extension);
+   return strncmp(ldot + 1, extension, length) == 0;
+ }
+ return 0;
 }
 
 // header for use with UzeRom files
@@ -207,22 +220,32 @@ int main(int argc,char **argv)
         
      // write hex image
     if(heximage){
-        unsigned char* buffer = (unsigned char*)(uzebox.progmem);
-        if(isUzeromFile(heximage)){
-            printf("-- Loading UzeROM Image --\n");
-            if(!loadUzeImage(heximage,&uzeRomHeader,buffer)){
-                printerr("Error: cannot load UzeRom file '%s'.\n\n",heximage);
-                showHelp(argv[0]);
-                return 1;
+
+    	unsigned char* buffer = (unsigned char*)(uzebox.progmem);
+
+    	strlwr(heximage);
+    	if(ends_with(heximage,"uze", 3)){
+
+
+        	if(isUzeromFile(heximage)){
+                printf("-- Loading UzeROM Image --\n");
+                if(!loadUzeImage(heximage,&uzeRomHeader,buffer)){
+                    printerr("Error: cannot load UzeRom file '%s'.\n\n",heximage);
+                    showHelp(argv[0]);
+                    return 1;
+                }
+                // enable mouse support if required
+                if(uzeRomHeader.mouse){
+                    uzebox.pad_mode = avr8::SNES_MOUSE;
+                    printf("Mouse support enabled\n");
+                }
+            }else{
+    			printerr("Error: Cannot load UZE ROM file '%s'. Bad format header?\n\n",heximage);
+    			showHelp(argv[0]);
+    			return 1;
             }
-            // enable mouse support if required
-            if(uzeRomHeader.mouse){
-                uzebox.pad_mode = avr8::SNES_MOUSE;
-                printf("Mouse support enabled\n");
-            }
-        }
-       // else if(!load_hex(heximage,(unsigned char*)(uzebox.progmem))){
-        else{
+
+    	}else{
             printf("Loading Hex Image...\n");
             if(!loadHex(heximage,buffer)){
                 printerr("Error: cannot load HEX image '%s'.\n\n",heximage);
@@ -230,6 +253,8 @@ int main(int argc,char **argv)
                 return 1;
             }
         }
+
+
 
         //if user did not specify a path for the sd card, use the rom's path
         if(uzebox.SDpath == NULL){

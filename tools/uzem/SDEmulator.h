@@ -24,6 +24,8 @@ THE SOFTWARE.
 #ifndef _SDEMULATOR_H_
 #define _SDEMULATOR_H_
 
+#include <string.h>
+
 union SDEmu_date {
 	uint16_t raw;
 	struct {

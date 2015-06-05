@@ -4,7 +4,7 @@ PLEASE SEE THE FORUM FOR MORE DETAILS:  http://uzebox.org/forums/
 
 (The MIT License)
 
-Copyright (c) 2008-2013, David Etherton, Eric Anderton, Alec Bourque
+Copyright (c) 2008-2015, David Etherton, Eric Anderton, Alec Bourque
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,6 @@ THE SOFTWARE.
 // force application for GUI mode
 #define GUI 1 
 
-#define VERSION "v1.19.1"
+#define VERSION "v1.20"
 
 #endif
