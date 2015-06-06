@@ -1,6 +1,6 @@
 /*
  *  Uzebox(tm) Gameloader
- *  Copyright (C) Alec Bourque
+ *  Copyright (C) 2008-2015 Alec Bourque
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,6 +28,9 @@ The Atmega644 needs to have some fuses set in order to support teh bootloader. F
 
 Revisions
 ---------
+V0.4.5 06-jun-2015
+ -Changed the rule that detects if a game is already programmed. Now reflash if location (0) is 0xff.
+
 V0.4.4 27-feb-2013 
  -Uze: Fixed controller reading code to be equivalent with the kernel's C version. (Asciipad controller did not work)
  -Harty: Added wait states to support more SD cards
@@ -42,13 +45,34 @@ V0.4.4 27-feb-2013
 #include <avr/wdt.h>
 
 /*
- * Game loader version string as display in the menu
+ * External Functions declares
  */
-const char strDemo[] PROGMEM = ">> Uzebox GameLoader 0.4.4 <<";
+extern void WriteEeprom(unsigned int addr,unsigned char value);
+extern unsigned char ReadEeprom(unsigned int addr);
+extern void WaitVSync(unsigned char count);
+extern void SetFont(char x,char y, unsigned char tileId,unsigned char bgColor);
+extern void ClearVram(void);
+extern void Print(unsigned int adress ,const char *string, unsigned char bgColor);
+extern void DrawBar(unsigned int adress,unsigned char len,unsigned char color);
+extern uint8_t mmc_readsector(uint32_t lba);
+extern uint8_t mmc_init(uint8_t *buffer);
+
+extern volatile unsigned int joypad_status;
+extern volatile unsigned char vsync_flag;
+extern volatile unsigned char wave_vol;
+extern volatile unsigned char first_render_line_tmp;
+extern volatile unsigned char screen_tiles_v_tmp;
+extern unsigned int vram[];  
 
 
 /*
- * Joystick constants & functions
+ * Game loader version string as display in the menu
+ */
+const char strDemo[] PROGMEM = ">> Uzebox GameLoader 0.4.5 <<";
+
+
+/*
+ * constants
  */
 
 #define MAX_GAMES 128
@@ -66,6 +90,10 @@ const char strDemo[] PROGMEM = ">> Uzebox GameLoader 0.4.4 <<";
 #define BTN_Y      2
 #define BTN_B      1
 
+#define TEST_SIZE 0
+#define FONT_TYPE 0
+#define X 3
+#define Y 5
 
 //SD Card defines
 #define BYTES_PER_SECTOR 512 	//fixed for regular SD
@@ -158,6 +186,9 @@ struct EepromBlockStruct{
 };
 
 
+/*
+ * FAT structures and variables
+ */
 typedef struct{
 	unsigned char filename[8]; //zero padded
 	unsigned char extension[3];//
@@ -245,24 +276,6 @@ union SectorData {
 	RomHeader header;
 } sector;
 
-//typedef struct{
-//	unsigned char filename[13]; //filename+'.'+ext+0
-//	unsigned long firstSector;
-//	unsigned long fileSize;	
-//} File;
-
-
-
-/*
- * Functions
- */
-void LoadRootDirectory(unsigned char *buffer);
-long GetFileSector(DirectoryTableEntry *file);
-//unsigned char LoadFiles(unsigned char *buffer,File *destFiles);
-extern void WriteEeprom(unsigned int addr,unsigned char value);
-extern unsigned char ReadEeprom(unsigned int addr);
-
-
 
 
 /** Helper structure.
@@ -314,33 +327,6 @@ union u32convert
 } conv32;
 
 
-extern uint8_t mmc_readsector(uint32_t lba);
-extern uint8_t mmc_init(uint8_t *buffer);
-
-
-bool init();
-void flashGame(unsigned char fileNo);
-
-
-extern void WaitVSync(unsigned char count);
-extern void SetFont(char x,char y, unsigned char tileId,unsigned char bgColor);
-
-extern void ClearVram(void);
-extern void Print(unsigned int adress ,char *string, unsigned char bgColor);
-extern void DrawBar(unsigned int adress,unsigned char len,unsigned char color);
-
-extern volatile unsigned int joypad_status;
-extern volatile unsigned char vsync_flag;
-extern volatile unsigned char wave_vol;
-extern volatile unsigned char first_render_line_tmp;
-extern volatile unsigned char screen_tiles_v_tmp;
-extern unsigned int vram[];  
-
-
-#define TEST_SIZE 0
-#define FONT_TYPE 0
-
-
 long dirTableSector;
 long sectorsPerCluster;
 long maxRootDirectoryEntries;
@@ -349,6 +335,15 @@ int reservedSectors;
 int sectorsPerFat;
 unsigned char maxRootDirectorySectors;
 unsigned char eeBootloaderFlags;
+unsigned long filesFirstSector[128];
+
+/*
+ * Local functions declares
+ */
+void LoadRootDirectory(unsigned char *buffer);
+long GetFileSector(DirectoryTableEntry *file);
+bool init();
+void flashGame(unsigned char fileNo);
 
 /*
  * Initializes the watchdog timer used for software resets
@@ -417,7 +412,7 @@ bool init(){
 }
 
 
-unsigned long filesFirstSector[128];
+
 
 
 
@@ -467,8 +462,6 @@ void topMenu(unsigned char page,unsigned char total){
 }
 
 
-#define X 3
-#define Y 5
 
 int main(){
 
@@ -637,8 +630,8 @@ void flashGame(unsigned char fileNo){
 	conv32.bytes.byte3=ReadEeprom(EEP_FIELD_CRC32+2);
 	conv32.bytes.byte4=ReadEeprom(EEP_FIELD_CRC32+3);
 
-	//Flash only if it's a different game or if there's no game already 
-	if(conv32.value!=sector.header.crc32 || pgm_read_byte(0)!=0x0c){
+	//Flash only if it's a different game or if there's no game already (flash erased)
+	if(conv32.value!=sector.header.crc32 || pgm_read_byte(0)==0xff){
 	
 		//set resolution to 2 tiles
 		WaitVSync(1);

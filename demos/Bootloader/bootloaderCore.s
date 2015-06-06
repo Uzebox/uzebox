@@ -260,12 +260,13 @@ next_tile_line:
 	brne .-4
 
 	;***Render scanline***
-	call render_tile_line
+	rcall render_tile_line
 
 	ldi r19,27-7+1+1
 	dec r19			
 	brne .-4
 	rjmp .
+
 
 	dec r23
 	breq text_frame_end
@@ -410,7 +411,7 @@ do_hsync:
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
 
 	//call update_sound_buffer ;36 -> 63
-	call wait63cycles
+	rcall wait63cycles
 
 	ldi ZL,32-9
 	dec ZL
@@ -437,7 +438,7 @@ do_hsync:
 
 
 	sei ;must enable ints for hsync pulses
-	call read_joypads
+	rcall read_joypads
 
 not_start_of_frame:
 
@@ -634,7 +635,7 @@ hsync_pulse:
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;2
 	
 	//call update_sound_buffer ;36 -> 63
-	call wait63cycles
+	rcall wait63cycles
 	
 	ldi ZL,30-9
 	dec ZL 
@@ -663,7 +664,7 @@ do_pre_eq:
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
 
 	//call update_sound_buffer_2 ;36 -> 63
-	call wait63cycles
+	rcall wait63cycles
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
 	;nop
@@ -706,7 +707,7 @@ do_eq:
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
 
 	//call update_sound_buffer_2 ;36 -> 63
-	call wait63cycles
+	rcall wait63cycles
 
 	ldi ZL,176
 do_eq_delay:
@@ -735,7 +736,7 @@ do_post_eq:
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ; HDRIVE sync pulse low
 
 	//call update_sound_buffer_2 ;36 -> 63
-	call wait63cycles
+	rcall wait63cycles
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
 

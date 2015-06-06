@@ -56,11 +56,8 @@ bootloaderCore.o: ../bootloaderCore.s
 bootloader.o: ../bootloader.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-mmc.o: $(KERNEL_DIR)/mmc.s
+mmc.o: ../mmc.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
-
-##fat.o: ../fat.s
-##	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
 ##Link
 $(TARGET): $(OBJECTS)
