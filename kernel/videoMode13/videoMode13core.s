@@ -50,6 +50,7 @@
 .global BlitSprite
 .global SetFont
 .global GetTile
+.global palette
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -99,6 +100,11 @@
 	#endif
 
 .section .bss
+	.align 8
+	;Palette lookup table must be aligned to 256 byte boundary as lower
+	;byte is used as lookup entry
+	palette:				.space PALETTE_SIZE
+
 	.align 1
 	sprites:				.space SPRITE_STRUCT_SIZE*MAX_SPRITES
 	ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH

@@ -44,6 +44,8 @@ Demo for paletted video mode 13
 #include "data/mario_sprites.map.inc"
 #include "data/mario_sprites.pic.inc"
 
+#include "data/graphics.inc.h"
+
 //#include "data/nsmb.inc"
 #include "data/smw2.inc"
 #include "data/patches.inc"
@@ -54,6 +56,8 @@ int main(){
 	SetSpritesTileTable(mario_sprites_tileset);
 	SetFontTilesIndex(SMB_TILESET_SIZE);
 	SetTileTable(smb_tileset);
+	
+	SetPalette(graphicsPalette, GRAPHICSPALETTE_SIZE);
 
 #if SCROLLING == 1
     Screen.scrollHeight = 23;	

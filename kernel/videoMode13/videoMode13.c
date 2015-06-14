@@ -435,3 +435,31 @@
 		ProcessSprites();
 
 	}
+
+	void SetPalette(u8* data, u8 numColors)
+	{
+		int i;
+		int x;
+		
+		for(i = 0; i < numColors; i++)
+		{
+			u8 color = pgm_read_byte(&data[i]);
+			
+			for(x = 0; x < numColors; x++)
+			{
+				palette[(i << 1) | (x << 5)] = color;
+				palette[(x << 1) | (i << 5)] = color;
+			}
+		}
+	}
+	
+	void SetPaletteColor(u8 index, u8 color)
+	{
+		int i;
+		
+		for(i = 0; i < MAX_PALETTE_COLORS; i++)
+		{
+			palette[(i << 1) | (index << 5)] = color;
+			palette[(index << 1) | (i << 5)] = color;
+		}
+	}

@@ -118,3 +118,6 @@
 #define OFF_SCREEN SCREEN_TILES_H*TILE_WIDTH
 
 #define HSYNC_USABLE_CYCLES 225 //Maximum free cycles usable by the hysnc and audio
+
+#define PALETTE_SIZE 256
+#define MAX_PALETTE_COLORS 8

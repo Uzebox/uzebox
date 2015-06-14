@@ -9,6 +9,7 @@ MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
 INFO=../gameinfo.properties
+UZEBIN_DIR=../../../bin/
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
@@ -58,7 +59,10 @@ INCLUDES = -I"$(KERNEL_DIR)"
 ## Build
 all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
-## Rebuild graphics ressource
+## Rebuild graphics resource
+../data/graphics.inc.h: ../data/marioworld_map.png ../data/graphics.xml
+	$(UZEBIN_DIR)gconvert ../data/graphics.xml
+
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
