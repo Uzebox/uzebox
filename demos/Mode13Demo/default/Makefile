@@ -77,7 +77,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../SuperMarioDemo.c
+$(GAME).o: ../Mode13Demo.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

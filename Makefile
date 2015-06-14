@@ -36,6 +36,7 @@ DEMOS += Maze
 DEMOS += Megatris
 DEMOS += Mode5Demo
 DEMOS += Mode9Demo
+DEMOS += Mode13Demo
 DEMOS += MusicDemo 	
 DEMOS += SDCardDemo
 DEMOS += SpriteDemo	
