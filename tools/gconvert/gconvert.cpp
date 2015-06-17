@@ -38,7 +38,10 @@ bool process();
 unsigned char* loadRawImage();
 unsigned char* loadPngImage();
 unsigned char* loadImage();
+void loadPalette();
 const char* toUpperCase(const char *src);
+int paletteIndexFromColor(unsigned char color);
+
 //void exportType8bpp(unsigned char* buffer, vector<unsigned char*> uniqueTiles, FILE *tf);
 
 struct TileMap {
@@ -47,6 +50,14 @@ struct TileMap {
 	int top;
 	int width;
 	int height;
+};
+
+struct Palette {
+	unsigned char colors[256];
+	int numColors;
+	int maxColors;
+	const char* filename;
+	const char* varName;
 };
 
 struct ConvertionDefinition {
@@ -67,6 +78,8 @@ struct ConvertionDefinition {
 	int mapsPointersSize;
 	TileMap* maps;
 	int mapsCount;
+	
+	Palette palette;
 };
 
 ConvertionDefinition xform;
@@ -112,6 +125,14 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+int paletteIndexFromColor(unsigned char color){
+	
+	for(int index = 0; index < xform.palette.numColors; index++){
+		if(xform.palette.colors[index] == color)
+			return index;	
+	}
+	return -1;
+}
 
 bool process(){
 
@@ -144,7 +165,14 @@ bool process(){
     	printf("Error: Image height must be an integer multiple of the tile height.\n");
     	return false;
     }
-
+	
+	if(xform.palette.filename != NULL){
+		loadPalette();
+		if(xform.palette.numColors == 0) {
+			printf("Error: no palette colors loaded\n");
+			return false;
+		}
+	}
 
 	printf("File version: %i\n",xform.version);
 	printf("Input file: %s\n",xform.inputFile);
@@ -159,6 +187,12 @@ bool process(){
 	if(xform.maps!=NULL){
 		printf("Maps pointers size: %i\n",xform.mapsPointersSize);
 		printf("Map elements: %i\n",xform.mapsCount);
+	}
+	if(xform.palette.filename != NULL){
+		printf("Input palette: %s\n", xform.palette.filename);
+		printf("Palette variable name: %s\n", xform.palette.varName);
+		printf("Palette max colors: %d\n", xform.palette.maxColors);
+		printf("Palette unique colors: %d\n", xform.palette.numColors);
 	}
 
 	int horizontalTiles=xform.width/xform.tileWidth;
@@ -316,6 +350,55 @@ bool process(){
 		fprintf(tf,"};\n");
 		totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight);
 
+	}else if(strcmp(xform.outputType,"3bpp")==0){
+		if(xform.palette.numColors == 0) {
+			printf("Error using 3bpp but no palette specified!\n");
+		}
+		else{
+			bool invalidColor=false;
+			/*Export tileset in 3 bits per pixel format*/
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+		    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
+	
+			int c=0,t=0;
+			unsigned char b;
+			vector<unsigned char*>::iterator it;
+			for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+	
+				unsigned char* tile=*it;
+	
+				for(int y=0;y<xform.tileHeight;y++){
+					b=0;
+					//pack 2 pixels in one byte
+					for(int x=0;x<xform.tileWidth;x+=2){
+						int first = paletteIndexFromColor(tile[y*xform.tileWidth+x]);
+						int second = paletteIndexFromColor(tile[y*xform.tileWidth+x+1]);
+						
+						if(first == -1){
+							invalidColor=true;
+							first=0;
+						}
+						if(second == -1){
+							invalidColor=true;
+							second=0;
+						}
+						
+						b |= (first & 0x7) << 1;
+						b |= (second & 0x7) << 5;
+						fprintf(tf," 0x%x,",b);
+					}
+					c++;
+				}
+				fprintf(tf,"\t\t //tile:%i\n",t);
+				t++;
+			}
+			fprintf(tf,"};\n\n");
+			totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight/2);
+			
+			if(invalidColor){
+				printf("Warning: colors in input image not included in palette");
+			}
+		}
 	}else if(strcmp(xform.outputType,"1bpp")==0){
 
 		/*Export tileset in 1 bits per pixel format*/
@@ -544,6 +627,20 @@ bool process(){
 		fprintf(tf,"};\n");
 		totalSize+=(uniqueTiles.size()*xform.tileHeight*21*2);
 	}
+	
+	if(xform.palette.varName){
+		int b,c;
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.palette.varName),xform.palette.numColors);
+	    fprintf(tf,"const unsigned char %s[] PROGMEM={\n",xform.palette.varName);
+		for(c=0;c < xform.palette.numColors;c++){
+			if(c>0)fprintf(tf,",");
+			b=xform.palette.colors[c];
+			fprintf(tf," 0x%x",b);
+		}
+		fprintf(tf,"\n};\n");
+		totalSize+=xform.palette.numColors;
+	}
+	
 	fclose(tf);
 	free(buffer);
 	printf("File exported successfully!\nUnique tiles found: %i\nTotal size (tiles + maps): %i bytes\n",uniqueTiles.size(),totalSize);
@@ -567,7 +664,6 @@ void parseXml(TiXmlDocument* doc){
 	input->QueryIntAttribute("tile-height",&xform.tileHeight);
 	xform.inputType=input->Attribute("type");
 
-
 	//output
 	TiXmlElement* output=root->FirstChildElement("output");
 	xform.outputFile=output->Attribute("file");
@@ -576,6 +672,14 @@ void parseXml(TiXmlDocument* doc){
     xform.outputType=output->Attribute("type");
 	if(output->QueryIntAttribute("background-color",&xform.backgroundColor)==TIXML_NO_ATTRIBUTE){
 		xform.backgroundColor=-1;
+	}
+
+	//palette
+	TiXmlElement* paletteElem=output->FirstChildElement("palette");
+	if(paletteElem!=NULL){
+		xform.palette.filename=paletteElem->Attribute("file");
+		paletteElem->QueryIntAttribute("maxColors",&xform.palette.maxColors);
+		xform.palette.varName=paletteElem->Attribute("var-name");
 	}
 
 	//maps
@@ -637,6 +741,59 @@ unsigned char* loadRawImage(){
 	return buffer;
 }
 
+void loadPalette(){
+
+	  unsigned char* buffer;
+	  unsigned char* image;
+	  size_t buffersize, imagesize;
+	  LodePNG_Decoder decoder;
+
+	  LodePNG_loadFile(&buffer, &buffersize, xform.palette.filename); /*load the image file with given filename*/
+	  LodePNG_Decoder_init(&decoder);
+	  decoder.settings.color_convert=0; //dont't convert to RGBA
+	  LodePNG_decode(&decoder, &image, &imagesize, buffer, buffersize); /*decode the png*/
+
+	  if(decoder.error){
+		  if(decoder.error==48){
+			  printf("Error in decoding palette PNG: the input data is empty. Maybe a PNG file you tried to load doesn't exist or is in the wrong path.\n");
+		  }else{
+			  printf("Error in decoding palette PNG: %d\n", decoder.error);
+		  }
+		  /*cleanup decoder*/
+		  free(buffer);
+		  free(image);
+		  LodePNG_Decoder_cleanup(&decoder);
+		  return;
+	  }
+
+	  if( LodePNG_InfoColor_getBpp(&decoder.infoPng.color)!=8){
+		  printf("Error: Invalid palette PNG image type. Must be PNG-8 with a 256 colors palette.\n");
+		  /*cleanup decoder*/
+		  free(buffer);
+		  free(image);
+		  LodePNG_Decoder_cleanup(&decoder);
+		  return;
+	  }
+
+	  for(unsigned int n = 0; n < imagesize; n++){
+		  int paletteIndex = paletteIndexFromColor(image[n]);
+		  if(paletteIndex == -1){
+			  if(xform.palette.numColors == xform.palette.maxColors){
+				  printf("Warning: palette file exceeded %d colors", xform.palette.maxColors);
+			  }
+			  else {
+			  	xform.palette.colors[xform.palette.numColors] = image[n];
+			  	xform.palette.numColors++;
+			  }
+		  }	  
+	  }
+
+	  /*cleanup decoder*/
+	  free(buffer);
+	  LodePNG_Decoder_cleanup(&decoder);
+
+	  free(image);
+}
 
 unsigned char* loadPngImage(){
 
