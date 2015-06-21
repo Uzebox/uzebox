@@ -36,7 +36,8 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=$(GAME).map 
 LDFLAGS += -Wl,-gc-sections 
-LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
+LDFLAGS += -Wl,--section-start,.noinit=0x800100 
+LDFLAGS += -Wl,--section-start,.data=0x800a00 
 
 
 ## Intel Hex file production flags
@@ -60,8 +61,7 @@ INCLUDES = -I"$(KERNEL_DIR)"
 all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ## Rebuild graphics resource
-../data/graphics.inc.h: ../data/marioworld_map.png ../data/graphics.xml
-	$(UZEBIN_DIR)gconvert ../data/graphics.xml
+
 
 
 ## Compile Kernel files

@@ -1,6 +1,6 @@
 /*
  *  Uzebox Kernel - Mode 13
- *  Copyright (C) 2009  Alec Bourque
+ *  Copyright (C) 2015  Alec Bourque
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,37 +77,32 @@
 
 
 
-#if SCROLLING == 1
+//#if SCROLLING == 1
 	.section .noinit
-#else
-	.section .bss
-#endif 
+//#else
+//	.section .bss
+//#endif 
 
-	.align 5
-	;VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
-	;To align vram to a 32/256 byte boundary without wasting ram, 
-	;add the following to your makefile's linker section and adjust 
-	;the .data section start to make room for the vram size (including the overlay ram).
-	;By default the vram is 32x32 so 1k is required.
+	;Ramtiles must be located at 0x100 and be a multiple of 256
+	;vram must be aligne to 256 bytes
+	;palette must be aligned to 256 bytes
 	;
-	;LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
+	;LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x80xxxx
 	;
-	vram: 	  				.space VRAM_SIZE 
+	ramtiles:				.space 0x800
+	palette:				.space 256
+	vram: 	  				.space 0x100;VRAM_SIZE 
 	
 	overlay_vram:
 	#if SCROLLING == 0 && OVERLAY_LINES >0
-							.space VRAM_TILES_H*OVERLAY_LINES
+							.space 0 ;VRAM_TILES_H*OVERLAY_LINES
 	#endif
 
 .section .bss
-	.align 8
-	;Palette lookup table must be aligned to 256 byte boundary as lower
-	;byte is used as lookup entry
-	palette:				.space PALETTE_SIZE
 
 	.align 1
 	sprites:				.space SPRITE_STRUCT_SIZE*MAX_SPRITES
-	ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
+	ram_tiles:				.space 1 ;RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
 	ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
 
 	sprites_tile_banks: 	.space 8
@@ -157,6 +152,10 @@
 
 		ldi YL,lo8(vram)
 		ldi YH,hi8(vram)
+
+
+		;test
+		ldi YL,lo8(ramtiles)
 
 		lds r18,free_tile_index
 
