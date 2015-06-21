@@ -86,8 +86,6 @@
 .global joypad2_status_lo
 .global joypad1_status_hi
 .global joypad2_status_hi
-.global first_render_line_tmp
-.global render_lines_count_tmp
 .global first_render_line
 .global render_lines_count
 
@@ -110,8 +108,6 @@
 	first_render_line:		.byte 1
 	render_lines_count: 	.byte 1
 
-	first_render_line_tmp:	.byte 1
-	render_lines_count_tmp: .byte 1
 	
 	;last read results of joypads
 	joypad1_status_lo:	.byte 1
@@ -162,7 +158,7 @@ latency_loop:
 	brlo latency_loop
 	jmp .
 	
-	;increment sync pulse counter
+	;decrement sync pulse counter
 	lds ZL,sync_pulse
 	dec ZL
 	sts sync_pulse,ZL
@@ -417,12 +413,7 @@ no_render:
 	ldi ZL,SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES
 	sts sync_pulse,ZL
 
-	;fetch render height registers if they changed	
-	lds ZH,first_render_line_tmp
-	sts first_render_line,ZH
-	
-	lds ZH,render_lines_count_tmp
-	sts render_lines_count,ZH
+
 
 	;increment the vsync counter
 	lds r24,vsync_counter
@@ -824,8 +815,8 @@ internal_spi_byte:
 	;********************************
 
 	.global GetRandomSeed
-	.section .text.GetRandomSeed
-	GetRandomSeed:
+	.section .text.GetTrueRandomSeed
+	GetTrueRandomSeed:
 		lds r24,random_value
 		lds r25,random_value+1
 		ret

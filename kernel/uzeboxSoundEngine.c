@@ -78,13 +78,15 @@ u8 step;
 
 /*
  * Command 00: Set envelope speed per frame +127/-128, 0=no enveloppe
+ * Param:
  */
 void PatchCommand00(struct TrackStruct* track,unsigned char trackNo, char param){
 	track->envelopeStep=param;
 }
 /*
-* Command 01: Set noise channel params
-*/
+ * Command 01: Set noise channel params 
+ * Param:
+ */
 void PatchCommand01(struct TrackStruct* track,unsigned char trackNo, char param){
 	#if MIXER_CHAN4_TYPE == 0
 		mixer.channels.type.noise.barrel=0x0101;
@@ -92,50 +94,57 @@ void PatchCommand01(struct TrackStruct* track,unsigned char trackNo, char param)
 	#endif
 }
 /*
-* Command 02: Set wave
-*/
+ * Command 02: Set wave
+ * Param:
+ */
 void PatchCommand02(struct TrackStruct* track,unsigned char trackNo, char param){
 	SetMixerWave(trackNo,param);
 }
 /*
-* Command 03: Note up * param
-*/
+ * Command 03: Note up * param
+ * Param:
+ */
 void PatchCommand03(struct TrackStruct* track,unsigned char trackNo, char param){
 	track->note+=param;
 	SetMixerNote(trackNo,track->note);
 }
 /*
-* Command 04: Note down * param
-*/
+ * Command 04: Note down * param
+ * Param:
+ */
 void PatchCommand04(struct TrackStruct* track,unsigned char trackNo, char param){
 	track->note-=param;
 	SetMixerNote(trackNo,track->note);
 }
 /*
-* Command 05: End of note/fx
-*/
+ * Command 05: End of note/fx
+ * Param:
+ */
 void PatchCommand05(struct TrackStruct* track,unsigned char trackNo, char param){
 	track->flags&=~(TRACK_FLAGS_PLAYING+TRACK_FLAGS_PRIORITY);	//patchPlaying=false,priority=0	
 }
 
 /*
-* Command 06: Note hold
-*/
+ * Command 06: Note hold
+ * Param:
+ */
 void PatchCommand06(struct TrackStruct* track,unsigned char trackNo, char param){
 	track->flags|=TRACK_FLAGS_HOLD_ENV; //patchEnvelopeHold=true;
 }
 
 /*
-* Command 07: Set envelope volume
-*/
+ * Command 07: Set envelope volume
+ * Param:
+ */
 
 void PatchCommand07(struct TrackStruct* track,unsigned char trackNo, char param){
 	track->envelopeVol=param;
 }
 
 /*
-* Command 08: Set Note/Pitch
-*/
+ * Command 08: Set Note/Pitch
+ * Param:
+ */
 
 void PatchCommand08(struct TrackStruct* track,unsigned char trackNo, char param){
 	SetMixerNote(trackNo,param);
@@ -144,7 +153,8 @@ void PatchCommand08(struct TrackStruct* track,unsigned char trackNo, char param)
 }
 
 /*
-* Command 09: Set tremolo level
+ * Command 09: Set tremolo level
+ * Param:
 */
 
 void PatchCommand09(struct TrackStruct* track,unsigned char trackNo, char param){
@@ -152,7 +162,8 @@ void PatchCommand09(struct TrackStruct* track,unsigned char trackNo, char param)
 }
 
 /*
-* Command 10: Set tremolo rate
+ * Command 10: Set tremolo rate
+ * Param:
 */
 void PatchCommand10(struct TrackStruct* track,unsigned char trackNo, char param){
 	track->tremoloRate=param;
@@ -160,7 +171,8 @@ void PatchCommand10(struct TrackStruct* track,unsigned char trackNo, char param)
 
 
 /*
-* Command 11: Pitch slide (linear), param= (+/-) half steps to slide to
+ * Command 11: Pitch slide (linear) 
+ * Param: (+/-) half steps to slide to
 */
 
 void PatchCommand11(struct TrackStruct* track,unsigned char trackNo, char param){
@@ -181,13 +193,61 @@ void PatchCommand11(struct TrackStruct* track,unsigned char trackNo, char param)
 
 
 /*
-* Command 11: Pitch slide speed (fixed 4:4)
-*/
+ * Command 12: Pitch slide speed 
+ * Param: slide speed (fixed 4:4)
+ */
 void PatchCommand12(struct TrackStruct* track,unsigned char trackNo, char param){
 	tracks->slideSpeed=param;
 }
 
-const PatchCommand patchCommands[] PROGMEM ={&PatchCommand00,&PatchCommand01,&PatchCommand02,&PatchCommand03,&PatchCommand04,&PatchCommand05,&PatchCommand06,&PatchCommand07,&PatchCommand08,&PatchCommand09,&PatchCommand10,&PatchCommand11,&PatchCommand12};
+/*
+ *  Command 13: Loop start
+ * Description: Defines the start of a loop. Works in conjunction with command 14 (PC_LOOP_END).
+ *		 Param: loop count
+ */
+void PatchCommand13(struct TrackStruct* track,unsigned char trackNo, char param){
+	track->loopCount=(u8)param;
+}
+
+/*
+ *  Command 14: Loop end
+ * Description: Defines the end of a loop.
+ *		 Param: If zero: scan back to find the command next to PC_LOOP_START. This is done 
+ *				because we do not store the loop begin adress to save ram. To have maximum
+ *				performance, use a non-zero value to explicitely define the number of 
+ *				commands to go backwards, no including the LOOP_END.This must be in terms 
+ *				of commands and not bytes.
+ *	   Example:
+ *				const char patch01[] PROGMEM ={	
+ *					0,PC_WAVE,4,
+ *					0,PC_LOOP_START,50,
+ *					1,PC_NOTE_UP,3,
+ *					1,PC_NOTE_DOWN,3,
+ *					0,PC_LOOP_END,2,
+ *					0,PATCH_END  
+ *				};
+ */
+void PatchCommand14(struct TrackStruct* track,unsigned char trackNo, char param){
+	if(track->loopCount>0){
+		//track->patchCommandStreamPos=track->loopStart;
+		if(param!=0){
+			track->patchCommandStreamPos-=((param+1)*3);
+		}else{
+			u8 command;
+			while(1){
+				track->patchCommandStreamPos-=3;
+				command=pgm_read_byte(track->patchCommandStreamPos-3+1);
+				
+				//if we found the loop point or somehow reached the previous patch, exit
+				if(command==PC_LOOP_START || command==PATCH_END) break;				
+			}
+		}
+		track->loopCount--;
+	}
+}
+
+
+const PatchCommand patchCommands[] PROGMEM ={&PatchCommand00,&PatchCommand01,&PatchCommand02,&PatchCommand03,&PatchCommand04,&PatchCommand05,&PatchCommand06,&PatchCommand07,&PatchCommand08,&PatchCommand09,&PatchCommand10,&PatchCommand11,&PatchCommand12,&PatchCommand13,&PatchCommand14};
 
 const struct PatchStruct *patchPointers;
 
@@ -208,7 +268,6 @@ void InitMusicPlayer(const struct PatchStruct *patchPointersParam){
 	for(unsigned char t=0;t<CHANNELS;t++){		
 		tracks[t].flags=TRACK_FLAGS_ALLOCATED;	//allocated=true,priority=0
 		tracks[t].noteVol=0;
-		tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
 		tracks[t].trackVol=DEFAULT_TRACK_VOL;
 		tracks[t].patchNo=DEFAULT_PATCH;
 		tracks[t].tremoloRate=24; //~6hz
@@ -219,52 +278,22 @@ void InitMusicPlayer(const struct PatchStruct *patchPointersParam){
 
 #if MUSIC_ENGINE == MIDI
 
-void StartSong(const char *song){
-	for(unsigned char t=0;t<CHANNELS;t++){
-		tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
+	void StartSong(const char *song){
+		for(unsigned char t=0;t<CHANNELS;t++){
+			tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
+			tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+		}
+
+		songPos=song+1; //skip first delta-time
+		songStart=song+1;//skip first delta-time
+		loopStart=song+1;
+		nextDeltaTime=0;
+		currDeltaTime=0;
+		songSpeed=0;
+
+		lastStatus=0;
+		playSong=true;
 	}
-
-#if MUSIC_ENGINE == MIDI
-	songPos=song+1; //skip first delta-time
-	songStart=song+1;//skip first delta-time
-	loopStart=song+1;
-	nextDeltaTime=0;
-	currDeltaTime=0;
-	songSpeed=0;
-#else
-
-	u8 headerSize;
-	u8 patternsCount;
-	u8 restartPosition;
-
-	//MOD setup
-	headerSize=pgm_read_byte(song+0);
-	modChannels=pgm_read_byte(song+1);
-	patternsCount=pgm_read_byte(song+2);
-	step=pgm_read_byte(song+3);
-	songSpeed=pgm_read_byte(song+4);
-	songLength=pgm_read_byte(song+5);
-	restartPosition=pgm_read_byte(song+6);
-
-	songPos=song+headerSize; //poinst to orders
-	songStart=song+headerSize; //poinst to orders
-	loopStart=song+headerSize+(restartPosition*modChannels);
-
-	patternOffsets=song+headerSize+(songLength*modChannels);
-	patterns=song+headerSize+(songLength*modChannels)+(patternsCount*2);
-
-	currentTick=0;
-	currentStep=0;
-
-
-
-
-#endif
-
-	lastStatus=0;
-	playSong=true;
-
-}
 
 #else
 
@@ -795,10 +824,15 @@ void ProcessMusic(void){
 
 				uVol=(track->noteVol*trackVol)+0x100;
 				uVol>>=8;
+				
 				uVol=(uVol*track->envelopeVol)+0x100;
 				uVol>>=8;
-				uVol=(uVol*track->expressionVol)+0x100;
-				uVol>>=8;
+				
+				#if MUSIC_ENGINE == MIDI
+					uVol=(uVol*track->expressionVol)+0x100;
+					uVol>>=8;
+				#endif
+				
 				uVol=(uVol*masterVolume)+0x100;
 				uVol>>=8;
 
@@ -866,9 +900,13 @@ void TriggerCommon(u8 channel,u8 patch,u8 volume,u8 note){
 	track->flags|=TRACK_FLAGS_PLAYING;
 	track->flags&=(~(TRACK_FLAGS_HOLD_ENV|TRACK_FLAGS_SLIDING));
 	track->tremoloLevel=0;
-	track->expressionVol=DEFAULT_EXPRESSION_VOL;
+	track->tremoloPos=0;
 	track->note=note;
+	track->loopCount=0;
 
+#if MUSIC_ENGINE == MIDI
+	track->expressionVol=DEFAULT_EXPRESSION_VOL;
+#endif
 
 	#if SOUND_MIXER == MIXER_TYPE_INLINE
 
