@@ -196,7 +196,11 @@ wait_loop:
 	ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw (28*8)
 	mov r10,r16
 	clr r22
-	
+
+	;clear any pending timer int (to avoid a crashing bug in uzem 1.20 and previous)
+	ldi ZL,(1<<OCF1B)+(1<<OCF1A)+(1<<TOV1)
+	sts _SFR_MEM_ADDR(TIFR1),ZL
+
 	;set timer1 OVF interrupt
 	;this trick allows to exist the main loops 
 	;when the 30 tiles are rendered 
@@ -206,7 +210,7 @@ wait_loop:
 	ldi r16,(0<<WGM12)+(1<<CS10)	;switch to timer1 normal mode (mode 0)
 	sts _SFR_MEM_ADDR(TCCR1B),r16
 
-	WAIT r19,12-8+2
+	WAIT r19,3
 
 ;****************************************
 ; Rendering main loop starts here
