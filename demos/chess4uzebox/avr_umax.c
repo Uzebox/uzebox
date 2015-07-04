@@ -32,7 +32,6 @@
 /* 26nov2008 no hash table                                                 */
 /* 29nov2008 all IO via myputchar(), mygetchar(), pseudo random generator  */
 
-#define W while
 #define M 0x88
 #define S 128
 #define I 8000
@@ -232,7 +231,7 @@ void new_game() {
 	b[0x26] = 1+8;
 	b[0x63] = 2+16;
 	k = 8;
-/*
+
 	#include "elo_test.h"
 	test1();
 */
@@ -269,7 +268,7 @@ unsigned char E,z,n;     /* E=e.p. sqr.z=prev.dest, n=depth; return score */
  k^=24;                                        /* change sides             */
  d=Y=0;                                        /* start iter. from scratch */
  X=myrand()&~M;                                /* start at random field    */
- W(d++<n||d<3||                                /* iterative deepening loop */
+ while(d++<n||d<3||                                /* iterative deepening loop */
    z&K==I&&(N<T&d<98||                         /* root: deepen upto time   */
    (K=X,L=Y&~M,d=3)))                          /* time's up: go do best    */
  {x=B=X;                                       /* start scan at prev. best */
@@ -281,7 +280,7 @@ unsigned char E,z,n;     /* E=e.p. sqr.z=prev.dest, n=depth; return score */
    if(u&k)                                     /*  own piece (inefficient!)*/
    {r=p=u&7;                                   /* p = piece type (set r>0) */
     j=o[p+16];                                 /* first step vector f.piece*/
-    W(r=p>2&r<0?-r:-o[++j])                    /* loop over directions o[] */
+    while(r=p>2&r<0?-r:-o[++j])                    /* loop over directions o[] */
     {A:                                        /* resume normal after best */
      y=x;F=G=S;                                /* (x,y)=move, (F,G)=castl.R*/
      do{                                       /* y traverses ray, or:     */
@@ -324,7 +323,7 @@ unsigned char E,z,n;     /* E=e.p. sqr.z=prev.dest, n=depth; return score */
        do
         s=C>2|v>V?-D(-l,-V,-v,                 /* recursive eval. of reply */
                               F,0,C):v;        /* or fail low if futile    */
-       W(s>q&++C<d);v=s;
+       while(s>q&++C<d);v=s;
        if(z&&K-I&&v+I&&x==K&y==L)              /* move pending & in root:  */
        {Q=-e-i;O=F;                            /*   exit if legal & found  */
         R+=i>>7;--Z;return l;                  /* captured non-P material  */
@@ -345,8 +344,8 @@ unsigned char E,z,n;     /* E=e.p. sqr.z=prev.dest, n=depth; return score */
          ||b[G^1]|b[G^2])                      /* no 2 empty sq. next to R */
         )t+=p<5;                               /* fake capt. for nonsliding*/
       else F=y;                                /* enable e.p.              */
-     }W(!t);                                   /* if not capt. continue ray*/
-  }}}W((x=x+9&~M)-B);                          /* next sqr. of board, wrap */
+     }while(!t);                                   /* if not capt. continue ray*/
+  }}}while((x=x+9&~M)-B);                          /* next sqr. of board, wrap */
 C:if(m>I-M|m<M-I)d=98;                         /* mate holds to any depth  */
   m=m+I|P==I?m:0;                              /* best loses K: (stale)mate*/
   if(z&&d>2)
@@ -371,7 +370,7 @@ void play_game(void)
   if ((break_joypad & BTN_SELECT) || (break_joypad && is_demo)) {
    exit_game = 1;
   }
- }W(!exit_game && (D(-I,I,Q,O,9,ZMAX)>-I+1));        /* think or check & do*/
+ }while(!exit_game && (D(-I,I,Q,O,9,ZMAX)>-I+1));        /* think or check & do*/
  if (exit_game || is_demo) {
 	 while (ReadJoypad(0) || ReadJoypad(1)) {}
 	 stop_thinking();

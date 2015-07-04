@@ -183,7 +183,7 @@ int main() {
 								for (;;) {
 									res = pf_readdir(&dir, &fno);
 									if (res != FR_OK || fno.fname[0] == 0) break;
-									if (fno.fattrib & AM_DIR) {
+									if (fno.fattrib & AM_DIR || strstr(fno.fname,".CH8")==NULL) {
 										//Nothing to do Here!
 									} else {
 										if (lCount - choice2 > 0 && lCount - choice2 <= 8) {
@@ -207,12 +207,17 @@ int main() {
 								UpdateList = true;
 							} else if (ReadJoypad(0) & BTN_A & ((ReadJoypad(0) & BTN_A) ^ (OldJoy & BTN_A))) {
 								res = pf_opendir(&dir, "/");
-								for (int i = 0; i <= choice2; ++i) {
+								//for (int i = 0; i <= choice2; ++i) {
+								for (int i = 0; i <= choice2;) {
 									res = pf_readdir(&dir, &fno);
-									if (fno.fattrib & AM_DIR) {
+									if (fno.fattrib & AM_DIR || strstr(fno.fname,".CH8")==NULL) {
 										//Nothing to do Here!
 									} else {
-										if (i == choice2) {res = pf_open(fno.fname);}
+										if (i == choice2) {
+											res = pf_open(fno.fname);
+											break;
+										}
+										i++;
 									}
 								}
 								res = pf_read(&memory, 3216, &br);

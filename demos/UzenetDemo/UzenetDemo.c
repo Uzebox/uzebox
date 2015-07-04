@@ -177,7 +177,7 @@ int main(){
 	SetTileTable(font6x8);
 
 	InitMusicPlayer(patches);
-	StartSong(Level4Song);
+	//StartSong(Level4Song);
 
 
 	debug_str_p(PSTR("Uzenet Wi-Fi Tester (ESP8266)\r\n"));
@@ -203,11 +203,11 @@ int main(){
 
 	//UBRR0L=185;	//9600 bauds	960 bytes/s		16 bytes/field
 	//UBRR0L=92;	//19200 bauds	1920 bytes/s	32 bytes/field
-	UBRR0L=46;	//38400 bauds	3840 bytes/s	64 bytes/field
-	//UBRR0L=30;		//57600 bauds	5760 bytes/s	96 bytes/field
+	//UBRR0L=46;	//38400 bauds	3840 bytes/s	64 bytes/field
+	UBRR0L=60;		//57600 bauds	5760 bytes/s	96 bytes/field
 
 
-	UCSR0A=(0<<U2X0); // double speed mode
+	UCSR0A=(1<<U2X0); // double speed mode
 	UCSR0C=(1<<UCSZ01)+(1<<UCSZ00)+(0<<USBS0); //8-bit frame, no parity, 1 stop bit
 	UCSR0B=(1<<RXEN0)+(1<<TXEN0); //Enable UART TX & RX
 

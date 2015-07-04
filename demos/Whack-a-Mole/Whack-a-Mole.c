@@ -38,7 +38,7 @@
 #include "data/fonts_8x8_2.pic.inc"
 #include "data/title.map.inc"
 
-
+#define EEPROM_ID 3		//see http://uzebox.org/wiki/index.php?title=EEPROM_Block_ID_Reservation_List
 #define FIELD_TOP 5
 #define BUTTONS_COUNT 1
 #define BUTTON_UNPRESSED 0
@@ -61,9 +61,9 @@ const char strHighScore[] PROGMEM="HI-SCORE:";
 const char strWhacked[] PROGMEM="MOLES WHACKED:";
 const char strTime[] PROGMEM="TIME:";
 
-const char strCopy[] PROGMEM="\\2009 UZE";
+const char strCopy[] PROGMEM="V1.2 \\2009 UZE";
 const char strStart[] PROGMEM="PRESS A BUTTON";
-const char strWeb[] PROGMEM="HTTP://BELOGIC.COM/UZEBOX";
+const char strWeb[] PROGMEM="HTTP://UZEBOX.ORG";
 
 const char strSpeed[] PROGMEM="MOUSE SPD:";
 const char strLo[] PROGMEM= "LOW ";
@@ -100,40 +100,63 @@ struct MoleStruct moles[4][4];
 
 
 struct EepromBlockSaveGameStruct{
-	//some unique block ID
-	unsigned int id;
-		
-	unsigned char top1name[6];
-	unsigned int top1Score;
-	unsigned char top2name[6];	
-	unsigned int top2Score;
-	unsigned char top3name[6];
-	unsigned int top3Score;
-
-	unsigned char data[6];		
+	//unique block ID
+	unsigned int id;	
+	unsigned char highScore;		
+	unsigned char data[29];		
 };
-struct EepromBlockSaveGameStruct saveGameBlock;
+struct EepromBlockSaveGameStruct saveGame;
 
 extern unsigned char playDevice,playPort;
 int mx,my;
 char dx=0,dy=0;
-unsigned char highScore=0,molesWhacked=0,activeMoles=0,level,mouseSpeed=MOUSE_SENSITIVITY_MEDIUM;
+//unsigned char highScore=0,
+u8 molesWhacked=0,activeMoles=0,level,mouseSpeed=MOUSE_SENSITIVITY_MEDIUM;
 unsigned int time=0,lastTime=0,actionButton;
 bool gameOver;
+
+
+void LoadEeprom(){
+
+    //load eeprom scores
+	if(EepromReadBlock(EEPROM_ID,(struct EepromBlockStruct*)&saveGame)!=EEPROM_ERROR_BLOCK_NOT_FOUND) return;
+
+
+
+	//block not found setup eeprom save game block
+    saveGame.id=EEPROM_ID;
+    struct EepromBlockStruct* ptr=(struct EepromBlockStruct*)&saveGame;
+    for(u8 i=0;i<30;i++){
+    	ptr->data[i]=0;
+    }
+    EepromWriteBlock((struct EepromBlockStruct*)&saveGame); //silently ignore errors if eeprom is full
+}
+
+void SaveEeprom(){
+	EepromWriteBlock((struct EepromBlockStruct*)&saveGame);
+}
 
 int main(){
 	unsigned char x,y,tmp;
     SetTileTable(title_tileset);
     ClearVram();
-
 	SetSpritesTileTable(cursor_tileset);
-
-	EnableSnesMouse(0,map_cursor);
-	DetectControllers();
 	InitMusicPlayer(patches);
-	SetMouseSensitivity(mouseSpeed);
 
-	
+
+	//check if we have a mouse. Otherwise, use joypad.
+	//WaitVsync(1);//give time to mouse to settle
+	char res=DetectControllers();
+	if(res&0b00001010){
+		EnableSnesMouse(0,map_cursor);
+		SetMouseSensitivity(mouseSpeed);
+	}else{
+		//these setting are normally set by the kernel
+		//but we force overide because uzem doesn't detect controllers yet
+		actionButton=BTN_A;
+	}
+
+
 	menu();
 
 
@@ -141,11 +164,11 @@ int main(){
 
     SetTileTable(mole_tileset);
 	SetFontTilesIndex(MOLE_TILESET_SIZE);
-
     ClearVram();
 
+
     Print(2,1,strHighScore);
-	PrintByte(13,1,highScore,true);
+	PrintByte(13,1,saveGame.highScore,true);
 
 	PrintSpeed();
 
@@ -159,12 +182,12 @@ int main(){
 	Print(2+10,4,strTime);
 	PrintByte(9+10,4,(time/60),true);
 
-	DrawMap2(2,FIELD_TOP,map_main);
+	DrawMap(2,FIELD_TOP,map_main);
 
 	//create holes
 	for(y=0;y<4;y++){
 		for(x=0;x<4;x++){
-			DrawMap2((x*6)+4,(y*4)+FIELD_TOP+3,map_hole);
+			DrawMap((x*6)+4,(y*4)+FIELD_TOP+3,map_hole);
 			moles[y][x].whacked=false;
 			moles[y][x].animFrame=0;
 			moles[y][x].active=false;
@@ -228,11 +251,12 @@ int main(){
 		
 		}
 
-		DrawMap2(11,FIELD_TOP+7+4,map_gameOver);
+		DrawMap(11,FIELD_TOP+7+4,map_gameOver);
 
-		if(molesWhacked>highScore){
-			highScore=molesWhacked;
-			PrintByte(13,1,highScore,true);
+		if(molesWhacked>saveGame.highScore){
+			saveGame.highScore=molesWhacked;
+			PrintByte(13,1,saveGame.highScore,true);
+			SaveEeprom();
 		}
 	}
 
@@ -255,15 +279,19 @@ void menu(){
 	SetFontTilesIndex(TITLE_TILESET_SIZE);
     ClearVram();
 
-	DrawMap2(4,8,map_title);
+	DrawMap(4,8,map_title);
 	
 	Print(8,12,strStart);
-	Print(10,23,strCopy);
-	Print(3,25,strWeb);
+	Print(8,23,strCopy);
+	Print(6,25,strWeb);
 
+
+	LoadEeprom();
+	
+    Print(2+7,1,strHighScore);
+	PrintByte(13+7,1,saveGame.highScore,true);
 
 	if(playDevice==0)Print(6,17,strNotDetected);
-
 	StartSong(song_Whacksong);
 
 	while(1){
@@ -401,7 +429,7 @@ void processMoles(){
 				}
 
 				if(ptr!=NULL){				
-					DrawMap2((x*6)+4,(y*4)+FIELD_TOP+3,ptr);
+					DrawMap((x*6)+4,(y*4)+FIELD_TOP+3,ptr);
 				}
 
 				moles[y][x].animFrame++;
@@ -437,11 +465,11 @@ void doStart(){
 
 		//check if we have pressed the start button
 		if(buttons[btnId].clicked){
-			DrawMap2(10,FIELD_TOP+3,map_hole);
-			DrawMap2(16,FIELD_TOP+3,map_hole);
+			DrawMap(10,FIELD_TOP+3,map_hole);
+			DrawMap(16,FIELD_TOP+3,map_hole);
 			MapSprite(0,map_hammerUp);
 
-			DrawMap2(12,FIELD_TOP+7+4,map_ready);
+			DrawMap(12,FIELD_TOP+7+4,map_ready);
 
 
 
@@ -451,10 +479,10 @@ void doStart(){
 				processHammer();
 
 				if(frame==40 || frame==110){
-					DrawMap2(10,FIELD_TOP+3+4+4,map_hole);
-					DrawMap2(16,FIELD_TOP+3+4+4,map_hole);
+					DrawMap(10,FIELD_TOP+3+4+4,map_hole);
+					DrawMap(16,FIELD_TOP+3+4+4,map_hole);
 				}else if(frame==50){
-					DrawMap2(12,FIELD_TOP+7+4,map_whack);
+					DrawMap(12,FIELD_TOP+7+4,map_whack);
 				}
 
 				frame++;
@@ -481,7 +509,7 @@ void processMyButtons(){
 	for(i=0;i<nextFreeButtonIndex;i++){
 		if(tx>=buttons[i].x && tx<(buttons[i].x+buttons[i].width) && ty>=buttons[i].y && ty<(buttons[i].y+buttons[i].height)){
 			if(joy&actionButton && buttons[i].state==BUTTON_UNPRESSED){
-				DrawMap2(buttons[i].x,buttons[i].y,buttons[i].pushedMapPtr);
+				DrawMap(buttons[i].x,buttons[i].y,buttons[i].pushedMapPtr);
 				buttons[i].state=BUTTON_PRESSED;
 			}
 			
@@ -489,7 +517,7 @@ void processMyButtons(){
 				//button clicked!
 				buttons[i].state=BUTTON_UNPRESSED;
 				buttons[i].clicked=true;
-				DrawMap2(buttons[i].x,buttons[i].y,buttons[i].normalMapPtr);
+				DrawMap(buttons[i].x,buttons[i].y,buttons[i].normalMapPtr);
 			}			
 		}else{
 		
@@ -497,7 +525,7 @@ void processMyButtons(){
 				//button clicked!
 				buttons[i].state=BUTTON_UNPRESSED;
 				buttons[i].clicked=false;
-				DrawMap2(buttons[i].x,buttons[i].y,buttons[i].normalMapPtr);
+				DrawMap(buttons[i].x,buttons[i].y,buttons[i].normalMapPtr);
 			}
 
 		}
@@ -528,7 +556,7 @@ char createMyButton(unsigned char x,unsigned char y,const char *normalMapPtr,con
 		buttons[nextFreeButtonIndex].width=pgm_read_byte(&(normalMapPtr[0]));
 		buttons[nextFreeButtonIndex].height=pgm_read_byte(&(normalMapPtr[1]));
 		buttons[nextFreeButtonIndex].clicked=false;
-		DrawMap2(x,y,normalMapPtr);
+		DrawMap(x,y,normalMapPtr);
 		id=nextFreeButtonIndex;
 		nextFreeButtonIndex++;
 	}else{
