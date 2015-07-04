@@ -14,7 +14,7 @@ UZEBIN_DIR=../../../bin/
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
 KERNEL_OPTIONS  = -DVIDEO_MODE=13 -DINTRO_LOGO=0 -DSCROLLING=0 -DSOUND_MIXER=1
-KERNEL_OPTIONS += -DMAX_SPRITES=14 -DRAM_TILES_COUNT=32 -DSCREEN_TILES_V=1
+KERNEL_OPTIONS += -DMAX_SPRITES=14 -DRAM_TILES_COUNT=32 -DSCREEN_TILES_V=28 -DVRAM_TILES_H=30
 
 
 ## Options common to compile, link and assembly rules
@@ -22,7 +22,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
+CFLAGS += -Wall -gdwarf-2 -gstrict-dwarf -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
@@ -30,7 +30,7 @@ CFLAGS += $(KERNEL_OPTIONS)
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
-ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
+ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2 -Wa,-gstrict-dwarf
 
 ## Linker flags
 LDFLAGS = $(COMMON)
@@ -62,7 +62,8 @@ INCLUDES = -I"$(KERNEL_DIR)"
 all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ## Rebuild graphics resource
-
+../data/graphics.inc.h: ../data/graphics.png ../data/graphics.xml
+	$(UZEBIN_DIR)gconvert ../data/graphics.xml
 
 
 ## Compile Kernel files

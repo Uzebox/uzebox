@@ -65,16 +65,16 @@ int main(){
 //    Screen.overlayTileTable=smb_tileset;
 //	DrawMap2(0,Screen.scrollHeight,map_hud);
 //#endif
-	/*
+	
 	unsigned char c;
-	for(int y=0;y<22;y++){
-		for(int x=0;x<30;x++){
+	for(int y=0;y<28;y++){
+		for(int x=0;x<VRAM_TILES_H;x++){
 			c=pgm_read_byte(&graphicsMap[(y*GRAPHICSMAP_WIDTH)+x+2]);
 			//SetTile(x,y+1,c+4);
-			vram[(y*30)+x]=0x80+(c+4);
+			vram[(y*VRAM_TILES_H)+x]=0x80+(c+4);
 		}	
 	}
-*/
+
 	u16 i=0;
 	while(1){
 		WaitVsync(2);

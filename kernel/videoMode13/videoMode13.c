@@ -412,7 +412,7 @@
 
 		//fill
 		for(int i=0;i<(30*28);i++){
-			vram[i]=0x80+4;
+			vram[i]=0x80+5;
 		}
 
 	}

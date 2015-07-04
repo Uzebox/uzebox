@@ -197,8 +197,16 @@ wait_loop:
 	mov r10,r16
 	clr r22
 	
+	;set timer1 OVF interrupt
+	;this trick allows to exist the main loops 
+	;when the 30 tiles are rendered 
+	ldi r16,(1<<TOIE1)
+	sts _SFR_MEM_ADDR(TIMSK1),r16
+	
+	ldi r16,(0<<WGM12)+(1<<CS10)	;switch to timer1 normal mode (mode 0)
+	sts _SFR_MEM_ADDR(TCCR1B),r16
 
-	WAIT r19,12
+	WAIT r19,12-8+2
 
 ;****************************************
 ; Rendering main loop starts here
@@ -208,14 +216,13 @@ wait_loop:
 ;Y      = vram or overlay_ram if overlay_height>0
 ;
 next_tile_line:	
-	rcall hsync_pulse
-
-	WAIT r19,250 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT + FILL_DELAY
+	rcall hsync_pulse ;64171,65991
+	WAIT r19,242 + FILL_DELAY - AUDIO_OUT_HSYNC_CYCLES
 
 	;***draw line***
 	call render_tile_line
 
-	WAIT r19,37 + FILL_DELAY - CENTER_ADJUSTMENT	
+	WAIT r19,35 + FILL_DELAY
 
 	dec r10
 	breq frame_end
@@ -272,12 +279,12 @@ frame_end:
 	;clear any pending timer int
 	ldi ZL,(1<<OCF1B)+(1<<OCF1A)+(1<<TOV1)
 	sts _SFR_MEM_ADDR(TIFR1),ZL
-	
+
+	ldi r16,(1<<WGM12)+(1<<CS10)	;switch back to timer1 CTC mode (mode 4)
+	sts _SFR_MEM_ADDR(TCCR1B),r16
 
 	ldi r16,(1<<OCIE1A)				;restore ints on compare match
 	sts _SFR_MEM_ADDR(TIMSK1),r16
-
-//	wdr;
 
 	ret
 
@@ -291,85 +298,19 @@ frame_end:
 ; Y       = VRAM adress to draw from (must not be modified)
 ;*************************************************
 render_tile_line:
-/*
-	ldi r18,30
-
-	ldi r16,7
-	ldi r17,0xff
-loop:	
-	out VIDEO,r16
-	rjmp .
-	rjmp .
-	nop
-
-	out VIDEO,r16
-	rjmp .
-	rjmp .
-	nop
-
-	out VIDEO,r16
-	rjmp .
-	rjmp .
-	nop
-
-	out VIDEO,r16
-	rjmp .
-	rjmp .
-	nop
-
-	out VIDEO,r16
-	rjmp .
-	rjmp .
-	nop
-
-	out VIDEO,r16
-	rjmp .
-	rjmp .
-	nop
-
-	out VIDEO,r16
-	rjmp .
-	rjmp .
-	nop
-
-	out VIDEO,r16
-	eor r16,r17
-	nop
-	dec r18
-
-	brne loop
-
-	clr r16
-	out VIDEO,r16
-
-	WAIT r19,39
-
-	ret ;65928 TCNT1=0x0027
-*/
 
 	push YL
 	push YH
-
-	break;
-
-	;set timer1 OVF interrupt
-	;this trick allows to exist the main loops 
-	;when the 30 tiles are rendered 
-	ldi r16,(1<<TOIE1)
-	sts _SFR_MEM_ADDR(TIMSK1),r16
 	
-	ldi r16,(0<<WGM12)+(1<<CS10)	;switch to timer1 normal mode (mode 0)
-	sts _SFR_MEM_ADDR(TCCR1B),r16
-	
-	ldi r16,lo8(0xffff-(6*8*30)+9)
-	ldi r17,hi8(0xffff-(6*8*30)+9)
+	ldi r16,lo8(0xffff-(6*8*VRAM_TILES_H)+9-30)
+	ldi r17,hi8(0xffff-(6*8*VRAM_TILES_H)+9-30)
 	sts _SFR_MEM_ADDR(TCNT1H),r17
 	sts _SFR_MEM_ADDR(TCNT1L),r16
 	sei
 
 	mov r24,r22	;Y offset in tiles*tile width in bytes (4)
 	lsl r24
-	lsr r24
+	lsl r24
 	
 	ldi XH,hi8(palette)
 	nop
@@ -423,9 +364,9 @@ romloop:
 
 	out VIDEO,r16   ;output pixel 6
 	add ZL,r24		;add Y tile offset. Cannot overflow in ZH because tile table is aligned to zero.
-	nop
 	lpm XL,Z+       ;load rom pixels 0,1
-   
+  	nop
+	 
 mainloop:
    out VIDEO,r17	;output pixel 7 (ram & rom)
    brts romloop
@@ -473,20 +414,8 @@ TIMER1_OVF_vect:
    out VIDEO,r2
 
 
-	WAIT r19,14-6-3
-	
-	;clear any pending timer int
-	ldi ZL,(1<<OCF1B)+(1<<OCF1A)+(1<<TOV1)
-	sts _SFR_MEM_ADDR(TIFR1),ZL	
-	
-//	ldi r16,(1<<OCIE1A)				;restore ints on compare match
-//	sts _SFR_MEM_ADDR(TIMSK1),r16
-	nop
-	nop
-	//nop
+//	WAIT r19,20
 
-	ldi r16,(1<<WGM12)+(1<<CS10)	;switch back to timer1 CTC mode (mode 4)
-	sts _SFR_MEM_ADDR(TCCR1B),r16
 
 	pop r0	;pop OVF interrupt return address
 	pop r0	;pop OVF interrupt return address
@@ -497,8 +426,6 @@ TIMER1_OVF_vect:
 	ldi r16,lo8(0x0027)
 	sts _SFR_MEM_ADDR(TCNT1H),r2
 	sts _SFR_MEM_ADDR(TCNT1L),r16
-	
-	wdr
 
 	ret	;TCNT1 must be equal to 0x0027, Simulator 2 Cycle counter=65928
 
