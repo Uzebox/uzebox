@@ -26,6 +26,9 @@
 	#include "uzebox.h"
 	#include "intro.h"
 	
+	#if EXTENDED_PALETTE
+		#include "videomode13/paletteTable.h"
+	#endif
 
 	#if INTRO_LOGO !=0
 		#include "videoMode13/uzeboxlogo_8x8.pic.inc"
@@ -427,9 +430,27 @@
 
 	void SetPalette(const u8* data, u8 numColors)
 	{
+		#if EXTENDED_PALETTE
+		int i;
+		for(i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
+		{
+			u8 index = pgm_read_byte(&PaletteEncodingTable[i]);
+			
+			if(index < numColors)
+			{
+				u8 color = pgm_read_byte(&data[index]);
+				palette[i] = color;
+			}
+			else
+			{
+				palette[i] = 0;
+			}
+		}
+
+		#else
 		int i;
 		int x;
-		
+
 		for(i = 0; i < numColors; i++)
 		{
 			u8 color = pgm_read_byte(&data[i]);
@@ -440,15 +461,26 @@
 				palette[((x << 1) | (i << 5)) + 1] = color;
 			}
 		}
+		#endif
 	}
 	
 	void SetPaletteColor(u8 index, u8 color)
 	{
 		int i;
 		
+		#if EXTENDED_PALETTE
+		for(i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
+		{
+			if(index == pgm_read_byte(&PaletteEncodingTable[i]))
+			{
+				palette[i] = color;
+			}
+		}
+		#else
 		for(i = 0; i < MAX_PALETTE_COLORS; i++)
 		{
 			palette[(index << 1) | (i << 5)] = color;
 			palette[((i << 1) | (index << 5)) + 1] = color;
 		}
+		#endif
 	}
