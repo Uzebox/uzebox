@@ -2311,6 +2311,14 @@ void avr8::load_joystick_file(const char* filename)
 
 void avr8::update_hardware(int cycles)
 {
+
+	u16 _TCCR1A=TCCR1A;
+	u16 _TCCR1B=TCCR1B;
+	u16 _TCCR1C=TCCR1C;
+	u16 _TIMSK1=TIMSK1;
+	u16 _TIFR1=TIFR1;
+	u16 _TCNT1 = TCNT1L | (TCNT1H<<8);
+
 	cycleCounter += cycles;
 
 	if (TCCR1B & 7)	//if timer 1 is started
@@ -2320,6 +2328,12 @@ void avr8::update_hardware(int cycles)
 		u16 OCR1B = OCR1BL | (OCR1BH<<8);
 
 		if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
+
+			if (TCNT1 > (0xFFFF - cycles)){
+				if (TIMSK1 & TOIE1){
+					 TIFR1|=TOV1; //overflow interrupt
+				}
+			}
 
 			if (TCNT1 < OCR1B && (TCNT1 + cycles) >= OCR1B){
 				if (TIMSK1 & OCIE1B){
@@ -2443,17 +2457,17 @@ void avr8::update_hardware(int cycles)
 	//process interrupts in order of priority
     if(SREG & (1<<SREG_I)){
 
-		if (TIFR1 & OCF1A){
+		if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
 
 			TIFR1&= ~OCF1A; //clear CTC match flag
 			trigger_interrupt(TIMER1_COMPA);
 
-		}else if (TIFR1 & OCF1B){
+		}else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B)){
 
 			TIFR1&= ~OCF1B; //clear CTC match flag
 			trigger_interrupt(TIMER1_COMPB);
 
-		}else if (TIFR1 & TOV1){
+		}else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1)){
 
 			TIFR1&= ~TOV1; //clear TOV1 flag
 			trigger_interrupt(TIMER1_OVF);

@@ -1,5 +1,5 @@
 ###############################################################################
-# Makefile for the project SpriteDemo
+# Makefile for the project
 ###############################################################################
 
 ## General Flags
@@ -96,7 +96,7 @@ $(TARGET): $(OBJECTS)
 	avr-objdump -h -S $< > $@
 
 %.uze: $(TARGET)
-	-./packrom $(GAME).hex $@ $(INFO)
+	-$(UZEBIN_DIR)packrom $(GAME).hex $@ $(INFO)
 
 UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 AVRSIZEFLAGS := -A ${TARGET}

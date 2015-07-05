@@ -1,1 +1,1 @@
-<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA644"/><Files/></AVRWorkspace>
+<AVRWorkspace><IOSettings><CurrentRegisters/></IOSettings><part name="ATMEGA644"/><Files><File00000 Name="C:\work\uzebox\git\kernel\uzebox.h" Position="391 222 1680 665" LineCol="64 0" State="Maximized"/><File00001 Name="C:\work\uzebox\git\demos\Uze8\default\Makefile" Position="258 67 1759 228" LineCol="63 37" State="Maximized"/><File00002 Name="C:\work\uzebox\git\demos\Uze8\Uze8.c" Position="441 272 1726 689" LineCol="210 37" State="Maximized"/></Files></AVRWorkspace>

@@ -12,7 +12,7 @@ INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=5 -DINTRO_LOGO=1
+KERNEL_OPTIONS  = -DVIDEO_MODE=5 -DINTRO_LOGO=0 -DSOUND_MIXER=1 -DMUSIC_ENGINE=1
 
 
 ## Options common to compile, link and assembly rules

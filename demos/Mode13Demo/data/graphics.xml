@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <gfx-xform version="1">
-
+ 
 	<input file="../data/graphics.png" type="png" tile-width="8" tile-height="8" />
 
 	<output file="../data/graphics.inc.h" type="3bpp">

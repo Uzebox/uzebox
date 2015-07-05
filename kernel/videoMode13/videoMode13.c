@@ -409,22 +409,11 @@
 			Screen.overlayHeight=0;
 		#endif
 
-		//set defaults for main screen section
-		/*
-		for(i=0;i<SCREEN_SECTIONS_COUNT;i++){
-			screenSections[i].scrollX=0;
-			screenSections[i].scrollY=0;
-		
-			if(i==0){
-				screenSections[i].height=SCREEN_TILES_V*TILE_HEIGHT;
-			}else{
-				screenSections[i].height=0;
-			}
-			screenSections[i].vramBaseAdress=vram;
-			screenSections[i].wrapLine=0;
-			screenSections[i].flags=SCT_PRIORITY_SPR;
+
+		//fill
+		for(int i=0;i<(30*28);i++){
+			vram[i]=0x80+5;
 		}
-		*/
 
 	}
 
@@ -436,11 +425,20 @@
 
 	}
 
-	void SetPalette(u8* data, u8 numColors)
+	void SetPalette(const u8* data, u8 numColors)
 	{
 		int i;
 		int x;
-		
+		u8 col;
+		for(i=0;i<256;i++){
+			if((i&1)==0){
+				col=pgm_read_byte(&data[(i>>1)&0x7]);
+			}else{
+				col=pgm_read_byte(&data[(i>>5)]);
+			}
+			palette[i]=col;			
+		}
+		/*
 		for(i = 0; i < numColors; i++)
 		{
 			u8 color = pgm_read_byte(&data[i]);
@@ -451,6 +449,7 @@
 				palette[(x << 1) | (i << 5)] = color;
 			}
 		}
+		*/
 	}
 	
 	void SetPaletteColor(u8 index, u8 color)

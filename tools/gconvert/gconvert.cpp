@@ -31,8 +31,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 4
-
+#define VERSION_MIN 5
 void parseXml(TiXmlDocument* doc);
 bool process();
 unsigned char* loadRawImage();
@@ -357,8 +356,9 @@ bool process(){
 		else{
 			bool invalidColor=false;
 			/*Export tileset in 3 bits per pixel format*/
-		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
-		    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());			
+			fprintf(tf,"const char vector_table_filler[] __attribute__ ((section (\".vectors\")))={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};\n");
+		    fprintf(tf,"const char %s[] __attribute__ ((section (\".vectors\")))={\n",xform.tilesVarName);
 	
 			int c=0,t=0;
 			unsigned char b;
@@ -368,11 +368,11 @@ bool process(){
 				unsigned char* tile=*it;
 	
 				for(int y=0;y<xform.tileHeight;y++){
-					b=0;
 					//pack 2 pixels in one byte
 					for(int x=0;x<xform.tileWidth;x+=2){
-						int first = paletteIndexFromColor(tile[y*xform.tileWidth+x]);
-						int second = paletteIndexFromColor(tile[y*xform.tileWidth+x+1]);
+						
+						int first = paletteIndexFromColor(tile[(y*xform.tileWidth)+x]);
+						int second = paletteIndexFromColor(tile[(y*xform.tileWidth)+x+1]);
 						
 						if(first == -1){
 							invalidColor=true;
@@ -383,7 +383,7 @@ bool process(){
 							second=0;
 						}
 						
-						b |= (first & 0x7) << 1;
+						b  = (first & 0x7) << 1;
 						b |= (second & 0x7) << 5;
 						fprintf(tf," 0x%x,",b);
 					}

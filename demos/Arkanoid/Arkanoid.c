@@ -269,7 +269,7 @@ int main(){
 				lasers[1].active=false;
 			
 				//restore the 'warp wall'
-				DrawMap2(28,1,map_wall);
+				DrawMap(28,1,map_wall);
 
 				balls[0].y=(vy-5)<<8;
 				balls[1].y=0;
@@ -499,7 +499,7 @@ void title(){
 	ClearVram();
 	SetFontTilesIndex(ARKANOIDTILE_TILESET_SIZE);
 
-	DrawMap2(2,4,map_title);	
+	DrawMap(2,4,map_title);	
 
 	Print2(9,14,strStart);
 	Print2(3,21,strCopyright);
@@ -665,7 +665,7 @@ void processWarp(){
 		}
 		if(index!=-1){
 			//RestoreBackground();
-		 	DrawMap2(28,23,map_warpAnim1+(7*index));
+		 	DrawMap(28,23,map_warpAnim1+(7*index));
 		}
 
 		warpFrame++;
@@ -799,7 +799,7 @@ void processHardBricks(){
 		if(hardBricks[i].frame!=0){
 			frame=hardBricks[i].frame>>2;
 			if(hardBricks[i].type==2)frame+=6;		
-			DrawMap2((hardBricks[i].x*2)+FIELD_LEFT,hardBricks[i].y+FIELD_TOP,(const char*)pgm_read_word(&(brickAnim[frame])));
+			DrawMap((hardBricks[i].x*2)+FIELD_LEFT,hardBricks[i].y+FIELD_TOP,(const char*)pgm_read_word(&(brickAnim[frame])));
 			hardBricks[i].frame++;
 			if(hardBricks[i].frame>=24)hardBricks[i].frame=0;
 		}
@@ -972,9 +972,9 @@ void DrawLevel(unsigned char currentRound){
 	
 	//RestoreBackground();
 
-	DrawMap2(1,1,map_wall);
-	DrawMap2(28,1,map_wall);
-	DrawMap2(1,0,map_ceiling);
+	DrawMap(1,1,map_wall);
+	DrawMap(28,1,map_wall);
+	DrawMap(1,0,map_ceiling);
 
 	//draw field background
 	for(y=0;y<27;y++){
@@ -1003,7 +1003,7 @@ void DrawLevel(unsigned char currentRound){
 
 			brick=(unsigned char)pgm_read_byte(&(levels[currentRound][(y*13)+x]));
 			if(brick!=0){				
-				DrawMap2((x*2)+FIELD_LEFT,y+FIELD_TOP,map_brick0+(4*(brick-1)));	
+				DrawMap((x*2)+FIELD_LEFT,y+FIELD_TOP,map_brick0+(4*(brick-1)));	
 				
 				//skip unbrekable bricks
 				if(brick!=1) bricksLeft++;			

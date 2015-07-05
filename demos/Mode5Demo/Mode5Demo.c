@@ -25,9 +25,13 @@
 
 #include "data/tiles.inc"
 #include "data/fonts6x8.inc"
-
+#include "data/patches.inc"
 
 int main(){
+
+	InitMusicPlayer(patches);
+
+	GetPrngNumber(12712);
 
 	//set first scanline to render to 20, and render 1 lines
 	//Note: don't set the lines to render to zero. There's a bug that will
@@ -45,6 +49,10 @@ int main(){
 	Print(7,12,PSTR("40X28 VRAM - 8-BIT INDEXES"));
 	Print(12,14,PSTR("6X8 PIXELS TILES"));
 
+	for(u8 i=1;i<26;i++){
+		PrintInt(10,i,GetPrngNumber(0),true);
+	}
+	
 	u8 j=112;
 	for(u8 i=1;i<112;i++){
 		WaitVsync(1);
@@ -52,6 +60,26 @@ int main(){
 		j--;
 	}
 
-	while(1);
+
+		
+
+	//unsigned char channel,unsigned char patch,unsigned char note,unsigned char volume//
+	//TriggerNote(0,0,60,0xff);
+
+	u16 joy;
+	while(1){
+		WaitVsync(1);
+		joy=ReadJoypad(0);
+		if(joy==BTN_A){
+			TriggerNote(0,0,70,0xff);
+		}else if(joy==BTN_B){
+			TriggerNote(0,0,60,0xff);
+		}else if(joy==BTN_X){
+			TriggerNote(0,1,70,0xff);
+		}else if(joy==BTN_Y){
+			TriggerNote(0,1,60,0xff);
+		}
+		while(ReadJoypad(0)!=0);
+	}
 
 } 
