@@ -75,13 +75,12 @@ int main(){
 		}	
 	}
 
+
+
 	u16 i=0;
 	while(1){
-		WaitVsync(2);
-	//	vram[i++]=0x80+5;
-//#if SCROLLING == 1
-//		Screen.scrollX ++;
-//#endif
+		WaitVsync(4);
+		SetPaletteColor(1,i++);
 	}		
 	
 }

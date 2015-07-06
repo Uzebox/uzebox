@@ -22,24 +22,27 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -gstrict-dwarf -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
-CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
+CFLAGS +=  -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
-ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2 -Wa,-gstrict-dwarf
+ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2 
+##-Wa,-gstrict-dwarf
 
 ## Linker flags
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=$(GAME).map 
+##LDFLAGS += -Wl,-nostartfiles
+##LDFLASG += -Wl,-nodefaultlibs
 LDFLAGS += -Wl,-gc-sections 
 LDFLAGS += -Wl,--section-start,.noinit=0x800100 
 LDFLAGS += -Wl,--section-start,.data=0x800948 
 
-##LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x80xxxx
+
 
 ## Intel Hex file production flags
 HEX_FLASH_FLAGS = -R .eeprom
@@ -50,7 +53,8 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o  uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o $(GAME).o 
+OBJECTS = uzeboxVideoEngineCore.o  uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o  $(GAME).o 
+##gcrt1.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -67,6 +71,9 @@ all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 
 ## Compile Kernel files
+##gcrt1.o: gcrt1.S
+##	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
+
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 

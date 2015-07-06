@@ -52,6 +52,7 @@
 .global SetFont
 .global GetTile
 .global palette
+.global SetPaletteColor
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -306,6 +307,8 @@ render_tile_line:
 	push YL
 	push YH
 	
+	;Set timer so that it generates an overflow interrupt when
+	;all tiles are rendered
 	ldi r16,lo8(0xffff-(6*8*VRAM_TILES_H)+9-30)
 	ldi r17,hi8(0xffff-(6*8*VRAM_TILES_H)+9-30)
 	sts _SFR_MEM_ADDR(TCNT1H),r17
@@ -418,20 +421,18 @@ TIMER1_OVF_vect:
    out VIDEO,r2
 
 
-//	WAIT r19,20
-
-
 	pop r0	;pop OVF interrupt return address
 	pop r0	;pop OVF interrupt return address
 	
 	pop YH
 	pop YL
 
+	;restore timer1 to the value it should normally have at this point
 	ldi r16,lo8(0x0027)
 	sts _SFR_MEM_ADDR(TCNT1H),r2
 	sts _SFR_MEM_ADDR(TCNT1L),r16
 
-	ret	;TCNT1 must be equal to 0x0027, Simulator 2 Cycle counter=65928
+	ret	;TCNT1 must be equal to 0x0027
 
 
 
@@ -1145,4 +1146,86 @@ GetTile:
 	ret
 
 #endif
+
+;***********************************
+; Set the color for a specified palette index
+; C-callable
+; r24=index
+; r22=color
+; Returns: void
+;************************************
+.section .text.SetPaletteColor
+SetPaletteColor:
+
+//lsb pixel
+//for(i = 0; i < 256; i+=16)
+//{
+//	palette[i+(index<<1)] = color;
+//}
+
+//msb pixel
+//for(i = 1; i < 32; i+=2)
+//{
+//	palette[(index*32)+i] = color;
+//}
+
+	;set low pixel
+	ldi ZL,lo8(palette)
+	ldi ZH,hi8(palette)
+	mov r25,r24
+	lsl r25
+	add ZL,r25
+	adc ZH,r1
+
+	st Z,r22
+	std Z+16,r22
+	std Z+32,r22
+	std Z+48,r22
+	subi ZL,lo8(-(64))
+	sbci ZH,hi8(-(64))
+	st Z,r22
+	std Z+16,r22
+	std Z+32,r22
+	std Z+48,r22
+	subi ZL,lo8(-(64))
+	sbci ZH,hi8(-(64))
+	st Z,r22
+	std Z+16,r22
+	std Z+32,r22
+	std Z+48,r22
+	subi ZL,lo8(-(64))
+	sbci ZH,hi8(-(64))
+	st Z,r22
+	std Z+16,r22
+	std Z+32,r22
+	std Z+48,r22
+
+	;set hi pizel	
+	ldi ZL,lo8(palette)
+	ldi ZH,hi8(palette)
+	ldi r25,32
+	mul r24,r25
+	add ZL,r0
+	adc ZH,r1
+	
+	std Z+1,r22
+	std Z+3,r22
+	std Z+5,r22
+	std Z+7,r22
+	std Z+9,r22
+	std Z+11,r22
+	std Z+13,r22
+	std Z+15,r22
+	std Z+17,r22
+	std Z+19,r22
+	std Z+21,r22
+	std Z+23,r22
+	std Z+25,r22
+	std Z+27,r22
+	std Z+29,r22
+	std Z+31,r22
+
+
+	ret
+
 

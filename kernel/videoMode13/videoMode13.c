@@ -46,6 +46,47 @@
 	unsigned char free_tile_index;
 	bool spritesOn=true;
 
+	void SetPalette(const u8* data, u8 numColors)
+	{
+		int i;
+		int x;
+		u8 col;
+		
+		for(i=0;i<256;i++)
+		{
+			if((i&1)==0){
+				col=pgm_read_byte(&data[(i>>1)&0x7]);
+			}else{
+				col=pgm_read_byte(&data[(i>>5)]);
+			}
+			palette[i]=col;			
+		}		
+	}
+	
+	void SetPaletteColor2(u8 index, u8 color)
+	{
+		u16 i;
+		
+		for(i=0;i<16;i++)
+		{
+			palette[(index*32)+(i*2)+1] = color;
+			palette[(i*16)+(index*2)] = color;
+		}
+
+
+		//lsb pixel
+		//for(i = 0; i < 256; i+=16)
+		//{
+		//	palette[i+(index<<1)] = color;
+		//}
+
+		//msb pixel
+		//for(i = 1; i < 32; i+=2)
+		//{
+		//	palette[(index*32)+i] = color;
+		//}
+	}
+
 	void RestoreBackground(){
 		unsigned char i;
 		for(i=0;i<free_tile_index;i++){			
@@ -425,40 +466,4 @@
 
 	}
 
-	void SetPalette(const u8* data, u8 numColors)
-	{
-		int i;
-		int x;
-		u8 col;
-		for(i=0;i<256;i++){
-			if((i&1)==0){
-				col=pgm_read_byte(&data[(i>>1)&0x7]);
-			}else{
-				col=pgm_read_byte(&data[(i>>5)]);
-			}
-			palette[i]=col;			
-		}
-		/*
-		for(i = 0; i < numColors; i++)
-		{
-			u8 color = pgm_read_byte(&data[i]);
-			
-			for(x = 0; x < numColors; x++)
-			{
-				palette[(i << 1) | (x << 5)] = color;
-				palette[(x << 1) | (i << 5)] = color;
-			}
-		}
-		*/
-	}
-	
-	void SetPaletteColor(u8 index, u8 color)
-	{
-		int i;
-		
-		for(i = 0; i < MAX_PALETTE_COLORS; i++)
-		{
-			palette[(i << 1) | (index << 5)] = color;
-			palette[(index << 1) | (i << 5)] = color;
-		}
-	}
+
