@@ -52,7 +52,7 @@
 .global SetFont
 .global GetTile
 .global palette
-.global SetPaletteColor
+.global SetPaletteColorAsm
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -1154,8 +1154,8 @@ GetTile:
 ; r22=color
 ; Returns: void
 ;************************************
-.section .text.SetPaletteColor
-SetPaletteColor:
+.section .text.SetPaletteColorAsm
+SetPaletteColorAsm:
 
 //lsb pixel
 //for(i = 0; i < 256; i+=16)
