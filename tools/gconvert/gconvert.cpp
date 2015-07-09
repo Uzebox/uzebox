@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include "tinyxml.h"
 #include "lodepng.h"
+#include "paletteTable.h"
 using namespace std;
 
 #define VERSION_MAJ 1
@@ -385,6 +386,57 @@ bool process(){
 						
 						b  = (first & 0x7) << 1;
 						b |= (second & 0x7) << 5;
+						fprintf(tf," 0x%x,",b);
+					}
+					c++;
+				}
+				fprintf(tf,"\t\t //tile:%i\n",t);
+				t++;
+			}
+			fprintf(tf,"};\n\n");
+			totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight/2);
+			
+			if(invalidColor){
+				printf("Warning: colors in input image not included in palette");
+			}
+		}
+	}else if(strcmp(xform.outputType,"extendedPalette")==0){
+		if(xform.palette.numColors == 0) {
+			printf("Error using extendedPalette but no palette specified!\n");
+		}
+		else{
+			bool invalidColor=false;
+			/*Export tileset in palette extended pixel format*/
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());			
+			fprintf(tf,"const char vector_table_filler[] __attribute__ ((section (\".vectors\")))={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};\n");
+		    fprintf(tf,"const char %s[] __attribute__ ((section (\".vectors\")))={\n",xform.tilesVarName);
+	
+			int c=0,t=0;
+			unsigned char b;
+			vector<unsigned char*>::iterator it;
+			for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+	
+				unsigned char* tile=*it;
+	
+				for(int y=0;y<xform.tileHeight;y++){
+					//pack 2 pixels in one byte
+					for(int x=0;x<xform.tileWidth;x+=2){
+						
+						int first = paletteIndexFromColor(tile[(y*xform.tileWidth)+x]);
+						int second = paletteIndexFromColor(tile[(y*xform.tileWidth)+x+1]);
+						
+						if(first == -1){
+							invalidColor=true;
+							first=0;
+						}
+						if(second == -1){
+							invalidColor=true;
+							second=0;
+						}
+						
+						b  = (first & 0xF);
+						b |= (second & 0xF) << 4;
+						b = PaletteConversionTable[b];
 						fprintf(tf," 0x%x,",b);
 					}
 					c++;

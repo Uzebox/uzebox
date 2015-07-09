@@ -52,7 +52,7 @@
 .global SetFont
 .global GetTile
 .global palette
-.global SetPaletteColor
+.global SetPaletteColorAsm
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -437,7 +437,7 @@ TIMER1_OVF_vect:
 
 
 ;***********************************
-; SET TILE 8bit mode
+; Copy a flash tile to a ram tile
 ; C-callable
 ; r24=ROM tile index
 ; r22=RAM tile index
@@ -455,28 +455,27 @@ CopyTileToRam:
 		*dest++=px;
 	}
 */
-
-	ldi r18,TILE_HEIGHT*TILE_WIDTH
+	
+	ldi r18,TILE_HEIGHT*TILE_WIDTH/2	;tile size in bytes
 
 	;compute source adress
-	lds ZL,tile_table_lo
-	lds ZH,tile_table_hi
-	;andi r24,0x7f
-	subi r24,RAM_TILES_COUNT
+	ldi ZL,0;tile_table_lo
+	ldi ZH,0;tile_table_hi
+	
 	mul r24,r18
 	add ZL,r0
 	adc ZH,r1
 
 	;compute destination adress
-	ldi XL,lo8(ram_tiles)
-	ldi XH,hi8(ram_tiles)
+	ldi XL,0;lo8(ram_tiles)
+	ldi XH,0;hi8(ram_tiles)
 	mul r22,r18
 	add XL,r0
 	adc XH,r1
 
 	clr r0
 	;copy data (fastest possible)
-.rept TILE_HEIGHT*TILE_WIDTH
+.rept TILE_HEIGHT*TILE_WIDTH/2
 	lpm r0,Z+	
 	st X+,r0
 .endr
@@ -1154,8 +1153,8 @@ GetTile:
 ; r22=color
 ; Returns: void
 ;************************************
-.section .text.SetPaletteColor
-SetPaletteColor:
+.section .text.SetPaletteColorAsm
+SetPaletteColorAsm:
 
 //lsb pixel
 //for(i = 0; i < 256; i+=16)

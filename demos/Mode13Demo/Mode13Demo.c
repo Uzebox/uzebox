@@ -80,7 +80,7 @@ int main(){
 	u16 i=0;
 	while(1){
 		WaitVsync(4);
-		SetPaletteColor(1,i++);
+	//	SetPaletteColor(1,i++);
 	}		
 	
 }

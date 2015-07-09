@@ -100,10 +100,13 @@
 
 #define SPRITES_ENABLED 1
 
-#if RAM_TILES_COUNT==0 && MAX_SPRITES>0
+RAM_TILES_COUNT==0 && MAX_SPRITES>0
 	#error Sprites are used (MAX_SPRITES>0) but RAM_TILES_COUNT==0 or is undefined.
 #endif
 
+#ifndef EXTENDED_PALETTE
+	#define EXTENDED_PALETTE 0
+#endif
 
 //Sprite flags
 #define SPRITE_FLIP_X 1
@@ -120,4 +123,9 @@
 #define HSYNC_USABLE_CYCLES 225 //Maximum free cycles usable by the hysnc and audio
 
 #define PALETTE_SIZE 256
-#define MAX_PALETTE_COLORS 8
+
+#if EXTENDED_PALETTE
+	#define MAX_PALETTE_COLORS 15
+#else
+	#define MAX_PALETTE_COLORS 8
+#endif

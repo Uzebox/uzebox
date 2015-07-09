@@ -26,6 +26,9 @@
 	#include "uzebox.h"
 	#include "intro.h"
 	
+	#if EXTENDED_PALETTE
+		#include "videomode13/paletteTable.h"
+	#endif
 
 	#if INTRO_LOGO !=0
 		#include "videoMode13/uzeboxlogo_8x8.pic.inc"
@@ -39,6 +42,7 @@
 	extern unsigned int sprites_tile_banks[];
 	extern unsigned char *tile_table_lo;
 	extern struct BgRestoreStruct ram_tiles_restore[];
+	extern void SetPaletteColorAsm(u8 index, u8 color);
 
 	extern void CopyTileToRam(unsigned char romTile,unsigned char ramTile);
 	extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
@@ -46,46 +50,7 @@
 	unsigned char free_tile_index;
 	bool spritesOn=true;
 
-	void SetPalette(const u8* data, u8 numColors)
-	{
-		int i;
-		int x;
-		u8 col;
-		
-		for(i=0;i<256;i++)
-		{
-			if((i&1)==0){
-				col=pgm_read_byte(&data[(i>>1)&0x7]);
-			}else{
-				col=pgm_read_byte(&data[(i>>5)]);
-			}
-			palette[i]=col;			
-		}		
-	}
-	
-	void SetPaletteColor2(u8 index, u8 color)
-	{
-		u16 i;
-		
-		for(i=0;i<16;i++)
-		{
-			palette[(index*32)+(i*2)+1] = color;
-			palette[(i*16)+(index*2)] = color;
-		}
 
-
-		//lsb pixel
-		//for(i = 0; i < 256; i+=16)
-		//{
-		//	palette[i+(index<<1)] = color;
-		//}
-
-		//msb pixel
-		//for(i = 1; i < 32; i+=2)
-		//{
-		//	palette[(index*32)+i] = color;
-		//}
-	}
 
 	void RestoreBackground(){
 		unsigned char i;
@@ -97,6 +62,37 @@
 
 	void SetSpriteVisibility(bool visible){
 		spritesOn=visible;
+	}
+
+	void BlitSprite3bpp(u8 sprNo,u8 ramTileIndex,u16 yx,u16 dydx){
+//		u8 dy=dydx>>8;
+//		u8 dx=dydx &0xff;
+		u8 flags=sprites[sprNo].flags;
+		u8 spix,dpix,x2,y2;
+//		s8 step=1,srcXdiff;
+
+		u16 src=(sprites[sprNo].tileIndex*TILE_HEIGHT*TILE_WIDTH/2)
+				+sprites_tile_banks[flags>>6];	//add bank adress		
+
+		u8* dest=&ram_tiles[ramTileIndex*TILE_HEIGHT*TILE_WIDTH/2];
+		
+		for(y2=0;y2<TILE_HEIGHT;y2++){
+			for(x2=0;x2<TILE_WIDTH;x2++){
+							
+				spix=pgm_read_byte(src); //2pix flash
+				dpix=*dest;
+				//if(spx&)				
+
+				//if(px!=TRANSLUCENT_COLOR){
+				//	*dest=px;
+				//}
+				dest++;
+				src++;
+			}		
+			src++;
+			dest++;
+		}
+
 	}
 
 	/*
@@ -256,7 +252,7 @@
 								ram_tiles_restore[free_tile_index].addr=ramPtr;
 								ram_tiles_restore[free_tile_index].tileIndex=bt;
 													
-								CopyTileToRam(bt,free_tile_index);
+								CopyTileToRam(bt-128,free_tile_index);
 
 								vram[ramPtr]=free_tile_index;
 								bt=free_tile_index;
@@ -264,7 +260,7 @@
 							}
 				
 							if(bt<RAM_TILES_COUNT){				
-								BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);						
+								BlitSprite3bpp(i,bt,(y<<8)+x,(dy<<8)+dx);						
 							}
 
 					//	}
@@ -466,4 +462,47 @@
 
 	}
 
+	void SetPalette(const u8* data, u8 numColors)
+	{
+		#if EXTENDED_PALETTE == 1
+			int i;
+			for(i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
+			{
+				u8 index = pgm_read_byte(&PaletteEncodingTable[i]);
+				
+				if(index < numColors)
+				{
+					u8 color = pgm_read_byte(&data[index]);
+					palette[i] = color;
+				}
+				else
+				{
+					palette[i] = 0;
+				}
+			}
+
+		#else
+			int i;
+			for(i = 0; i < numColors; i++)
+			{
+				u8 color = pgm_read_byte(&data[i]);
+				SetPaletteColorAsm(i,color);
+			}
+		#endif
+	}
+	
+	void SetPaletteColor(u8 index, u8 color)
+	{		
+		#if EXTENDED_PALETTE == 1
+			for(u8 i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
+			{
+				if(index == pgm_read_byte(&PaletteEncodingTable[i]))
+				{
+					palette[i] = color;
+				}
+			}
+		#else
+			SetPaletteColorAsm(index,color);
+		#endif
+	}
 
