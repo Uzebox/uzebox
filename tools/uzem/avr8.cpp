@@ -234,21 +234,6 @@ static const char *port_name(int port)
 	return names[port];
 }
 
-
-
-
-
-static const char *addr_or_port_name(int addr)
-{
-	static char temp[16];
-	if (addr >= IOBASE && addr < SRAMBASE)
-		sprintf(temp,"@%s",port_name(addr-IOBASE));
-	else
-		sprintf(temp,"$%04x",addr);
-	return temp;
-}
-
-#if GUI
 static u8 encode_delta(int d)
 {
 	u8 result;
@@ -277,7 +262,7 @@ static u8 encode_delta(int d)
 		result |= 128;
 	return result;
 }
-#endif
+
 
 void avr8::spi_calculateClock(){
     // calculate the number of cycles before the write completes
@@ -503,8 +488,7 @@ void avr8::write_io(u8 addr,u8 value)
 		if (enableSound && TCCR2B)
 		{
 			// raw pcm sample at 15.7khz
-			while (audioRing.isFull())
-				SDL_Delay(1);
+			while (audioRing.isFull()) SDL_Delay(1);
 			SDL_LockAudio();
 			audioRing.push(value);
 			SDL_UnlockAudio();
@@ -602,10 +586,6 @@ u8 avr8::read_io(u8 addr)
 	else if (addr == ports::TCNT1H || addr == ports::ICR1H){
 		return TEMP;
     }
-    //else if(addr == ports::EECR || addr == ports::EEARH || addr == ports::EEARL || addr == ports::EEDR){
-       // printf("reading port %s (%x) pc = %x\n",port_name(addr),io[addr],pc-1);
-	//	return io[addr];
-    //}
 	else
 		return io[addr];
 }
@@ -614,6 +594,13 @@ u8 avr8::read_io(u8 addr)
 
 u8 avr8::exec(bool disasmOnly,bool verbose)
 {
+
+	u16 lastpc = pc;
+	u16 insn = progmem[pc++];
+	u8 cycles = 1;				// Most insns run in one cycle, so assume that
+	u8 Rd, Rr, R, d, CH;
+	u16 uTmp, Rd16, R16;
+	s16 sTmp;
 
 	if (enableGdb == true)
 	{
@@ -630,35 +617,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 
 	if (state == CPU_STOPPED)
 		return 0;
-
-#if DISASM
-	// Built-in breakpoints
-	if (pc == breakpoint)
-	{
-		singleStep = nextSingleStep = true;
-		return 0;
-	}	
-	// set a breakpoint on the printf to halt at a given address.
-	// if (pc == 0x33d3)
-	//	printf("hit\n");
-#endif
-
-	u16 lastpc = pc;
-	u16 insn = progmem[pc++];	
-	u8 cycles = 1;				// Most insns run in one cycle, so assume that
-	u8 Rd, Rr, R, d, CH;
-	u16 uTmp, Rd16, R16;
-	s16 sTmp;
-#if DISASM
-	char insnBuf[32];
-	sprintf(insnBuf,"?$%04x",insn);
-#endif
-
-
-	// The "DIS" macro must be first, or at least before any side effects on machine state occur.  
-	// This is because depending on the configuration, we can build one of three ways; no 
-	// disassembly; integrated disassembly and emulation, and disassembly only.  (ie the DIS 
-	// macro may just check a flag, do the sprintf, and exit)
 
 
 
@@ -678,18 +636,15 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		switch(insn >> 8)
 		{
 		case 0: /*NOP*/; 
-			DIS("NOP");
 			break;
 		case 1: /*MOVW*/ 
 			// Don't use tab because the operand is really wide
-			DIS("MOVW   %s,%s",reg_pair(D4*2),reg_pair(R4*2));
 			Rd = D4 << 1; 
 			Rr = R4 << 1; 
 			r[Rd] = r[Rr]; 
 			r[Rd+1] = r[Rr+1]; 
 			break;
 		case 2: /*MULS*/ 
-			DIS("MULS   %s,%s",reg_name(D4+16),reg_name(R4+16));
 			Rd = r[D4 + 16]; 
 			Rr = r[R4 + 16];
 			sTmp = (s8)Rd * (s8)Rr; 
@@ -701,8 +656,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		case 3: /*MULSU/FMULS/FMULSU*/ 
 			switch (insn & 0x88)
 			{
-			case 0x00:
-				DIS("MULSU  %s,%s",reg_name(D3+16),reg_name(R3+16));
+			case 0x00:/*MULSU*/
 				Rd = r[D3 + 16];
 				Rr = r[R3 + 16]; 
 				sTmp = (s8)Rd * (u8)Rr; 
@@ -711,8 +665,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				UPDATE_CZ_MUL(sTmp);
 				cycles=2;
 				break;
-			case 0x08:
-				DIS("FMUL %s,%s",reg_name(D3+16),reg_name(R3+16));
+			case 0x08:/*FMUL*/
 				Rd = r[D3 + 16];
 				Rr = r[R3 + 16]; 
 				uTmp = (u8)Rd * (u8)Rr; 
@@ -721,8 +674,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				UPDATE_CZ_MUL(uTmp);
 				cycles=2;
 				break;
-			case 0x80:
-				DIS("FMULS  %s,%s",reg_name(D3+16),reg_name(R3+16));
+			case 0x80:/*FMULS*/
 				Rd = r[D3 + 16];
 				Rr = r[R3 + 16]; 
 				sTmp = (s8)Rd * (s8)Rr; 
@@ -731,8 +683,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				UPDATE_CZ_MUL(sTmp);
 				cycles=2;
 				break;
-			case 0x88:
-				DIS("FMULSU  %s,%s",reg_name(D3+16),reg_name(R3+16));
+			case 0x88:/*FMULSU*/
 				Rd = r[D3 + 16];
 				Rr = r[R3 + 16]; 
 				sTmp = (s8)Rd * (u8)Rr; 
@@ -744,14 +695,12 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			}
 			break;
 		case 4: case 5: case 6: case 7: /*CPC*/
-			DIS("CPC    %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[D5];
 			Rr = r[R5];
 			R = Rd - Rr - C;
 			UPDATE_HC_SUB; UPDATE_SVN_SUB; if (R) CLEAR_Z;
 			break;
 		case 8: case 9: case 10: case 11: /*SBC*/
-			DIS("SBC    %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[d = D5];
 			Rr = r[R5];
 			R = Rd - Rr - C;
@@ -759,7 +708,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			r[d] = R;
 			break;
 		case 12: case 13: case 14: case 15: /*ADD*/
-			DIS(D5==R5?"LSL    %s":"ADD    %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[d = D5];
 			Rr = r[R5];
 			R = Rd + Rr;
@@ -776,7 +724,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		switch ((insn >> 10) & 3)
 		{
 		case 0: /*CPSE*/
-			DIS("CPSE   %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[D5];
 			Rr = r[R5];
 			if (Rd == Rr)
@@ -787,14 +734,12 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			}
 			break;
 		case 1: /*CP*/
-			DIS("CP     %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[D5];
 			Rr = r[R5];
 			R = Rd - Rr;
 			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
 			break;
 		case 2: /*SUB*/
-			DIS("SUB    %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[d = D5];
 			Rr = r[R5];
 			R = Rd - Rr;
@@ -802,7 +747,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			r[d] = R;
 			break;
 		case 3: /*ADC*/
-			DIS(D5==R5?"ROL    %s":"ADC    %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[d = D5];
 			Rr = r[R5];
 			R = Rd + Rr + C;
@@ -819,7 +763,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		switch ((insn >> 10) & 3)
 		{
 		case 0: /*AND*/
-			DIS(D5==R5?"TST    %s":"AND    %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[d = D5];
 			Rr = r[R5];
 			R = Rd & Rr;
@@ -827,7 +770,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			r[d] = R;
 			break;
 		case 1: /*EOR*/
-			DIS(D5==R5?"CLR    %s":"EOR    %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[d = D5];
 			Rr = r[R5];
 			R = Rd ^ Rr;
@@ -835,7 +777,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			r[d] = R;
 			break;
 		case 2: /*OR*/
-			DIS("OR     %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[d = D5];
 			Rr = r[R5];
 			R = Rd | Rr;
@@ -843,20 +784,17 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			r[d] = R;
 			break;
 		case 3: /*MOV*/
-			DIS("MOV    %s,%s",reg_name(D5),reg_name(R5));
 			r[D5]  = r[R5];
 			break;
 		}
 		break;
 	case 3: /*0011 KKKK dddd KKKK		CPI Rd,K */
-		DIS("CPI    %s,$%x",reg_name(D4+16),K8);
 		Rd = r[D4 + 16];
 		Rr = K8;
 		R = Rd - Rr;
 		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
 		break;
 	case 4: /*0100 KKKK dddd KKKK		SBCI Rd,K */
-		DIS("SBCI   %s,%d",reg_name(D4+16),K8);
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd - Rr - C;
@@ -864,7 +802,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		r[d] = R;
 		break;
 	case 5: /*0101 KKKK dddd KKKK		SUBI Rd,K */
-		DIS("SUBI   %s,%d",reg_name(D4+16),K8);
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd - Rr;
@@ -872,7 +809,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		r[d] = R;
 		break;
 	case 6: /*0110 KKKK dddd KKKK		ORI Rd,K (same as SBR insn) */
-		DIS("ORI    %s,%d",reg_name(D4+16),K8);
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd | Rr;
@@ -880,7 +816,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		r[d] = R;
 		break;
 	case 7: /*0111 KKKK dddd KKKK		ANDI Rd,K (CBR is ANDI with K complemented) */
-		DIS("ANDI   %s,%d",reg_name(D4+16),K8);
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd & Rr;
@@ -895,14 +830,12 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		Rd = D5;
 		Rr = (insn & 7) | ((insn >> 7) & 0x18) | ((insn >> 8) & 0x20);
 		uTmp = ((insn & 0x8)? Y : Z) + Rr;
-		if (insn & 0x200)	// ST
+		if (insn & 0x200)	/*ST*/
 		{
-			DIS("ST     %c+%d,%s",insn&0x8?'Y':'Z',Rr,reg_name(Rd));
 			write_sram(uTmp, r[Rd]);
 		}
-		else
+		else /*LD*/
 		{
-			DIS("LD     %s,%c+%d",reg_name(Rd),insn&0x8?'Y':'Z',Rr);
 			r[Rd] = read_sram(uTmp);
 		}
 		cycles=2;
@@ -927,75 +860,62 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			switch (insn & 15)
 			{
 			case 0: // LDS Rd,k
-				DIS("LDS    %s,%s",reg_name(D5),addr_or_port_name(progmem[pc]));
 				r[D5] = read_sram(progmem[pc++]);
 				cycles=2;
 				break;
 			case 1:	// LD Rd,Z+
-				DIS("LD     %s,Z+",reg_name(D5));
 				r[D5] = read_sram(Z);
 				INC_Z;
 				cycles=2;
 				break;
 			case 2: // LD Rd,-Z
-				DIS("LD     %s,-Z",reg_name(D5));
 				DEC_Z;
 				r[D5] = read_sram(Z);
 				cycles=2;
 				break;
-			case 4:
-				DIS("LPM    %s,Z",reg_name(D5));
+			case 4: // LPM Rd,Z
 				r[D5] = read_progmem(Z);
 				cycles=3;
 				break;
-			case 5:
-				DIS("LPM    %s,Z+",reg_name(D5));
+			case 5: //LPM Rd,Z+
 				r[D5] = read_progmem(Z);
 				INC_Z;
 				cycles=3;
 				break;
-			case 6:
-				DIS("ELPM   %s,Z",reg_name(D5));
+			case 6: //ELPM Rd,Z
 				r[D5] = read_progmem(Z);
 				cycles=3;
 				break;
-			case 7:
-				DIS("ELPM   %s,Z+",reg_name(D5));
+			case 7: //ELPM Rd,Z+
 				r[D5] = read_progmem(Z);
 				INC_Z;
 				cycles=3;
 				break;
-			case 9:
-				DIS("LD     %s,Y+",reg_name(D5));
+			case 9: //LD Rd,Y+
 				r[D5] = read_sram(Y);
 				INC_Y;
 				cycles=2;
 				break;
-			case 10:
-				DIS("LD     %s,-Y",reg_name(D5));
+			case 10: //LD Rd,-Y
 				DEC_Y;
 				r[D5] = read_sram(Y);
 				cycles=2;
 				break;
-			case 12:
-				DIS("LD     %s,X",reg_name(D5));
+			case 12: //LD Rd,X
 				r[D5] = read_sram(X);
 				cycles=2;
 				break;
-			case 13:
-				DIS("LD     %s,X+",reg_name(D5));
+			case 13: //LD Rd,X+
 				r[D5] = read_sram(X);
 				INC_X;
 				cycles=2;
 				break;
-			case 14:
-				DIS("LD     %s,-X",reg_name(D5));
+			case 14: //LD Rd,-X
 				DEC_X;
 				r[D5] = read_sram(X);
 				cycles=2;
 				break;
-			case 15:
-				DIS("POP    %s",reg_name(D5));
+			case 15: //POP Rd
 				INC_SP;
 				r[D5] = read_sram(SP);
 				cycles=2;
@@ -1018,46 +938,37 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			cycles=2;
 			switch (insn & 15)
 			{
-			case 0:
-				DIS("STS    %s,%s",addr_or_port_name(progmem[pc]),reg_name(D5));
+			case 0: //STS
 				write_sram(progmem[pc++],r[D5]);
 				break;
-			case 1:
-				DIS("ST     Z+,%s",reg_name(D5));
+			case 1: //ST Z+,Rs
 				write_sram(Z,r[D5]);
 				INC_Z;
 				break;
-			case 2:
-				DIS("ST     Z+,%s",reg_name(D5));
+			case 2: //ST -Z,Rs
 				DEC_Z;
 				write_sram(Z,r[D5]);
 				break;
-			case 9:
-				DIS("ST     Y+,%s",reg_name(D5));
+			case 9: //ST Y+,Rs
 				write_sram(Y,r[D5]);
 				INC_Y;
 				break;
-			case 10:
-				DIS("ST     -Y,%s",reg_name(D5));
+			case 10: //ST -Y,Rs
 				DEC_Y;
 				write_sram(Y,r[D5]);
 				break;
-			case 12:
-				DIS("ST     X,%s",reg_name(D5));
+			case 12: //ST X,Rs
 				write_sram(X,r[D5]);
 				break;
-			case 13:
-				DIS("ST     X+,%s",reg_name(D5));
+			case 13: //ST X+,Rs
 				write_sram(X,r[D5]);
 				INC_X;
 				break;
-			case 14:
-				DIS("ST     -X,%s",reg_name(D5));
+			case 14: //ST -X,Rs
 				DEC_X;
 				write_sram(X,r[D5]);
 				break;
-			case 15:
-				DIS("PUSH   %s",reg_name(D5));
+			case 15: //PUSH Rs
 				write_sram(SP,r[D5]);
 				DEC_SP;
 				break;
@@ -1095,18 +1006,15 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			// Bunch of weird cases here, check for them first and then re-decode.
 			switch (insn)
 			{
-			case 0x9409:
-			    DIS("IJMP");
+			case 0x9409: //IJMP
 			    pc = Z;
 			    cycles = 2;
 			    break;
 			case 0x940C: // JMP; relies on fact that upper k bits are always zero!
-			    DIS("JMP    $%04x",progmem[pc]);
 			    pc = progmem[pc];
 			    cycles = 3;
 			    break;
 			case 0x940E: // CALL; relies on fact that upper k bits are always zero!
-			    DIS("CALL   $%04x",progmem[pc]);
 			    write_sram(SP,(pc+1));
 			    DEC_SP;
 			    write_sram(SP,(pc+1)>>8);
@@ -1114,21 +1022,18 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			    pc = progmem[pc];
 			    cycles = 4;
 			    break;
-			case 0x9419:
-			    DIS("EIJMP");
+			case 0x9419: //EIJMP
 			    pc = Z;
 			    cycles = 2;
 			    break;
-			case 0x9508:
-			    DIS("RET");
+			case 0x9508: //RET
 			    INC_SP;
 			    pc = read_sram(SP) << 8;
 			    INC_SP;
 			    pc |= read_sram(SP);
 			    cycles = 4;
 			    break;
-			case 0x9509:
-			    DIS("ICALL");
+			case 0x9509: //ICALL
 			    write_sram(SP,u8(pc));
 			    DEC_SP;
 			    write_sram(SP,(pc)>>8);
@@ -1136,8 +1041,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			    pc = Z;
 			    cycles = 3;
 			    break;
-			case 0x9518:
-			    DIS("RETI");
+			case 0x9518: //RETI
 			    INC_SP;
 			    pc = read_sram(SP) << 8;
 			    INC_SP;
@@ -1146,8 +1050,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			    SREG |= (1<<SREG_I);
 			    //--interruptLevel;
 			    break;
-			case 0x9519:
-			    DIS("EICALL");
+			case 0x9519: //EICALL
 			    write_sram(SP,u8(pc));
 			    DEC_SP;
 			    write_sram(SP,(pc)>>8);
@@ -1155,16 +1058,13 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			    pc = Z;
 			    cycles = 3;
 			    break;
-			case 0x9588:
-			    DIS("SLEEP");
+			case 0x9588: //SLEEP
 			    // no operation
 			    break;
-			case 0x9598:
-			    DIS("BREAK");
+			case 0x9598: //BREAK
 			    // no operation
 			    break;
-			case 0x95A8:
-			    DIS("WDR");
+			case 0x95A8: //WDR
 			    // Implement this if/when we need watchdog timer functionality.
 			    if(prevWDR){
 			        printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
@@ -1173,18 +1073,15 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			    prevWDR = cycleCounter + 1;
 
 			break;
-			case 0x95C8:
-			    DIS("LPM    r0,Z");
+			case 0x95C8: //LPM r0,Z
 			    r0 = read_progmem(Z);
 			    cycles = 3;
 			    break;
-			case 0x95D8:
-			    DIS("ELPM   r0,Z");
+			case 0x95D8: //ELPM r0,Z
 			    r0 = read_progmem(Z);
 			    cycles = 3;
 			    break;
-			case 0x95E8:
-			    DIS("SPM");
+			case 0x95E8: //SPM
 			    if (Z >= progSize/2)
 				{
 					fprintf(stderr,"illegal write to progmem addr %x\n",Z);
@@ -1207,33 +1104,28 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				1001 010d dddd 1010		DEC Rd */
 			    switch (insn & 15)
 				{
-				case 0:
-					DIS("COM    %s",reg_name(D5));
+				case 0: //COM Rd
 					r[D5] = R = ~r[D5];
 					UPDATE_SVN_LOGICAL; UPDATE_Z; SET_C;
 					break;
-				case 1:
-					DIS("NEG    %s",reg_name(D5));
+				case 1: //NEG Rd
 					Rr = r[D5];
 					Rd = 0;
 					r[D5] = R = Rd - Rr;
 					UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
 					break;
-				case 2:
-					DIS("SWAP    %s",reg_name(D5));
+				case 2: //SWAP Rd
 					Rd = r[D5];
 					r[D5] = (Rd >> 4) | (Rd << 4);
 					break;
-				case 3:
-					DIS("INC    %s",reg_name(D5));
+				case 3: //INC Rd
 					R = ++r[D5];
 					UPDATE_N;
 					set_bit(SREG,SREG_V,R==0x80);
 					UPDATE_S;
 					UPDATE_Z;
 					break;
-				case 5:
-					DIS("ASR    %s",reg_name(D5));
+				case 5: //ASR Rd
 					Rd = r[D5];
 					set_bit(SREG,SREG_C,Rd&1);
 					r[D5] = R = (Rd >> 1) | (Rd & 0x80);
@@ -1242,8 +1134,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 					UPDATE_S;
 					UPDATE_Z;
 					break;
-				case 6:
-					DIS("LSR    %s",reg_name(D5));
+				case 6: //LSR Rd
 					Rd = r[D5];
 					set_bit(SREG,SREG_C,Rd&1);
 					r[D5] = R = (Rd >> 1);
@@ -1252,8 +1143,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 					UPDATE_S;
 					UPDATE_Z;
 					break;
-				case 7:
-					DIS("ROR    %s",reg_name(D5));
+				case 7: //ROR Rd
 					Rd = r[D5];
 					r[D5] = R = (Rd >> 1) | ((SREG&1)<<7);
 					set_bit(SREG,SREG_C,Rd&1);
@@ -1262,21 +1152,20 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 					UPDATE_S;
 					UPDATE_Z;
 					break;
-				case 8:
+				case 8: //Clear/Set flags
 					Rd = (insn>>4)&7;
 					if (insn & 0x80)
 					{
-						DIS("CL%c","CZNVSHTI"[Rd]);
+						//CLx,"CZNVSHTI"
 						SREG &= ~(1<<Rd);
 					}
 					else
 					{
-						DIS("SE%c","CZNVSHTI"[Rd]);
+						//SEx,"CZNVSHTI"
 						SREG |= (1<<Rd);
 					}
 					break;
-				case 10:
-					DIS("DEC    %s",reg_name(D5));
+				case 10: //DEC Rd
 					R = --r[D5];
 					UPDATE_N;
 					set_bit(SREG,SREG_V,R==0x7F);
@@ -1294,7 +1183,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		  /*1001 0110 KKdd KKKK		ADIW Rd+1:Rd,K   (16-bit add to upper four register pairs) */
 			Rd = ((insn >> 3) & 0x6) + 24;
 			Rr = ((insn >> 2) & 0x30) | (insn & 0xF);
-			DIS("ADIW   %s,%d",reg_pair(Rd),Rr);
 			Rd16 = r[Rd] | (r[Rd+1]<<8);
 			R16 = Rd16 + Rr;
 			r[Rd] = (u8)R16;
@@ -1310,7 +1198,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		  /*1001 0111 KKdd KKKK		SBIW Rd+1:Rd,K */
 			Rd = ((insn >> 3) & 0x6) + 24;
 			Rr = ((insn >> 2) & 0x30) | (insn & 0xF);
-			DIS("SBIW   %s,%d",reg_pair(Rd),Rr);
 			Rd16 = r[Rd] | (r[Rd+1]<<8);
 			R16 = Rd16 - Rr;
 			r[Rd] = (u8)R16;
@@ -1325,14 +1212,12 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		case 8:
 		  /*1001 1000 AAAA Abbb		CBI A,b */
 			Rd = (insn >> 3) & 31;
-			DIS("CBI    @%s,%d",port_name(Rd),insn&7);
 			write_io(Rd, read_io(Rd) & ~(1<<(insn&7)));
 			cycles=2;
 			break;
 		case 9:
 		  /*1001 1001 AAAA Abbb		SBIC A,b */
 			Rd = (insn >> 3) & 31;
-			DIS("SBIC   @%s,%d",port_name(Rd),insn&7);
 			if (!(read_io(Rd) & (1<<(insn&7))))
 			{
 				uTmp = get_insn_size(progmem[pc]);
@@ -1343,14 +1228,12 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		case 10:
 		  /*1001 1010 AAAA Abbb		SBI A,b */
 			Rd = (insn >> 3) & 31;
-			DIS("SBI    @%s,%d",port_name(Rd),insn&7);
 			write_io(Rd, read_io(Rd) | (1<<(insn&7)));
 			cycles=2;
 			break;
 		case 11:
 		  /*1001 1011 AAAA Abbb		SBIS A,b */
 			Rd = (insn >> 3) & 31;
-			DIS("SBIS   @%s,%d",port_name(Rd),insn&7);
 			if (read_io(Rd) & (1<<(insn&7)))
 			{
 				uTmp = get_insn_size(progmem[pc]);
@@ -1360,7 +1243,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			break;
 		case 12: case 13: case 14: case 15:
 		  /*1001 11rd dddd rrrr		MUL Rd,Rr */
-			DIS("MUL    %s,%s",reg_name(D5),reg_name(R5));
 			Rd = r[D5];
 			Rr = r[R5];
 			uTmp = Rd * Rr; 
@@ -1378,22 +1260,18 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		Rr = ((insn >> 5) & 0x30) | (insn & 0xF);
 		if (insn & 0x0800) // OUT
 		{
-			DIS("OUT    @%s,%s",port_name(Rr),reg_name(Rd));
 			write_io(Rr,r[Rd]);
 		}
 		else	// IN
 		{
-			DIS("IN     %s,@%s",reg_name(Rd),port_name(Rr));
 			r[Rd] = read_io(Rr);
 		}
 		break;
 	case 12: /*1100 kkkk kkkk kkkk		RJMP k */
-		DIS("RJMP   $%04x",pc+k12);
 		pc += k12;
 		cycles=2;
 		break;
 	case 13: /*1101 kkkk kkkk kkkk		RCALL k */
-		DIS("RCALL  $%04x",pc+k12);
 		write_sram(SP,(u8)pc);
 		DEC_SP;
 		write_sram(SP,pc>>8);
@@ -1402,7 +1280,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		cycles=3;
 		break;
 	case 14: /*1110 KKKK dddd KKKK		LDI Rd,K (SER is just LDI Rd,255) */
-		DIS(K8==255?"SER    %s":"LDI    %s,$%02x",reg_name(D4+16),K8);
 		r[D4 + 16] = K8;
 		break;
 	case 15:
@@ -1416,7 +1293,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		{
 		case 0: case 1: /*BRBS*/
 			sTmp = k7;
-			DIS("%s   $%04x",brbs[insn&7],pc + sTmp);
 			if (SREG & (1<<(insn&7)))
 			{
 				pc += sTmp;
@@ -1425,7 +1301,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			break;
 		case 2: case 3: /*BRBC*/
 			sTmp = k7;
-			DIS("%s   $%04x",brbc[insn&7],pc + sTmp);
 			if (!(SREG & (1<<(insn&7))))
 			{
 				pc += sTmp;
@@ -1433,17 +1308,14 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			}
 			break;
 		case 4: /*BLD*/
-			DIS("BLD    %s,%d",reg_name(D5),insn&7);
 			Rd = D5;
 			set_bit(r[Rd],insn&7,SREG & (1<<SREG_T));
 			break;
 		case 5: /*BST*/
-			DIS("BST    %s,%d",reg_name(D5),insn&7);
 			Rd = r[D5];
 			set_bit(SREG,SREG_T,Rd & (1<<(insn&7)));
 			break;
 		case 6: /*SBRC*/
-			DIS("SBRC   %s,%d",reg_name(D5),insn&7);
 			Rd = r[D5];
 			if (!(Rd & (1<<(insn&7))))
 			{
@@ -1453,7 +1325,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			}
 			break;
 		case 7: /*SBRS*/
-			DIS("SBRS   %s,%d",reg_name(D5),insn&7);
 			Rd = r[D5];
 			if (Rd & (1<<(insn&7)))
 			{
@@ -1466,71 +1337,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		break;
 	}
 
-#if DISASM
-	// Don't spew disassembly during interrupts
-	if (singleStep && !interruptLevel)
-	{
-		printf("$%04x [%04x]  %-23.23s",lastpc,progmem[lastpc],insnBuf);
-		if (!disasmOnly)
-		{
-			printf("[%c%c%c%c%c%c%c%c]",
-				BIT(SREG,SREG_I)?'I':' ',
-				BIT(SREG,SREG_T)?'T':' ',
-				BIT(SREG,SREG_H)?'H':' ',
-				BIT(SREG,SREG_S)?'S':' ',
-				BIT(SREG,SREG_V)?'V':' ',
-				BIT(SREG,SREG_N)?'N':' ',
-				BIT(SREG,SREG_Z)?'Z':' ',
-				BIT(SREG,SREG_C)?'C':' ');
-			if (verbose)
-			{
-				putchar('\n');
-				for (int i=0; i<32; i++)
-				{
-					printf("r%02d:%02x ",i,r[i]);
-					if (i == 7)
-						putchar('\n');
-					if (i == 15)
-						printf("  NXTPC:%04x  CYC:%d\n",pc,cycles);
-					else if (i == 23)
-						printf("  SP:%04x\n",SP);
-					else if (i == 31)
-						printf("  X:%04x Y:%04x Z:%04x\n",X,Y,Z);
-				}
-				putchar('\n');
-			}
-			else
-			{
-				char *rs = insnBuf;
-				while ((rs = strchr(rs,'r')) != NULL)
-				{
-					int rn = atoi(++rs);
-					printf(" r%02d:%02x",rn,r[rn]);
-				}
-				// These dumb tests are sufficient because it just so happens that
-				// no opcodes (well, after a cursory inspection anyway) contain X, Y, or Z.
-				if (strchr(insnBuf,'X'))
-					printf(" X:%04x",X);
-				if (strchr(insnBuf,'Y'))
-					printf(" Y:%04x",Y);
-				if (strchr(insnBuf,'Z'))
-					printf(" Z:%04x",Z);
-				// Could just set a flag above instead of this.
-				if (strstr(insnBuf,"MUL") || strstr(insnBuf,"SPM"))
-					printf(" r1:r0:$%02x%02x",r1,r0);
-				if (strstr(insnBuf,"CALL")||strstr(insnBuf,"RET")||strstr(insnBuf,"PUSH")||strstr(insnBuf,"POP"))
-					printf(" SP:%04x",SP);
-				putchar('\n');
-			}
-		}
-		else	// If we're disassembling, compute the next pc regardless of branches.
-		{
-			pc = lastpc + get_insn_size(insn);
-			putchar('\n');
-			//return;
-		}
-	}
-#endif
+
 	update_hardware(cycles);
 
 	return cycles;
@@ -1539,9 +1346,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 
 void avr8::trigger_interrupt(int location)
 {
-#if DISASM
-		printf("INTERRUPT %d triggered at cycleCounter = %u\n", (location/2), cycleCounter);
-#endif
 
 		// clear interrupt flag
 		set_bit(SREG,SREG_I,0);
@@ -1560,7 +1364,6 @@ void avr8::trigger_interrupt(int location)
 		// already cleared the interrupt enable flag)
 		update_hardware(5);
 
-//		++interruptLevel;
 }
 
 #if GUI
@@ -1667,38 +1470,32 @@ bool avr8::init_gui()
 }
 
 
-void avr8::uzekb_handle_key(SDL_Event &ev){
+void avr8::uzekb_handle_key(SDL_Event &ev)
+{
+	if(ev.type==SDL_KEYUP)uzeKbScanCodeQueue.push(0xf0);
 
-//	if(ev.key.keysym.sym==SDLK_ESCAPE){
-//		printf("user abort (pressed ESC).\n");
-//        shutdown(0);
-//        /* no break */
-//	}else{
-
-		if(ev.type==SDL_KEYUP)uzeKbScanCodeQueue.push(0xf0);
-
-		u16 i;
-		for(i = 0; uzeKbScancodes[i][1]!=ev.key.keysym.sym && uzeKbScancodes[i][1]; i++);
-		if (uzeKbScancodes[i][1] == ev.key.keysym.sym) {
-			uzeKbScanCodeQueue.push(uzeKbScancodes[i][0]);
-		}
-
-//	}
+	u16 i;
+	for(i = 0; uzeKbScancodes[i][1]!=ev.key.keysym.sym && uzeKbScancodes[i][1]; i++);
+	if (uzeKbScancodes[i][1] == ev.key.keysym.sym)
+	{
+		uzeKbScanCodeQueue.push(uzeKbScancodes[i][0]);
+	}
 }
 
 void avr8::handle_key_down(SDL_Event &ev)
 {
-	if(uzeKbEnabled){
+	static int ssnum = 0;
+	char ssbuf[32];
+	static const char *pad_mode_strings[4] = {"NES pad.","SNES pad.","SNES 2p pad.","SNES mouse."};
+
+	if(uzeKbEnabled)
+	{
 		uzekb_handle_key(ev);
 		return;
 	}
 
-
 	if (jmap.jstate == JMAP_IDLE)
 		update_buttons(ev.key.keysym.sym,true);
-	static int ssnum = 0;
-	char ssbuf[32];
-	static const char *pad_mode_strings[4] = {"NES pad.","SNES pad.","SNES 2p pad.","SNES mouse."};
 
 	switch (ev.key.keysym.sym)
 	{
@@ -1756,11 +1553,6 @@ void avr8::handle_key_down(SDL_Event &ev)
 				puts(" 6  - Mouse sensitivity scale factor");
 				puts(" 7  - Re-map joystick");
 				puts(" F1 - This help text");
-#if DISASM
-				puts(" F5 - Debugger resume execution");
-				puts(" F9 - Debugger halt execution");
-				puts("F10 - Debugger single step");
-#endif
 				puts("Esc - Quit emulator");
 				puts(" 0  - AVCORE Baseboard power switch");
 				puts("");
@@ -1770,21 +1562,6 @@ void avr8::handle_key_down(SDL_Event &ev)
 				puts("  2p P1:     w   s    a    d   f g r t   z    x     q      e  ");
 				puts("  2p P2:     i   k    j    l   ; ' p [   n    m     u      o  ");
 				break;
-#if DISASM
-			case SDLK_F9:
-				singleStep = nextSingleStep = true;
-				puts("single step activated, F5 to resume, F10 to step");
-				break;
-			case SDLK_F5:
-				singleStep = nextSingleStep = false;
-				puts("resume full speed");
-				break;
-			case SDLK_F10:
-				singleStep = false;
-				nextSingleStep = true;
-				puts("step.");
-				break;
-#endif
 			default:
 				// Makes the compiler happy
 				break;
@@ -1860,7 +1637,6 @@ void avr8::update_buttons(int key,bool down)
 		}
 		++k;
 	}
-	// printf("buttons = %x\n",buttons);
 }
 
 // Joysticks
@@ -1990,7 +1766,6 @@ void avr8::map_joysticks(SDL_Event &ev)
 		} else {
 			return;
 		}
-		//printf("Mapped to axis: %i\n",ev.jaxis.axis);
 	} else {
 		return;
 	}
@@ -2088,28 +1863,6 @@ void avr8::update_joysticks(SDL_Event &ev)
 				bit = 0;
 		}
 	}
-	/*
-	switch (ev.type) {
-		case SDL_JOYAXISMOTION:
-			printf("Axis motion on P%i. Axis: %i Value: %i\n", ev.jaxis.which+1, ev.jaxis.axis, ev.jaxis.value);
-			break;
-		case SDL_JOYBALLMOTION:
-			printf("Ball motion on P%i. Ball: %i Xrel: %i Yrel: %i\n", ev.jball.which+1, ev.jball.ball, ev.jball.xrel, ev.jball.yrel);
-			break;
-		case SDL_JOYHATMOTION:
-			printf("Hat motion on P%i. Hat: %i Value: %i\n", ev.jhat.which+1, ev.jhat.hat, ev.jhat.value);
-			break;
-		case SDL_JOYBUTTONDOWN:
-			printf("Button press on P%i. Button: %i\n", ev.jbutton.which+1, ev.jbutton.button);
-			break;
-		case SDL_JOYBUTTONUP:
-			printf("Button release on P%i. Button: %i\n", ev.jbutton.which+1, ev.jbutton.button);
-			break;
-		default:
-			printf("Unknown event. Type: %i\n", ev.user.type);
-			break;
-	}
-	*/
 }
 
 void avr8::load_joystick_file(const char* filename)
@@ -2146,13 +1899,6 @@ void avr8::load_joystick_file(const char* filename)
 
 void avr8::update_hardware(int cycles)
 {
-
-	u16 _TCCR1A=TCCR1A;
-	u16 _TCCR1B=TCCR1B;
-	u16 _TCCR1C=TCCR1C;
-	u16 _TIMSK1=TIMSK1;
-	u16 _TIFR1=TIFR1;
-	u16 _TCNT1 = TCNT1L | (TCNT1H<<8);
 
 	cycleCounter += cycles;
 
@@ -2295,7 +2041,7 @@ void avr8::update_hardware(int cycles)
 		}
 	}
 
-#if VIDEO_METHOD == 1
+    //draw pixels on scanline
 	if (scanline_count >= 0 && current_cycle < 1440)
 	{
 		while (cycles)
@@ -2309,7 +2055,7 @@ void avr8::update_hardware(int cycles)
 			--cycles;
 		}
 	}
-#endif
+
 
 }
 
@@ -2327,8 +2073,6 @@ char ascii(unsigned char ch){
 
 void avr8::update_spi(){
     // SPI state machine
-    //SPI_DEBUG("byte: %02x\n",spiByte);
-    //SPI_DEBUG("state: %d\n",spiState);
     switch(spiState){
     case SPI_IDLE_STATE:
         if(spiByte == 0xff){
@@ -2559,16 +2303,6 @@ void avr8::update_spi(){
 
     case SPI_READ_MULTIPLE_BLOCK:
         if(SPDR == 0x4C){ //CMD12 - stop multiple read transmission
-            //SPDR = 127;
-            //memset(spiResponseBuffer,0xFF,9); // Q&D - return garbage in response to the whole command
-            //spiResponsePtr = spiResponseBuffer;
-            //spiResponseEnd = spiResponsePtr+9;
-
-        //    spiResponseBuffer[0] = 127; //junk byte varies from card to card
-//            spiResponseBuffer[0] = 0x0; //card is busy
-  //          spiResponseBuffer[1] = 0xff; //ready
-    //        spiResponsePtr = spiResponseBuffer;
-      //      spiResponseEnd = spiResponsePtr+2;
             spiState = SPI_RESPOND_SINGLE;
 
         	spiCommand = 0x4C;

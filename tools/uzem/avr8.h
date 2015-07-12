@@ -45,14 +45,10 @@ THE SOFTWARE.
     #include <sys/mmap.h> // Unix memory mapped I/O
 #endif
 
-#ifndef GUI
-#define GUI		1
-#endif
+//#ifndef GUI
+//#define GUI
+//#endif
 
-// 0 = no video (for benchmarking), 1 = have video
-#ifndef VIDEO_METHOD
-#define VIDEO_METHOD	1
-#endif
 
 #if GUI
 // If you're building from the command line or on a non-MS compiler you'll need
