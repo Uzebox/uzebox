@@ -32,7 +32,7 @@ THE SOFTWARE.
 //#include <iostream>
 #include <queue>
 //using namespace std;
-
+#include "SDL_framerate.h"
 #include "gdbserver.h"
 #include "SDEmulator.h"
 
@@ -96,9 +96,6 @@ THE SOFTWARE.
 #define JOY_DIR_LEFT 8
 #define JOY_DIR_COUNT 4
 #define JOY_AXIS_UNUSED -1
-
-#define VIZ_READ (255<<8)
-#define VIZ_WRITE 255
 
 #define JOY_MASK_UP 0x11111111
 #define JOY_MASK_RIGHT 0x22222222
@@ -291,7 +288,7 @@ struct avr8
 {
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0), visualize(false), new_input_mode(false),gdb(0),enableGdb(false), SDpath(NULL), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
+		prevWDR(0), frameCounter(0),  new_input_mode(false),gdb(0),enableGdb(false), SDpath(NULL), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
         spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),joystickFile(0),
 
 
@@ -306,8 +303,6 @@ struct avr8
 		memset(sram, 0, sizeof(sram));
 		memset(eeprom, 0, sizeof(eeprom));
 		memset(progmem,0,progSize);
-		memset(progmemviz,0,progSize);
-		memset(sramviz, 0, sramSize);
 
 		PIND = 8;
 		SPL = (SRAMBASE+sramSize-1) & 0x00ff;
@@ -318,16 +313,10 @@ struct avr8
         uzeKbEnabled=false;
 #if GUI
 		pad_mode = SNES_PAD;
-		currentFrame = 0;
-		exitThreads = false;
 #endif
 	}
 
-
-
 	u16 progmem[progSize/2];
-  u16 progmemviz[progSize/2];
-  u16 sramviz[sramSize];
 	u16 pc;
 	u16 breakpoint;
 
@@ -343,20 +332,11 @@ struct avr8
 	u8 TEMP;				// for 16-bit timers
 	u32 cycleCounter, prevPortB, prevWDR;
 	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
-		new_input_mode, visualize;
+		new_input_mode;
 	int interruptLevel;
 	u32 lastFlip;
 	u32 inset;
 #if GUI
-	SDL_mutex *mtxVSync;
-	SDL_cond *cVSync;
-	SDL_cond *cVSDone;
-	SDL_mutex *mtxUpdateScreen;
-	SDL_Thread *tgui;
-	volatile int currentFrame;
-	bool exitThreads;
-	volatile int currentFrameBuffer;
-	SDL_Surface *frameBuffer[2];
 	SDL_Surface *screen;
 	joystickState joysticks[MAX_JOYSTICKS];
 	joyMapSettings jmap;
@@ -367,6 +347,9 @@ struct avr8
 	int scanline_top;
 	int left_edge;
 	u32 *current_scanline, *next_scanline;
+
+	FPSmanager fpsmanager;
+
 	u32 pixel;
 	u32 palette[256];
 	// SNES bit order:  B, Y, Select, Start, Up, Down, Left, Right, A, X, L, R
@@ -492,7 +475,6 @@ struct avr8
 	inline u8 read_progmem(u16 addr)
 	{
 		u16 word = progmem[addr>>1];
-		progmemviz[addr>>1] |= VIZ_READ;
 		return (addr&1)? word>>8 : word;
 	}
 
@@ -506,7 +488,6 @@ struct avr8
 			//if (addr >= SRAMBASE + sramSize)
 			//	printf("illegal write of %x to addr %x, pc = %x\n",value,addr,pc-1);
 			sram[(addr - SRAMBASE) & (sramSize-1)] = value;
-			sramviz[(addr - SRAMBASE) & (sramSize-1)] |= VIZ_WRITE;
 		}
 	}
 
@@ -519,7 +500,6 @@ struct avr8
 		else {
 			//if (addr >= SRAMBASE + sramSize)
 			//	printf("illegal read from addr %x, pc = %x\n",addr,pc-1);
-			sramviz[(addr - SRAMBASE) & (sramSize-1)] |= VIZ_READ;
 			return sram[(addr - SRAMBASE) & (sramSize-1)];
 		}
 	}
@@ -549,8 +529,6 @@ struct avr8
 	void set_jmap_state(int state);
 	void map_joysticks(SDL_Event &ev);
 	void load_joystick_file(const char* filename);
-	static int guithread(void *ptr);
-	void draw_memorymap();
 #endif
 	void trigger_interrupt(int location);
 	u8 exec(bool disasmOnly,bool verbose);

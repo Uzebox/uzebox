@@ -43,13 +43,12 @@ More info at uzebox.org
 #include "SDEmulator.h"
 #include "Keyboard.h"
 #include "logo.h"
-
+#include "SDL_framerate.h"
 #include <iostream>
 #include <queue>
 using namespace std;
 
 
-#define FPS 30
 
 #define X		((XL)|(XH<<8))
 #define DEC_X	(XL-- || XH--)
@@ -113,6 +112,7 @@ static const char *port_name(int);
 #if GUI
 static const char* joySettingsFilename = "joystick-settings";
 #endif
+
 
 #define SD_ENABLED() SDpath
 
@@ -187,8 +187,6 @@ inline void set_bit(u8 &dest,int bit,int value)
 static const char brbc[8][5] = {"BRCC", "BRNE", "BRPL", "BRVC", "BRGE", "BRHC", "BRTC", "BRID"};
 static const char brbs[8][5] = {"BRCS", "BREQ", "BRMI", "BRVS", "BRLT", "BRHS", "BRTS", "BRIE"};
 
-
-
 static const char *reg_pair(int reg)
 {
 	static const char names[16][8] = {
@@ -235,6 +233,10 @@ static const char *port_name(int port)
 	
 	return names[port];
 }
+
+
+
+
 
 static const char *addr_or_port_name(int addr)
 {
@@ -293,62 +295,6 @@ void avr8::spi_calculateClock(){
     SPI_DEBUG("SPI divider set to : %d (%d cycles per byte)\n",spiClockDivider,spiCycleWait);
 }
 
-#if GUI
-int avr8::guithread(void *ptr) {
-	static unsigned int lastFrame;
-	static unsigned int previousTime;
-	unsigned int timeDelta;
-	avr8 *self = (avr8 *)ptr;
-	SDL_Rect rect;
-	rect.x = 0;
-	rect.y = 0;
-	rect.w = self->screen->w;
-	rect.h = self->screen->h;
-
-	while (!self->exitThreads) {
-		int blitFrameBuffer;
-
-		SDL_LockMutex(self->mtxVSync);
-
-		/* Wait for "VSync" */
-		SDL_CondWait(self->cVSync, self->mtxVSync);
-
-		SDL_UnlockMutex(self->mtxVSync);
-
-		blitFrameBuffer = self->currentFrameBuffer ^ 1;
-
-		if (self->exitThreads)
-			return 0;
-
-		/* Tell CPU it's safe to continue drawing */
-		//cVSDone.notify_one();
-
-		/* Unlock surface for blitting */
-		if (SDL_MUSTLOCK(self->frameBuffer[blitFrameBuffer]))
-			SDL_UnlockSurface(self->frameBuffer[blitFrameBuffer]);
-
-		/* Actually draw the buffer to the screen */
-		SDL_BlitSurface( self->frameBuffer[blitFrameBuffer], &rect, self->screen, &rect );
-
-		/* Lock surface to gain pixel access */
-		if (SDL_MUSTLOCK(self->frameBuffer[blitFrameBuffer]))
-			SDL_LockSurface(self->frameBuffer[blitFrameBuffer]);
-
-		/* Flip screen buffer */
-		SDL_Flip(self->screen);
-
-		/* Sync to FPS fps */
-		timeDelta = SDL_GetTicks() - previousTime;
-		if (timeDelta < 1000 / FPS) {
-			SDL_Delay((1000 / FPS) - (timeDelta-1));
-		}
-		previousTime = SDL_GetTicks();
-
-	}
-	return 0;
-}
-#endif
-
 void avr8::write_io(u8 addr,u8 value)
 {
 	if (addr == ports::PORTC)
@@ -368,11 +314,6 @@ void avr8::write_io(u8 addr,u8 value)
         // write value with respect to DDRD register
         io[addr] = value & DDRD;
 
-        //detect if are enabling the SD CE
-     //   if(!SD_ENABLED() && ((value & DDRD)&0x40)){
-       // 	SDpath
-
-        //}
     }
 #if GUI    
 	else if (addr == ports::PORTB)
@@ -380,39 +321,24 @@ void avr8::write_io(u8 addr,u8 value)
         u32 elapsed = cycleCounter - prevPortB;
         prevPortB = cycleCounter;
 
-        //if (scanline_count == -999 && value && elapsed >= 774 - 4 && elapsed <= 774 + 4)
-          if (scanline_count == -999 && value && elapsed >= 774 -7 && elapsed <= 774 + 7)
-            scanline_count = scanline_top;
-        else if (scanline_count != -999 && value) {
+
+       if (scanline_count == -999 && (value&1) && elapsed >= 774 -7 && elapsed <= 774 + 7)
+       {
+    	   scanline_count = scanline_top;
+       }
+       else if (scanline_count != -999 && (value&1))
+       {
             ++scanline_count;
             current_cycle = left_edge;
 
-            current_scanline = (u32*)((u8*)frameBuffer[currentFrameBuffer]->pixels + scanline_count * 2 * screen->pitch + inset);
-            if (interlaced)
-            {
-                if (frameCounter & 1)
-                    current_scanline += (screen->pitch>>2);
-                next_scanline = current_scanline;
-            }
-            else
-                next_scanline = current_scanline + (screen->pitch>>2);
+            current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
+            next_scanline = current_scanline + (screen->pitch>>2);
 
             if (scanline_count == 224) 
             {
-
-                // framelock no longer necessary, audio buffer full takes care of it for us.
-                if (frameCounter & 1) {
-                    currentFrame++;
-
-                    //if (visualize)
-                    //  draw_memorymap();
-
-                    /* Tell GUI thread to update screen */
-                    SDL_LockMutex(mtxVSync);
-										currentFrameBuffer ^= 1;
-                    SDL_CondSignal(cVSync);
-                    SDL_UnlockMutex(mtxVSync);
-                }
+            	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+            	SDL_Flip(screen);
+            	SDL_framerateDelay(&fpsmanager);
 
                 SDL_Event event;
                 while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
@@ -468,6 +394,8 @@ void avr8::write_io(u8 addr,u8 value)
                     buttons[0] |= 0xFFFF8000;
                 singleStep = nextSingleStep;
 
+                if (SDL_MUSTLOCK(screen))
+                    SDL_LockSurface(screen);
                 scanline_count = -999;
                 ++frameCounter;
             }
@@ -477,8 +405,6 @@ void avr8::write_io(u8 addr,u8 value)
 	{
 		u8 changed = value ^ io[addr];
 		u8 went_low = changed & io[addr];
-		// u8 went_hi = changed & value;
-
 
 		if (went_low == (1<<2))		// LATCH
 		{
@@ -491,7 +417,6 @@ void avr8::write_io(u8 addr,u8 value)
 				// same for LEFT+RIGHT
 				if ((latched_buttons[i] & ((1<<PAD_UP)|(1<<PAD_DOWN))) == 0)
 					latched_buttons[i] |= (1<<PAD_DOWN);
-				// printf("LATCH latched_buttons = %x\n",latched_buttons);
 			}
 		}
 		else if (went_low == (1<<3))	// CLOCK
@@ -585,10 +510,7 @@ void avr8::write_io(u8 addr,u8 value)
 			SDL_UnlockAudio();
 		}
 	}
-	//else if (addr == ports::PORTC)
-	//{
-    //    pixel = palette[value & DDRC];
-	//}
+
 #endif	// GUI
 
     else if(addr == ports::SPDR)
@@ -688,64 +610,7 @@ u8 avr8::read_io(u8 addr)
 		return io[addr];
 }
 
-/*
-	Someone awesome should optimize this
-*/
-inline void avr8::draw_memorymap()
-{
-	int sramaddr = 0;
-	int startx = inset + 630 + 5;
-	int starty = 20;
-	SDL_Surface *surface = frameBuffer[currentFrameBuffer];
 
-	/* SRAM */
-	for (int y = 0; y < 64; ++y) {
-		for (int x = 0; x < 32; ++x) {
-			u32 *pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx + x;
-			*pixel = (sramviz[sramaddr++] << 8);
-			if ((sramviz[sramaddr-1] & 0xff) > 8) sramviz[sramaddr-1]-=8;
-			if (((sramviz[sramaddr-1]>>8) & 0xff) > 8) sramviz[sramaddr-1] = (sramviz[sramaddr-1] & 0xff) | (((sramviz[sramaddr-1]>>8) - 8)<<8);
-		}
-	}
-	int white = SDL_MapRGB(screen->format,255,255,255);
-	for (int x = 0; x < 32; ++x) {
-		u32 *pixel = (u32*)((u8*)surface->pixels + ((starty - 1) * surface->pitch)) + startx + x;
-		*pixel = white;
-		pixel = (u32*)((u8*)surface->pixels + ((starty + 64) * surface->pitch)) + startx + x;
-		*pixel = white;
-	}
-	for (int y = 0; y < 64; ++y) {
-		u32 *pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx - 1;
-		*pixel = white;
-		pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx + 32;
-		*pixel = white;
-	}
-
-	/* Progmem */
-	starty = 20 + 64 + 20;
-	sramaddr = 0;
-	startx = inset + 630 + 5;
-	for (int y = 0; y < 200; ++y) {
-		for (int x = 0; x < 160; ++x) {
-			u32 *pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx + x;
-			*pixel = (progmemviz[sramaddr++] << 8);
-			if ((progmemviz[sramaddr-1] & 0xff) > 8) progmemviz[sramaddr-1]-=8;
-			if (((progmemviz[sramaddr-1]>>8) & 0xff) > 8) progmemviz[sramaddr-1] = (progmemviz[sramaddr-1] & 0xff) | (((progmemviz[sramaddr-1]>>8) - 8)<<8);
-		}
-	}
-	for (int x = 0; x < 160; ++x) {
-		u32 *pixel = (u32*)((u8*)surface->pixels + ((starty - 1) * surface->pitch)) + startx + x;
-		*pixel = white;
-		pixel = (u32*)((u8*)surface->pixels + ((starty + 200) * surface->pitch)) + startx + x;
-		*pixel = white;
-	}
-	for (int y = 0; y < 200; ++y) {
-		u32 *pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx - 1;
-		*pixel = white;
-		pixel = (u32*)((u8*)surface->pixels + ((starty + y) * surface->pitch)) + startx + 160;
-		*pixel = white;
-	}
-}
 
 u8 avr8::exec(bool disasmOnly,bool verbose)
 {
@@ -789,12 +654,14 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 	sprintf(insnBuf,"?$%04x",insn);
 #endif
 
-	//progmemviz[lastpc] |= VIZ_WRITE;
 
 	// The "DIS" macro must be first, or at least before any side effects on machine state occur.  
 	// This is because depending on the configuration, we can build one of three ways; no 
 	// disassembly; integrated disassembly and emulation, and disassembly only.  (ie the DIS 
 	// macro may just check a flag, do the sprintf, and exit)
+
+
+
 	switch (insn >> 12) 
 	{
 	case 0:
@@ -1298,10 +1165,9 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 			    break;
 			case 0x95A8:
 			    DIS("WDR");
-			    //SDemulator.debug(true);
 			    // Implement this if/when we need watchdog timer functionality.
 			    if(prevWDR){
-			       // printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
+			        printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
 			        prevWDR = 0;
 			}else
 			    prevWDR = cycleCounter + 1;
@@ -1513,9 +1379,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		if (insn & 0x0800) // OUT
 		{
 			DIS("OUT    @%s,%s",port_name(Rr),reg_name(Rd));
-			//if(inDebug==1){
-			//	printf("Break!");
-			//}
 			write_io(Rr,r[Rd]);
 		}
 		else	// IN
@@ -1603,7 +1466,6 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 		break;
 	}
 
-		//printf("$%04x [%04x]  %-23.23s",lastpc,progmem[lastpc],insnBuf);
 #if DISASM
 	// Don't spew disassembly during interrupts
 	if (singleStep && !interruptLevel)
@@ -1701,6 +1563,7 @@ void avr8::trigger_interrupt(int location)
 //		++interruptLevel;
 }
 
+#if GUI
 bool avr8::init_sd()
 {
 	if (SDemulator.init_with_directory(SDpath) < 0) {
@@ -1724,7 +1587,7 @@ bool avr8::init_sd()
 	return true;
 }
 
-#if GUI
+
 bool avr8::init_gui()
 {
 	if ( SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0 )
@@ -1733,18 +1596,13 @@ bool avr8::init_gui()
 		return false;
 	}
 	atexit(SDL_Quit);
-
 	init_joysticks();
 
 	if (fullscreen)
 		screen = SDL_SetVideoMode(800,600,32,sdl_flags | SDL_FULLSCREEN);
 	else
-		screen = SDL_SetVideoMode(visualize ? 800 : 630,448,32,sdl_flags);
-
-	frameBuffer[0] = SDL_CreateRGBSurface( sdl_flags, screen->w, screen->h, 32, screen->format->Rmask, screen->format->Gmask, screen->format->Bmask, screen->format->Amask );
-	frameBuffer[1] = SDL_CreateRGBSurface( sdl_flags, screen->w, screen->h, 32, screen->format->Rmask, screen->format->Gmask, screen->format->Bmask, screen->format->Amask );
-
-	if (!screen || !frameBuffer[0] || !frameBuffer[1]) 
+		screen = SDL_SetVideoMode(630,448,32,sdl_flags);
+	if (!screen)
 	{
 		fprintf(stderr, "Unable to set 630x448x32 video mode.\n");
 		return false;
@@ -1752,39 +1610,12 @@ bool avr8::init_gui()
 	else if (fullscreen)	// Center in fullscreen
 		inset = ((600-448)/2) * screen->pitch + 4 * ((800-630)/2);
 
+	if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) < 0)
+		return false;
+
 	if (fullscreen)
 	{
 		SDL_ShowCursor(0);
-	}
-
-	if (SDL_MUSTLOCK(frameBuffer[1]))
-		SDL_UnlockSurface(frameBuffer[1]);
-
-	if (SDL_MUSTLOCK(frameBuffer[0]))
-		SDL_UnlockSurface(frameBuffer[0]);
-
-	currentFrameBuffer = 0;
-
-	SDL_Surface *slogo;
-	slogo = SDL_CreateRGBSurfaceFrom((void *)&logo,32,32,32,32*4,0xFF,0xff00,0xff0000,0xff000000);
-	SDL_WM_SetIcon(slogo, NULL);
-	SDL_FreeSurface(slogo);
-
-	/* Start SDL blitter thread */
-	mtxVSync = SDL_CreateMutex();
-	if (!mtxVSync) {
-		fprintf(stderr, "Error creating mutex for SDL blitting\n");
-		shutdown(1);
-	}
-	cVSync = SDL_CreateCond();
-	if (!cVSync) {
-		fprintf(stderr, "Error creating condition variable for SDL blitting\n");
-		shutdown(1);
-	}
-	tgui = SDL_CreateThread(&avr8::guithread, this);
-	if (!tgui) {
-		fprintf(stderr, "Error spawning SDL blitting thread\n");
-		shutdown(1);
 	}
 
 	// Open audio driver
@@ -1828,6 +1659,10 @@ bool avr8::init_gui()
 		palette[i] = SDL_MapRGB(screen->format, red, green, blue);
 	}
 	
+
+	SDL_initFramerate(&fpsmanager);
+	SDL_setFramerate(&fpsmanager, 60);
+
 	return true;
 }
 
@@ -2364,21 +2199,7 @@ void avr8::update_hardware(int cycles)
 		TCNT1H = (u8) (TCNT1>>8);
 	}
 
-/*
-#if GUI && VIDEO_METHOD == 1
-	if (scanline_count >= 0 && current_cycle < 1440)
-	{
-		while (cycles)
-		{
-			if (current_cycle >= 0 && current_cycle < 1440)
-				current_scanline[(current_cycle*7)>>4] = 
-				next_scanline[(int)(current_cycle*7)>>4] = pixel;
-			++current_cycle;
-			--cycles;
-		}
-	}
-#endif
-*/
+
     // clock the SPI hardware. 
     if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled
         //TODO: test for master/slave modes (assume master for now)
@@ -2474,14 +2295,16 @@ void avr8::update_hardware(int cycles)
 		}
 	}
 
-#if GUI && VIDEO_METHOD == 1
+#if VIDEO_METHOD == 1
 	if (scanline_count >= 0 && current_cycle < 1440)
 	{
 		while (cycles)
 		{
 			if (current_cycle >= 0 && current_cycle < 1440)
-				current_scanline[(current_cycle*7)>>4] =
+			{
+				current_scanline[(current_cycle*7)>>4] = pixel;
 				next_scanline[(int)(current_cycle*7)>>4] = pixel;
+			}
 			++current_cycle;
 			--cycles;
 		}
@@ -2501,119 +2324,6 @@ char ascii(unsigned char ch){
 }
 
 #endif
-
-/*
-void avr8::update_spi(){
-
-	 switch(spiState){
-	    case SPI_IDLE_STATE:
-	        if(spiByte == 0xff){
-	            SPDR = 0x01; // echo back that we're ready
-	            break;
-	        }
-	        spiCommand = spiByte;
-	        SPDR = 0x00;
-	        spiState = SPI_ARG_X_HI;
-	        break;
-	    case SPI_ARG_X_HI:
-	        SPI_DEBUG("x hi: %02X\n",spiByte);
-	        spiArgXhi = spiByte;
-	        SPDR = 0x00;
-	        spiState = SPI_ARG_X_LO;
-	        break;
-	    case SPI_ARG_X_LO:
-	        SPI_DEBUG("x lo: %02X\n",spiByte);
-	        spiArgXlo = spiByte;
-	        SPDR = 0x00;
-	        spiState = SPI_ARG_Y_HI;
-	        break;
-	    case SPI_ARG_Y_HI:
-	        SPI_DEBUG("y hi: %02X\n",spiByte);
-	        spiArgYhi = spiByte;
-	        SPDR = 0x00;
-	        spiState = SPI_ARG_Y_LO;
-	        break;
-	    case SPI_ARG_Y_LO:
-	        SPI_DEBUG("y lo: %02X\n",spiByte);
-	        spiArgYlo = spiByte;
-	        SPDR = 0x00;
-	        spiState = SPI_ARG_CRC;
-	        break;
-	    case SPI_ARG_CRC:
-	        SPI_DEBUG("SPI - CMD%d (%02X) X:%04X Y:%04X CRC: %02X\n",spiCommand^0x40,spiCommand,spiArgX,spiArgY,spiByte);
-
-	        // ignore CRC and process commands
-			 switch(spiCommand){
-				 case 0x40: //CMD0 =  RESET / GO_IDLE_STATE
-					 SPDR = 0x00;
-					 spiState = SPI_RESPOND_R1;
-					 spiResponseBuffer[0] = 0xFF;	//Simulate 1 token delay
-					 spiResponseBuffer[1] = 0x01;	//Return Idle state flag
-					 spiByteCount = 2;
-					 break;
-
-				 case 0x41: //CMD1 =  INIT / SEND_OP_COND
-					 SPDR = 0x00;
-					 spiState = SPI_RESPOND_SINGLE;
-					 spiResponseBuffer[0] = 0x00; // 8-clock wait
-					 spiResponseBuffer[1] = 0x00; // no error
-					 spiResponsePtr = spiResponseBuffer;
-					 spiResponseEnd = spiResponsePtr+2;
-					 spiByteCount = 0;
-					 break;
-				 case 0x51: //CMD17 =  READ_BLOCK
-					 SPDR = 0x00;
-					 spiState = SPI_RESPOND_SINGLE;
-					 spiResponseBuffer[0] = 0x00; // 8-clock wait
-					 spiResponseBuffer[1] = 0x00; // no error
-					 spiResponseBuffer[2] = 0xFE; // start block
-					 spiResponsePtr = spiResponseBuffer;
-					 spiResponseEnd = spiResponsePtr+3;
-					 SDSeekToOffset(spiArg);
-					 spiByteCount = 512;
-					 break;
-				 case 0x52: //CMD18 =  MULTI_READ_BLOCK
-					 SPDR = 0x00;
-					 spiState = SPI_RESPOND_MULTI;
-					 spiResponseBuffer[0] = 0x00; // 8-clock wait
-					 spiResponseBuffer[1] = 0x00; // no error
-					 spiResponseBuffer[2] = 0xFE; // start block
-					 spiResponsePtr = spiResponseBuffer;
-					 spiResponseEnd = spiResponsePtr+3;
-					 SDSeekToOffset(spiArg);
-					 spiByteCount = 512;
-					 break;
-				 case 0x58: //CMD24 =  WRITE_BLOCK
-					 SPDR = 0x00;
-					 spiState = SPI_WRITE_SINGLE;
-					 spiResponseBuffer[0] = 0x00; // 8-clock wait
-					 spiResponseBuffer[1] = 0x00; // no error
-					 spiResponseBuffer[2] = 0xFE; // start block
-					 spiResponsePtr = spiResponseBuffer;
-					 spiResponseEnd = spiResponsePtr+3;
-					 SDSeekToOffset(spiArg);
-					 spiByteCount = 512;
-					 break;
-				 default:
-								printf("Unknown SPI command: %d\n", spiCommand);
-					 SPDR = 0x00;
-					 spiState = SPI_RESPOND_SINGLE;
-					 spiResponseBuffer[0] = 0x02; // data accepted
-					 spiResponseBuffer[1] = 0x05;  //i illegal command
-					 spiResponsePtr = spiResponseBuffer;
-					 spiResponseEnd = spiResponsePtr+2;
-					 break;
-				 }
-				 break;
-
-			 case SPI_RESPOND_R1:
-
-
-				 break;
-
-	 }
-}
-*/
 
 void avr8::update_spi(){
     // SPI state machine
@@ -3057,22 +2767,6 @@ void avr8::shutdown(int errcode){
         }
     }
 #if GUI
-  /* Stop SDL thread */
-  exitThreads = 1;
-
-  /* wake up SDL thread, to let it finish */
-  SDL_CondSignal(cVSync);
-  /* Ensure that mutex is unlocked */
-  //SDL_UnlockMutex(mtxVSync);
-
-  /* Wait for threads to finish */
-  SDL_WaitThread(tgui, NULL);
-
-  if (mtxVSync)
-    SDL_DestroyMutex(mtxVSync);
-  if (cVSync)
-    SDL_DestroyCond(cVSync);
-
 	if (joystickFile) {
 		FILE* f = fopen(joystickFile,"wb");
 
