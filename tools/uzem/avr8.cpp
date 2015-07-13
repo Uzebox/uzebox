@@ -173,7 +173,7 @@ inline void set_bit(u8 &dest,int bit,int value)
 #define CLEAR_Z		(SREG &= ~(1<<SREG_Z))
 #define SET_C		(SREG |= (1<<SREG_C))
 
-#define ILL if (!disasmOnly) { fprintf(stderr,"invalid insn %x\n",insn); shutdown(1); }
+#define ILLEGAL_OP fprintf(stderr,"invalid insn %x\n",insn); shutdown(1);
 
 #if defined(_DEBUG)
 #define DISASM 1
@@ -306,13 +306,13 @@ void avr8::write_io(u8 addr,u8 value)
         prevPortB = cycleCounter;
 
 
-       if (scanline_count == -999 && (value&1) && elapsed >= 774 -7 && elapsed <= 774 + 7)
+       if ((value&1) && scanline_count == -999 && elapsed >= 774 -7 && elapsed <= 774 + 7)
        {
     	   scanline_count = scanline_top;
        }
-       else if (scanline_count != -999 && (value&1))
+       else if ((value&1) && scanline_count != -999)
        {
-            ++scanline_count;
+            scanline_count++;
             current_cycle = left_edge;
 
             current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
@@ -591,7 +591,7 @@ u8 avr8::read_io(u8 addr)
 
 
 
-u8 avr8::exec(bool disasmOnly,bool verbose)
+u8 avr8::exec()
 {
 
 	u16 lastpc = pc;
@@ -920,7 +920,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				cycles=2;
 				break;
 			default:
-				ILL;
+				ILLEGAL_OP;
 				break;
 			}
 			break;
@@ -972,7 +972,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 				DEC_SP;
 				break;
 			default:
-				ILL;
+				ILLEGAL_OP;
 				break;
 			}
 			break;
@@ -1172,7 +1172,7 @@ u8 avr8::exec(bool disasmOnly,bool verbose)
 					UPDATE_Z;
 					break;
 				default:
-					ILL;
+					ILLEGAL_OP;
 					break;
 				}
 			    break;

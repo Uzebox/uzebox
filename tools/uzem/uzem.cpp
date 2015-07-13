@@ -304,7 +304,7 @@ int main(int argc,char **argv)
 		left = cycles;
 		now = SDL_GetTicks();
 		while (left > 0)
-			left -= uzebox.exec(disasmOnly,false);
+			left -= uzebox.exec();
 		
 		now = SDL_GetTicks() - now;
 

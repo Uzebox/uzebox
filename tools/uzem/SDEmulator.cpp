@@ -101,7 +101,7 @@ int SDEmu::init_with_directory(const char *path) {
 	clusterSize =  bootsector.bytes_per_sector*bootsector.sectors_per_cluster;
 
 	DIR *dir = opendir(path);
-	if (dir < 0) {
+	if (dir == NULL) {
 		return -1;
 	}
 

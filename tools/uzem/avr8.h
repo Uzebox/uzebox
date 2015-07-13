@@ -533,7 +533,7 @@ struct avr8
 	void load_joystick_file(const char* filename);
 #endif
 	void trigger_interrupt(int location);
-	u8 exec(bool disasmOnly,bool verbose);
+	u8 exec();
     void spi_calculateClock();    
 	void update_hardware(int cycles);    
     void update_spi();
