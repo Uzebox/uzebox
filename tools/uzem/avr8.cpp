@@ -135,7 +135,6 @@ inline void set_bit(u8 &dest,int bit,int value)
 		dest |= (1<<bit);
 	else
 		dest &= ~(1<<bit);
-
 }
 
 // This computes both the half-carry (bit3) and full carry (bit7)
@@ -295,12 +294,12 @@ void avr8::write_io(u8 addr,u8 value)
 		io[addr+1] = TEMP;
 	}
 	else if (addr == ports::PORTD)
-	{        
+	{
         // write value with respect to DDRD register
         io[addr] = value & DDRD;
 
     }
-#if GUI    
+
 	else if (addr == ports::PORTB)
 	{
         u32 elapsed = cycleCounter - prevPortB;
@@ -319,7 +318,7 @@ void avr8::write_io(u8 addr,u8 value)
             current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
             next_scanline = current_scanline + (screen->pitch>>2);
 
-            if (scanline_count == 224) 
+            if (scanline_count == 224)
             {
             	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
             	SDL_Flip(screen);
@@ -352,7 +351,7 @@ void avr8::write_io(u8 addr,u8 value)
 					}
                 }
 
-                if (pad_mode == SNES_MOUSE) 
+                if (pad_mode == SNES_MOUSE)
                 {
                     // http://www.repairfaq.org/REPAIR/F_SNES.html
                     // we always report "low sensitivity"
@@ -495,7 +494,7 @@ void avr8::write_io(u8 addr,u8 value)
 		}
 	}
 
-#endif	// GUI
+
 
     else if(addr == ports::SPDR)
     {
@@ -525,9 +524,9 @@ void avr8::write_io(u8 addr,u8 value)
     else if(addr == ports::EECR){
         //printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
         //EEPROM can only be put into either read or write mode, and the master bit must be set
-        
+
         if(value & EERE){
-            if(io[addr] & EEPE){ 
+            if(io[addr] & EEPE){
                 io[addr] = value ^ EERE; // programming in progress, don't allow this to be set
             }
             else{
@@ -542,7 +541,7 @@ void avr8::write_io(u8 addr,u8 value)
                 io[addr] = value;
             }
         }
-        if(value & EEMPE){      
+        if(value & EEMPE){
             io[addr] = value;
             eeClock = 4;
         }
@@ -563,7 +562,7 @@ void avr8::write_io(u8 addr,u8 value)
     else if(addr == ports::res3A){
         // emulator-only whisper support
         printf("%c",value);
-    }    
+    }
     else if(addr == ports::res39){
         // emulator-only whisper support
         printf("%02x",value);
@@ -1904,9 +1903,9 @@ void avr8::update_hardware(int cycles)
 
 	if (TCCR1B & 7)	//if timer 1 is started
 	{
-		u16 TCNT1 = TCNT1L | (TCNT1H<<8);
-		u16 OCR1A = OCR1AL | (OCR1AH<<8);
-		u16 OCR1B = OCR1BL | (OCR1BH<<8);
+		TCNT1 = TCNT1L | (TCNT1H<<8);
+		OCR1A = OCR1AL | (OCR1AH<<8);
+		OCR1B = OCR1BL | (OCR1BH<<8);
 
 		if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
 
@@ -2049,17 +2048,15 @@ void avr8::update_hardware(int cycles)
 			if (current_cycle >= 0 && current_cycle < 1440)
 			{
 				current_scanline[(current_cycle*7)>>4] = pixel;
-				next_scanline[(int)(current_cycle*7)>>4] = pixel;
+				next_scanline[(current_cycle*7)>>4] = pixel;
 			}
-			++current_cycle;
+			current_cycle++;
 			--cycles;
 		}
 	}
 
 
 }
-
-static u8 dummy_sector[512];
 
 #ifdef SPI_DEBUG
 char ascii(unsigned char ch){

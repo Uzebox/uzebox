@@ -326,6 +326,10 @@ struct avr8
 	cpu_state state;
 
 	u8 TEMP;				// for 16-bit timers
+	u16 TCNT1;
+	u16 OCR1A;
+	u16 OCR1B;
+
 	u32 cycleCounter, prevPortB, prevWDR;
 	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
 		new_input_mode;
@@ -476,27 +480,29 @@ struct avr8
 
 	inline void write_sram(u16 addr,u8 value)
 	{
-		if (addr < IOBASE)
-			r[addr] = value;		// Write a register
-		else if (addr >= IOBASE && addr < SRAMBASE)
-			write_io(addr - IOBASE, value);
-		else {
-			//if (addr >= SRAMBASE + sramSize)
-			//	printf("illegal write of %x to addr %x, pc = %x\n",value,addr,pc-1);
+		if(addr>=SRAMBASE){
 			sram[(addr - SRAMBASE) & (sramSize-1)] = value;
+		}else if (addr >= IOBASE ){
+			write_io(addr - IOBASE, value);
+		}else{
+			r[addr] = value;		// Write a register
 		}
 	}
 
 	inline u8 read_sram(u16 addr)
 	{
-		if (addr < IOBASE)
-			return r[addr];		// Read a register
-		else if (addr >= IOBASE && addr < SRAMBASE)
-			return read_io(addr - IOBASE);
-		else {
-			//if (addr >= SRAMBASE + sramSize)
-			//	printf("illegal read from addr %x, pc = %x\n",addr,pc-1);
+
+		if(addr>=SRAMBASE)
+		{
 			return sram[(addr - SRAMBASE) & (sramSize-1)];
+		}
+		else if (addr >= IOBASE)
+		{
+			return read_io(addr - IOBASE);
+		}
+		else
+		{
+			return r[addr];		// Read a register
 		}
 	}
 
