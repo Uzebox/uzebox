@@ -100,7 +100,7 @@
 
 #define SPRITES_ENABLED 1
 
-RAM_TILES_COUNT==0 && MAX_SPRITES>0
+#if RAM_TILES_COUNT==0 && MAX_SPRITES>0
 	#error Sprites are used (MAX_SPRITES>0) but RAM_TILES_COUNT==0 or is undefined.
 #endif
 
