@@ -47,7 +47,6 @@ static const struct option longopts[] ={
     { "boot"       , no_argument,       NULL, 'b' },
     { "gdbserver"  , no_argument,       NULL, 'd' },
     { "port"       , required_argument, NULL, 't' },
-    { "visualize"  , no_argument,       NULL, 'v' },
 #if defined(DISASM)
     { "bp"         , required_argument, NULL, 'k' },
 #endif
@@ -83,7 +82,6 @@ void showHelp(char* programName){
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
     printerr("\t--gdbserver -d      Debug mode. Start the built-in gdb support.\n");
     printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
-    printerr("\t--visualize -v      Visualize SRAM and Progmem access\n");
 }
 
 int ends_with(const char* name, const char* extension, size_t length)
@@ -161,9 +159,6 @@ int main(int argc,char **argv)
             break;
         case 'r':
             //TODO: implement MBR emulation option
-            break;
-        case 'v':
-            uzebox.visualize = true;
             break;
         case 's':
             uzebox.SDpath = optarg;
