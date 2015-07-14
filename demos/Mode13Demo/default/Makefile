@@ -53,8 +53,8 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o  uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o  $(GAME).o 
-##gcrt1.o
+OBJECTS = uzeboxVideoEngineCore.o  uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o $(GAME).o 
+
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -63,11 +63,14 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze  size
 
 ## Rebuild graphics resource
 ../data/graphics.inc.h: ../data/graphics.png ../data/graphics.xml
 	$(UZEBIN_DIR)gconvert ../data/graphics.xml
+
+../data/sprites.inc.h: ../data/sprites.png ../data/sprites.xml
+	$(UZEBIN_DIR)gconvert ../data/sprites.xml
 
 
 ## Compile Kernel files

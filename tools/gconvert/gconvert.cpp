@@ -32,7 +32,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 5
+#define VERSION_MIN 6
 void parseXml(TiXmlDocument* doc);
 bool process();
 unsigned char* loadRawImage();
@@ -58,6 +58,7 @@ struct Palette {
 	int maxColors;
 	const char* filename;
 	const char* varName;
+	bool exportPalette;
 };
 
 struct ConvertionDefinition {
@@ -69,6 +70,7 @@ struct ConvertionDefinition {
 	const char* outputFile;
 	const char* tilesVarName;
 	int backgroundColor;		//optional, specify the mask color for mode 9
+	bool isBackgroundTiles;
 
 	int width;			//in pixels
 	int height;			//in pixels
@@ -357,9 +359,15 @@ bool process(){
 		else{
 			bool invalidColor=false;
 			/*Export tileset in 3 bits per pixel format*/
-		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());			
-			fprintf(tf,"const char vector_table_filler[] __attribute__ ((section (\".vectors\")))={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};\n");
-		    fprintf(tf,"const char %s[] __attribute__ ((section (\".vectors\")))={\n",xform.tilesVarName);
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+
+			if(xform.isBackgroundTiles){
+				fprintf(tf,"const char vector_table_filler[] __attribute__ ((section (\".vectors\")))={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};\n");
+				fprintf(tf,"const char %s[] __attribute__ ((section (\".vectors\")))={\n",xform.tilesVarName);
+			}else{
+				fprintf(tf,"const char %s[] PROGMEM ={\n",xform.tilesVarName);
+			}
+
 	
 			int c=0,t=0;
 			unsigned char b;
@@ -680,7 +688,7 @@ bool process(){
 		totalSize+=(uniqueTiles.size()*xform.tileHeight*21*2);
 	}
 	
-	if(xform.palette.varName){
+	if(xform.palette.varName && xform.palette.exportPalette){
 		int b,c;
 	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.palette.varName),xform.palette.numColors);
 	    fprintf(tf,"const unsigned char %s[] PROGMEM={\n",xform.palette.varName);
@@ -722,6 +730,7 @@ void parseXml(TiXmlDocument* doc){
 	TiXmlElement* tiles=output->FirstChildElement("tiles");
 	xform.tilesVarName=tiles->Attribute("var-name");
     xform.outputType=output->Attribute("type");
+    xform.isBackgroundTiles=strstr(output->Attribute("isBackgroundTiles"),"true");
 	if(output->QueryIntAttribute("background-color",&xform.backgroundColor)==TIXML_NO_ATTRIBUTE){
 		xform.backgroundColor=-1;
 	}
@@ -732,6 +741,7 @@ void parseXml(TiXmlDocument* doc){
 		xform.palette.filename=paletteElem->Attribute("file");
 		paletteElem->QueryIntAttribute("maxColors",&xform.palette.maxColors);
 		xform.palette.varName=paletteElem->Attribute("var-name");
+		xform.palette.exportPalette=strstr(paletteElem->Attribute("exportPalette"),"true");
 	}
 
 	//maps

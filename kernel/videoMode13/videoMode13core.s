@@ -142,7 +142,7 @@ sub_video_mode13:
 	lds r18,free_tile_index
 
 
-	clr r16
+	ldi 16,REG_IO_OFFSET
 upd_loop:	
 	ldd XL,Z+0
 	ldd XH,Z+1
@@ -162,7 +162,7 @@ noov:
 	adiw ZL,3 ;sizeof(ram_tiles_restore)
 
 	inc r16
-	cpi r16,RAM_TILES_COUNT
+	cpi r16,RAM_TILES_COUNT+REG_IO_OFFSET
 	brlo upd_loop ;23
 
 
@@ -385,16 +385,16 @@ ramloop:
    out VIDEO,r16   	;output pixel 0
    ld r16,X      	;LUT pixel 1
    ld r17,Y+      	;next tile
-   bst r21,7      	;set T flag with msbit of tile index. 1=rom, 0=ram tile     
+   bst r17,7      	;set T flag with msbit of tile index. 1=rom, 0=ram tile     
    
    out VIDEO,r16   	;output pixel 1
    ldd XL,Z+1      	;load ram pixels 2,3
    ld r16,X+      	;LUT pixel 2
-   andi r21,0x7f   	;clear tile index msbit to have both ram/rom tile bases adress at zero
+   andi r17,0x7f   	;clear tile index msbit to have both ram/rom tile bases adress at zero
       
    out VIDEO,r16   	;output pixel 2
    ld r16,X      	;LUT pixel 3
-   mul r21,r15      ;tile index * 32
+   mul r17,r15      ;tile index * 32
       
    out VIDEO,r16   	;output pixel 3
    ldd XL,Z+2      	;load ram pixels 4,5

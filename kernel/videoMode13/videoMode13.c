@@ -26,6 +26,9 @@
 	#include "uzebox.h"
 	#include "intro.h"
 	
+
+
+
 	#if EXTENDED_PALETTE
 		#include "videomode13/paletteTable.h"
 	#endif
@@ -64,33 +67,33 @@
 		spritesOn=visible;
 	}
 
+	u16 src;u8* dest;u8 spix,dpix;
 	void BlitSprite3bpp(u8 sprNo,u8 ramTileIndex,u16 yx,u16 dydx){
 //		u8 dy=dydx>>8;
 //		u8 dx=dydx &0xff;
 		u8 flags=sprites[sprNo].flags;
-		u8 spix,dpix,x2,y2;
+		//u8 spix,dpix
+		u8 x2,y2;
 //		s8 step=1,srcXdiff;
 
-		u16 src=(sprites[sprNo].tileIndex*TILE_HEIGHT*TILE_WIDTH/2)
+		src=(sprites[sprNo].tileIndex*TILE_HEIGHT*TILE_WIDTH/2)
 				+sprites_tile_banks[flags>>6];	//add bank adress		
 
-		u8* dest=&ram_tiles[ramTileIndex*TILE_HEIGHT*TILE_WIDTH/2];
+		dest=&ram_tiles[ramTileIndex*TILE_HEIGHT*TILE_WIDTH/2];
 		
 		for(y2=0;y2<TILE_HEIGHT;y2++){
-			for(x2=0;x2<TILE_WIDTH;x2++){
+			for(x2=0;x2<(TILE_WIDTH/2);x2++){
 							
 				spix=pgm_read_byte(src); //2pix flash
 				dpix=*dest;
-				//if(spx&)				
-
-				//if(px!=TRANSLUCENT_COLOR){
-				//	*dest=px;
-				//}
+				if(spix&0x0f)dpix&=0xf0;
+				if(spix&0xf0)dpix&=0x0f;
+				dpix|=spix;
+				*dest=dpix;
+								
 				dest++;
 				src++;
 			}		
-			src++;
-			dest++;
 		}
 
 	}
@@ -175,10 +178,12 @@
 	}
 	*/
 
+
+	unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy;
+	unsigned int ramPtr,ssx,ssy;
+
 	void ProcessSprites(){
 	
-		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy;
-		unsigned int ramPtr,ssx,ssy;
 
 		free_tile_index=0;	
 		if(!spritesOn) return;
@@ -245,16 +250,16 @@
 
 							bt=vram[ramPtr];						
 
-							if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
+							if( (bt>=128)  && (free_tile_index < RAM_TILES_COUNT) ){
 
 								//tile is mapped to flash. Copy it to next free RAM tile.
 								//if no ram free ignore tile
 								ram_tiles_restore[free_tile_index].addr=ramPtr;
 								ram_tiles_restore[free_tile_index].tileIndex=bt;
 													
-								CopyTileToRam(bt-128,free_tile_index);
+								CopyTileToRam(bt-128,free_tile_index+REG_IO_OFFSET);
 
-								vram[ramPtr]=free_tile_index;
+								vram[ramPtr]=free_tile_index+REG_IO_OFFSET;
 								bt=free_tile_index;
 								free_tile_index++;										
 							}
@@ -271,9 +276,6 @@
 			}//	if(bx<(SCREEN_TILES_H*TILE_WIDTH))		
 		}
 
-
-		//restore BG tiles
-		RestoreBackground();
 
 	}
 

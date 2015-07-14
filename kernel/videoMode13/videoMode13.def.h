@@ -129,3 +129,8 @@
 #else
 	#define MAX_PALETTE_COLORS 8
 #endif
+
+//ramtiles table base is at 0x0000 
+//the number of unusable ramtiles to skip 
+//the register file and the IO registers
+#define REG_IO_OFFSET 8
