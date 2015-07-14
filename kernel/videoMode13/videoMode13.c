@@ -98,17 +98,15 @@
 
 	}
 
-	void BlitSpriteExtended(u8 sprNo,u8 ramTileIndex,u16 yx,u16 dydx){
-	{
+	void BlitSpriteExtended(u8 sprNo,u8 ramTileIndex,u16 tytx,u16 dydx){
+		
 		u8 flags=sprites[sprNo].flags;
 		u8 dy = dydx >> 8;
 		u8 dx = dydx & 0xff;
 		u8 ty = tytx >> 8;
 		u8 tx = tytx & 0xff;
-		u8 w, h;
 		u8 x1, y1;
 		u8 x2, y2;
-		u8 dstX, dstY;
 		s8 xOffset, yOffset;
 		u8 x, y;
 		u8* src =(sprites[sprNo].tileIndex*(TILE_HEIGHT*TILE_WIDTH/2))
@@ -139,14 +137,14 @@
 			y2 = TILE_WIDTH;
 			yOffset = -y1;
 		}
-		
+
 		for(y = y1; y < y2; y++)
 		{
 			u8 srcY = y;
 			u8 dstY = y + yOffset;
 			u8 dstX = x1 + xOffset;
 			u8* srcPtr = src + ((srcY * TILE_WIDTH + x1) >> 1);
-			u8 srcPair = *srcPtr;
+			u8 srcPair = pgm_read_byte(srcPtr);
 			u8* dstPtr = dst + ((dstY * TILE_WIDTH + dstX) >> 1);
 			#if EXTENDED_PALETTE == 1
 			u8 dstPair = pgm_read_byte(&PaletteExtendedToStandardTable[*dstPtr]);
@@ -163,7 +161,7 @@
 				{
 					value = srcPair >> 4;
 					srcPtr++;
-					srcPair = *srcPtr;
+					srcPair = pgm_read_byte(srcPtr);
 				}
 				else
 				{
@@ -198,7 +196,6 @@
 			}
 		}
 	}
-	
 	
 	/*
 	//
@@ -576,7 +573,7 @@
 			int i;
 			for(i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
 			{
-				u8 index = pgm_read_byte(&PaletteExtendedToStandardTable[i]) & 0xF;
+				u8 index = pgm_read_byte(&PaletteEncodingTable[i]) & 0xF;
 				
 				if(index < numColors)
 				{
@@ -604,7 +601,7 @@
 		#if EXTENDED_PALETTE == 1
 			for(u8 i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
 			{
-				if(index == (pgm_read_byte(&PaletteExtendedToStandardTable[i]) & 0xF))
+				if(index == (pgm_read_byte(&PaletteEncodingTable[i]) & 0xF))
 				{
 					palette[i] = color;
 				}

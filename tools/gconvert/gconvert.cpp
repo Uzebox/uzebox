@@ -418,6 +418,7 @@ bool process(){
 				printf("Warning: colors in input image not included in palette");
 			}
 		}
+	}
 	else if(strcmp(xform.outputType,"4bpp")==0){
 		if(xform.palette.numColors == 0) {
 			printf("Error using 4bpp but no palette specified!\n");
@@ -481,15 +482,19 @@ bool process(){
 		}
 		else{
 			bool invalidColor=false;
+			
+			printf(".\n");
 			/*Export tileset in palette extended pixel format*/
 		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());			
 			fprintf(tf,"const char vector_table_filler[] __attribute__ ((section (\".vectors\")))={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};\n");
 		    fprintf(tf,"const char %s[] __attribute__ ((section (\".vectors\")))={\n",xform.tilesVarName);
+			printf(".\n");
 	
 			int c=0,t=0;
 			unsigned char b;
 			vector<unsigned char*>::iterator it;
 			for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+				printf(".\n");
 	
 				unsigned char* tile=*it;
 	
@@ -781,7 +786,6 @@ void parseXml(TiXmlDocument* doc){
 	//root
 	TiXmlElement* root=doc->RootElement();
 	root->QueryIntAttribute("version",&xform.version);
-
 	//input
 	TiXmlElement* input=root->FirstChildElement("input");
 	xform.inputFile=input->Attribute("file");
@@ -797,7 +801,8 @@ void parseXml(TiXmlDocument* doc){
 	TiXmlElement* tiles=output->FirstChildElement("tiles");
 	xform.tilesVarName=tiles->Attribute("var-name");
     xform.outputType=output->Attribute("type");
-    xform.isBackgroundTiles=strstr(output->Attribute("isBackgroundTiles"),"true");
+	const char* isBackgroundTiles=output->Attribute("isBackgroundTiles");
+    xform.isBackgroundTiles=isBackgroundTiles && strstr(isBackgroundTiles,"true");
 	if(output->QueryIntAttribute("background-color",&xform.backgroundColor)==TIXML_NO_ATTRIBUTE){
 		xform.backgroundColor=-1;
 	}
@@ -808,12 +813,14 @@ void parseXml(TiXmlDocument* doc){
 		xform.palette.filename=paletteElem->Attribute("file");
 		paletteElem->QueryIntAttribute("maxColors",&xform.palette.maxColors);
 		xform.palette.varName=paletteElem->Attribute("var-name");
-		xform.palette.exportPalette=strstr(paletteElem->Attribute("exportPalette"),"true");
-		if(output->QueryIntAttribute("transparent-color",&xform.palette.transparentColor)==TIXML_NO_ATTRIBUTE){
+		const char* exportPalette=paletteElem->Attribute("exportPalette");
+		xform.palette.exportPalette=exportPalette && strstr(exportPalette,"true");
+		if(paletteElem->QueryIntAttribute("transparent-color",&xform.palette.transparentColor)==TIXML_NO_ATTRIBUTE){
 			xform.palette.transparentColor=254;
 		}
 	}
 
+	printf(".\n");
 	//maps
 	TiXmlElement* mapsElem=output->FirstChildElement("maps");
 	if(mapsElem!=NULL){
@@ -973,6 +980,8 @@ unsigned char* loadPngImage(){
 
 unsigned char* loadImage(){
 	unsigned char* buffer;
+
+	printf("Loading image..\n");
 
 	//load the source image
 	if(strcmp(xform.inputType,"raw")==0){
