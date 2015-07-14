@@ -27,9 +27,6 @@ THE SOFTWARE.
 #ifndef UZEM_H
 #define UZEM_H
 
-// force application for GUI mode
-#define GUI 1 
-
-#define VERSION "v1.21"
+#define VERSION "v1.3"
 
 #endif

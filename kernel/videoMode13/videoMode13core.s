@@ -52,6 +52,7 @@
 .global SetFont
 .global GetTile
 .global palette
+.global SetPaletteColorAsm
 
 ;Screen Sections Struct offsets
 #define scrollX				0
@@ -141,7 +142,7 @@ sub_video_mode13:
 	lds r18,free_tile_index
 
 
-	clr r16
+	ldi 16,REG_IO_OFFSET
 upd_loop:	
 	ldd XL,Z+0
 	ldd XH,Z+1
@@ -161,7 +162,7 @@ noov:
 	adiw ZL,3 ;sizeof(ram_tiles_restore)
 
 	inc r16
-	cpi r16,RAM_TILES_COUNT
+	cpi r16,RAM_TILES_COUNT+REG_IO_OFFSET
 	brlo upd_loop ;23
 
 
@@ -306,6 +307,8 @@ render_tile_line:
 	push YL
 	push YH
 	
+	;Set timer so that it generates an overflow interrupt when
+	;all tiles are rendered
 	ldi r16,lo8(0xffff-(6*8*VRAM_TILES_H)+9-30)
 	ldi r17,hi8(0xffff-(6*8*VRAM_TILES_H)+9-30)
 	sts _SFR_MEM_ADDR(TCNT1H),r17
@@ -382,16 +385,16 @@ ramloop:
    out VIDEO,r16   	;output pixel 0
    ld r16,X      	;LUT pixel 1
    ld r17,Y+      	;next tile
-   bst r21,7      	;set T flag with msbit of tile index. 1=rom, 0=ram tile     
+   bst r17,7      	;set T flag with msbit of tile index. 1=rom, 0=ram tile     
    
    out VIDEO,r16   	;output pixel 1
    ldd XL,Z+1      	;load ram pixels 2,3
    ld r16,X+      	;LUT pixel 2
-   andi r21,0x7f   	;clear tile index msbit to have both ram/rom tile bases adress at zero
+   andi r17,0x7f   	;clear tile index msbit to have both ram/rom tile bases adress at zero
       
    out VIDEO,r16   	;output pixel 2
    ld r16,X      	;LUT pixel 3
-   mul r21,r15      ;tile index * 32
+   mul r17,r15      ;tile index * 32
       
    out VIDEO,r16   	;output pixel 3
    ldd XL,Z+2      	;load ram pixels 4,5
@@ -418,25 +421,23 @@ TIMER1_OVF_vect:
    out VIDEO,r2
 
 
-//	WAIT r19,20
-
-
 	pop r0	;pop OVF interrupt return address
 	pop r0	;pop OVF interrupt return address
 	
 	pop YH
 	pop YL
 
+	;restore timer1 to the value it should normally have at this point
 	ldi r16,lo8(0x0027)
 	sts _SFR_MEM_ADDR(TCNT1H),r2
 	sts _SFR_MEM_ADDR(TCNT1L),r16
 
-	ret	;TCNT1 must be equal to 0x0027, Simulator 2 Cycle counter=65928
+	ret	;TCNT1 must be equal to 0x0027
 
 
 
 ;***********************************
-; SET TILE 8bit mode
+; Copy a flash tile to a ram tile
 ; C-callable
 ; r24=ROM tile index
 ; r22=RAM tile index
@@ -454,28 +455,27 @@ CopyTileToRam:
 		*dest++=px;
 	}
 */
-
-	ldi r18,TILE_HEIGHT*TILE_WIDTH
+	
+	ldi r18,TILE_HEIGHT*TILE_WIDTH/2	;tile size in bytes
 
 	;compute source adress
-	lds ZL,tile_table_lo
-	lds ZH,tile_table_hi
-	;andi r24,0x7f
-	subi r24,RAM_TILES_COUNT
+	ldi ZL,0;tile_table_lo
+	ldi ZH,0;tile_table_hi
+	
 	mul r24,r18
 	add ZL,r0
 	adc ZH,r1
 
 	;compute destination adress
-	ldi XL,lo8(ram_tiles)
-	ldi XH,hi8(ram_tiles)
+	ldi XL,0;lo8(ram_tiles)
+	ldi XH,0;hi8(ram_tiles)
 	mul r22,r18
 	add XL,r0
 	adc XH,r1
 
 	clr r0
 	;copy data (fastest possible)
-.rept TILE_HEIGHT*TILE_WIDTH
+.rept TILE_HEIGHT*TILE_WIDTH/2
 	lpm r0,Z+	
 	st X+,r0
 .endr
@@ -1145,4 +1145,86 @@ GetTile:
 	ret
 
 #endif
+
+;***********************************
+; Set the color for a specified palette index
+; C-callable
+; r24=index
+; r22=color
+; Returns: void
+;************************************
+.section .text.SetPaletteColorAsm
+SetPaletteColorAsm:
+
+//lsb pixel
+//for(i = 0; i < 256; i+=16)
+//{
+//	palette[i+(index<<1)] = color;
+//}
+
+//msb pixel
+//for(i = 1; i < 32; i+=2)
+//{
+//	palette[(index*32)+i] = color;
+//}
+
+	;set low pixel
+	ldi ZL,lo8(palette)
+	ldi ZH,hi8(palette)
+	mov r25,r24
+	lsl r25
+	add ZL,r25
+	adc ZH,r1
+
+	st Z,r22
+	std Z+16,r22
+	std Z+32,r22
+	std Z+48,r22
+	subi ZL,lo8(-(64))
+	sbci ZH,hi8(-(64))
+	st Z,r22
+	std Z+16,r22
+	std Z+32,r22
+	std Z+48,r22
+	subi ZL,lo8(-(64))
+	sbci ZH,hi8(-(64))
+	st Z,r22
+	std Z+16,r22
+	std Z+32,r22
+	std Z+48,r22
+	subi ZL,lo8(-(64))
+	sbci ZH,hi8(-(64))
+	st Z,r22
+	std Z+16,r22
+	std Z+32,r22
+	std Z+48,r22
+
+	;set hi pizel	
+	ldi ZL,lo8(palette)
+	ldi ZH,hi8(palette)
+	ldi r25,32
+	mul r24,r25
+	add ZL,r0
+	adc ZH,r1
+	
+	std Z+1,r22
+	std Z+3,r22
+	std Z+5,r22
+	std Z+7,r22
+	std Z+9,r22
+	std Z+11,r22
+	std Z+13,r22
+	std Z+15,r22
+	std Z+17,r22
+	std Z+19,r22
+	std Z+21,r22
+	std Z+23,r22
+	std Z+25,r22
+	std Z+27,r22
+	std Z+29,r22
+	std Z+31,r22
+
+
+	ret
+
 

@@ -1,5 +1,5 @@
 /*
- * Transformation file: ../data/graphics.xml
+ * Transformation file: graphics.xml
  * Source image: ../data/graphics.png
  * Tile width: 8px
  * Tile height: 8px

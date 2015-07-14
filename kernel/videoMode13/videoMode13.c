@@ -26,6 +26,9 @@
 	#include "uzebox.h"
 	#include "intro.h"
 	
+
+
+
 	#if EXTENDED_PALETTE
 		#include "videomode13/paletteTable.h"
 	#endif
@@ -42,12 +45,15 @@
 	extern unsigned int sprites_tile_banks[];
 	extern unsigned char *tile_table_lo;
 	extern struct BgRestoreStruct ram_tiles_restore[];
+	extern void SetPaletteColorAsm(u8 index, u8 color);
 
 	extern void CopyTileToRam(unsigned char romTile,unsigned char ramTile);
 	extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
 
 	unsigned char free_tile_index;
 	bool spritesOn=true;
+
+
 
 	void RestoreBackground(){
 		unsigned char i;
@@ -59,6 +65,37 @@
 
 	void SetSpriteVisibility(bool visible){
 		spritesOn=visible;
+	}
+
+	u16 src;u8* dest;u8 spix,dpix;
+	void BlitSprite3bpp(u8 sprNo,u8 ramTileIndex,u16 yx,u16 dydx){
+//		u8 dy=dydx>>8;
+//		u8 dx=dydx &0xff;
+		u8 flags=sprites[sprNo].flags;
+		//u8 spix,dpix
+		u8 x2,y2;
+//		s8 step=1,srcXdiff;
+
+		src=(sprites[sprNo].tileIndex*TILE_HEIGHT*TILE_WIDTH/2)
+				+sprites_tile_banks[flags>>6];	//add bank adress		
+
+		dest=&ram_tiles[ramTileIndex*TILE_HEIGHT*TILE_WIDTH/2];
+		
+		for(y2=0;y2<TILE_HEIGHT;y2++){
+			for(x2=0;x2<(TILE_WIDTH/2);x2++){
+							
+				spix=pgm_read_byte(src); //2pix flash
+				dpix=*dest;
+				if(spix&0x0f)dpix&=0xf0;
+				if(spix&0xf0)dpix&=0x0f;
+				dpix|=spix;
+				*dest=dpix;
+								
+				dest++;
+				src++;
+			}		
+		}
+
 	}
 
 	/*
@@ -141,10 +178,12 @@
 	}
 	*/
 
+
+	unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy;
+	unsigned int ramPtr,ssx,ssy;
+
 	void ProcessSprites(){
 	
-		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy;
-		unsigned int ramPtr,ssx,ssy;
 
 		free_tile_index=0;	
 		if(!spritesOn) return;
@@ -211,22 +250,22 @@
 
 							bt=vram[ramPtr];						
 
-							if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
+							if( (bt>=128)  && (free_tile_index < RAM_TILES_COUNT) ){
 
 								//tile is mapped to flash. Copy it to next free RAM tile.
 								//if no ram free ignore tile
 								ram_tiles_restore[free_tile_index].addr=ramPtr;
 								ram_tiles_restore[free_tile_index].tileIndex=bt;
 													
-								CopyTileToRam(bt,free_tile_index);
+								CopyTileToRam(bt-128,free_tile_index+REG_IO_OFFSET);
 
-								vram[ramPtr]=free_tile_index;
+								vram[ramPtr]=free_tile_index+REG_IO_OFFSET;
 								bt=free_tile_index;
 								free_tile_index++;										
 							}
 				
 							if(bt<RAM_TILES_COUNT){				
-								BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);						
+								BlitSprite3bpp(i,bt,(y<<8)+x,(dy<<8)+dx);						
 							}
 
 					//	}
@@ -237,9 +276,6 @@
 			}//	if(bx<(SCREEN_TILES_H*TILE_WIDTH))		
 		}
 
-
-		//restore BG tiles
-		RestoreBackground();
 
 	}
 
@@ -430,57 +466,45 @@
 
 	void SetPalette(const u8* data, u8 numColors)
 	{
-		#if EXTENDED_PALETTE
-		int i;
-		for(i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
-		{
-			u8 index = pgm_read_byte(&PaletteEncodingTable[i]);
-			
-			if(index < numColors)
+		#if EXTENDED_PALETTE == 1
+			int i;
+			for(i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
 			{
-				u8 color = pgm_read_byte(&data[index]);
-				palette[i] = color;
+				u8 index = pgm_read_byte(&PaletteEncodingTable[i]);
+				
+				if(index < numColors)
+				{
+					u8 color = pgm_read_byte(&data[index]);
+					palette[i] = color;
+				}
+				else
+				{
+					palette[i] = 0;
+				}
 			}
-			else
-			{
-				palette[i] = 0;
-			}
-		}
 
 		#else
-		int i;
-		int x;
-
-		for(i = 0; i < numColors; i++)
-		{
-			u8 color = pgm_read_byte(&data[i]);
-			
-			for(x = 0; x < numColors; x++)
+			int i;
+			for(i = 0; i < numColors; i++)
 			{
-				palette[(i << 1) | (x << 5)] = color;
-				palette[((x << 1) | (i << 5)) + 1] = color;
+				u8 color = pgm_read_byte(&data[i]);
+				SetPaletteColorAsm(i,color);
 			}
-		}
 		#endif
 	}
 	
 	void SetPaletteColor(u8 index, u8 color)
-	{
-		int i;
-		
-		#if EXTENDED_PALETTE
-		for(i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
-		{
-			if(index == pgm_read_byte(&PaletteEncodingTable[i]))
+	{		
+		#if EXTENDED_PALETTE == 1
+			for(u8 i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
 			{
-				palette[i] = color;
+				if(index == pgm_read_byte(&PaletteEncodingTable[i]))
+				{
+					palette[i] = color;
+				}
 			}
-		}
 		#else
-		for(i = 0; i < MAX_PALETTE_COLORS; i++)
-		{
-			palette[(index << 1) | (i << 5)] = color;
-			palette[((i << 1) | (index << 5)) + 1] = color;
-		}
+			SetPaletteColorAsm(index,color);
 		#endif
 	}
+

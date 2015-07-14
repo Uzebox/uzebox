@@ -36,24 +36,13 @@ Demo for paletted video mode 13
 #include <uzebox.h>
 
 
-//external data
-//#include "data/smb.map.inc"
-//#include "data/smb.pic.inc"
-//#include "data/fonts_8x8.pic.inc"
-
-//#include "data/mario_sprites.map.inc"
-//#include "data/mario_sprites.pic.inc"
-
 #include "data/graphics.inc.h"
-
-//#include "data/nsmb.inc"
-//#include "data/smw2.inc"
-//#include "data/patches.inc"
+#include "data/sprites.inc.h"
 
 int main(){	
 //	ClearVram();
 
-//	SetSpritesTileTable(mario_sprites_tileset);
+	SetSpritesTileTable(spritesTiles);
 //	SetFontTilesIndex(SMB_TILESET_SIZE);
 	SetTileTable(graphicsTiles);
 	
@@ -66,6 +55,28 @@ int main(){
 //	DrawMap2(0,Screen.scrollHeight,map_hud);
 //#endif
 	
+	u8 x=(8*4);
+	u8 y=(8*24);
+
+	sprites[0].x=x;
+	sprites[0].y=y;
+	sprites[0].tileIndex=0;
+
+	sprites[1].x=x+8;
+	sprites[1].y=y;
+	sprites[1].tileIndex=1;
+
+	sprites[2].x=x;
+	sprites[2].y=y+8;
+	sprites[2].tileIndex=2;
+
+	sprites[3].x=x+8;
+	sprites[3].y=y+8;
+	sprites[3].tileIndex=3;
+
+
+	SetSpriteVisibility(true);
+
 	unsigned char c;
 	for(int y=0;y<28;y++){
 		for(int x=0;x<VRAM_TILES_H;x++){
@@ -75,13 +86,12 @@ int main(){
 		}	
 	}
 
+
+
 	u16 i=0;
 	while(1){
-		WaitVsync(2);
-	//	vram[i++]=0x80+5;
-//#if SCROLLING == 1
-//		Screen.scrollX ++;
-//#endif
+	//	SetPaletteColor(1,i++);
+	//	WaitVsync(4);
 	}		
 	
 }
