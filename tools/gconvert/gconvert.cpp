@@ -483,19 +483,15 @@ bool process(){
 		else{
 			bool invalidColor=false;
 			
-			printf(".\n");
 			/*Export tileset in palette extended pixel format*/
 		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());			
 			fprintf(tf,"const char vector_table_filler[] __attribute__ ((section (\".vectors\")))={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};\n");
 		    fprintf(tf,"const char %s[] __attribute__ ((section (\".vectors\")))={\n",xform.tilesVarName);
-			printf(".\n");
 	
 			int c=0,t=0;
 			unsigned char b;
 			vector<unsigned char*>::iterator it;
 			for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
-				printf(".\n");
-	
 				unsigned char* tile=*it;
 	
 				for(int y=0;y<xform.tileHeight;y++){
@@ -820,7 +816,6 @@ void parseXml(TiXmlDocument* doc){
 		}
 	}
 
-	printf(".\n");
 	//maps
 	TiXmlElement* mapsElem=output->FirstChildElement("maps");
 	if(mapsElem!=NULL){
