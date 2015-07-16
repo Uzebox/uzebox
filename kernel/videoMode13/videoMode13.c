@@ -58,7 +58,8 @@
 	void RestoreBackground(){
 		unsigned char i;
 		for(i=0;i<free_tile_index;i++){			
-			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+			//vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+			*ram_tiles_restore[i].addr=ram_tiles_restore[i].tileIndex;
 		}	
 	}
 
@@ -353,12 +354,12 @@
 
 								//tile is mapped to flash. Copy it to next free RAM tile.
 								//if no ram free ignore tile
-								ram_tiles_restore[free_tile_index].addr=ramPtr;
+								ram_tiles_restore[free_tile_index].addr=&(vram[ramPtr]);
 								ram_tiles_restore[free_tile_index].tileIndex=bt;
 													
-								CopyTileToRam(bt-128,free_tile_index+REG_IO_OFFSET);
+								CopyTileToRam(bt-128,free_tile_index);
 
-								vram[ramPtr]=free_tile_index+REG_IO_OFFSET;
+								vram[ramPtr]=free_tile_index;
 								bt=free_tile_index;
 								free_tile_index++;										
 							}
@@ -379,7 +380,10 @@
 			}//	if(bx<(SCREEN_TILES_H*TILE_WIDTH))		
 		}
 
-
+		//restore vram to flash tilesso main program 
+		//doesn't seen ram tiles index
+		//ramtiles indexes will be set back during rendering prolog
+		RestoreBackground();
 	}
 
 	#if SCROLLING == 1
