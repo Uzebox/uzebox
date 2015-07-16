@@ -195,6 +195,16 @@
 				
 				dstX ++;
 			}
+			
+			// Ending on a half pair so need to write back:
+			if(dstX & 0x1)
+			{
+				#if EXTENDED_PALETTE == 1
+				*dstPtr = pgm_read_byte(&PaletteStandardToExtendedTable[dstPair]);
+				#else
+				*dstPtr = dstPair;
+				#endif
+			}
 		}
 	}
 	

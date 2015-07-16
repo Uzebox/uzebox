@@ -34,10 +34,60 @@ Demo for paletted video mode 13
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <uzebox.h>
+#include <stdlib.h>
 
 
 #include "data/graphics.inc.h"
 #include "data/sprites.inc.h"
+
+typedef struct
+{
+	u8 x, y;
+	s8 dx, dy;
+} mario_t;
+
+#define NUM_MARIOS (2)
+
+mario_t marios[NUM_MARIOS];
+
+void setup_sprite(mario_t* mario, int base)
+{
+	sprites[base].x=mario->x;
+	sprites[base].y=mario->y;
+	sprites[base].tileIndex=0;
+
+	sprites[base+1].x=mario->x+8;
+	sprites[base+1].y=mario->y;
+	sprites[base+1].tileIndex=1;
+
+	sprites[base+2].x=mario->x;
+	sprites[base+2].y=mario->y+8;
+	sprites[base+2].tileIndex=2;
+
+	sprites[base+3].x=mario->x+8;
+	sprites[base+3].y=mario->y+8;
+	sprites[base+3].tileIndex=3;
+	
+	mario->x += mario->dx;
+	mario->y += mario->dy;
+	
+	if(mario->x > 200)
+	{
+		mario->dx = -1;
+	}
+	if(mario->x == 0)
+	{
+		mario->dx = 1;
+	}
+	if(mario->y > 200)
+	{
+		mario->dy = -1;
+	}
+	if(mario->y == 0)
+	{
+		mario->dy = 1;
+	}
+}
 
 int main(){	
 //	ClearVram();
@@ -55,8 +105,8 @@ int main(){
 //	DrawMap2(0,Screen.scrollHeight,map_hud);
 //#endif
 	
-	u8 x=(8*4);
-	u8 y=(8*24);
+	/*u8 x=1;//(8*4);
+	u8 y=0;//8*24-1;
 
 	sprites[0].x=x;
 	sprites[0].y=y;
@@ -73,7 +123,7 @@ int main(){
 	sprites[3].x=x+8;
 	sprites[3].y=y+8;
 	sprites[3].tileIndex=3;
-
+*/
 
 	SetSpriteVisibility(true);
 
@@ -86,12 +136,25 @@ int main(){
 		}	
 	}
 
-
+	for(int n = 0; n < NUM_MARIOS; n++)
+	{
+		marios[n].x = rand() % 200;
+		marios[n].y = rand() % 200;
+		marios[n].dx = (rand() % 100) < 50 ? -1 : 1 ;
+		marios[n].dy = (rand() % 100) < 50 ? -1 : 1 ;
+	}
 
 	u16 i=0;
 	while(1){
-	//	SetPaletteColor(1,i++);
-	//	WaitVsync(4);
+		SetPaletteColor(1, (u8)(i >> 4));
+		i++;
+		
+		for(int n = 0; n < NUM_MARIOS; n++)
+		{
+			setup_sprite(&marios[n], n * 4);
+		}
+			
+		WaitVsync(1);
 	}		
 	
 }
