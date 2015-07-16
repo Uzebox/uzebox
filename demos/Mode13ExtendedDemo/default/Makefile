@@ -4,7 +4,7 @@
 
 ## General Flags
 PROJECT = Mode13ExtendedDemo
-GAME = Mode13Demo
+GAME = Mode13ExtendedDemo
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc

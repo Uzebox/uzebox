@@ -3,8 +3,8 @@
  
 	<input file="../data/graphics.png" type="png" tile-width="8" tile-height="8" />
 
-	<output file="../data/graphics.inc.h" type="3bpp">
-		<palette file="../data/palette.png" var-name="graphicsPalette" maxColors="8"/>
+	<output file="../data/graphics.inc.h" type="extendedPalette">
+		<palette file="../data/palette.png" var-name="graphicsPalette" maxColors="15" exportPalette="true"/>
 		<tiles var-name="graphicsTiles"/>
 
 		<maps pointers-size="8"> 

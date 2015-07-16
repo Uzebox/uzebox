@@ -3,8 +3,8 @@
  
 	<input file="../data/sprites.png" type="png" tile-width="8" tile-height="8"/>
 
-	<output file="../data/sprites.inc.h" type="3bpp" isBackgroundTiles="false">
-		<palette file="../data/palette.png" var-name="graphicsPalette" maxColors="8" exportPalette="false"/>
+	<output file="../data/sprites.inc.h" type="4bpp" isBackgroundTiles="false">
+		<palette file="../data/palette.png" var-name="graphicsPalette" maxColors="15" exportPalette="false"/>
 		<tiles var-name="spritesTiles"/>
 
 	</output>
