@@ -130,9 +130,13 @@
 sub_video_mode13:
 
 	;wait cycles to align with next hsync
-	WAIT r16,36
+	WAIT r16,38+14
 
-	;Set ramtiles indexes in VRAM 
+
+	;Refresh ramtiles indexes in VRAM 
+	;This has to be done because the main
+	;program may have altered the VRAM
+	;after vsync and the rendering interrupt.
 	ldi ZL,lo8(ram_tiles_restore);
 	ldi ZH,hi8(ram_tiles_restore);
 
@@ -140,44 +144,38 @@ sub_video_mode13:
 	ldi YH,hi8(vram)
 
 	lds r18,free_tile_index
+	ldi r19,90		;maximum possible ramtiles
+	sub r19,r18
 
-
+	cpi r18,0
+	breq no_ramtiles
+	
+	subi r18,-(REG_IO_OFFSET)
 	ldi 16,REG_IO_OFFSET
-upd_loop:	
-	ldd XL,Z+0
-	ldd XH,Z+1
+upd_loop:		
+	ld XL,Z+	;load vram offset of ramtile
+	ld XH,Z+
 
-	add XL,YL
-	adc XH,YH
-
-	ld r17,X	;currbgtile
-	std Z+2,r17
-
-	cp r16,r18
-	brsh noov
-	mov r17,r16
-noov:
-	st X,r17
-
-	adiw ZL,3 ;sizeof(ram_tiles_restore)
+	ld r17,X	;get latest VRAM tile that may have been modified my 
+	st Z+,r17  ;the main program and store it in the restore buffer
+	st X,r16	;write the ramtile index back to vram (adding REG_IO_OFFSET to skip invalid ramtiles)
 
 	inc r16
-	cpi r16,RAM_TILES_COUNT+REG_IO_OFFSET
-	brlo upd_loop ;23
+	cp r16,r18
+	brlo upd_loop ;loop is 14 cycles
 
-
-#if RAM_TILES_COUNT == 0 
-	ldi r16,60-RAM_TILES_COUNT 
-#else
-	ldi r16,61-RAM_TILES_COUNT 
-#endif
-
-wait_loop:
-	ldi r17,6
+no_ramtiles:
+	;wait for remaining maximum possible ramtiles
+1:	
+	ldi r17,3
 	dec r17
 	brne .-4
-	dec r16
-	brne wait_loop
+	rjmp .
+	dec r19
+	brne 1b
+
+
+
 
 
 	lds r2,overlay_tile_table
@@ -211,7 +209,10 @@ wait_loop:
 	ldi r16,(0<<WGM12)+(1<<CS10)	;switch to timer1 normal mode (mode 0)
 	sts _SFR_MEM_ADDR(TCCR1B),r16
 
-	WAIT r19,3
+	nop
+	nop
+	nop
+	nop
 
 ;****************************************
 ; Rendering main loop starts here
@@ -221,7 +222,7 @@ wait_loop:
 ;Y      = vram or overlay_ram if overlay_height>0
 ;
 next_tile_line:	
-	rcall hsync_pulse ;64171,65991
+	rcall hsync_pulse ;64320 66140
 	WAIT r19,242 + FILL_DELAY - AUDIO_OUT_HSYNC_CYCLES
 
 	;***draw line***
@@ -428,11 +429,11 @@ TIMER1_OVF_vect:
 	pop YL
 
 	;restore timer1 to the value it should normally have at this point
-	ldi r16,lo8(0x0027)
+	ldi r16,lo8(0x0029)
 	sts _SFR_MEM_ADDR(TCNT1H),r2
 	sts _SFR_MEM_ADDR(TCNT1L),r16
 
-	ret	;TCNT1 must be equal to 0x0027
+	ret	;TCNT1 must be equal to 0x0029
 
 
 
@@ -467,8 +468,9 @@ CopyTileToRam:
 	adc ZH,r1
 
 	;compute destination adress
-	ldi XL,0;lo8(ram_tiles)
-	ldi XH,0;hi8(ram_tiles)
+	;skip invalid ramtiles
+	ldi XL,lo8(8*32)
+	ldi XH,hi8(8*32)
 	mul r22,r18
 	add XL,r0
 	adc XH,r1
