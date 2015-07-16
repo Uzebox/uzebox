@@ -59,6 +59,7 @@ struct Palette {
 	const char* filename;
 	const char* varName;
 	bool exportPalette;
+	int transparentColor;		// Optional, the color that is used for sprite transparency (default 254)
 };
 
 struct ConvertionDefinition {
@@ -195,6 +196,7 @@ bool process(){
 		printf("Palette variable name: %s\n", xform.palette.varName);
 		printf("Palette max colors: %d\n", xform.palette.maxColors);
 		printf("Palette unique colors: %d\n", xform.palette.numColors);
+		printf("Palette transparent color: %d\n", xform.palette.transparentColor);
 	}
 
 	int horizontalTiles=xform.width/xform.tileWidth;
@@ -379,21 +381,87 @@ bool process(){
 				for(int y=0;y<xform.tileHeight;y++){
 					//pack 2 pixels in one byte
 					for(int x=0;x<xform.tileWidth;x+=2){
+						int first = tile[(y*xform.tileWidth)+x];
+						int second = tile[(y*xform.tileWidth)+x+1];
 						
-						int first = paletteIndexFromColor(tile[(y*xform.tileWidth)+x]);
-						int second = paletteIndexFromColor(tile[(y*xform.tileWidth)+x+1]);
-						
-						if(first == -1){
-							invalidColor=true;
-							first=0;
+						if(first != xform.palette.transparentColor){
+							first = paletteIndexFromColor(first) << 1;
+							if(first == -1){
+								invalidColor=true;
+								first=0;
+							}
 						}
-						if(second == -1){
-							invalidColor=true;
-							second=0;
-						}
+						else first = 0x1;
 						
-						b  = (first & 0x7) << 1;
-						b |= (second & 0x7) << 5;
+						if(second != xform.palette.transparentColor){
+							second = paletteIndexFromColor(second) << 1;
+							if(second == -1){
+								invalidColor=true;
+								second=0;
+							}
+						}
+						else second = 0x1;
+						
+						b  = (first & 0xF);
+						b |= (second & 0xF) << 4;
+						fprintf(tf," 0x%x,",b);
+					}
+					c++;
+				}
+				fprintf(tf,"\t\t //tile:%i\n",t);
+				t++;
+			}
+			fprintf(tf,"};\n\n");
+			totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight/2);
+			
+			if(invalidColor){
+				printf("Warning: colors in input image not included in palette");
+			}
+		}
+	}
+	else if(strcmp(xform.outputType,"4bpp")==0){
+		if(xform.palette.numColors == 0) {
+			printf("Error using 4bpp but no palette specified!\n");
+		}
+		else{
+			bool invalidColor=false;
+			/*Export tileset in 4 bits per pixel format*/
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+			fprintf(tf,"const char %s[] PROGMEM ={\n",xform.tilesVarName);
+	
+			int c=0,t=0;
+			unsigned char b;
+			vector<unsigned char*>::iterator it;
+			for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+	
+				unsigned char* tile=*it;
+	
+				for(int y=0;y<xform.tileHeight;y++){
+					//pack 2 pixels in one byte
+					for(int x=0;x<xform.tileWidth;x+=2){
+						int first = tile[(y*xform.tileWidth)+x];
+						int second = tile[(y*xform.tileWidth)+x+1];
+						
+						if(first != xform.palette.transparentColor){
+							first = paletteIndexFromColor(first);
+							if(first == -1){
+								invalidColor=true;
+								first=0;
+							}
+						}
+						else first = 0xF;
+						
+						if(second != xform.palette.transparentColor){
+							second = paletteIndexFromColor(second);
+							if(second == -1){
+								invalidColor=true;
+								second=0;
+							}
+						}
+						else second = 0xF;
+						
+						b  = (first & 0xF);
+						b |= (second & 0xF) << 4;
 						fprintf(tf," 0x%x,",b);
 					}
 					c++;
@@ -414,6 +482,7 @@ bool process(){
 		}
 		else{
 			bool invalidColor=false;
+			
 			/*Export tileset in palette extended pixel format*/
 		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());			
 			fprintf(tf,"const char vector_table_filler[] __attribute__ ((section (\".vectors\")))={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};\n");
@@ -423,7 +492,6 @@ bool process(){
 			unsigned char b;
 			vector<unsigned char*>::iterator it;
 			for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
-	
 				unsigned char* tile=*it;
 	
 				for(int y=0;y<xform.tileHeight;y++){
@@ -714,7 +782,6 @@ void parseXml(TiXmlDocument* doc){
 	//root
 	TiXmlElement* root=doc->RootElement();
 	root->QueryIntAttribute("version",&xform.version);
-
 	//input
 	TiXmlElement* input=root->FirstChildElement("input");
 	xform.inputFile=input->Attribute("file");
@@ -730,7 +797,8 @@ void parseXml(TiXmlDocument* doc){
 	TiXmlElement* tiles=output->FirstChildElement("tiles");
 	xform.tilesVarName=tiles->Attribute("var-name");
     xform.outputType=output->Attribute("type");
-    xform.isBackgroundTiles=strstr(output->Attribute("isBackgroundTiles"),"true");
+	const char* isBackgroundTiles=output->Attribute("isBackgroundTiles");
+    xform.isBackgroundTiles=isBackgroundTiles && strstr(isBackgroundTiles,"true");
 	if(output->QueryIntAttribute("background-color",&xform.backgroundColor)==TIXML_NO_ATTRIBUTE){
 		xform.backgroundColor=-1;
 	}
@@ -741,7 +809,11 @@ void parseXml(TiXmlDocument* doc){
 		xform.palette.filename=paletteElem->Attribute("file");
 		paletteElem->QueryIntAttribute("maxColors",&xform.palette.maxColors);
 		xform.palette.varName=paletteElem->Attribute("var-name");
-		xform.palette.exportPalette=strstr(paletteElem->Attribute("exportPalette"),"true");
+		const char* exportPalette=paletteElem->Attribute("exportPalette");
+		xform.palette.exportPalette=exportPalette && strstr(exportPalette,"true");
+		if(paletteElem->QueryIntAttribute("transparent-color",&xform.palette.transparentColor)==TIXML_NO_ATTRIBUTE){
+			xform.palette.transparentColor=254;
+		}
 	}
 
 	//maps
@@ -839,7 +911,7 @@ void loadPalette(){
 
 	  for(unsigned int n = 0; n < imagesize; n++){
 		  int paletteIndex = paletteIndexFromColor(image[n]);
-		  if(paletteIndex == -1){
+		  if(paletteIndex == -1 && image[n] != xform.palette.transparentColor){
 			  if(xform.palette.numColors == xform.palette.maxColors){
 				  printf("Warning: palette file exceeded %d colors", xform.palette.maxColors);
 			  }
@@ -903,6 +975,8 @@ unsigned char* loadPngImage(){
 
 unsigned char* loadImage(){
 	unsigned char* buffer;
+
+	printf("Loading image..\n");
 
 	//load the source image
 	if(strcmp(xform.inputType,"raw")==0){

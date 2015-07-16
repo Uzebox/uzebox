@@ -126,8 +126,10 @@
 
 #if EXTENDED_PALETTE
 	#define MAX_PALETTE_COLORS 15
+	#define TRANSPARENT_COLOR 0xF
 #else
 	#define MAX_PALETTE_COLORS 8
+	#define TRANSPARENT_COLOR 0x1
 #endif
 
 //ramtiles table base is at 0x0000 
