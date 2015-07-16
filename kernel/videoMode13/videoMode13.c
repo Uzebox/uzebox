@@ -99,6 +99,105 @@
 
 	}
 
+	void BlitSpriteExtended(u8 sprNo,u8 ramTileIndex,u16 tytx,u16 dydx){
+		
+		u8 flags=sprites[sprNo].flags;
+		u8 dy = dydx >> 8;
+		u8 dx = dydx & 0xff;
+		u8 ty = tytx >> 8;
+		u8 tx = tytx & 0xff;
+		u8 x1, y1;
+		u8 x2, y2;
+		s8 xOffset, yOffset;
+		u8 x, y;
+		u8* src =(sprites[sprNo].tileIndex*(TILE_HEIGHT*TILE_WIDTH/2))
+				+sprites_tile_banks[flags>>6];	//add bank adress		
+		u8* dst = &ram_tiles[ramTileIndex*(TILE_HEIGHT*TILE_WIDTH/2)];
+		
+		if(tx == 0)
+		{
+			x1 = 0;
+			x2 = TILE_WIDTH - dx;
+			xOffset = dx;
+		}
+		else
+		{
+			x1 = TILE_WIDTH - dx;
+			x2 = TILE_WIDTH;
+			xOffset = -x1;
+		}
+		if(ty == 0)
+		{
+			y1 = 0;
+			y2 = TILE_WIDTH - dy;
+			yOffset = dy;
+		}
+		else
+		{
+			y1 = TILE_WIDTH - dy;
+			y2 = TILE_WIDTH;
+			yOffset = -y1;
+		}
+
+		for(y = y1; y < y2; y++)
+		{
+			u8 srcY = y;
+			u8 dstY = y + yOffset;
+			u8 dstX = x1 + xOffset;
+			u8* srcPtr = src + ((srcY * TILE_WIDTH + x1) >> 1);
+			u8 srcPair = pgm_read_byte(srcPtr);
+			u8* dstPtr = dst + ((dstY * TILE_WIDTH + dstX) >> 1);
+			#if EXTENDED_PALETTE == 1
+			u8 dstPair = pgm_read_byte(&PaletteExtendedToStandardTable[*dstPtr]);
+			#else
+			u8 dstPair = *dstPtr;
+			#endif
+			
+			for(x = x1; x < x2; x++)
+			{
+				u8 srcX = x;
+				u8 value;
+				
+				if(srcX & 0x1)
+				{
+					value = srcPair >> 4;
+					srcPtr++;
+					srcPair = pgm_read_byte(srcPtr);
+				}
+				else
+				{
+					value = srcPair & 0xF;
+				}
+				
+				if(dstX & 0x1)
+				{
+					if(value != TRANSPARENT_COLOR)
+					{
+						dstPair = (dstPair & 0xF) | (value << 4);
+					}
+					#if EXTENDED_PALETTE == 1
+					*dstPtr = pgm_read_byte(&PaletteStandardToExtendedTable[dstPair]);
+					dstPtr++;
+					dstPair = pgm_read_byte(&PaletteExtendedToStandardTable[*dstPtr]);
+					#else
+					*dstPtr = dstPair;
+					dstPtr++;
+					dstPair = *dstPtr;
+					#endif
+				}
+				else
+				{
+					if(value != TRANSPARENT_COLOR)
+					{
+						dstPair = (dstPair & 0xF0) | (value);
+					}
+				}
+				
+				dstX ++;
+			}
+		}
+	}
+	
 	/*
 	//
 	// This C function is the direct equivalent of the assembly
@@ -266,7 +365,11 @@
 							}
 				
 							if(bt<RAM_TILES_COUNT){				
+#if EXTENDED_PALETTE == 1
+								BlitSpriteExtended(i,bt,(y<<8)+x,(dy<<8)+dx);						
+#else
 								BlitSprite3bpp(i,bt,(y<<8)+x,(dy<<8)+dx);						
+#endif
 							}
 
 					//	}
@@ -474,7 +577,7 @@
 			int i;
 			for(i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
 			{
-				u8 index = pgm_read_byte(&PaletteEncodingTable[i]);
+				u8 index = pgm_read_byte(&PaletteEncodingTable[i]) & 0xF;
 				
 				if(index < numColors)
 				{
@@ -502,7 +605,7 @@
 		#if EXTENDED_PALETTE == 1
 			for(u8 i = 0; i < MAX_PALETTE_COLORS * MAX_PALETTE_COLORS + 1; i++)
 			{
-				if(index == pgm_read_byte(&PaletteEncodingTable[i]))
+				if(index == (pgm_read_byte(&PaletteEncodingTable[i]) & 0xF))
 				{
 					palette[i] = color;
 				}
