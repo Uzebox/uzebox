@@ -74,7 +74,6 @@ void showHelp(char* programName){
     printerr("\t--fullscreen -f     Enable full screen\n");
     printerr("\t--hwsurface -w      Use SDL hardware surface (probably slower)\n");
     printerr("\t--nodoublebuf -x    No double buffering\n");
-    printerr("\t--interlaced -i     Turn on interlaced rendering\n");
     printerr("\t--mouse -m          Start with emulated mouse enabled\n");
     printerr("\t--2p -2             Start with snes 2p mode enabled\n");
     printerr("\t--sd -s <path>      SD card emulation from contents of path\n");
