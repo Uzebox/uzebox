@@ -1,5 +1,5 @@
 /*
- *  Uzebox(tm) Video Mode 6
+ *  Uzebox(tm) Video Mode 14
  *  Copyright (C) 20098  Alec Bourque
  *  
  *  This program is free software: you can redistribute it and/or modify
@@ -21,15 +21,15 @@
 /** 
  * ==============================================================================
  *
- * This file contains global defines for video mode 6
+ * This file contains global defines for video mode 14
  *
  * ===============================================================================
  */
 #pragma once
 
-#define VMODE_ASM_SOURCE "videoMode6/videoMode6.s"
-#define VMODE_C_PROTOTYPES "videoMode6/videoMode6.h"
-#define VMODE_FUNC sub_video_mode6
+#define VMODE_ASM_SOURCE "videoMode14/videoMode14.s"
+#define VMODE_C_PROTOTYPES "videoMode14/videoMode14.h"
+#define VMODE_FUNC sub_video_mode14
 
 
 #define TILE_HEIGHT 8

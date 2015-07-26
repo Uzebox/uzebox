@@ -1,5 +1,5 @@
 /*
- *  Uzebox Kernel - Mode T
+ *  Uzebox Kernel - Mode 14
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published bys
@@ -18,7 +18,7 @@
 */
 
 ;***************************************************
-; Video Mode T Cunning Fellows Modifications
+; Video Mode 14 - Cunning Fellow
 ; 256x224
 ; Section 1 (used for life / score / highscore / messages)
 ;    256x16
@@ -152,7 +152,7 @@
 ; Y   = RamTile address (YH = ((0..7)*256+offset) for which ROW, YL = RamTile# (Must be even))
 ; Z   = IJMP address
 
-sub_video_mode6:					; At this point R0..R29 have all been saved to the stack
+sub_video_mode14:					; At this point R0..R29 have all been saved to the stack
 									; So all can be trashed.
 
 

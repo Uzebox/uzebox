@@ -1,5 +1,5 @@
-#ifndef VIDEOMODE6_H_
-#define VIDEOMODE6_H_
+#ifndef VIDEOMODE14_H_
+#define VIDEOMODE14_H_
 	
 extern volatile uint8_t nextFreeRamTile;
 extern volatile uint8_t FrameNo;
@@ -30,4 +30,4 @@ extern int8_t CosMulFastC(uint8_t Angle, uint8_t Dist);
 extern int8_t SinMulFastC(uint8_t Angle, uint8_t Dist);
 extern int8_t MulSU(uint8_t a, uint8_t b);
 
-#endif /* VIDEOMODE6_H_ */
+#endif /* VIDEOMODE14_H_ */
