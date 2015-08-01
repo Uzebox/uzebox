@@ -1465,6 +1465,12 @@ bool avr8::init_gui()
 	SDL_initFramerate(&fpsmanager);
 	SDL_setFramerate(&fpsmanager, 60);
 
+	//Set window icon
+	SDL_Surface *slogo;
+	slogo = SDL_CreateRGBSurfaceFrom((void *)&logo,32,32,32,32*4,0xFF,0xff00,0xff0000,0xff000000);
+	SDL_WM_SetIcon(slogo, NULL);
+	SDL_FreeSurface(slogo);
+
 	return true;
 }
 

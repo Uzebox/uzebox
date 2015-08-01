@@ -13,6 +13,10 @@
 
 TARGETS = debug release
 
+#Uncomment to optimize for local CPU
+#ARCH=native
+#TUNE=y
+
 ######################################
 # Sources
 ######################################
