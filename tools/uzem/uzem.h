@@ -1,10 +1,7 @@
 /*
-NOTE THIS IS NOT THE OFFICIAL BRANCH OF THE UZEBOX EMULATOR
-PLEASE SEE THE FORUM FOR MORE DETAILS:  http://uzebox.org/forums/
-
 (The MIT License)
 
-Copyright (c) 2008-2015, David Etherton, Eric Anderton, Alec Bourque
+Copyright (c) 2008-2015, David Etherton, Eric Anderton, Alec Bourque et al
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +24,6 @@ THE SOFTWARE.
 #ifndef UZEM_H
 #define UZEM_H
 
-#define VERSION "v1.3"
+#define VERSION "v1.3.1"
 
 #endif

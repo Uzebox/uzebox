@@ -28,7 +28,8 @@ THE SOFTWARE.
 #include <getopt.h>
 #include <limits.h>
 #include <string.h>
-
+#include <stdlib.h>
+#include <time.h>
 
 
 static const struct option longopts[] ={
@@ -47,16 +48,16 @@ static const struct option longopts[] ={
     { "boot"       , no_argument,       NULL, 'b' },
     { "gdbserver"  , no_argument,       NULL, 'd' },
     { "port"       , required_argument, NULL, 't' },
-#if defined(DISASM)
-    { "bp"         , required_argument, NULL, 'k' },
-#endif
+    { "capture"    , no_argument,       NULL, 'c' },
+    { "loadcap"    , no_argument,       NULL, 'l' },
+
 #if defined(__WIN32__)
     { "sd"         , required_argument, NULL, 's' },
 #endif 
     {NULL          , 0                , NULL, 0}
 };
 
-   static const char* shortopts = "hnfwxim2re:p:bdt:k:s:v";
+   static const char* shortopts = "hnfclwxim2re:p:bdt:k:s:v";
 
 #define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
 
@@ -81,6 +82,8 @@ void showHelp(char* programName){
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
     printerr("\t--gdbserver -d      Debug mode. Start the built-in gdb support.\n");
     printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
+    printerr("\t--capture -c        Captures controllers data to file.\n");
+    printerr("\t--loadcap -l        Load and replays controllers data from file.\n");
 }
 
 int ends_with(const char* name, const char* extension, size_t length)
@@ -105,8 +108,9 @@ int main(int argc,char **argv)
         
 #if defined(__GNUC__) && defined(__WIN32__)
     //HACK: workaround for precompiled SDL libraries that block output to console
-    freopen( "CONOUT$", "wt", stdout );
-    freopen( "CONOUT$", "wt", stderr );
+	FILE * ctt = fopen("CON", "w" );
+	freopen( "CON", "w", stdout );
+	freopen( "CON", "w", stderr );
 #endif
 
     // init basic flags before parsing args
@@ -169,10 +173,16 @@ int main(int argc,char **argv)
         case 'b':
             uzebox.pc = 0x7800;//0xF000; //set start for boot image
             break;
-	case 'd':
+        case 'c':
+            uzebox.captureMode=CAPTURE_WRITE;
+            break;
+        case 'l':
+            uzebox.captureMode=CAPTURE_READ;
+            break;
+        case 'd':
             uzebox.enableGdb = true;
             break;
-	case 't':
+        case 't':
             long port = strtol(optarg,NULL,10);
             if ((port == LONG_MAX) || (port == LONG_MIN) || (port < 0) || port > 65535)
             	uzebox.gdbPort = 0;
@@ -249,6 +259,62 @@ int main(int argc,char **argv)
         }
 
 
+
+    	//get rom name without extension to build
+    	//the capture file name
+		char capfname[256];
+    	char *pfile = heximage + strlen(heximage);
+		for (;; pfile--)
+		{
+			if ((*pfile == '\\') || (*pfile == '/') || pfile==heximage)
+			{
+				if(pfile!=heximage)pfile++; //skip the slash character
+
+				for(int i=0;i<256;i++){
+					if(*pfile=='.'){
+						capfname[i+0]='.';
+						capfname[i+1]='c';
+						capfname[i+2]='a';
+						capfname[i+3]='p';
+						capfname[i+4]=0;
+						break;
+					}
+					capfname[i]=*pfile;
+					pfile++;
+				}
+				break;
+			}
+		}
+
+
+        if(uzebox.captureMode==CAPTURE_READ)
+        {
+            uzebox.captureFile=fopen(capfname,"rb");
+            if(uzebox.captureFile==0){
+            	uzebox.captureMode=CAPTURE_NONE;
+            	printerr("Warning: Cannot open capture file %s. Capture replay ignored.\n\n",capfname);
+            }else{
+            	fseek(uzebox.captureFile, 0L, SEEK_END);
+				long fz = ftell(uzebox.captureFile);
+				rewind(uzebox.captureFile);
+				uzebox.captureData=new u8[fz];
+				uzebox.captureSize=fz;
+				uzebox.capturePtr=0;
+				fread(uzebox.captureData,1,fz,uzebox.captureFile);
+				fclose(uzebox.captureFile);
+            }
+        }
+        else if(uzebox.captureMode==CAPTURE_WRITE)
+        {
+            uzebox.captureFile=fopen(capfname,"wb");
+            if(uzebox.captureFile==0){
+            	uzebox.captureMode=CAPTURE_NONE;
+            	printerr("Error: Cannot open capture file %s.\n\n",capfname);
+            	return 1;
+            }
+        }
+
+
         //if user did not specify a path for the sd card, use the rom's path
     	if(uzebox.SDpath == NULL){
     		//extract path
@@ -284,7 +350,7 @@ int main(int argc,char **argv)
 			return 1;
 		}
 	}
-    
+
 	// init the GUI
 	if (!uzebox.init_gui()){
         printerr("Error: Failed to init GUI.\n\n");
@@ -302,11 +368,20 @@ int main(int argc,char **argv)
         else
             uzebox.state = CPU_RUNNING;
 
+   	srand(time(NULL));	//used for the watchdog timer entropy
 	const int cycles=100000000;
 	int left, now;
 	char caption[128];
+	sprintf(caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)");
+
 	while (true)
 	{
+		if (uzebox.fullscreen){
+			puts(caption);
+        }else{
+			SDL_WM_SetCaption(caption, NULL);
+        }
+
 		left = cycles;
 		now = SDL_GetTicks();
 		while (left > 0)
@@ -315,12 +390,6 @@ int main(int argc,char **argv)
 		now = SDL_GetTicks() - now;
 
 		sprintf(caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
-		if (uzebox.fullscreen){
-			puts(caption);
-        }else{
-			SDL_WM_SetCaption(caption, NULL);
-        }
-
 	}
 
 	return 0;

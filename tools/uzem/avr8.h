@@ -116,6 +116,8 @@ THE SOFTWARE.
 enum { NES_A, NES_B, PAD_SELECT, PAD_START, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT };
 enum { SNES_B, SNES_Y, SNES_A=8, SNES_X, SNES_LSH, SNES_RSH };
 
+enum {CAPTURE_NONE,CAPTURE_READ,CAPTURE_WRITE};
+
 #if 1	// 644P
 const unsigned eepromSize = 2048;
 const unsigned sramSize = 4096;
@@ -169,6 +171,7 @@ typedef int8_t s8;
 typedef uint16_t u16;
 typedef int16_t s16;
 typedef uint32_t u32;
+typedef int32_t s32;
 
 using namespace std;
 
@@ -285,7 +288,8 @@ struct avr8
 	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
 		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
 		prevWDR(0), frameCounter(0),  new_input_mode(false),gdb(0),enableGdb(false), SDpath(NULL), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
-        spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),joystickFile(0),
+        spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),joystickFile(0),captureFile(NULL),
+		captureMode(CAPTURE_NONE),watchdogTimer(0),
 
 
     #if defined(__WIN32__)
@@ -307,14 +311,13 @@ struct avr8
 
         uzeKbState=0;
         uzeKbEnabled=false;
-#if GUI
 		pad_mode = SNES_PAD;
-#endif
 	}
 
 	u16 progmem[progSize/2];
 	u16 pc;
 	u16 breakpoint;
+	bool run;
 
 	struct SDEmu SDemulator;
 	char *SDpath;
@@ -330,13 +333,15 @@ struct avr8
 	u16 OCR1A;
 	u16 OCR1B;
 
+	u32 watchdogTimer;
+
 	u32 cycleCounter, prevPortB, prevWDR;
 	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
 		new_input_mode;
 	int interruptLevel;
 	u32 lastFlip;
 	u32 inset;
-#if GUI
+
 	SDL_Surface *screen;
 	joystickState joysticks[MAX_JOYSTICKS];
 	joyMapSettings jmap;
@@ -364,8 +369,7 @@ struct avr8
 		((avr8*)userdata)->audio_callback(stream,len);
 	}
 	ringBuffer audioRing;
-#endif
-    
+
 	//Uzebox Keyboard variables
 	u8 uzeKbState;
 	u8 uzeKbDataOut;
@@ -410,6 +414,14 @@ struct avr8
     LPBYTE lpSector;
     u32 lpSectorIndex;
 #endif
+
+
+    FILE* captureFile;
+    u8* captureData;
+    u8 captureMode;
+    long captureSize;
+    long capturePtr;
+
     FILE* sdImage;
     u8* emulatedMBR;
     u32 emulatedReadPos;
@@ -521,7 +533,6 @@ struct avr8
 	}
 
 	bool init_sd();
-#if GUI
 	bool init_gui();
 	void init_joysticks();
 	void handle_key_down(SDL_Event &ev);
@@ -531,7 +542,7 @@ struct avr8
 	void set_jmap_state(int state);
 	void map_joysticks(SDL_Event &ev);
 	void load_joystick_file(const char* filename);
-#endif
+	void draw_memorymap();
 	void trigger_interrupt(int location);
 	u8 exec();
     void spi_calculateClock();    

@@ -788,6 +788,7 @@ internal_spi_byte:
 		sts _SFR_MEM_ADDR(TCCR1B),r24
 
 		cli
+		wdr
 		;enable watchdog at fastest speed and generate interrupts
 		ldi r24,0
 		sts _SFR_MEM_ADDR(MCUSR),r24	
@@ -814,7 +815,7 @@ internal_spi_byte:
 	; Returns: r24:r25(u16)
 	;********************************
 
-	.global GetRandomSeed
+	.global GetTrueRandomSeed
 	.section .text.GetTrueRandomSeed
 	GetTrueRandomSeed:
 		lds r24,random_value
@@ -831,6 +832,8 @@ internal_spi_byte:
 		push r16
 		push r17
 	
+		wdr
+
 		in r16,_SFR_IO_ADDR(SREG)
 		push r16
 

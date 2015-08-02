@@ -84,6 +84,7 @@ using namespace std;
 
 //Interrupts vector adresses
 #define INT_RESET		0x00
+#define WDT				0x10
 #define TIMER1_COMPA	0x1A
 #define TIMER1_COMPB	0x1C
 #define TIMER1_OVF		0x1E
@@ -106,6 +107,12 @@ using namespace std;
 #define CS10			1
 #define WGM12			8
 
+//Watchdog flags
+#define WDE				8
+#define WDIE			64
+#define WDIF			128
+
+#define DELAY16MS		457142
 
 static const char *port_name(int);
 
@@ -183,55 +190,8 @@ inline void set_bit(u8 &dest,int bit,int value)
 #define DIS(fmt,...)
 #endif
 
-static const char brbc[8][5] = {"BRCC", "BRNE", "BRPL", "BRVC", "BRGE", "BRHC", "BRTC", "BRID"};
-static const char brbs[8][5] = {"BRCS", "BREQ", "BRMI", "BRVS", "BRLT", "BRHS", "BRTS", "BRIE"};
+u8 captureTemp[2];
 
-static const char *reg_pair(int reg)
-{
-	static const char names[16][8] = {
-		"r1:r0", "r3:r2", "r5:r4", "r7:r6", "r9:r8", "r11:r10", "r13:r12", "r15:r14",
-		"r17:r16", "r19:r18", "r21:r20", "r23:r22", "r25:r24", "X", "Y", "Z" };
-	return names[reg>>1];
-}
-
-static const char *reg_name(int reg)
-{
-	static const char names[32][4]  = {
-		"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
-		"r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-		"r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
-		"r24", "r25", "XL", "XH", "YL", "YH", "ZL", "ZH" };
-	return names[reg];
-}
-
-static const char *port_name(int port)
-{
-	static const char names[][8] = {
-		"PINA",  "DDRA",  "PORTA", "PINB",  "DDRB",  "PORTB", "PINC",  "DDRC",
-		"PORTC", "PIND",  "DDRD",  "PORTD", "res2C", "res2D", "res2E", "res2F",
-		"res30", "res31", "res32", "res33", "res34", "TIFR0", "TIFR1", "TIFR2",
-		"res38", "res39", "res3A", "PCIFR", "EIFR",  "EIMSK", "GPIOR0","EECR",
-		"EEDR",  "EEARL", "EEARH", "GTCCR", "TCCR0A","TCCR0B","TCNT0", "OCR0A",
-		"OCR0B", "res49", "GPIOR1","GPIOR2","SPCR",  "SPSR",  "SPDR",  "res4f",
-		"ACSR",  "OCDR",  "res52", "SMCR",  "MCUSR", "MCUCR", "res56", "SPMCSR",
-		"res58", "res59", "res5A", "res5B", "res5C", "SPL",   "SPH",  "SREG",
-		"WDTCSR", "CLKPR", "res62", "res63", "PRR", "res65", "OSCCAL", "res67",
-		"PCICR", "EICRA", "res6a", "PCMSK0", "PCMSK1", "PCMSK2", "TIMSK0", "TIMSK1",
-		"TIMSK2", "res71", "res72", "PCMSK3", "res74", "res75", "res76", "res77",
-		"ADCL", "ADCH", "ADCSRA", "ADCSRB", "ADMUX", "res7d", "DIDR0", "DIDR1",
-		"TCCR1A", "TCCR1B", "TCCR1C", "res83", "TCNT1L", "TCNT1H", "ICR1L", "ICR1H",
-		"OCR1AL", "OCR1AH", "OCR1BL", "OCR1BH", "res8c", "res8d", "res8e", "res8f",
-		"res90", "res91", "res92", "res93", "res94", "res95", "res96", "res97",
-		"res98", "res99", "res9a", "res9b", "res9c", "res9d", "res9e", "res9f",
-		"resa0", "resa1", "resa2", "resa3", "resa4", "resa5", "resa6", "resa7",
-		"resa8", "resa9", "resaa", "resab", "resac", "resad", "resae", "resaf",
-		"TCCR2A", "TCCR2B", "TCNT2", "OCR2A", "OCR2B", "resb5", "ASSR", "resb7",
-		"TWBR", "TWSR", "TWAR", "TWDR", "TWCR", "TWAMR", "resbe", "resbf",
-		"UCSR0A", "UCSR0B", "UCSR0C", "resc3", "UBRR0L", "UBRR0H", "UDR0", "resc7",
-	};
-	
-	return names[port];
-}
 
 static u8 encode_delta(int d)
 {
@@ -350,6 +310,18 @@ void avr8::write_io(u8 addr,u8 value)
 							break;
 					}
                 }
+
+                //capture or replay controlelr capture data
+                if(captureMode==CAPTURE_WRITE){
+                	captureTemp[0]=(u8)(buttons[0]&0xff);
+                	captureTemp[1]=(u8)((buttons[0]>>8)&0xff);
+                	fwrite(&captureTemp,1,sizeof(captureTemp),captureFile);
+                }else if(captureMode==CAPTURE_READ && captureSize>0){
+                	buttons[0]=captureData[capturePtr]+(captureData[capturePtr]<<8);
+                	capturePtr+=2;
+                	captureSize-=2;
+                }
+
 
                 if (pad_mode == SNES_MOUSE)
                 {
@@ -1064,12 +1036,17 @@ u8 avr8::exec()
 			    // no operation
 			    break;
 			case 0x95A8: //WDR
-			    // Implement this if/when we need watchdog timer functionality.
+
+				//watchdog is based on a RC oscillator
+				//so add some random variation to simulate entropy
+				watchdogTimer=rand()%1024;
+
 			    if(prevWDR){
 			        printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
 			        prevWDR = 0;
-			}else
-			    prevWDR = cycleCounter + 1;
+			    }else{
+			    	prevWDR = cycleCounter + 1;
+			    }
 
 			break;
 			case 0x95C8: //LPM r0,Z
@@ -1397,6 +1374,7 @@ bool avr8::init_gui()
 		fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
 		return false;
 	}
+
 	atexit(SDL_Quit);
 	init_joysticks();
 
@@ -1906,6 +1884,7 @@ void avr8::update_hardware(int cycles)
 {
 
 	cycleCounter += cycles;
+	watchdogTimer += cycles;
 
 	if (TCCR1B & 7)	//if timer 1 is started
 	{
@@ -1950,6 +1929,16 @@ void avr8::update_hardware(int cycles)
 		TCNT1H = (u8) (TCNT1>>8);
 	}
 
+
+	if(WDTCSR & WDE){ //if watchdog enabled
+		if(watchdogTimer>=DELAY16MS && (WDTCSR&WDIE)){
+			WDTCSR|=WDIF;	//watchdog interrupt
+			//reset watchdog
+			//watchdog is based on a RC oscillator
+			//so add some random variation to simulate entropy
+			watchdogTimer=rand()%1024;
+		}
+	}
 
     // clock the SPI hardware. 
     if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled
@@ -2029,7 +2018,12 @@ void avr8::update_hardware(int cycles)
 	//process interrupts in order of priority
     if(SREG & (1<<SREG_I)){
 
-		if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
+    	if ((WDTCSR&(WDIF|WDIE))==(WDIF|WDIE)){
+
+    		WDTCSR&= ~WDIF; //clear watchdog flag
+			trigger_interrupt(WDT);
+
+    	}else if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
 
 			TIFR1&= ~OCF1A; //clear CTC match flag
 			trigger_interrupt(TIMER1_COMPA);
@@ -2503,6 +2497,11 @@ void avr8::shutdown(int errcode){
             fclose(f);
         }
     }
+
+    if(captureMode==CAPTURE_WRITE && captureFile!=NULL){
+    	fclose(captureFile);
+    }
+
 #if GUI
 	if (joystickFile) {
 		FILE* f = fopen(joystickFile,"wb");
@@ -2519,6 +2518,7 @@ void avr8::shutdown(int errcode){
         }
 	}
 #endif
+
     exit(errcode);
 }
 
