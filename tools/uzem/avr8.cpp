@@ -190,9 +190,6 @@ inline void set_bit(u8 &dest,int bit,int value)
 #define DIS(fmt,...)
 #endif
 
-u8 captureTemp[2];
-
-
 static u8 encode_delta(int d)
 {
 	u8 result;
@@ -313,11 +310,10 @@ void avr8::write_io(u8 addr,u8 value)
 
                 //capture or replay controlelr capture data
                 if(captureMode==CAPTURE_WRITE){
-                	captureTemp[0]=(u8)(buttons[0]&0xff);
-                	captureTemp[1]=(u8)((buttons[0]>>8)&0xff);
-                	fwrite(&captureTemp,1,sizeof(captureTemp),captureFile);
+                	fputc((u8)(buttons[0]&0xff),captureFile);
+                	fputc((u8)((buttons[0]>>8)&0xff),captureFile);
                 }else if(captureMode==CAPTURE_READ && captureSize>0){
-                	buttons[0]=captureData[capturePtr]+(captureData[capturePtr]<<8);
+                	buttons[0]=captureData[capturePtr]+(captureData[capturePtr+1]<<8);
                 	capturePtr+=2;
                 	captureSize-=2;
                 }
