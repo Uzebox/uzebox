@@ -1,0 +1,960 @@
+Archive member included because of file (symbol)
+
+c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+                              uzeboxVideoEngine.o (__udivmodqi4)
+c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+                              uzeboxVideoEngine.o (__udivmodhi4)
+c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+                              uzeboxSoundEngine.o (__divmodhi4)
+c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+                              uzeboxVideoEngine.o (__udivmodsi4)
+c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+                              c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o (exit)
+c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+                              tutorial.o (__do_copy_data)
+c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+                              uzeboxCore.o (__do_clear_bss)
+
+Allocating common symbols
+Common symbol       size              file
+
+songStart           0x2               uzeboxSoundEngine.o
+tracks              0x5c              uzeboxSoundEngine.o
+fadeSpeed           0x1               uzeboxVideoEngine.o
+currDeltaTime       0x2               uzeboxSoundEngine.o
+fadeDir             0x1               uzeboxVideoEngine.o
+patchPointers       0x2               uzeboxSoundEngine.o
+lastStatus          0x1               uzeboxSoundEngine.o
+joypadsConnectionStatus
+                    0x1               uzeboxCore.o
+fadeActive          0x1               uzeboxVideoEngine.o
+masterVolume        0x1               uzeboxSoundEngine.o
+nextDeltaTime       0x2               uzeboxSoundEngine.o
+songSpeed           0x1               uzeboxSoundEngine.o
+songPos             0x2               uzeboxSoundEngine.o
+loopStart           0x2               uzeboxSoundEngine.o
+step                0x1               uzeboxSoundEngine.o
+currFadeFrame       0x1               uzeboxVideoEngine.o
+fadeStep            0x1               uzeboxVideoEngine.o
+
+Discarded input sections
+
+ .bss           0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+ .text.SetTile  0x00000000       0x34 uzeboxVideoEngineCore.o
+ .text.SetTileTable
+                0x00000000        0xa uzeboxVideoEngineCore.o
+ .text.GetVsyncFlag
+                0x00000000        0x8 uzeboxVideoEngineCore.o
+ .text.ClearVsyncFlag
+                0x00000000        0xc uzeboxVideoEngineCore.o
+ .text.GetVsyncCounter
+                0x00000000        0xa uzeboxVideoEngineCore.o
+ .text.ClearVsyncCounter
+                0x00000000        0xa uzeboxVideoEngineCore.o
+ .text.ReadJoypad
+                0x00000000       0x18 uzeboxVideoEngineCore.o
+ .text.WaitUs   0x00000000        0xe uzeboxVideoEngineCore.o
+ .text.SetUserPreVsyncCallback
+                0x00000000        0xa uzeboxVideoEngineCore.o
+ .text.SetUserPostVsyncCallback
+                0x00000000        0xa uzeboxVideoEngineCore.o
+ .text.IsRunningInEmulator
+                0x00000000       0x12 uzeboxVideoEngineCore.o
+ .text.WaitClocks
+                0x00000000        0x6 uzeboxVideoEngineCore.o
+ .text.SetLedOn
+                0x00000000        0x4 uzeboxVideoEngineCore.o
+ .text.SetLedOff
+                0x00000000        0x4 uzeboxVideoEngineCore.o
+ .text.ToggleLed
+                0x00000000        0x4 uzeboxVideoEngineCore.o
+ .text.internal_spi_byte
+                0x00000000        0xe uzeboxVideoEngineCore.o
+ .text          0x00000000        0x0 uzeboxCore.o
+ .bss           0x00000000        0x2 uzeboxCore.o
+ .text.SetRenderingParameters
+                0x00000000        0xa uzeboxCore.o
+ .text.DetectControllers
+                0x00000000       0x36 uzeboxCore.o
+ .text.FormatEeprom2
+                0x00000000       0x98 uzeboxCore.o
+ .text.ReadPowerSwitch
+                0x00000000        0xe uzeboxCore.o
+ .text.EepromWriteBlock
+                0x00000000       0x94 uzeboxCore.o
+ .text.EepromReadBlock
+                0x00000000       0x66 uzeboxCore.o
+ .text.EepromBlockExists
+                0x00000000       0xa4 uzeboxCore.o
+ .text.GetPrngNumber
+                0x00000000       0x5c uzeboxCore.o
+ .text          0x00000000        0x0 uzeboxSoundEngine.o
+ .text.InitMusicPlayer
+                0x00000000       0x38 uzeboxSoundEngine.o
+ .text.StartSong
+                0x00000000       0x52 uzeboxSoundEngine.o
+ .text.StopSong
+                0x00000000       0x16 uzeboxSoundEngine.o
+ .text.ResumeSong
+                0x00000000        0x8 uzeboxSoundEngine.o
+ .text.SetSongSpeed
+                0x00000000        0x6 uzeboxSoundEngine.o
+ .text.GetSongSpeed
+                0x00000000        0x6 uzeboxSoundEngine.o
+ .text.TriggerFx
+                0x00000000       0x7e uzeboxSoundEngine.o
+ .text.SetMasterVolume
+                0x00000000        0x6 uzeboxSoundEngine.o
+ .text.GetMasterVolume
+                0x00000000        0x6 uzeboxSoundEngine.o
+ .text.SetMixerNoiseParams
+                0x00000000       0x10 uzeboxSoundEngineCore.o
+ .text.SetMixerVolume
+                0x00000000       0x16 uzeboxSoundEngineCore.o
+ .text.EnableSoundEngine
+                0x00000000        0x8 uzeboxSoundEngineCore.o
+ .text          0x00000000        0x0 uzeboxVideoEngine.o
+ .bss           0x00000000        0x0 uzeboxVideoEngine.o
+ .text.DrawMap  0x00000000       0x98 uzeboxVideoEngine.o
+ .text.PrintLong
+                0x00000000       0x8a uzeboxVideoEngine.o
+ .text.PrintByte
+                0x00000000       0x66 uzeboxVideoEngine.o
+ .text.PrintInt
+                0x00000000       0x70 uzeboxVideoEngine.o
+ .text.PrintBinaryByte
+                0x00000000       0x36 uzeboxVideoEngine.o
+ .text.PrintHexByte
+                0x00000000       0x40 uzeboxVideoEngine.o
+ .text.PrintHexInt
+                0x00000000       0x24 uzeboxVideoEngine.o
+ .text.PrintHexLong
+                0x00000000       0x5e uzeboxVideoEngine.o
+ .text.PrintRam
+                0x00000000       0x36 uzeboxVideoEngine.o
+ .text.Fill     0x00000000       0x6e uzeboxVideoEngine.o
+ .text.FontFill
+                0x00000000       0x6c uzeboxVideoEngine.o
+ .text.WaitVsync
+                0x00000000       0x2e uzeboxVideoEngine.o
+ .text.doFade   0x00000000       0x1c uzeboxVideoEngine.o
+ .text.FadeIn   0x00000000       0x18 uzeboxVideoEngine.o
+ .text.FadeOut  0x00000000       0x18 uzeboxVideoEngine.o
+ .text          0x00000000        0x0 mmc.o
+ .text          0x00000000        0x0 mmcextra.o
+ .bss           0x00000000        0x0 mmcextra.o
+ .text          0x00000000        0x0 tutorial.o
+ .bss           0x00000000        0x0 tutorial.o
+ .text          0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .bss           0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .text.libgcc.mul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .text.libgcc.div
+                0x00000000       0x18 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .text.libgcc   0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .text.libgcc.prologue
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .text.libgcc.builtins
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .text.libgcc.fmul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .text.libgcc.fixed
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .text          0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .bss           0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .text.libgcc.mul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .text.libgcc   0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .text.libgcc.prologue
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .text.libgcc.builtins
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .text.libgcc.fmul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .text.libgcc.fixed
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .text          0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .bss           0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .text.libgcc.mul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .text.libgcc   0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .text.libgcc.prologue
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .text.libgcc.builtins
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .text.libgcc.fmul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .text.libgcc.fixed
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .text          0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .bss           0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .text.libgcc.mul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .text.libgcc.div
+                0x00000000       0x44 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .text.libgcc   0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .text.libgcc.prologue
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .text.libgcc.builtins
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .text.libgcc.fmul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .text.libgcc.fixed
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .text          0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .bss           0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .text.libgcc.mul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .text.libgcc.div
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .text.libgcc   0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .text.libgcc.prologue
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .text.libgcc.builtins
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .text.libgcc.fmul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .text.libgcc.fixed
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .text          0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .bss           0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc.mul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc.div
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc   0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc.prologue
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc.builtins
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc.fmul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc.fixed
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .text          0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ .bss           0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc.mul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc.div
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc   0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc.prologue
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc.builtins
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc.fmul
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc.fixed
+                0x00000000        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+text             0x00000000         0x00020000         xr
+data             0x00800060         0x0000ffa0         rw !x
+eeprom           0x00810000         0x00010000         rw !x
+fuse             0x00820000         0x00000400         rw !x
+lock             0x00830000         0x00000400         rw !x
+signature        0x00840000         0x00000400         rw !x
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+Address of section .data set to 0x800100
+LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+LOAD uzeboxVideoEngineCore.o
+LOAD uzeboxCore.o
+LOAD uzeboxSoundEngine.o
+LOAD uzeboxSoundEngineCore.o
+LOAD uzeboxVideoEngine.o
+LOAD mmc.o
+LOAD mmcextra.o
+LOAD tutorial.o
+START GROUP
+LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a
+LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5\libm.a
+LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5\libc.a
+END GROUP
+
+.hash
+ *(.hash)
+
+.dynsym
+ *(.dynsym)
+
+.dynstr
+ *(.dynstr)
+
+.gnu.version
+ *(.gnu.version)
+
+.gnu.version_d
+ *(.gnu.version_d)
+
+.gnu.version_r
+ *(.gnu.version_r)
+
+.rel.init
+ *(.rel.init)
+
+.rela.init
+ *(.rela.init)
+
+.rel.text
+ *(.rel.text)
+ *(.rel.text.*)
+ *(.rel.gnu.linkonce.t*)
+
+.rela.text
+ *(.rela.text)
+ *(.rela.text.*)
+ *(.rela.gnu.linkonce.t*)
+
+.rel.fini
+ *(.rel.fini)
+
+.rela.fini
+ *(.rela.fini)
+
+.rel.rodata
+ *(.rel.rodata)
+ *(.rel.rodata.*)
+ *(.rel.gnu.linkonce.r*)
+
+.rela.rodata
+ *(.rela.rodata)
+ *(.rela.rodata.*)
+ *(.rela.gnu.linkonce.r*)
+
+.rel.data
+ *(.rel.data)
+ *(.rel.data.*)
+ *(.rel.gnu.linkonce.d*)
+
+.rela.data
+ *(.rela.data)
+ *(.rela.data.*)
+ *(.rela.gnu.linkonce.d*)
+
+.rel.ctors
+ *(.rel.ctors)
+
+.rela.ctors
+ *(.rela.ctors)
+
+.rel.dtors
+ *(.rel.dtors)
+
+.rela.dtors
+ *(.rela.dtors)
+
+.rel.got
+ *(.rel.got)
+
+.rela.got
+ *(.rela.got)
+
+.rel.bss
+ *(.rel.bss)
+
+.rela.bss
+ *(.rela.bss)
+
+.rel.plt
+ *(.rel.plt)
+
+.rela.plt
+ *(.rela.plt)
+
+.text           0x00000000     0x3ac4
+ *(.vectors)
+ .vectors       0x00000000       0x70 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+                0x00000000                __vector_default
+                0x00000000                __vectors
+ *(.vectors)
+ *(.progmem.gcc*)
+ *(.progmem*)
+ .progmem.data  0x00000070       0x4e uzeboxCore.o
+                0x00000070                eeprom_format_table
+                0x00000090                io_table
+ .progmem.data  0x000000be       0x1e uzeboxSoundEngine.o
+                0x000000be                patchCommands
+ .progmem.data  0x000000dc        0xc uzeboxVideoEngine.o
+                0x000000dc                fader
+ .progmem.data  0x000000e8     0x1ad5 tutorial.o
+                0x000000e8                font
+                0x00001bbe                . = ALIGN (0x2)
+ *fill*         0x00001bbd        0x1 
+                0x00001bbe                __trampolines_start = .
+ *(.trampolines)
+ .trampolines   0x00001bbe        0x0 linker stubs
+ *(.trampolines*)
+                0x00001bbe                __trampolines_end = .
+ *(.jumptables)
+ *(.jumptables*)
+ *(.lowtext)
+ *(.lowtext*)
+                0x00001bbe                __ctors_start = .
+ *(.ctors)
+                0x00001bbe                __ctors_end = .
+                0x00001bbe                __dtors_start = .
+ *(.dtors)
+                0x00001bbe                __dtors_end = .
+ SORT(*)(.ctors)
+ SORT(*)(.dtors)
+ *(.init0)
+ .init0         0x00001bbe        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+                0x00001bbe                __init
+ *(.init0)
+ *(.init1)
+ *(.init1)
+ *(.init2)
+ .init2         0x00001bbe        0xc c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+ *(.init2)
+ *(.init3)
+ *(.init3)
+ *(.init4)
+ .init4         0x00001bca       0x16 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+                0x00001bca                __do_copy_data
+ .init4         0x00001be0       0x10 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+                0x00001be0                __do_clear_bss
+ *(.init4)
+ *(.init5)
+ *(.init5)
+ *(.init6)
+ *(.init6)
+ *(.init7)
+ .init7         0x00001bf0       0x12 uzeboxCore.o
+                0x00001bf0                wdt_init
+ *(.init7)
+ *(.init8)
+ .init8         0x00001c02       0x9e uzeboxCore.o
+                0x00001c02                Initialize
+ *(.init8)
+ *(.init9)
+ .init9         0x00001ca0        0x8 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+ *(.init9)
+ *(.text)
+ .text          0x00001ca8        0x4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+                0x00001ca8                __vector_22
+                0x00001ca8                __vector_1
+                0x00001ca8                __vector_24
+                0x00001ca8                __vector_12
+                0x00001ca8                __bad_interrupt
+                0x00001ca8                __vector_6
+                0x00001ca8                __vector_3
+                0x00001ca8                __vector_23
+                0x00001ca8                __vector_25
+                0x00001ca8                __vector_11
+                0x00001ca8                __vector_17
+                0x00001ca8                __vector_19
+                0x00001ca8                __vector_7
+                0x00001ca8                __vector_27
+                0x00001ca8                __vector_5
+                0x00001ca8                __vector_4
+                0x00001ca8                __vector_9
+                0x00001ca8                __vector_2
+                0x00001ca8                __vector_21
+                0x00001ca8                __vector_15
+                0x00001ca8                __vector_8
+                0x00001ca8                __vector_26
+                0x00001ca8                __vector_10
+                0x00001ca8                __vector_16
+                0x00001ca8                __vector_18
+                0x00001ca8                __vector_20
+ .text          0x00001cac      0x29e uzeboxVideoEngineCore.o
+                0x00001d62                __vector_13
+                0x00001de2                __vector_14
+ .text          0x00001f4a      0x202 uzeboxSoundEngineCore.o
+                0x00001f4a                process_music
+                0x000020ce                update_sound_buffer_fast
+                0x000020f6                update_sound
+                0x0000214c                . = ALIGN (0x2)
+ *(.text.*)
+ .text.ClearVram
+                0x0000214c       0x1c uzeboxVideoEngineCore.o
+                0x0000214c                ClearVram
+ .text.SetFont  0x00002168       0x30 uzeboxVideoEngineCore.o
+                0x00002168                SetFont
+ .text.SetFontTable
+                0x00002198        0xa uzeboxVideoEngineCore.o
+                0x00002198                SetFontTable
+ .text.WriteEeprom
+                0x000021a2       0x14 uzeboxVideoEngineCore.o
+                0x000021a2                WriteEeprom
+ .text.ReadEeprom
+                0x000021b6       0x12 uzeboxVideoEngineCore.o
+                0x000021b6                ReadEeprom
+ .text.SoftReset
+                0x000021c8       0x16 uzeboxCore.o
+                0x000021c8                SoftReset
+ .text.ReadButtons
+                0x000021de       0x6c uzeboxCore.o
+                0x000021de                ReadButtons
+ .text.ReadControllers
+                0x0000224a       0x20 uzeboxCore.o
+                0x0000224a                ReadControllers
+ .text.FormatEeprom
+                0x0000226a       0x44 uzeboxCore.o
+                0x0000226a                FormatEeprom
+ .text.isEepromFormatted
+                0x000022ae       0x2e uzeboxCore.o
+                0x000022ae                isEepromFormatted
+ .text.PatchCommand00
+                0x000022dc        0x6 uzeboxSoundEngine.o
+                0x000022dc                PatchCommand00
+ .text.PatchCommand01
+                0x000022e2       0x10 uzeboxSoundEngine.o
+                0x000022e2                PatchCommand01
+ .text.PatchCommand02
+                0x000022f2        0x8 uzeboxSoundEngine.o
+                0x000022f2                PatchCommand02
+ .text.PatchCommand03
+                0x000022fa       0x10 uzeboxSoundEngine.o
+                0x000022fa                PatchCommand03
+ .text.PatchCommand04
+                0x0000230a       0x10 uzeboxSoundEngine.o
+                0x0000230a                PatchCommand04
+ .text.PatchCommand05
+                0x0000231a        0xa uzeboxSoundEngine.o
+                0x0000231a                PatchCommand05
+ .text.PatchCommand06
+                0x00002324        0xa uzeboxSoundEngine.o
+                0x00002324                PatchCommand06
+ .text.PatchCommand07
+                0x0000232e        0x6 uzeboxSoundEngine.o
+                0x0000232e                PatchCommand07
+ .text.PatchCommand08
+                0x00002334       0x32 uzeboxSoundEngine.o
+                0x00002334                PatchCommand08
+ .text.PatchCommand09
+                0x00002366        0x6 uzeboxSoundEngine.o
+                0x00002366                PatchCommand09
+ .text.PatchCommand10
+                0x0000236c        0x6 uzeboxSoundEngine.o
+                0x0000236c                PatchCommand10
+ .text.PatchCommand11
+                0x00002372       0x7a uzeboxSoundEngine.o
+                0x00002372                PatchCommand11
+ .text.PatchCommand12
+                0x000023ec        0x6 uzeboxSoundEngine.o
+                0x000023ec                PatchCommand12
+ .text.PatchCommand13
+                0x000023f2        0x6 uzeboxSoundEngine.o
+                0x000023f2                PatchCommand13
+ .text.PatchCommand14
+                0x000023f8       0x54 uzeboxSoundEngine.o
+                0x000023f8                PatchCommand14
+ .text.ProcessMusic
+                0x0000244c      0x44e uzeboxSoundEngine.o
+                0x0000244c                ProcessMusic
+ .text.ReadVarLen
+                0x0000289a       0x4c uzeboxSoundEngine.o
+                0x0000289a                ReadVarLen
+ .text.TriggerCommon
+                0x000028e6       0xe6 uzeboxSoundEngine.o
+                0x000028e6                TriggerCommon
+ .text.TriggerNote
+                0x000029cc       0x6e uzeboxSoundEngine.o
+                0x000029cc                TriggerNote
+ .text.SetMixerNote
+                0x00002a3a       0x2e uzeboxSoundEngineCore.o
+                0x00002a3a                SetMixerNote
+ .text.SetMixerWave
+                0x00002a68       0x3a uzeboxSoundEngineCore.o
+                0x00002a68                SetMixerWave
+ *fill*         0x00002aa2       0x5e 
+ .text.DisableSoundEngine
+                0x00002b00      0xc00 uzeboxSoundEngineCore.o
+                0x00002b00                DisableSoundEngine
+                0x00002b08                steptable
+                0x00002d00                waves
+ .text.DisplayLogo
+                0x00003700        0x2 uzeboxVideoEngine.o
+                0x00003700                DisplayLogo
+ .text.InitializeVideoMode
+                0x00003702        0x2 uzeboxVideoEngine.o
+                0x00003702                InitializeVideoMode
+ .text.VideoModeVsync
+                0x00003704        0x4 uzeboxVideoEngine.o
+                0x00003704                VideoModeVsync
+ .text.Print    0x00003708       0x36 uzeboxVideoEngine.o
+                0x00003708                Print
+ .text.PrintChar
+                0x0000373e        0x6 uzeboxVideoEngine.o
+                0x0000373e                PrintChar
+ .text.ProcessFading
+                0x00003744       0x4a uzeboxVideoEngine.o
+                0x00003744                ProcessFading
+ .text.mmcSkipBytes
+                0x0000378e        0xc mmc.o
+                0x0000378e                mmcSkipBytes
+ .text.mmcGetLong
+                0x0000379a        0x8 mmc.o
+                0x0000379a                mmcGetLong
+ .text.mmcGetInt
+                0x000037a2        0xc mmc.o
+                0x000037a2                mmcGetInt
+ .text.mmcGetChar
+                0x000037ae        0x0 mmc.o
+                0x000037ae                mmcGetChar
+ .text.mmc_get_byte
+                0x000037ae       0x26 mmc.o
+                0x000037ae                mmc_get_byte
+ .text.spibyte_ff
+                0x000037d4        0x2 mmc.o
+                0x000037d4                spibyte_ff
+ .text.spi_byte
+                0x000037d6        0xc mmc.o
+                0x000037d6                spi_byte
+ .text.mmc_get  0x000037e2       0x10 mmc.o
+                0x000037e2                mmc_get
+ .text.mmc_datatoken
+                0x000037f2       0x10 mmc.o
+                0x000037f2                mmc_datatoken
+ .text.mmc_clock_and_release
+                0x00003802       0x10 mmc.o
+                0x00003802                mmc_clock_and_release
+ .text.mmc_send_command
+                0x00003812       0x2e mmc.o
+                0x00003812                mmc_send_command_no_address
+                0x00003818                mmc_send_command
+ .text.mmc_init_no_buffer
+                0x00003840       0x44 mmc.o
+                0x00003840                mmc_init_no_buffer
+ .text.mmc_cuesector
+                0x00003884       0x2a mmc.o
+                0x00003884                mmc_cuesector
+ .text.mmc_stoptransmission
+                0x000038ae        0x8 mmc.o
+                0x000038ae                mmc_stoptransmission
+ .text.findFileFirstSector
+                0x000038b6      0x16c mmcextra.o
+                0x000038b6                findFileFirstSector
+ .text.startup.main
+                0x00003a22       0x4e tutorial.o
+                0x00003a22                main
+ .text.libgcc.div
+                0x00003a70       0x28 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+                0x00003a70                __udivmodhi4
+ .text.libgcc.div
+                0x00003a98       0x28 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+                0x00003a98                _div
+                0x00003a98                __divmodhi4
+                0x00003ac0                . = ALIGN (0x2)
+ *(.fini9)
+ .fini9         0x00003ac0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+                0x00003ac0                _exit
+                0x00003ac0                exit
+ *(.fini9)
+ *(.fini8)
+ *(.fini8)
+ *(.fini7)
+ *(.fini7)
+ *(.fini6)
+ *(.fini6)
+ *(.fini5)
+ *(.fini5)
+ *(.fini4)
+ *(.fini4)
+ *(.fini3)
+ *(.fini3)
+ *(.fini2)
+ *(.fini2)
+ *(.fini1)
+ *(.fini1)
+ *(.fini0)
+ .fini0         0x00003ac0        0x4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ *(.fini0)
+                0x00003ac4                _etext = .
+
+.data           0x00800100        0xc load address 0x00003ac4
+                0x00800100                PROVIDE (__data_start, .)
+ *(.data)
+ .data          0x00800100        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+ .data          0x00800100        0x0 uzeboxVideoEngineCore.o
+ .data          0x00800100        0x0 uzeboxCore.o
+ .data          0x00800100        0x0 uzeboxSoundEngine.o
+ .data          0x00800100        0x0 uzeboxSoundEngineCore.o
+ .data          0x00800100        0x0 uzeboxVideoEngine.o
+ .data          0x00800100        0x0 mmc.o
+ .data          0x00800100        0x0 mmcextra.o
+ .data          0x00800100        0x0 tutorial.o
+ .data          0x00800100        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .data          0x00800100        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .data          0x00800100        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .data          0x00800100        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .data          0x00800100        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .data          0x00800100        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .data          0x00800100        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ *(.data*)
+ *(.rodata)
+ *(.rodata*)
+ .rodata.str1.1
+                0x00800100        0xc tutorial.o
+ *(.gnu.linkonce.d*)
+                0x0080010c                . = ALIGN (0x2)
+                0x0080010c                _edata = .
+                0x0080010c                PROVIDE (__data_end, .)
+
+.bss            0x0080010c      0x88a
+                0x0080010c                PROVIDE (__bss_start, .)
+ *(.bss)
+ .bss           0x0080010c      0x5ec uzeboxVideoEngineCore.o
+                0x0080010c                vram
+                0x008006e2                tile_table_lo
+                0x008006e3                tile_table_hi
+                0x008006e4                sync_phase
+                0x008006e5                sync_pulse
+                0x008006e6                sync_flags
+                0x008006eb                first_render_line
+                0x008006ec                render_lines_count
+                0x008006ed                joypad1_status_lo
+                0x008006ef                joypad1_status_hi
+                0x008006f1                joypad2_status_lo
+                0x008006f3                joypad2_status_hi
+ .bss           0x008006f8        0x1 uzeboxSoundEngine.o
+                0x008006f8                playSong
+ .bss           0x008006f9      0x229 uzeboxSoundEngineCore.o
+                0x008006f9                mix_buf
+                0x00800905                mix_pos
+                0x00800907                mix_bank
+                0x00800909                sound_enabled
+                0x0080090a                mixer
+                0x0080091d                tr4_params
+                0x0080091e                tr4_barrel_lo
+                0x0080091f                tr4_barrel_hi
+ .bss           0x00800922        0x2 mmc.o
+ *(.bss*)
+ *(COMMON)
+ COMMON         0x00800924        0x1 uzeboxCore.o
+                0x00800924                joypadsConnectionStatus
+ COMMON         0x00800925       0x6c uzeboxSoundEngine.o
+                0x00800925                songStart
+                0x00800927                tracks
+                0x00800983                currDeltaTime
+                0x00800985                patchPointers
+                0x00800987                lastStatus
+                0x00800988                masterVolume
+                0x00800989                nextDeltaTime
+                0x0080098b                songSpeed
+                0x0080098c                songPos
+                0x0080098e                loopStart
+                0x00800990                step
+ COMMON         0x00800991        0x5 uzeboxVideoEngine.o
+                0x00800991                fadeSpeed
+                0x00800992                fadeDir
+                0x00800993                fadeActive
+                0x00800994                currFadeFrame
+                0x00800995                fadeStep
+                0x00800996                PROVIDE (__bss_end, .)
+                0x00003ac4                __data_load_start = LOADADDR (.data)
+                0x00003ad0                __data_load_end = (__data_load_start + SIZEOF (.data))
+
+.noinit         0x00800996        0x0
+                0x00800996                PROVIDE (__noinit_start, .)
+ *(.noinit*)
+                0x00800996                PROVIDE (__noinit_end, .)
+                0x00800996                _end = .
+                0x00800996                PROVIDE (__heap_start, .)
+
+.eeprom         0x00810000        0x0
+ *(.eeprom*)
+                0x00810000                __eeprom_end = .
+
+.fuse
+ *(.fuse)
+ *(.lfuse)
+ *(.hfuse)
+ *(.efuse)
+
+.lock
+ *(.lock*)
+
+.signature
+ *(.signature*)
+
+.stab
+ *(.stab)
+
+.stabstr
+ *(.stabstr)
+
+.stab.excl
+ *(.stab.excl)
+
+.stab.exclstr
+ *(.stab.exclstr)
+
+.stab.index
+ *(.stab.index)
+
+.stab.indexstr
+ *(.stab.indexstr)
+
+.comment        0x00000000       0x27
+ *(.comment)
+ .comment       0x00000000       0x27 uzeboxCore.o
+                                 0x28 (size before relaxing)
+ .comment       0x00000000       0x28 uzeboxSoundEngine.o
+ .comment       0x00000000       0x28 uzeboxVideoEngine.o
+ .comment       0x00000000       0x28 mmcextra.o
+ .comment       0x00000000       0x28 tutorial.o
+
+.debug
+ *(.debug)
+
+.line
+ *(.line)
+
+.debug_srcinfo
+ *(.debug_srcinfo)
+
+.debug_sfnames
+ *(.debug_sfnames)
+
+.debug_aranges  0x00000000      0x500
+ *(.debug_aranges)
+ .debug_aranges
+                0x00000000       0xc8 uzeboxVideoEngineCore.o
+ .debug_aranges
+                0x000000c8       0x90 uzeboxCore.o
+ .debug_aranges
+                0x00000158       0xf8 uzeboxSoundEngine.o
+ .debug_aranges
+                0x00000250       0x50 uzeboxSoundEngineCore.o
+ .debug_aranges
+                0x000002a0       0xc0 uzeboxVideoEngine.o
+ .debug_aranges
+                0x00000360       0x80 mmc.o
+ .debug_aranges
+                0x000003e0       0x20 mmcextra.o
+ .debug_aranges
+                0x00000400       0x20 tutorial.o
+ .debug_aranges
+                0x00000420       0x20 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .debug_aranges
+                0x00000440       0x20 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .debug_aranges
+                0x00000460       0x20 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .debug_aranges
+                0x00000480       0x20 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .debug_aranges
+                0x000004a0       0x20 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .debug_aranges
+                0x000004c0       0x20 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .debug_aranges
+                0x000004e0       0x20 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+
+.debug_pubnames
+ *(.debug_pubnames)
+
+.debug_info     0x00000000     0x3aef
+ *(.debug_info)
+ .debug_info    0x00000000      0x672 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+ .debug_info    0x00000672       0x79 uzeboxVideoEngineCore.o
+ .debug_info    0x000006eb      0xaf8 uzeboxCore.o
+ .debug_info    0x000011e3     0x12e0 uzeboxSoundEngine.o
+ .debug_info    0x000024c3       0x73 uzeboxSoundEngineCore.o
+ .debug_info    0x00002536      0xae8 uzeboxVideoEngine.o
+ .debug_info    0x0000301e       0x5a mmc.o
+ .debug_info    0x00003078      0x348 mmcextra.o
+ .debug_info    0x000033c0      0x243 tutorial.o
+ .debug_info    0x00003603       0xb4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .debug_info    0x000036b7       0xb4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .debug_info    0x0000376b       0xb4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .debug_info    0x0000381f       0xb4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .debug_info    0x000038d3       0xb4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .debug_info    0x00003987       0xb4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .debug_info    0x00003a3b       0xb4 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+ *(.gnu.linkonce.wi.*)
+
+.debug_abbrev   0x00000000     0x11eb
+ *(.debug_abbrev)
+ .debug_abbrev  0x00000000      0x619 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+ .debug_abbrev  0x00000619       0x12 uzeboxVideoEngineCore.o
+ .debug_abbrev  0x0000062b      0x30e uzeboxCore.o
+ .debug_abbrev  0x00000939      0x34e uzeboxSoundEngine.o
+ .debug_abbrev  0x00000c87       0x12 uzeboxSoundEngineCore.o
+ .debug_abbrev  0x00000c99      0x264 uzeboxVideoEngine.o
+ .debug_abbrev  0x00000efd       0x12 mmc.o
+ .debug_abbrev  0x00000f0f      0x101 mmcextra.o
+ .debug_abbrev  0x00001010      0x14f tutorial.o
+ .debug_abbrev  0x0000115f       0x14 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .debug_abbrev  0x00001173       0x14 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .debug_abbrev  0x00001187       0x14 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .debug_abbrev  0x0000119b       0x14 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .debug_abbrev  0x000011af       0x14 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .debug_abbrev  0x000011c3       0x14 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .debug_abbrev  0x000011d7       0x14 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+
+.debug_line     0x00000000     0x160a
+ *(.debug_line)
+ .debug_line    0x00000000       0x1d c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+ .debug_line    0x0000001d      0x384 uzeboxVideoEngineCore.o
+ .debug_line    0x000003a1      0x2d2 uzeboxCore.o
+ .debug_line    0x00000673      0x3d8 uzeboxSoundEngine.o
+ .debug_line    0x00000a4b      0x1f7 uzeboxSoundEngineCore.o
+ .debug_line    0x00000c42      0x320 uzeboxVideoEngine.o
+ .debug_line    0x00000f62      0x17a mmc.o
+ .debug_line    0x000010dc       0xa2 mmcextra.o
+ .debug_line    0x0000117e       0xe1 tutorial.o
+ .debug_line    0x0000125f       0x83 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodqi4.o)
+ .debug_line    0x000012e2       0x8b c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodhi4.o)
+ .debug_line    0x0000136d       0x8a c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_divmodhi4.o)
+ .debug_line    0x000013f7       0x99 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_udivmodsi4.o)
+ .debug_line    0x00001490       0x79 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_exit.o)
+ .debug_line    0x00001509       0x82 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_copy_data.o)
+ .debug_line    0x0000158b       0x7f c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/avr5\libgcc.a(_clear_bss.o)
+
+.debug_frame    0x00000000      0x80c
+ *(.debug_frame)
+ .debug_frame   0x00000000      0x1cc uzeboxCore.o
+ .debug_frame   0x000001cc      0x268 uzeboxSoundEngine.o
+ .debug_frame   0x00000434      0x340 uzeboxVideoEngine.o
+ .debug_frame   0x00000774       0x74 mmcextra.o
+ .debug_frame   0x000007e8       0x24 tutorial.o
+
+.debug_str      0x00000000      0xe2f
+ *(.debug_str)
+ .debug_str     0x00000000      0x234 c:/winavr-20100110/bin/../lib/gcc/avr/4.9.2/../../../../avr/lib/avr5/crtm644.o
+ .debug_str     0x00000234      0x4f4 uzeboxCore.o
+                                0x546 (size before relaxing)
+ .debug_str     0x00000728      0x412 uzeboxSoundEngine.o
+                                0x666 (size before relaxing)
+ .debug_str     0x00000b3a      0x191 uzeboxVideoEngine.o
+                                0x31b (size before relaxing)
+ .debug_str     0x00000ccb      0x129 mmcextra.o
+                                0x25f (size before relaxing)
+ .debug_str     0x00000df4       0x3b tutorial.o
+                                0x1ae (size before relaxing)
+
+.debug_loc      0x00000000     0x3218
+ *(.debug_loc)
+ .debug_loc     0x00000000      0xa01 uzeboxCore.o
+ .debug_loc     0x00000a01     0x120b uzeboxSoundEngine.o
+ .debug_loc     0x00001c0c     0x12fc uzeboxVideoEngine.o
+ .debug_loc     0x00002f08      0x2c1 mmcextra.o
+ .debug_loc     0x000031c9       0x4f tutorial.o
+
+.debug_macinfo
+ *(.debug_macinfo)
+
+.debug_pubtypes
+ *(.debug_pubtypes)
+
+.debug_ranges   0x00000000      0x430
+ *(.debug_ranges)
+ .debug_ranges  0x00000000       0xc0 uzeboxVideoEngineCore.o
+ .debug_ranges  0x000000c0       0x98 uzeboxCore.o
+ .debug_ranges  0x00000158      0x130 uzeboxSoundEngine.o
+ .debug_ranges  0x00000288       0x48 uzeboxSoundEngineCore.o
+ .debug_ranges  0x000002d0       0xc8 uzeboxVideoEngine.o
+ .debug_ranges  0x00000398       0x78 mmc.o
+ .debug_ranges  0x00000410       0x10 mmcextra.o
+ .debug_ranges  0x00000420       0x10 tutorial.o
+
+.debug_macro
+ *(.debug_macro)
+OUTPUT(tutorial.elf elf32-avr)
+LOAD linker stubs
