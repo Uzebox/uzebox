@@ -1552,6 +1552,7 @@ SetSpritesTileBank:
 ; Fill the screen with the specified tile
 ; C-callable
 ;************************************
+;************************************
 .section .text.ClearVram
 ClearVram:
 	//init vram		
@@ -1561,8 +1562,16 @@ ClearVram:
 	ldi XL,lo8(vram)
 	ldi XH,hi8(vram)
 
-	ldi r22,RAM_TILES_COUNT
+	WAIT r22,520
+	
+	nop
+	lpm r22,Z
+	nop
+	nop
+	lpm
 
+	ldi r22,RAM_TILES_COUNT
+	
 fill_vram_loop:
 	st X+,r22
 	sbiw r30,1
@@ -1571,6 +1580,7 @@ fill_vram_loop:
 	clr r1
 
 	ret
+
 
 ;***********************************
 ; SET FONT TILE

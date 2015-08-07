@@ -38,7 +38,6 @@ static const struct option longopts[] ={
     { "fullscreen" , no_argument      , NULL, 'f' },
     { "hwsurface"  , no_argument      , NULL, 'w' },
     { "nodoublebuf", no_argument      , NULL, 'x' },
-    { "interlaced" , no_argument      , NULL, 'i' },
     { "mouse"      , no_argument      , NULL, 'm' },
     { "2p"         , no_argument      , NULL, '2' },
     { "img"        , required_argument, NULL, 'g' },
@@ -57,7 +56,7 @@ static const struct option longopts[] ={
     {NULL          , 0                , NULL, 0}
 };
 
-   static const char* shortopts = "hnfclwxim2re:p:bdt:k:s:v";
+   static const char* shortopts = "hnfclwxm2re:p:bdt:k:s:v";
 
 #define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
 
@@ -68,9 +67,6 @@ void showHelp(char* programName){
     printerr("\t%s [OPTIONS] GAMEFILE\n",programName);
     printerr("Options:\n");
     printerr("\t--help -h           Show this help screen\n");
-    #if defined(DISASM)
-        printerr("\t--bp -k <addr>      Set breakpoint address\n");
-    #endif
     printerr("\t--nosound  -n       Disable sound playback\n");
     printerr("\t--fullscreen -f     Enable full screen\n");
     printerr("\t--hwsurface -w      Use SDL hardware surface (probably slower)\n");
@@ -104,7 +100,6 @@ RomHeader uzeRomHeader;
 int main(int argc,char **argv)
 {
 	avr8 uzebox;
-	bool disasmOnly = true;
         
 #if defined(__GNUC__) && defined(__WIN32__)
     //HACK: workaround for precompiled SDL libraries that block output to console
@@ -123,9 +118,6 @@ int main(int argc,char **argv)
 
     int opt;
     char* heximage = NULL;
-   // char* eepromFile = NULL;
-    int bootsize = 0;
-
 
     while((opt = getopt_long(argc, argv,shortopts,longopts,NULL)) != -1) {
         switch(opt) {
@@ -134,11 +126,6 @@ int main(int argc,char **argv)
         case 'h': 
             showHelp(argv[0]);
             return 1;
-#if defined(DISASM)
-        case 'k':
-            uzebox.breakpoint = (u16) strtoul(optarg,NULL,16);
-            break;
-#endif
         case 'n':
 			uzebox.enableSound = false;
             break;
@@ -150,9 +137,6 @@ int main(int argc,char **argv)
             break;
         case 'x':
 			uzebox.sdl_flags &= ~SDL_DOUBLEBUF;
-            break;
-        case 'i':
-			uzebox.interlaced = true;
             break;
         case 'm':
 			uzebox.pad_mode = avr8::SNES_MOUSE;
@@ -167,7 +151,6 @@ int main(int argc,char **argv)
             uzebox.SDpath = optarg;
             break;
         case 'e':
-            //eepromFile = optarg;
             uzebox.eepromFile=optarg;
             break;
         case 'b':
@@ -368,11 +351,16 @@ int main(int argc,char **argv)
         else
             uzebox.state = CPU_RUNNING;
 
-   	srand(time(NULL));	//used for the watchdog timer entropy
-	const int cycles=100000000;
+   	uzebox.randomSeed=time(NULL);
+   	srand(uzebox.randomSeed);	//used for the watchdog timer entropy
+	const int cycles=30000000;//00;
 	int left, now;
 	char caption[128];
 	sprintf(caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)");
+
+	//to align with AVR Simulator 2 since it has a bug that the first JMP
+	//at the reset vector takes only 2 cycles
+	uzebox.cycleCounter=-1;
 
 	while (true)
 	{

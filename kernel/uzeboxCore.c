@@ -171,6 +171,7 @@ void Initialize(void){
 	if(!isEepromFormatted()) FormatEeprom();
 
 	cli();
+	asm("nop");
 	
 	//InitSoundPort(); //ramp-up sound to avoid click
 

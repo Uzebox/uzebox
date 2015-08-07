@@ -93,20 +93,6 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
     return false;
 }
 
-//copy strings without end of lines special characters
-static void strcpy2(char* dest, char* src, int maxsize)
-{
-	u8 c;
-	int i=0;
-	while(i<maxsize){
-	//strcpy((char*)rom.header->name,line+5);
-		c=*src++;
-		if(c<32) break;
-		*dest++=c;
-		i++;
-	}
-}
-
 static inline int parse_hex_nibble(char s)
 {
 	if (s >= '0' && s <= '9')

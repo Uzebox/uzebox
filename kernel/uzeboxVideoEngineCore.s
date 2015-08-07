@@ -134,11 +134,14 @@
 ; Main Video sync interrupt
 ;***************************************************************************
 TIMER1_COMPA_vect:
+
 	push r0
 	push r1
 	push ZL;2
 	push ZH;2
-	
+
+
+
 	;save flags & status register
 	in ZL,_SFR_IO_ADDR(SREG);1
 	push ZL ;2		
@@ -146,12 +149,15 @@ TIMER1_COMPA_vect:
 	;Read timer offset since rollover to remove cycles 
 	;and conpensate for interrupt latency.
 	;This is nessesary to eliminate frame jitter.
+	sleep
 	lds ZL,_SFR_MEM_ADDR(TCNT1L)
 	subi ZL,0x12 ;MIN_INT_LATENCY
+	
 
 	ldi ZH,1
 latency_loop:
-	cp ZL,ZH
+
+	cp ZL,ZH	
 	brlo .		;advance PC to next instruction	
 	inc ZH
 	cpi ZH,10
@@ -189,6 +195,7 @@ latency_loop:
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN	;TCNT1=0x68
 	brtc sync_pre_eq_no_sound_update
 	ldi ZL,1	;indicate update_sound to generate the SBI for pre-eq
+	wdr
 	call update_sound
 	rjmp sync_end
 
@@ -234,7 +241,7 @@ sync_eq_skip:
 	;for timer1 compare unit b
 	ldi ZL,(1<<OCIE1A)+(1<<OCIE1B)
 	sts _SFR_MEM_ADDR(TIMSK1),ZL
-
+	
 	rjmp sync_end
 
 ;**********************************************************
@@ -468,10 +475,11 @@ no_render:
 	pop r18
 	
 sync_end:	
+	
 	;restore flags
 	pop ZL
 	out _SFR_IO_ADDR(SREG),ZL
-	
+
 	pop ZH
 	pop ZL
 	pop r1

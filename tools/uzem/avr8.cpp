@@ -112,14 +112,11 @@ using namespace std;
 #define WDIE			64
 #define WDIF			128
 
-#define DELAY16MS		457142
+#define DELAY16MS			457142	//in cpu cycles
+#define HSYNC_HALF_PERIOD 	910		//in cpu cycles
+#define HSYNC_PERIOD 		1820	//in cpu cycles
 
-static const char *port_name(int);
-
-#if GUI
 static const char* joySettingsFilename = "joystick-settings";
-#endif
-
 
 #define SD_ENABLED() SDpath
 
@@ -219,6 +216,8 @@ static u8 encode_delta(int d)
 	return result;
 }
 
+u32 hsync_more_col;
+u32 hsync_less_col;
 
 void avr8::spi_calculateClock(){
     // calculate the number of cycles before the write completes
@@ -259,99 +258,127 @@ void avr8::write_io(u8 addr,u8 value)
 
 	else if (addr == ports::PORTB)
 	{
-        u32 elapsed = cycleCounter - prevPortB;
-        prevPortB = cycleCounter;
+        if(value&1){
+			elapsedCycles=cycleCounter-prevCyclesCounter;
 
+		   if (scanline_count == -999 && elapsedCycles >= HSYNC_HALF_PERIOD -10 && elapsedCycles <= HSYNC_HALF_PERIOD + 10)
+		   {
+			   scanline_count = scanline_top;
+			   prev_scanline = NULL;
+		   }
+		   else if (scanline_count != -999)
+		   {
+				scanline_count++;
 
-       if ((value&1) && scanline_count == -999 && elapsed >= 774 -7 && elapsed <= 774 + 7)
-       {
-    	   scanline_count = scanline_top;
-       }
-       else if ((value&1) && scanline_count != -999)
-       {
-            scanline_count++;
-            current_cycle = left_edge;
+				if(scanline_count >= 0){
+					current_cycle = left_edge
+							+ (elapsedCycles - HSYNC_PERIOD); //to simulate line offsync
 
-            current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
-            next_scanline = current_scanline + (screen->pitch>>2);
+					current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
 
-            if (scanline_count == 224)
-            {
-            	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-            	SDL_Flip(screen);
-            	SDL_framerateDelay(&fpsmanager);
+					if(prev_scanline!=NULL && elapsedCycles > HSYNC_PERIOD){
 
-                SDL_Event event;
-                while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
-                {
-					switch (event.type) {
-						case SDL_KEYDOWN:
-							handle_key_down(event);
-							break;
-						case SDL_KEYUP:
-							handle_key_up(event);
-							break;
-						case SDL_JOYBUTTONDOWN:
-						case SDL_JOYBUTTONUP:
-						case SDL_JOYAXISMOTION:
-						case SDL_JOYHATMOTION:
-						case SDL_JOYBALLMOTION:
-							if (jmap.jstate != JMAP_IDLE)
-								map_joysticks(event);
-							else
-								update_joysticks(event);
-							break;
-						case SDL_QUIT:
-							printf("User abort (closed window).\n");
-							shutdown(0);
-							break;
+						for(u8 x=0;x<(elapsedCycles-HSYNC_PERIOD);x++){
+							prev_scanline[(x*4)+5] = hsync_more_col;
+							prev_scanline[(x*4)+6] = hsync_more_col;
+							prev_scanline[(x*4)+7] = hsync_more_col;
+							prev_scanline[(x*4)+8] = 0;
+						}
+
+					}else if(prev_scanline!=NULL && elapsedCycles < HSYNC_PERIOD){
+						for(u8 x=0;x<(HSYNC_PERIOD-elapsedCycles);x++){
+							prev_scanline[(x*4)+5] = hsync_less_col;
+							prev_scanline[(x*4)+6] = hsync_less_col;
+							prev_scanline[(x*4)+7] = hsync_less_col;
+							prev_scanline[(x*4)+8] = 0;
+						}
 					}
-                }
 
-                //capture or replay controlelr capture data
-                if(captureMode==CAPTURE_WRITE){
-                	fputc((u8)(buttons[0]&0xff),captureFile);
-                	fputc((u8)((buttons[0]>>8)&0xff),captureFile);
-                }else if(captureMode==CAPTURE_READ && captureSize>0){
-                	buttons[0]=captureData[capturePtr]+(captureData[capturePtr+1]<<8);
-                	capturePtr+=2;
-                	captureSize-=2;
-                }
+					prev_scanline = current_scanline;
+
+				}
 
 
-                if (pad_mode == SNES_MOUSE)
-                {
-                    // http://www.repairfaq.org/REPAIR/F_SNES.html
-                    // we always report "low sensitivity"
-                    int mouse_dx, mouse_dy;
-                    u8 mouse_buttons = SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
-                    mouse_dx >>= mouse_scale;
-                    mouse_dy >>= mouse_scale;
-                    // clear high bit so we know it's the mouse
-                    buttons[0] = (encode_delta(mouse_dx) << 24)
-                        | (encode_delta(mouse_dy) << 16) | 0x7FFF;
-                    if (mouse_buttons & SDL_BUTTON_LMASK)
-                        buttons[0] &= ~(1<<9);
-                    if (mouse_buttons & SDL_BUTTON_RMASK)
-                        buttons[0] &= ~(1<<10);
-                    // keep mouse centered so it doesn't get stuck on edge of screen.
-                    // ...and immediately consume the bogus motion event it generated.
-                    if (fullscreen)
-                    {
-                        SDL_WarpMouse(400,300);
-                        SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
-                    }
-                }
-                else
-                    buttons[0] |= 0xFFFF8000;
-                singleStep = nextSingleStep;
+				if (scanline_count == 224)
+				{
+					if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+					SDL_Flip(screen);
+					//SDL_framerateDelay(&fpsmanager);
 
-                if (SDL_MUSTLOCK(screen))
-                    SDL_LockSurface(screen);
-                scanline_count = -999;
-                ++frameCounter;
-            }
+					SDL_Event event;
+					while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
+					{
+						switch (event.type) {
+							case SDL_KEYDOWN:
+								handle_key_down(event);
+								break;
+							case SDL_KEYUP:
+								handle_key_up(event);
+								break;
+							case SDL_JOYBUTTONDOWN:
+							case SDL_JOYBUTTONUP:
+							case SDL_JOYAXISMOTION:
+							case SDL_JOYHATMOTION:
+							case SDL_JOYBALLMOTION:
+								if (jmap.jstate != JMAP_IDLE)
+									map_joysticks(event);
+								else
+									update_joysticks(event);
+								break;
+							case SDL_QUIT:
+								printf("User abort (closed window).\n");
+								shutdown(0);
+								break;
+						}
+					}
+
+					//capture or replay controlelr capture data
+					if(captureMode==CAPTURE_WRITE){
+						fputc((u8)(buttons[0]&0xff),captureFile);
+						fputc((u8)((buttons[0]>>8)&0xff),captureFile);
+					}else if(captureMode==CAPTURE_READ && captureSize>0){
+						buttons[0]=captureData[capturePtr]+(captureData[capturePtr+1]<<8);
+						capturePtr+=2;
+						captureSize-=2;
+					}
+
+
+					if (pad_mode == SNES_MOUSE)
+					{
+						// http://www.repairfaq.org/REPAIR/F_SNES.html
+						// we always report "low sensitivity"
+						int mouse_dx, mouse_dy;
+						u8 mouse_buttons = SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
+						mouse_dx >>= mouse_scale;
+						mouse_dy >>= mouse_scale;
+						// clear high bit so we know it's the mouse
+						buttons[0] = (encode_delta(mouse_dx) << 24)
+							| (encode_delta(mouse_dy) << 16) | 0x7FFF;
+						if (mouse_buttons & SDL_BUTTON_LMASK)
+							buttons[0] &= ~(1<<9);
+						if (mouse_buttons & SDL_BUTTON_RMASK)
+							buttons[0] &= ~(1<<10);
+						// keep mouse centered so it doesn't get stuck on edge of screen.
+						// ...and immediately consume the bogus motion event it generated.
+						if (fullscreen)
+						{
+							SDL_WarpMouse(400,300);
+							SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
+						}
+					}
+					else
+						buttons[0] |= 0xFFFF8000;
+					singleStep = nextSingleStep;
+
+					if (SDL_MUSTLOCK(screen))
+						SDL_LockSurface(screen);
+					scanline_count = -999;
+				}
+			}
+
+		   prevCyclesCounter=cycleCounter;
         }
+
     }
 	else if (addr == ports::PORTA)
 	{
@@ -379,7 +406,7 @@ void avr8::write_io(u8 addr,u8 value)
 
 			if ((latched_buttons[1] < 0xFFFFF) && !new_input_mode)
 			{
-				printf("New input routines detected, switching emulation method.\n");
+				//New input routines detected, switching emulation method
 				new_input_mode = true;
 			}
 		}
@@ -455,7 +482,7 @@ void avr8::write_io(u8 addr,u8 value)
 		if (enableSound && TCCR2B)
 		{
 			// raw pcm sample at 15.7khz
-			while (audioRing.isFull()) SDL_Delay(1);
+			while (audioRing.isFull())SDL_Delay(1);
 			SDL_LockAudio();
 			audioRing.push(value);
 			SDL_UnlockAudio();
@@ -516,18 +543,16 @@ void avr8::write_io(u8 addr,u8 value)
         else{
             io[addr] = value;
         }
-    }
-    else if(addr == ports::EEARH || addr == ports::EEARL || addr == ports::EEDR){
-        //printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
-		io[addr] = value;
-    }
-    else if(addr == ports::TIFR1){
+    //}
+    //else if(addr == ports::EEARH || addr == ports::EEARL || addr == ports::EEDR){
+	//	io[addr] = value;
+    }else if(addr == ports::TIFR1){
 		//clear flags by writing logical one
 		io[addr] &= ~(value);
-    }
-
-	#ifdef USE_PORT_PRINT
-    else if(addr == ports::res3A){
+    }else if(addr == ports::TCCR1B){
+    	newTCCR1B=value;	//to detect timer start
+    	//io[addr] = value;
+    }else if(addr == ports::res3A){
         // emulator-only whisper support
         printf("%c",value);
     }
@@ -535,7 +560,6 @@ void avr8::write_io(u8 addr,u8 value)
         // emulator-only whisper support
         printf("%02x",value);
     }
-	#endif
 
 	else
 		io[addr] = value;
@@ -558,13 +582,233 @@ u8 avr8::read_io(u8 addr)
 }
 
 
+void avr8::update_hardware(int cycles)
+{
+
+	cycleCounter += cycles;
+	watchdogTimer += cycles;
+
+	if (TCCR1B & 7)	//if timer 1 is started
+	{
+		TCNT1 = TCNT1L | (TCNT1H<<8);
+		OCR1A = OCR1AL | (OCR1AH<<8);
+		OCR1B = OCR1BL | (OCR1BH<<8);
+		tempTIFR1=TIFR1;
+
+		if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
+
+			if (TCNT1 > (0xFFFF - cycles)){
+
+				 //TIFR1|=TOV1; //overflow interrupt
+				tempTIFR1|=TOV1; //overflow interrupt
+
+			}
+
+			if (TCNT1 <= OCR1B && (TCNT1 + cycles) > OCR1B){
+				u16 tmp=TCNT1;
+				tmp-=(OCR1B - cycles + 1);
+
+				if(tmp==0){
+					tempTIFR1|=OCF1B; //CTC match flag interrupt
+				}else{
+					TIFR1|=OCF1B; //CTC match flag interrupt
+				}
+
+			}
+
+			if (TCNT1 <= OCR1A && (TCNT1 + cycles) > OCR1A){
+				TCNT1 -= (OCR1A - cycles + 1);
+
+				if(TCNT1==0){
+					//if timer rolls over during the last cycle of an instruction, the int is acknowledged on the next machine cycle
+					tempTIFR1|=OCF1A; //CTC match flag interrupt
+				}else{
+					//otherwise the int is acknowledged for multi-cycles instructions
+					TIFR1|=OCF1A; //CTC match flag interrupt
+				}
+
+			}else{
+				TCNT1 += cycles;
+			}
+
+		}else{	//timer in normal mode: counts up to 0xffff then rolls over
+
+			if (TCNT1 > (0xFFFF - cycles)){
+				if (TIMSK1 & TOIE1){
+					 //TIFR1|=TOV1; //overflow interrupt
+					tempTIFR1|=TOV1; //overflow interrupt
+				}
+			}
+			TCNT1 += cycles;
+		}
+
+		TCNT1L = (u8) TCNT1;
+		TCNT1H = (u8) (TCNT1>>8);
+	}
+
+
+
+	if(WDTCSR & WDE){ //if watchdog enabled
+		if(watchdogTimer>=DELAY16MS && (WDTCSR&WDIE)){
+			WDTCSR|=WDIF;	//watchdog interrupt
+			//reset watchdog
+			//watchdog is based on a RC oscillator
+			//so add some random variation to simulate entropy
+			watchdogTimer=rand()%1024;
+		}
+	}
+
+    // clock the SPI hardware.
+    if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled
+        //TODO: test for master/slave modes (assume master for now)
+        // TODO: factor in clock divider
+
+        if(spiTransfer && (cycles > 0)){
+            if(spiClock <= cycles){
+                //SPI_DEBUG("SPI transfer complete\n");
+                update_spi();
+                spiClock = 0;
+                spiTransfer = 0;
+                SPSR |= 0x80; // set interrupt
+            }
+            else{
+                spiClock -= cycles;
+            }
+        }
+            /*
+        //HACK: instantaneous SPI access
+        if(spiTransfer && spiClock > 0){
+            update_spi();
+            SPSR |= 0x80; // set interrupt
+            spiTransfer = 0;
+            spiClock = 0;
+        }*/
+
+        // test for interrupt (enable and interrupt flag for SPI)
+        if((SPCR & 0x80) && (SPSR & 0x80)){
+            //TODO: verify that SPI is dependent upon the global interrupt flag
+            if (BIT(SREG,SREG_I)){
+                SPSR ^= 0x80; // clear the interrupt
+                trigger_interrupt(SPI_STC); // execute the vector
+            }
+        }
+    }
+
+    //clock the EEPROM hardware
+    /*
+    1. Wait until EEPE becomes zero.
+    2. Wait until SELFPRGEN in SPMCSR becomes zero.
+    3. Write new EEPROM address to EEAR (optional).
+    4. Write new EEPROM data to EEDR (optional).
+    5. Write a logical one to the EEMPE bit while writing a zero to EEPE in EECR.
+    6. Within four clock cycles after setting EEMPE, write a logical one to EEPE.
+    The EEPROM can not be programmed during a CPU write to the Flash memory.
+    */
+    // are we attempting to program?
+    if(EECR & (EEPE|EERE))
+    {
+		if(EECR & EEPE){
+			//printf("attempting write of EEPROM\n");
+			cycleCounter += 4; // writes take four cycles
+			int addr = (EEARH << 8) | EEARL;
+			if(addr < eepromSize) eeprom[addr] = EEDR;
+			EECR ^= (EEMPE | EEPE); // clear program bits
+
+			// interrupt?
+			//if((EECR & EERIE) && BIT(SREG,SREG_I)){
+			//    SPSR ^= 0x80; // clear the interrupt
+			//    trigger_interrupt(SPI_STC); // execute the vector
+			//}
+		}
+		// are we attempting to read?
+		else if(EECR & EERE){
+		   // printf("attempting read of EEPROM\n");
+			cycleCounter += 4; // eeprom reads take 4 additonal cycles
+			int addr = (EEARH << 8) | EEARL;
+			if(addr < eepromSize) EEDR = eeprom[addr];
+			EECR ^= EERE; // clear read  bit
+
+			// interrupt?
+			//if((EECR & EERIE) && BIT(SREG,SREG_I)){
+			//    SPSR ^= 0x80; // clear the interrupt
+			//    trigger_interrupt(SPI_STC); // execute the vector
+			//}
+		}
+    }
+
+	//process interrupts in order of priority
+    if(SREG & (1<<SREG_I)){
+
+    	if ((WDTCSR&(WDIF|WDIE))==(WDIF|WDIE)){
+
+    		WDTCSR&= ~WDIF; //clear watchdog flag
+			trigger_interrupt(WDT);
+
+    	}else if((TIFR1 & (OCF1A|OCF1B|TOV1)) && (TIMSK1&(OCIE1A|OCIE1B|TOIE1))){
+
+    		if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
+
+				TIFR1&= ~OCF1A; //clear CTC match flag
+				trigger_interrupt(TIMER1_COMPA);
+
+			}else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B)){
+
+				TIFR1&= ~OCF1B; //clear CTC match flag
+				trigger_interrupt(TIMER1_COMPB);
+
+			}else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1)){
+
+				TIFR1&= ~TOV1; //clear TOV1 flag
+				trigger_interrupt(TIMER1_OVF);
+			}
+    	}
+
+/*
+    	}else if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
+
+			TIFR1&= ~OCF1A; //clear CTC match flag
+			trigger_interrupt(TIMER1_COMPA);
+
+		}else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B)){
+
+			TIFR1&= ~OCF1B; //clear CTC match flag
+			trigger_interrupt(TIMER1_COMPB);
+
+		}else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1)){
+
+			TIFR1&= ~TOV1; //clear TOV1 flag
+			trigger_interrupt(TIMER1_OVF);
+		}
+*/
+	}
+
+
+
+    //draw pixels on scanline
+	if (scanline_count >= 0 && current_cycle < 1440)
+	{
+		while (cycles)
+		{
+			if (current_cycle >= 0 && current_cycle < 1440)
+			{
+				current_scanline[(current_cycle*7)>>4] = pixel;
+				current_scanline[((current_cycle*7)>>4) +(screen->pitch>>2)] = pixel;
+			}
+			current_cycle++;
+			--cycles;
+		}
+	}
+
+
+	TCCR1B=newTCCR1B; //Timer increments starts after executing the instruction that sets TCCR1B
+	TIFR1=tempTIFR1;
+}
 
 u8 avr8::exec()
 {
-
-	u16 lastpc = pc;
+	currentPc=pc;
 	u16 insn = progmem[pc++];
-	u8 cycles = 1;				// Most insns run in one cycle, so assume that
+	cycles = 1;				// Most insns run in one cycle, so assume that
 	u8 Rd, Rr, R, d, CH;
 	u16 uTmp, Rd16, R16;
 	s16 sTmp;
@@ -827,18 +1071,18 @@ u8 avr8::exec()
 			switch (insn & 15)
 			{
 			case 0: // LDS Rd,k
-				r[D5] = read_sram(progmem[pc++]);
 				cycles=2;
+				r[D5] = read_sram_ld(progmem[pc++]);
 				break;
 			case 1:	// LD Rd,Z+
-				r[D5] = read_sram(Z);
-				INC_Z;
 				cycles=2;
+				r[D5] = read_sram_ld(Z);
+				INC_Z;
 				break;
 			case 2: // LD Rd,-Z
 				DEC_Z;
-				r[D5] = read_sram(Z);
 				cycles=2;
+				r[D5] = read_sram_ld(Z);
 				break;
 			case 4: // LPM Rd,Z
 				r[D5] = read_progmem(Z);
@@ -859,28 +1103,28 @@ u8 avr8::exec()
 				cycles=3;
 				break;
 			case 9: //LD Rd,Y+
-				r[D5] = read_sram(Y);
+				r[D5] = read_sram_ld(Y);
 				INC_Y;
 				cycles=2;
 				break;
 			case 10: //LD Rd,-Y
 				DEC_Y;
-				r[D5] = read_sram(Y);
 				cycles=2;
+				r[D5] = read_sram_ld(Y);
 				break;
 			case 12: //LD Rd,X
-				r[D5] = read_sram(X);
 				cycles=2;
+				r[D5] = read_sram_ld(X);
 				break;
 			case 13: //LD Rd,X+
-				r[D5] = read_sram(X);
-				INC_X;
 				cycles=2;
+				r[D5] = read_sram_ld(X);
+				INC_X;
 				break;
 			case 14: //LD Rd,-X
 				DEC_X;
-				r[D5] = read_sram(X);
 				cycles=2;
+				r[D5] = read_sram_ld(X);
 				break;
 			case 15: //POP Rd
 				INC_SP;
@@ -1015,7 +1259,6 @@ u8 avr8::exec()
 			    pc |= read_sram(SP);
 			    cycles = 4;
 			    SREG |= (1<<SREG_I);
-			    //--interruptLevel;
 			    break;
 			case 0x9519: //EICALL
 			    write_sram(SP,u8(pc));
@@ -1124,16 +1367,16 @@ u8 avr8::exec()
 					UPDATE_S;
 					UPDATE_Z;
 					break;
-				case 8: //Clear/Set flags
+				case 8: //Clear/Set flags in SREG
 					Rd = (insn>>4)&7;
 					if (insn & 0x80)
 					{
-						//CLx,"CZNVSHTI"
+						//CLx,"CZNVSHTI" CLI
 						SREG &= ~(1<<Rd);
 					}
 					else
 					{
-						//SEx,"CZNVSHTI"
+						//SEx,"CZNVSHTI" SEI
 						SREG |= (1<<Rd);
 					}
 					break;
@@ -1200,8 +1443,8 @@ u8 avr8::exec()
 		case 10:
 		  /*1001 1010 AAAA Abbb		SBI A,b */
 			Rd = (insn >> 3) & 31;
+			cycles=2; //may be incremented if accessing EEPROM registers
 			write_io(Rd, read_io(Rd) | (1<<(insn&7)));
-			cycles=2;
 			break;
 		case 11:
 		  /*1001 1011 AAAA Abbb		SBIS A,b */
@@ -1309,7 +1552,6 @@ u8 avr8::exec()
 		break;
 	}
 
-
 	update_hardware(cycles);
 
 	return cycles;
@@ -1334,11 +1576,10 @@ void avr8::trigger_interrupt(int location)
 		// bill the cycles consumed.
 		// (this in theory can recurse back into here but we've
 		// already cleared the interrupt enable flag)
-		update_hardware(5);
+		update_hardware(3);
 
 }
 
-#if GUI
 bool avr8::init_sd()
 {
 	if (SDemulator.init_with_directory(SDpath) < 0) {
@@ -1402,7 +1643,7 @@ bool avr8::init_gui()
 	desired.callback = audio_callback_stub;
 	desired.userdata = this;
 	desired.channels = 1;
-	desired.samples = 1024;
+	desired.samples = 512;
 	if (enableSound)
 	{
 		if (SDL_OpenAudio(&desired, NULL) < 0)
@@ -1415,7 +1656,7 @@ bool avr8::init_gui()
 	}
 
 	current_cycle = -999999;
-	scanline_top = -33;
+	scanline_top = -33-5;
 	scanline_count = -999;
 	//Syncronized with the kernel, this value now results in the image 
 	//being perfectly centered in both the emulator and a real TV
@@ -1435,6 +1676,8 @@ bool avr8::init_gui()
 		palette[i] = SDL_MapRGB(screen->format, red, green, blue);
 	}
 	
+	hsync_more_col=SDL_MapRGB(screen->format, 255,0, 0);
+	hsync_less_col=SDL_MapRGB(screen->format, 255,255, 0);
 
 	SDL_initFramerate(&fpsmanager);
 	SDL_setFramerate(&fpsmanager, 60);
@@ -1725,7 +1968,7 @@ void avr8::map_joysticks(SDL_Event &ev)
 	} else if (jmap.jstate == JMAP_AXES && ev.type == SDL_JOYAXISMOTION) {
 		// Find index to place new axes
 		if (jmap.jaxis == JOY_AXIS_UNUSED) {
-			for (int i = 0, j = 0; i < MAX_JOYSTICK_AXES; i+=2) {
+			for (int i = 0; i < MAX_JOYSTICK_AXES; i+=2) {
 				if (joysticks[jmap.jindex].axes[i].axis == JOY_AXIS_UNUSED || joysticks[jmap.jindex].axes[i].axis == ev.jaxis.axis) {
 					joysticks[jmap.jindex].axes[i].axis = JOY_AXIS_UNUSED;
 					joysticks[jmap.jindex].axes[i+1].axis = JOY_AXIS_UNUSED;
@@ -1874,185 +2117,8 @@ void avr8::load_joystick_file(const char* filename)
 			printf("Warning: Invalid Joystick settings file.\n");
 	}
 }
-#endif
-
-void avr8::update_hardware(int cycles)
-{
-
-	cycleCounter += cycles;
-	watchdogTimer += cycles;
-
-	if (TCCR1B & 7)	//if timer 1 is started
-	{
-		TCNT1 = TCNT1L | (TCNT1H<<8);
-		OCR1A = OCR1AL | (OCR1AH<<8);
-		OCR1B = OCR1BL | (OCR1BH<<8);
-
-		if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
-
-			if (TCNT1 > (0xFFFF - cycles)){
-				if (TIMSK1 & TOIE1){
-					 TIFR1|=TOV1; //overflow interrupt
-				}
-			}
-
-			if (TCNT1 < OCR1B && (TCNT1 + cycles) >= OCR1B){
-				if (TIMSK1 & OCIE1B){
-					TIFR1|=OCF1B; //CTC match flag interrupt
-				}
-			}
-
-			if (TCNT1 < OCR1A && TCNT1 + cycles >= OCR1A){
-				TCNT1 -= (OCR1A - cycles);
-				if (TIMSK1 & OCIE1A){
-					TIFR1|=OCF1A; //CTC match flag interrupt
-				}
-			}else{
-				TCNT1 += cycles;
-			}
-
-		}else{	//timer in normal mode: counts up to 0xffff then rolls over
-
-			if (TCNT1 > (0xFFFF - cycles)){
-				if (TIMSK1 & TOIE1){
-					 TIFR1|=TOV1; //overflow interrupt
-				}
-			}
-			TCNT1 += cycles;
-		}
-
-		TCNT1L = (u8) TCNT1;
-		TCNT1H = (u8) (TCNT1>>8);
-	}
 
 
-	if(WDTCSR & WDE){ //if watchdog enabled
-		if(watchdogTimer>=DELAY16MS && (WDTCSR&WDIE)){
-			WDTCSR|=WDIF;	//watchdog interrupt
-			//reset watchdog
-			//watchdog is based on a RC oscillator
-			//so add some random variation to simulate entropy
-			watchdogTimer=rand()%1024;
-		}
-	}
-
-    // clock the SPI hardware. 
-    if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled
-        //TODO: test for master/slave modes (assume master for now)
-        // TODO: factor in clock divider 
-        
-        if(spiTransfer && (cycles > 0)){
-            if(spiClock <= cycles){
-                //SPI_DEBUG("SPI transfer complete\n");
-                update_spi();
-                spiClock = 0;
-                spiTransfer = 0;
-                SPSR |= 0x80; // set interrupt
-            }
-            else{
-                spiClock -= cycles;
-            }
-        }
-            /*        
-        //HACK: instantaneous SPI access        
-        if(spiTransfer && spiClock > 0){
-            update_spi();
-            SPSR |= 0x80; // set interrupt
-            spiTransfer = 0;
-            spiClock = 0;
-        }*/
-    
-        // test for interrupt (enable and interrupt flag for SPI)
-        if((SPCR & 0x80) && (SPSR & 0x80)){
-            //TODO: verify that SPI is dependent upon the global interrupt flag
-            if (BIT(SREG,SREG_I)){
-                SPSR ^= 0x80; // clear the interrupt
-                trigger_interrupt(SPI_STC); // execute the vector
-            }
-        }
-    }
-
-    //clock the EEPROM hardware
-    /*
-    1. Wait until EEPE becomes zero.
-    2. Wait until SELFPRGEN in SPMCSR becomes zero.
-    3. Write new EEPROM address to EEAR (optional).
-    4. Write new EEPROM data to EEDR (optional).
-    5. Write a logical one to the EEMPE bit while writing a zero to EEPE in EECR.
-    6. Within four clock cycles after setting EEMPE, write a logical one to EEPE.
-    The EEPROM can not be programmed during a CPU write to the Flash memory.
-    */
-    // are we attempting to program?
-    if(EECR & EEPE){
-        //printf("attempting write of EEPROM\n");
-        cycleCounter += 4; // writes take four cycles
-        int addr = (EEARH << 8) | EEARL;
-        if(addr < eepromSize) eeprom[addr] = EEDR;
-        EECR ^= (EEMPE | EEPE); // clear program bits
-        
-        // interrupt?
-        //if((EECR & EERIE) && BIT(SREG,SREG_I)){
-        //    SPSR ^= 0x80; // clear the interrupt
-        //    trigger_interrupt(SPI_STC); // execute the vector
-        //}
-    }
-    // are we attempting to read?
-    else if(EECR & EERE){
-       // printf("attempting read of EEPROM\n");
-        cycleCounter += 1; // ireads take one additonal cycle
-        int addr = (EEARH << 8) | EEARL;
-        if(addr < eepromSize) EEDR = eeprom[addr];
-        EECR ^= EERE; // clear read  bit
-        
-        // interrupt?
-        //if((EECR & EERIE) && BIT(SREG,SREG_I)){
-        //    SPSR ^= 0x80; // clear the interrupt
-        //    trigger_interrupt(SPI_STC); // execute the vector
-        //}
-    }
-
-	//process interrupts in order of priority
-    if(SREG & (1<<SREG_I)){
-
-    	if ((WDTCSR&(WDIF|WDIE))==(WDIF|WDIE)){
-
-    		WDTCSR&= ~WDIF; //clear watchdog flag
-			trigger_interrupt(WDT);
-
-    	}else if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
-
-			TIFR1&= ~OCF1A; //clear CTC match flag
-			trigger_interrupt(TIMER1_COMPA);
-
-		}else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B)){
-
-			TIFR1&= ~OCF1B; //clear CTC match flag
-			trigger_interrupt(TIMER1_COMPB);
-
-		}else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1)){
-
-			TIFR1&= ~TOV1; //clear TOV1 flag
-			trigger_interrupt(TIMER1_OVF);
-		}
-	}
-
-    //draw pixels on scanline
-	if (scanline_count >= 0 && current_cycle < 1440)
-	{
-		while (cycles)
-		{
-			if (current_cycle >= 0 && current_cycle < 1440)
-			{
-				current_scanline[(current_cycle*7)>>4] = pixel;
-				next_scanline[(current_cycle*7)>>4] = pixel;
-			}
-			current_cycle++;
-			--cycles;
-		}
-	}
-
-
-}
 
 #ifdef SPI_DEBUG
 char ascii(unsigned char ch){
@@ -2360,30 +2426,6 @@ void avr8::update_spi(){
 }
 
 
-static inline int parse_hex_nibble(char s)
-{
-	if (s >= '0' && s <= '9')
-		return s - '0';
-	else if (s >= 'A' && s <= 'F')
-		return s - 'A' + 10;
-	else if (s >= 'a' && s <= 'a')
-		return s - 'a' + 10;
-	else
-		return -1;
-}
-
-static int parse_hex_byte(const char *s)
-{
-	return (parse_hex_nibble(s[0])<<4) | parse_hex_nibble(s[1]);
-}
-
-static int parse_hex_word(const char *s)
-{
-	return (parse_hex_nibble(s[0])<<12) | (parse_hex_nibble(s[1]) << 8) |
-		(parse_hex_nibble(s[2])<<4) | parse_hex_nibble(s[3]);
-}
-
-
 void avr8::SDLoadImage(char* filename){
     if(sdImage){
         printf("SD Image file already specified.");
@@ -2498,7 +2540,6 @@ void avr8::shutdown(int errcode){
     	fclose(captureFile);
     }
 
-#if GUI
 	if (joystickFile) {
 		FILE* f = fopen(joystickFile,"wb");
 
@@ -2513,7 +2554,6 @@ void avr8::shutdown(int errcode){
             fclose(f);
         }
 	}
-#endif
 
     exit(errcode);
 }

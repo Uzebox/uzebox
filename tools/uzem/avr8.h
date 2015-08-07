@@ -29,9 +29,7 @@ THE SOFTWARE.
 
 #include <vector>
 #include <stdint.h>
-//#include <iostream>
 #include <queue>
-//using namespace std;
 #include "SDL_framerate.h"
 #include "gdbserver.h"
 #include "SDEmulator.h"
@@ -45,18 +43,12 @@ THE SOFTWARE.
     #include <sys/mmap.h> // Unix memory mapped I/O
 #endif
 
-//#ifndef GUI
-//#define GUI
-//#endif
-
-
-#if GUI
 // If you're building from the command line or on a non-MS compiler you'll need
 // -lSDL or somesuch.
 #include "SDL.h"
 #if defined (_MSC_VER)
-#pragma comment(lib, "SDL.lib")
-#pragma comment(lib, "SDLmain.lib")
+	#pragma comment(lib, "SDL.lib")
+	#pragma comment(lib, "SDLmain.lib")
 #endif
 
 //Uzebox keyboard defines
@@ -102,12 +94,11 @@ THE SOFTWARE.
 	#define JOY_ANALOG_DEADZONE 4096
 #endif
 
-#endif
 
 #if defined (_MSC_VER) && _MSC_VER >= 1400
-// don't whine about sprintf and fopen.
-// could switch to sprintf_s but that's not standard.
-#pragma warning(disable:4996)
+	// don't whine about sprintf and fopen.
+	// could switch to sprintf_s but that's not standard.
+	#pragma warning(disable:4996)
 #endif
 
 // 644 Overview: http://www.atmel.com/dyn/resources/prod_documents/doc2593.pdf
@@ -233,7 +224,7 @@ struct SDPartitionEntry{
 class ringBuffer
 {
 public:
-	ringBuffer(int s) : head(0), tail(0), avail(s), size(s)
+	ringBuffer(int s) : head(0), tail(0), avail(s), size(s),last(0)
 	{
 		buffer = new u8[size];
 	}
@@ -269,172 +260,80 @@ public:
 		{
 			++avail;
 			u8 result = buffer[tail++];
-			if (tail == size)
-				tail = 0;
+			last=result;
+			if (tail == size) tail = 0;
 			return result;
 		}
 		else
-			return 128;
+			return last;//128;
 	}
 private:
 	int head, tail, size, avail;
 	u8 *buffer;
+	u8 last;
 };
 
 
 
 struct avr8
 {
-	avr8() : pc(0), cycleCounter(0), singleStep(0), nextSingleStep(0), interruptLevel(0), breakpoint(0xFFFF), audioRing(2048), 
-		enableSound(true), fullscreen(false), interlaced(false), lastFlip(0), inset(0), prevPortB(0), 
-		prevWDR(0), frameCounter(0),  new_input_mode(false),gdb(0),enableGdb(false), SDpath(NULL), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),
-        spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),eepromFile("eeprom.bin"),joystickFile(0),captureFile(NULL),
-		captureMode(CAPTURE_NONE),watchdogTimer(0),
+	avr8() :
+		/*Core*/
+		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),newTCCR1B(0),
 
+		/*Video*/
+		fullscreen(false),inset(0),
 
-    #if defined(__WIN32__)
-        hDisk(INVALID_HANDLE_VALUE),
-    #endif
+		/*Audio*/
+		audioRing(16384),enableSound(true),
 
-        sdImage(0),emulatedMBR(0)
+		/*Joystick*/
+		joystickFile(0),pad_mode(SNES_PAD), new_input_mode(false),
+
+		/*GDB*/
+		singleStep(0), nextSingleStep(0), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),gdb(0),
+
+		/*Uzekeyboard*/
+		uzeKbState(0),uzeKbEnabled(false),
+
+		/*Capture & savestates*/
+		captureFile(NULL),captureData(NULL),captureMode(CAPTURE_NONE),
+
+		/*SPI Emulation*/
+		spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),
+
+		/*SD Emulation*/
+		hDisk(INVALID_HANDLE_VALUE), sdImage(0),emulatedMBR(0),SDpath(NULL)
+
 	{
 		memset(r, 0, sizeof(r));
 		memset(io, 0, sizeof(io));
 		memset(sram, 0, sizeof(sram));
 		memset(eeprom, 0, sizeof(eeprom));
 		memset(progmem,0,progSize);
-
-		PIND = 8;
-		SPL = (SRAMBASE+sramSize-1) & 0x00ff;
-		SPH = (SRAMBASE+sramSize-1) >> 8;
-        spiTransfer = 0;
-
-        uzeKbState=0;
-        uzeKbEnabled=false;
-		pad_mode = SNES_PAD;
 	}
 
+	/*Core*/
 	u16 progmem[progSize/2];
-	u16 pc;
-	u16 breakpoint;
-	bool run;
-
-	struct SDEmu SDemulator;
-	char *SDpath;
-	GdbServer *gdb;
-	bool enableGdb;
-	bool gdbBreakpointFound;
-	bool gdbInvalidOpcode;
-	int gdbPort;
-	cpu_state state;
-
+	u16 pc,currentPc;
+	u32 elapsedCycles,prevCyclesCounter;
+	u32 cycleCounter, prevPortB, prevWDR;
+	u32 watchdogTimer;
+    u8 eeClock;
 	u8 TEMP;				// for 16-bit timers
 	u16 TCNT1;
+	u8 tempTIFR1;
 	u16 OCR1A;
 	u16 OCR1B;
-
-	u32 watchdogTimer;
-
-	u32 cycleCounter, prevPortB, prevWDR;
-	bool singleStep, nextSingleStep, enableSound, fullscreen, framelock, interlaced,
-		new_input_mode;
-	int interruptLevel;
-	u32 lastFlip;
-	u32 inset;
-
-	SDL_Surface *screen;
-	joystickState joysticks[MAX_JOYSTICKS];
-	joyMapSettings jmap;
-	int sdl_flags;
-	int frameCounter;
-	int scanline_count;
-	int current_cycle;
-	int scanline_top;
-	int left_edge;
-	u32 *current_scanline, *next_scanline;
-
-	FPSmanager fpsmanager;
-
-	u32 pixel;
-	u32 palette[256];
-	// SNES bit order:  B, Y, Select, Start, Up, Down, Left, Right, A, X, L, R
-	// NES bit order:  A, B, Select, Start, Up, Down, Left, Right
-	u32 buttons[2], latched_buttons[2];
-	int mouse_scale;
-	enum { NES_PAD, SNES_PAD, SNES_PAD2, SNES_MOUSE } pad_mode;
-
-	void audio_callback(Uint8 *stream,int len);
-	static void audio_callback_stub(void *userdata, Uint8 *stream, int len)
-	{
-		((avr8*)userdata)->audio_callback(stream,len);
-	}
-	ringBuffer audioRing;
-
-	//Uzebox Keyboard variables
-	u8 uzeKbState;
-	u8 uzeKbDataOut;
-	bool uzeKbEnabled;
-	queue <u8> uzeKbScanCodeQueue;
-	u8 uzeKbDataIn;
-	u8 uzeKbClock;
-
-    // SPI Emulation
-    u8 spiByte;
-    u8 spiTransfer;
-    u16 spiClock;
-    u16 spiCycleWait;
-    u8 spiState;
-    u8 spiCommand;
-    u8 spiCommandDelay;
-    union{
-        u32 spiArg;
-        union{
-            struct{
-                u16 spiArgY;
-                u16 spiArgX;
-            };
-            struct{
-                u8 spiArgYlo;
-                u8 spiArgYhi;
-                u8 spiArgXlo;
-                u8 spiArgXhi;
-            };
-        };
-    };
-    
-    u32 spiByteCount;
-    u8 spiResponseBuffer[12];
-    u8* spiResponsePtr;
-    u8* spiResponseEnd;
-    
-     
-    // SD Emulation
-#if defined(__WIN32__)
-    HANDLE hDisk;
-    LPBYTE lpSector;
-    u32 lpSectorIndex;
-#endif
-
-
-    FILE* captureFile;
-    u8* captureData;
-    u8 captureMode;
-    long captureSize;
-    long capturePtr;
-
-    FILE* sdImage;
-    u8* emulatedMBR;
-    u32 emulatedReadPos;
-    size_t emulatedMBRLength;
-    u32 sectorSize;
+	u8 newTCCR1B;
+	u8 cycles;				// Most insns run in one cycle, so assume that
+	bool enableGdb;
+	int randomSeed;
     const char* eepromFile;
-	const char* joystickFile;
-    u8 eeprom[eepromSize];
-    u8 eeClock;
 
 	struct
 	{
-		union 
+		union
 		{
 			u8 r[32];		// Register file
 			struct
@@ -446,7 +345,7 @@ struct avr8
 		union
 		{
 			u8 io[256];		// Direct-mapped I/O space
-			struct 
+			struct
 			{
 				u8 PINA,  DDRA,  PORTA, PINB,  DDRB,  PORTB, PINC,  DDRC;
 				u8 PORTC, PIND,  DDRD,  PORTD, res2C, res2D, res2E, res2F;
@@ -480,6 +379,105 @@ struct avr8
 		};
 		u8 sram[sramSize];
 	};
+    u8 eeprom[eepromSize];
+
+
+	/*Video*/
+	SDL_Surface *screen;
+	FPSmanager fpsmanager;
+	int sdl_flags;
+	int scanline_count;
+	int current_cycle;
+	int scanline_top;
+	int left_edge;
+	u32 inset;
+	u32 *current_scanline, *prev_scanline;
+	u32 pixel;
+	u32 palette[256];
+	bool fullscreen;
+
+	/*Audio*/
+	ringBuffer audioRing;
+	void audio_callback(Uint8 *stream,int len);
+	static void audio_callback_stub(void *userdata, Uint8 *stream, int len){((avr8*)userdata)->audio_callback(stream,len);}
+	bool enableSound;
+
+	/*Joystick*/
+	joystickState joysticks[MAX_JOYSTICKS];
+	joyMapSettings jmap;
+	// SNES bit order:  B, Y, Select, Start, Up, Down, Left, Right, A, X, L, R
+	// NES bit order:  A, B, Select, Start, Up, Down, Left, Right
+	u32 buttons[2], latched_buttons[2];
+	int mouse_scale;
+	enum { NES_PAD, SNES_PAD, SNES_PAD2, SNES_MOUSE } pad_mode;
+	const char* joystickFile;
+	bool new_input_mode;
+
+	/*GDB*/
+	GdbServer *gdb;
+	bool gdbBreakpointFound;
+	bool gdbInvalidOpcode;
+	int gdbPort;
+	cpu_state state;
+	bool singleStep, nextSingleStep;
+
+	/*Uzebox Keyboard*/
+	u8 uzeKbState;
+	u8 uzeKbDataOut;
+	bool uzeKbEnabled;
+	queue <u8> uzeKbScanCodeQueue;
+	u8 uzeKbDataIn;
+	u8 uzeKbClock;
+
+    /*Input Capture*/
+	FILE* captureFile;
+    u8* captureData;
+    u8 captureMode;
+    long captureSize;
+    long capturePtr;
+
+
+    /*SPI Emulation*/
+    u8 spiByte;
+    u8 spiTransfer;
+    u16 spiClock;
+    u16 spiCycleWait;
+    u8 spiState;
+    u8 spiCommand;
+    u8 spiCommandDelay;
+    union{
+        u32 spiArg;
+        union{
+            struct{
+                u16 spiArgY;
+                u16 spiArgX;
+            };
+            struct{
+                u8 spiArgYlo;
+                u8 spiArgYhi;
+                u8 spiArgXlo;
+                u8 spiArgXhi;
+            };
+        };
+    };
+    u32 spiByteCount;
+    u8 spiResponseBuffer[12];
+    u8* spiResponsePtr;
+    u8* spiResponseEnd;
+
+
+    /*SD Emulation*/
+    HANDLE hDisk;
+    LPBYTE lpSector;
+    u32 lpSectorIndex;
+    FILE* sdImage;
+    u8* emulatedMBR;
+    u32 emulatedReadPos;
+    size_t emulatedMBRLength;
+    u32 sectorSize;
+	struct SDEmu SDemulator;
+	char *SDpath;
+
 
 	void write_io(u8 addr,u8 value);
 	u8 read_io(u8 addr);
@@ -511,6 +509,39 @@ struct avr8
 		else if (addr >= IOBASE)
 		{
 			return read_io(addr - IOBASE);
+		}
+		else
+		{
+			return r[addr];		// Read a register
+		}
+	}
+
+	inline u8 read_sram_ld(u16 addr)
+	{
+
+		if(addr>=SRAMBASE)
+		{
+			return sram[(addr - SRAMBASE) & (sramSize-1)];
+		}
+		else if (addr >= IOBASE)
+		{
+			addr-=IOBASE;
+			// p106 in 644 manual; 16-bit values are latched
+			if (addr == ports::TCNT1L || addr == ports::ICR1L)
+			{
+				update_hardware(1);	//timer value is fetched on the second cycle of the LD instruction
+				cycles-=1;
+				TEMP = io[addr+1];
+				return io[addr];
+			}
+			else if (addr == ports::TCNT1H || addr == ports::ICR1H){
+				update_hardware(1); //timer value is fetched on the second cycle of the LD instruction
+				cycles-=1;
+				return TEMP;
+		    }
+			else
+				return io[addr];
+			//return read_io(addr - IOBASE);
 		}
 		else
 		{
@@ -550,9 +581,7 @@ struct avr8
     void update_spi();
     void SDLoadImage(char *filename);    
     void SDBuildMBR(SDPartitionEntry* entry);    
-#if defined(__WIN32__)
-    void SDMapDrive(const char* driveLetter);
-#endif
+    void SDMapDrive(const char* driveLetter); //only for WIN32
     void SDSeekToOffset(u32 offset);    
     u8 SDReadByte();    
     void SDWriteByte(u8 value);    
@@ -560,7 +589,6 @@ struct avr8
     void LoadEEPROMFile(const char* filename);
     void shutdown(int errcode);
     void idle(void);
-
     void uzekb_handle_key(SDL_Event &ev);
 };
 #endif

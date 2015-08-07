@@ -50,15 +50,14 @@ CPPFLAGS += $(SDL_FLAGS) -D$(OS) -D_GNU_SOURCE=1 -DGUI=1 -DJOY_ANALOG_DEADZONE=8
 ######################################
 RELEASE_NAME = uzem$(OS_EXTENSION)
 RELEASE_OBJ_DIR := Release
-RELEASE_DEFINES := USE_PORT_PRINT=0
-RELEASE_CPPFLAGS = $(CPPFLAGS) -O3
+RELEASE_CPPFLAGS = $(CPPFLAGS) -O3 
 
 ######################################
 # Debug definitions
 ######################################
 DEBUG_NAME = uzemdbg$(OS_EXTENSION)
 DEBUG_OBJ_DIR := Debug
-DEBUG_DEFINES := USE_PORT_PRINT=0 USE_SPI_DEBUG=1 USE_EEPROM_DEBUG=1 USE_GDBSERVER_DEBUG=1
+DEBUG_DEFINES := USE_SPI_DEBUG=1 USE_EEPROM_DEBUG=1 USE_GDBSERVER_DEBUG=1
 DEBUG_CPPFLAGS = $(CPPFLAGS) -g
 
 ######################################
