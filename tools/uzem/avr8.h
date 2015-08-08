@@ -279,7 +279,7 @@ struct avr8
 {
 	avr8() :
 		/*Core*/
-		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),newTCCR1B(0),
+		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),newTCCR1B(0),elapsedCyclesSleep(0),
 
 		/*Video*/
 		fullscreen(false),inset(0),
@@ -316,7 +316,7 @@ struct avr8
 	/*Core*/
 	u16 progmem[progSize/2];
 	u16 pc,currentPc;
-	u32 elapsedCycles,prevCyclesCounter;
+	u32 elapsedCycles,prevCyclesCounter,elapsedCyclesSleep;
 	u32 cycleCounter, prevPortB, prevWDR;
 	u32 watchdogTimer;
     u8 eeClock;
@@ -490,11 +490,14 @@ struct avr8
 
 	inline void write_sram(u16 addr,u8 value)
 	{
-		if(addr>=SRAMBASE){
+		if(addr>=SRAMBASE)
+		{
 			sram[(addr - SRAMBASE) & (sramSize-1)] = value;
-		}else if (addr >= IOBASE ){
+		}else if (addr >= IOBASE )
+		{
 			write_io(addr - IOBASE, value);
-		}else{
+		}else
+		{
 			r[addr] = value;		// Write a register
 		}
 	}
@@ -515,7 +518,38 @@ struct avr8
 			return r[addr];		// Read a register
 		}
 	}
+/*
+	inline void write_sram_st(u16 addr,u8 value)
+	{
+		if(addr>=SRAMBASE)
+		{
+			sram[(addr - SRAMBASE) & (sramSize-1)] = value;
+		}else if (addr >= IOBASE )
+		{
+			addr-=IOBASE;
 
+			// p106 in 644 manual; 16-bit values are latched
+			if (addr == ports::TCNT1H || addr == ports::ICR1H)
+			{
+				update_hardware(1);	//timer value is fetched on the second cycle of the LD instruction
+				cycles-=1;
+				TEMP = value;
+			}
+			else if (addr == ports::TCNT1L || addr == ports::ICR1L)
+			{
+				update_hardware(1);	//timer value is fetched on the second cycle of the LD instruction
+				cycles-=1;
+				io[addr] = value;
+				io[addr+1] = TEMP;
+			}
+
+			write_io(addr, value);
+		}else
+		{
+			r[addr] = value;		// Write a register
+		}
+	}
+*/
 	inline u8 read_sram_ld(u16 addr)
 	{
 
@@ -541,7 +575,7 @@ struct avr8
 		    }
 			else
 				return io[addr];
-			//return read_io(addr - IOBASE);
+
 		}
 		else
 		{

@@ -24,14 +24,15 @@ COMMON = -mmcu=$(MCU)
 CFLAGS = $(COMMON)
 CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS +=  -MD -MP -MT $(*F).o -MF dep/$(@F).d 
-CFLAGS += $(KERNEL_OPTIONS)
+CFLAGS += $(KERNEL_OPTIONS) 
+CFLAGS += -gstrict-dwarf
 
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
 ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2 
-##-Wa,-gstrict-dwarf
+ASMFLAGS += -Wa,-gstrict-dwarf
 
 ## Linker flags
 LDFLAGS = $(COMMON)
@@ -59,14 +60,15 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: ../data/graphics2.inc.h ../data/sprites.inc.h $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze  size
+all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze  size
+#../data/graphics2.inc.h ../data/sprites.inc.h 
 
 ## Rebuild graphics resource
-../data/graphics2.inc.h: ../data/graphics2.png ../data/graphics2.xml
-	$(UZEBIN_DIR)gconvert ../data/graphics2.xml
-
-../data/sprites.inc.h: ../data/sprites.png ../data/sprites.xml
-	$(UZEBIN_DIR)gconvert ../data/sprites.xml
+#../data/graphics2.inc.h: ../data/graphics2.png ../data/graphics2.xml
+#	$(UZEBIN_DIR)gconvert ../data/graphics2.xml
+#
+#../data/sprites.inc.h: ../data/sprites.png ../data/sprites.xml
+#	$(UZEBIN_DIR)gconvert ../data/sprites.xml
 
 
 ## Compile Kernel files

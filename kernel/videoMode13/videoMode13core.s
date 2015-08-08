@@ -131,7 +131,6 @@ sub_video_mode13:
 	;wait cycles to align with next hsync
 	WAIT r16,61-20
 
-
 	;Refresh ramtiles indexes in VRAM 
 	;This has to be done because the main
 	;program may have altered the VRAM
@@ -241,13 +240,23 @@ no_ramtiles:
 ;Y      = vram or overlay_ram if overlay_height>0
 ;
 next_tile_line:	
+
+	nop
+
 	rcall hsync_pulse 
 	WAIT r16,232 - AUDIO_OUT_HSYNC_CYCLES -5
+
+
+	mov r16,r3
+	cpi r16,223
+	brne .+2
+	sleep
 
 	;***draw line***
 	call render_tile_line
 
-	WAIT r16,73+5-2
+	WAIT r16,73+5-2-1  -4
+
 
 	dec r3
 	breq frame_end
@@ -274,7 +283,10 @@ next_tile_row:
 	mov r13,r12	;main x-scroll
 	rjmp .
 	rjmp .
-	nop
+	
+	sleep
+;	nop
+
 	rjmp next_tile_line
 
 same_section:
@@ -316,7 +328,7 @@ frame_end:
 
 	ldi r16,(1<<OCIE1A)				;restore ints on compare match
 	sts _SFR_MEM_ADDR(TIMSK1),r16
-
+sleep
 	ret
 
 
@@ -353,6 +365,7 @@ render_tile_line:
 	;all tiles are rendered
 	ldi r16,lo8(0xffff-(6*8*SCREEN_TILES_H)+9-30-46-1-16+2)
 	ldi r17,hi8(0xffff-(6*8*SCREEN_TILES_H)+9-30-46-1-16+2)
+	sleep
 	sts _SFR_MEM_ADDR(TCNT1H),r17
 	sts _SFR_MEM_ADDR(TCNT1L),r16
 	sei

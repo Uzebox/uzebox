@@ -243,11 +243,18 @@ void avr8::write_io(u8 addr,u8 value)
 	}
 	// p106 in 644 manual; 16-bit values are latched
 	else if (addr == ports::TCNT1H || addr == ports::ICR1H)
+	{
+		update_hardware(1);	//timer value is fetched on the second cycle of ST instructions
+		cycles-=1;
 		TEMP = value;
+	}
 	else if (addr == ports::TCNT1L || addr == ports::ICR1L)
 	{
+		update_hardware(2);	//timer value is written on the second cycle of the ST instruction and increments next machine cycle
+		cycles-=2;
 		io[addr] = value;
 		io[addr+1] = TEMP;
+		TCNT1=(TEMP<<8)|value;
 	}
 	else if (addr == ports::PORTD)
 	{
@@ -1022,6 +1029,7 @@ u8 avr8::exec()
 		Rd = D5;
 		Rr = (insn & 7) | ((insn >> 7) & 0x18) | ((insn >> 8) & 0x20);
 		uTmp = ((insn & 0x8)? Y : Z) + Rr;
+		cycles=2;
 		if (insn & 0x200)	/*ST*/
 		{
 			write_sram(uTmp, r[Rd]);
@@ -1030,7 +1038,7 @@ u8 avr8::exec()
 		{
 			r[Rd] = read_sram(uTmp);
 		}
-		cycles=2;
+
 		break;
 	case 9:
 		switch ((insn>>8) & 15)
@@ -1250,7 +1258,7 @@ u8 avr8::exec()
 			    cycles = 3;
 			    break;
 			case 0x9588: //SLEEP
-			    // no operation
+				elapsedCyclesSleep=cycleCounter-elapsedCyclesSleep;
 			    break;
 			case 0x9598: //BREAK
 			    // no operation
@@ -1533,7 +1541,7 @@ u8 avr8::exec()
 		break;
 	}
 
-	update_hardware(cycles);
+	if(cycles) update_hardware(cycles);
 
 	return cycles;
 }

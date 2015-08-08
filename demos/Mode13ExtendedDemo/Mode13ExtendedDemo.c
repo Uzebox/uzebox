@@ -143,7 +143,7 @@ int main(){
 			//vram[(y*VRAM_TILES_H)+x]=0x80+(c+0);
 		}	
 	}
-
+/*
 	for(int n = 0; n < NUM_MARIOS; n++)
 	{
 		marios[n].x = rand() % 200;
@@ -151,9 +151,12 @@ int main(){
 		marios[n].dx = (rand() % 100) < 50 ? -1 : 1 ;
 		marios[n].dy = (rand() % 100) < 50 ? -1 : 1 ;
 	}
+*/
 
-
-
+		marios[0].x = 101;
+		marios[0].y = 0;
+		marios[0].dx = 0;
+		marios[0].dy = 0;
 
 	u16 i=0,joy;
 	u8 col=0;
