@@ -242,13 +242,13 @@ void avr8::write_io(u8 addr,u8 value)
 	     pixel = palette[value & DDRC];
 	}
 	// p106 in 644 manual; 16-bit values are latched
-	else if (addr == ports::TCNT1H || addr == ports::ICR1H)
+	else if (addr == ports::TCNT1H)
 	{
 		update_hardware(1);	//timer value is fetched on the second cycle of ST instructions
 		cycles-=1;
 		TEMP = value;
 	}
-	else if (addr == ports::TCNT1L || addr == ports::ICR1L)
+	else if (addr == ports::TCNT1L)
 	{
 		update_hardware(2);	//timer value is written on the second cycle of the ST instruction and increments next machine cycle
 		cycles-=2;
@@ -283,23 +283,39 @@ void avr8::write_io(u8 addr,u8 value)
 
 					current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
 
+					/*
 					if(prev_scanline!=NULL && elapsedCycles > HSYNC_PERIOD){
 
 						for(u8 x=0;x<(elapsedCycles-HSYNC_PERIOD);x++){
-							prev_scanline[(x*4)+5] = hsync_more_col;
-							prev_scanline[(x*4)+6] = hsync_more_col;
-							prev_scanline[(x*4)+7] = hsync_more_col;
-							prev_scanline[(x*4)+8] = 0;
+							prev_scanline[(x*5)+5] = hsync_more_col;
+							prev_scanline[(x*5)+6] = hsync_more_col;
+							prev_scanline[(x*5)+7] = hsync_more_col;
+							prev_scanline[(x*5)+8] = 0;
+							prev_scanline[(x*5)+9] = 0;
+
+							prev_scanline[(x*5)+5+(screen->pitch>>2)] = hsync_more_col;
+							prev_scanline[(x*5)+6+(screen->pitch>>2)] = hsync_more_col;
+							prev_scanline[(x*5)+7+(screen->pitch>>2)] = hsync_more_col;
+							prev_scanline[(x*5)+8+(screen->pitch>>2)] = 0;
+							prev_scanline[(x*5)+9+(screen->pitch>>2)] = 0;
 						}
 
 					}else if(prev_scanline!=NULL && elapsedCycles < HSYNC_PERIOD){
 						for(u8 x=0;x<(HSYNC_PERIOD-elapsedCycles);x++){
-							prev_scanline[(x*4)+5] = hsync_less_col;
-							prev_scanline[(x*4)+6] = hsync_less_col;
-							prev_scanline[(x*4)+7] = hsync_less_col;
-							prev_scanline[(x*4)+8] = 0;
+							prev_scanline[(x*5)+5] = hsync_less_col;
+							prev_scanline[(x*5)+6] = hsync_less_col;
+							prev_scanline[(x*5)+7] = hsync_less_col;
+							prev_scanline[(x*5)+8] = 0;
+							prev_scanline[(x*5)+9] = 0;
+
+							prev_scanline[(x*5)+5+(screen->pitch>>2)] = hsync_less_col;
+							prev_scanline[(x*5)+6+(screen->pitch>>2)] = hsync_less_col;
+							prev_scanline[(x*5)+7+(screen->pitch>>2)] = hsync_less_col;
+							prev_scanline[(x*5)+8+(screen->pitch>>2)] = 0;
+							prev_scanline[(x*5)+9+(screen->pitch>>2)] = 0;
 						}
 					}
+*/
 
 					prev_scanline = current_scanline;
 
@@ -578,10 +594,14 @@ u8 avr8::read_io(u8 addr)
 	// p106 in 644 manual; 16-bit values are latched
 	if (addr == ports::TCNT1L || addr == ports::ICR1L)
 	{
+		update_hardware(1);	//timer value is fetched on the second cycle of the LD instructions
+		cycles-=1;
 		TEMP = io[addr+1];
 		return io[addr];
 	}
 	else if (addr == ports::TCNT1H || addr == ports::ICR1H){
+		update_hardware(1);	//timer value is fetched on the second cycle of the LD instructions
+		cycles-=1;
 		return TEMP;
     }
 	else
@@ -1036,7 +1056,7 @@ u8 avr8::exec()
 		}
 		else /*LD*/
 		{
-			r[Rd] = read_sram(uTmp);
+			r[Rd] = read_sram_ld(uTmp);
 		}
 
 		break;
@@ -1258,7 +1278,8 @@ u8 avr8::exec()
 			    cycles = 3;
 			    break;
 			case 0x9588: //SLEEP
-				elapsedCyclesSleep=cycleCounter-elapsedCyclesSleep;
+				elapsedCyclesSleep=cycleCounter-lastCyclesSleep;
+				lastCyclesSleep=cycleCounter;
 			    break;
 			case 0x9598: //BREAK
 			    // no operation
@@ -1665,8 +1686,8 @@ bool avr8::init_gui()
 		palette[i] = SDL_MapRGB(screen->format, red, green, blue);
 	}
 	
-	hsync_more_col=SDL_MapRGB(screen->format, 255,0, 0);
-	hsync_less_col=SDL_MapRGB(screen->format, 255,255, 0);
+	hsync_more_col=SDL_MapRGB(screen->format, 255,0, 0); //red
+	hsync_less_col=SDL_MapRGB(screen->format, 255,255, 0); //yellow
 
 	SDL_initFramerate(&fpsmanager);
 	SDL_setFramerate(&fpsmanager, 60);

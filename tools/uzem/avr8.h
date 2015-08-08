@@ -316,7 +316,7 @@ struct avr8
 	/*Core*/
 	u16 progmem[progSize/2];
 	u16 pc,currentPc;
-	u32 elapsedCycles,prevCyclesCounter,elapsedCyclesSleep;
+	u32 elapsedCycles,prevCyclesCounter,elapsedCyclesSleep,lastCyclesSleep;
 	u32 cycleCounter, prevPortB, prevWDR;
 	u32 watchdogTimer;
     u8 eeClock;
@@ -518,38 +518,8 @@ struct avr8
 			return r[addr];		// Read a register
 		}
 	}
-/*
-	inline void write_sram_st(u16 addr,u8 value)
-	{
-		if(addr>=SRAMBASE)
-		{
-			sram[(addr - SRAMBASE) & (sramSize-1)] = value;
-		}else if (addr >= IOBASE )
-		{
-			addr-=IOBASE;
 
-			// p106 in 644 manual; 16-bit values are latched
-			if (addr == ports::TCNT1H || addr == ports::ICR1H)
-			{
-				update_hardware(1);	//timer value is fetched on the second cycle of the LD instruction
-				cycles-=1;
-				TEMP = value;
-			}
-			else if (addr == ports::TCNT1L || addr == ports::ICR1L)
-			{
-				update_hardware(1);	//timer value is fetched on the second cycle of the LD instruction
-				cycles-=1;
-				io[addr] = value;
-				io[addr+1] = TEMP;
-			}
-
-			write_io(addr, value);
-		}else
-		{
-			r[addr] = value;		// Write a register
-		}
-	}
-*/
+	//fast version if read_sram for LD instructions
 	inline u8 read_sram_ld(u16 addr)
 	{
 
@@ -561,14 +531,14 @@ struct avr8
 		{
 			addr-=IOBASE;
 			// p106 in 644 manual; 16-bit values are latched
-			if (addr == ports::TCNT1L || addr == ports::ICR1L)
+			if (addr == ports::TCNT1L)
 			{
 				update_hardware(1);	//timer value is fetched on the second cycle of the LD instruction
 				cycles-=1;
 				TEMP = io[addr+1];
 				return io[addr];
 			}
-			else if (addr == ports::TCNT1H || addr == ports::ICR1H){
+			else if (addr == ports::TCNT1H){
 				update_hardware(1); //timer value is fetched on the second cycle of the LD instruction
 				cycles-=1;
 				return TEMP;

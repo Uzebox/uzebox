@@ -241,21 +241,13 @@ no_ramtiles:
 ;
 next_tile_line:	
 
-	nop
-
 	rcall hsync_pulse 
 	WAIT r16,232 - AUDIO_OUT_HSYNC_CYCLES -5
-
-
-	mov r16,r3
-	cpi r16,223
-	brne .+2
-	sleep
 
 	;***draw line***
 	call render_tile_line
 
-	WAIT r16,73+5-2-1  -4
+	WAIT r16,73+5-2
 
 
 	dec r3
@@ -284,8 +276,8 @@ next_tile_row:
 	rjmp .
 	rjmp .
 	
-	sleep
-;	nop
+	nop
+	nop
 
 	rjmp next_tile_line
 
@@ -301,6 +293,7 @@ same_section:
 	andi YL,0xf8
 	inc YH
 2:
+	nop
 	rjmp next_tile_line
 
 frame_end:
@@ -328,7 +321,7 @@ frame_end:
 
 	ldi r16,(1<<OCIE1A)				;restore ints on compare match
 	sts _SFR_MEM_ADDR(TIMSK1),r16
-sleep
+
 	ret
 
 
@@ -365,7 +358,6 @@ render_tile_line:
 	;all tiles are rendered
 	ldi r16,lo8(0xffff-(6*8*SCREEN_TILES_H)+9-30-46-1-16+2)
 	ldi r17,hi8(0xffff-(6*8*SCREEN_TILES_H)+9-30-46-1-16+2)
-	sleep
 	sts _SFR_MEM_ADDR(TCNT1H),r17
 	sts _SFR_MEM_ADDR(TCNT1L),r16
 	sei
@@ -633,7 +625,7 @@ ram_in:
 
 ;end of render line   
 TIMER1_OVF_vect:
-   out VIDEO,r5
+    out VIDEO,r5
 
 
 	pop r0	;pop & discard OVF interrupt return address
