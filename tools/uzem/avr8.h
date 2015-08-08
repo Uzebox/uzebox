@@ -279,7 +279,7 @@ struct avr8
 {
 	avr8() :
 		/*Core*/
-		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),newTCCR1B(0),elapsedCyclesSleep(0),
+		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),newTCCR1B(0),elapsedCyclesSleep(0),hsyncHelp(false),
 
 		/*Video*/
 		fullscreen(false),inset(0),
@@ -330,6 +330,7 @@ struct avr8
 	bool enableGdb;
 	int randomSeed;
     const char* eepromFile;
+    bool hsyncHelp;
 
 	struct
 	{
@@ -594,6 +595,7 @@ struct avr8
     void shutdown(int errcode);
     void idle(void);
     void uzekb_handle_key(SDL_Event &ev);
+
 };
 #endif
 

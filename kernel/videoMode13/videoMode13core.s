@@ -276,8 +276,8 @@ next_tile_row:
 	rjmp .
 	rjmp .
 	
-	nop
-	nop
+	;nop
+	;nop
 
 	rjmp next_tile_line
 

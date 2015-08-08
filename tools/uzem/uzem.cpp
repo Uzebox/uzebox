@@ -49,14 +49,14 @@ static const struct option longopts[] ={
     { "port"       , required_argument, NULL, 't' },
     { "capture"    , no_argument,       NULL, 'c' },
     { "loadcap"    , no_argument,       NULL, 'l' },
-
+    { "synchelp"   , no_argument,       NULL, 'z' },
 #if defined(__WIN32__)
     { "sd"         , required_argument, NULL, 's' },
 #endif 
     {NULL          , 0                , NULL, 0}
 };
 
-   static const char* shortopts = "hnfclwxm2re:p:bdt:k:s:v";
+   static const char* shortopts = "hnfczlwxm2re:p:bdt:k:s:v";
 
 #define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
 
@@ -80,6 +80,7 @@ void showHelp(char* programName){
     printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
     printerr("\t--capture -c        Captures controllers data to file.\n");
     printerr("\t--loadcap -l        Load and replays controllers data from file.\n");
+    printerr("\t--synchelp -z       Displays and logs information to help troubleshooting HSYNC timing issues.\n");
 }
 
 int ends_with(const char* name, const char* extension, size_t length)
@@ -161,6 +162,9 @@ int main(int argc,char **argv)
             break;
         case 'l':
             uzebox.captureMode=CAPTURE_READ;
+            break;
+        case 'z':
+            uzebox.hsyncHelp=true;
             break;
         case 'd':
             uzebox.enableGdb = true;

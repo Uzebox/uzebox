@@ -278,44 +278,46 @@ void avr8::write_io(u8 addr,u8 value)
 				scanline_count++;
 
 				if(scanline_count >= 0){
-					current_cycle = left_edge
-							+ (elapsedCycles - HSYNC_PERIOD); //to simulate line offsync
+
+					current_cycle = left_edge;
 
 					current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
 
-					/*
-					if(prev_scanline!=NULL && elapsedCycles > HSYNC_PERIOD){
+					if(hsyncHelp){
+						if(prev_scanline!=NULL && elapsedCycles > HSYNC_PERIOD){
 
-						for(u8 x=0;x<(elapsedCycles-HSYNC_PERIOD);x++){
-							prev_scanline[(x*5)+5] = hsync_more_col;
-							prev_scanline[(x*5)+6] = hsync_more_col;
-							prev_scanline[(x*5)+7] = hsync_more_col;
-							prev_scanline[(x*5)+8] = 0;
-							prev_scanline[(x*5)+9] = 0;
+							for(u8 x=0;x<(elapsedCycles-HSYNC_PERIOD);x++){
+								prev_scanline[(x*5)+5] = hsync_more_col;
+								prev_scanline[(x*5)+6] = hsync_more_col;
+								prev_scanline[(x*5)+7] = hsync_more_col;
+								prev_scanline[(x*5)+8] = 0;
+								prev_scanline[(x*5)+9] = 0;
 
-							prev_scanline[(x*5)+5+(screen->pitch>>2)] = hsync_more_col;
-							prev_scanline[(x*5)+6+(screen->pitch>>2)] = hsync_more_col;
-							prev_scanline[(x*5)+7+(screen->pitch>>2)] = hsync_more_col;
-							prev_scanline[(x*5)+8+(screen->pitch>>2)] = 0;
-							prev_scanline[(x*5)+9+(screen->pitch>>2)] = 0;
+								prev_scanline[(x*5)+5+(screen->pitch>>2)] = hsync_more_col;
+								prev_scanline[(x*5)+6+(screen->pitch>>2)] = hsync_more_col;
+								prev_scanline[(x*5)+7+(screen->pitch>>2)] = hsync_more_col;
+								prev_scanline[(x*5)+8+(screen->pitch>>2)] = 0;
+								prev_scanline[(x*5)+9+(screen->pitch>>2)] = 0;
+							}
+
+						}else if(prev_scanline!=NULL && elapsedCycles < HSYNC_PERIOD){
+							for(u8 x=0;x<(HSYNC_PERIOD-elapsedCycles);x++){
+								prev_scanline[(x*5)+5] = hsync_less_col;
+								prev_scanline[(x*5)+6] = hsync_less_col;
+								prev_scanline[(x*5)+7] = hsync_less_col;
+								prev_scanline[(x*5)+8] = 0;
+								prev_scanline[(x*5)+9] = 0;
+
+								prev_scanline[(x*5)+5+(screen->pitch>>2)] = hsync_less_col;
+								prev_scanline[(x*5)+6+(screen->pitch>>2)] = hsync_less_col;
+								prev_scanline[(x*5)+7+(screen->pitch>>2)] = hsync_less_col;
+								prev_scanline[(x*5)+8+(screen->pitch>>2)] = 0;
+								prev_scanline[(x*5)+9+(screen->pitch>>2)] = 0;
+							}
 						}
 
-					}else if(prev_scanline!=NULL && elapsedCycles < HSYNC_PERIOD){
-						for(u8 x=0;x<(HSYNC_PERIOD-elapsedCycles);x++){
-							prev_scanline[(x*5)+5] = hsync_less_col;
-							prev_scanline[(x*5)+6] = hsync_less_col;
-							prev_scanline[(x*5)+7] = hsync_less_col;
-							prev_scanline[(x*5)+8] = 0;
-							prev_scanline[(x*5)+9] = 0;
-
-							prev_scanline[(x*5)+5+(screen->pitch>>2)] = hsync_less_col;
-							prev_scanline[(x*5)+6+(screen->pitch>>2)] = hsync_less_col;
-							prev_scanline[(x*5)+7+(screen->pitch>>2)] = hsync_less_col;
-							prev_scanline[(x*5)+8+(screen->pitch>>2)] = 0;
-							prev_scanline[(x*5)+9+(screen->pitch>>2)] = 0;
-						}
+						current_cycle += (elapsedCycles - HSYNC_PERIOD); //to simulate line offsync
 					}
-*/
 
 					prev_scanline = current_scanline;
 
