@@ -86,6 +86,8 @@
 .global joypad2_status_lo
 .global joypad1_status_hi
 .global joypad2_status_hi
+.global first_render_line_tmp
+.global render_lines_count_tmp
 .global first_render_line
 .global render_lines_count
 
@@ -108,6 +110,8 @@
 	first_render_line:		.byte 1
 	render_lines_count: 	.byte 1
 
+	first_render_line_tmp:	.byte 1
+	render_lines_count_tmp: .byte 1
 	
 	;last read results of joypads
 	joypad1_status_lo:	.byte 1
@@ -134,14 +138,11 @@
 ; Main Video sync interrupt
 ;***************************************************************************
 TIMER1_COMPA_vect:
-
 	push r0
 	push r1
 	push ZL;2
 	push ZH;2
-
-
-
+	
 	;save flags & status register
 	in ZL,_SFR_IO_ADDR(SREG);1
 	push ZL ;2		
@@ -151,19 +152,17 @@ TIMER1_COMPA_vect:
 	;This is nessesary to eliminate frame jitter.
 	lds ZL,_SFR_MEM_ADDR(TCNT1L)
 	subi ZL,0x12 ;MIN_INT_LATENCY
-	
 
 	ldi ZH,1
 latency_loop:
-
-	cp ZL,ZH	
+	cp ZL,ZH
 	brlo .		;advance PC to next instruction	
 	inc ZH
 	cpi ZH,10
 	brlo latency_loop
 	jmp .
 	
-	;decrement sync pulse counter
+	;increment sync pulse counter
 	lds ZL,sync_pulse
 	dec ZL
 	sts sync_pulse,ZL
@@ -212,7 +211,6 @@ sync_pre_eq_no_sound_update:
 ; low pulse duration: 774 clocks
 ;***************************************************	
 sync_eq:
-
 	cpi ZL,SYNC_POST_EQ_PULSES
 	brlo sync_post_eq
 
@@ -240,7 +238,7 @@ sync_eq_skip:
 	;for timer1 compare unit b
 	ldi ZL,(1<<OCIE1A)+(1<<OCIE1B)
 	sts _SFR_MEM_ADDR(TIMSK1),ZL
-	
+
 	rjmp sync_end
 
 ;**********************************************************
@@ -250,7 +248,6 @@ sync_eq_skip:
 ; 37 cycles
 ;**********************************************************	
 TIMER1_COMPB_vect:
-
 	push ZL
 	;save flags & status register
 	in ZL,_SFR_IO_ADDR(SREG);1
@@ -420,7 +417,12 @@ no_render:
 	ldi ZL,SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES
 	sts sync_pulse,ZL
 
-
+	;fetch render height registers if they changed	
+	lds ZH,first_render_line_tmp
+	sts first_render_line,ZH
+	
+	lds ZH,render_lines_count_tmp
+	sts render_lines_count,ZH
 
 	;increment the vsync counter
 	lds r24,vsync_counter
@@ -442,7 +444,7 @@ no_render:
 	#if CONTROLLERS_VSYNC_READ == 1
 		call ReadControllers
 	#endif 
-
+	
 	;invoke stuff the video mode may have to do
 	call VideoModeVsync	
 
@@ -473,13 +475,12 @@ no_render:
 	pop r20
 	pop r19
 	pop r18
-
-sync_end:	
 	
+sync_end:	
 	;restore flags
 	pop ZL
 	out _SFR_IO_ADDR(SREG),ZL
-
+	
 	pop ZH
 	pop ZL
 	pop r1
@@ -796,7 +797,6 @@ internal_spi_byte:
 		sts _SFR_MEM_ADDR(TCCR1B),r24
 
 		cli
-		
 		;enable watchdog at fastest speed and generate interrupts
 		ldi r24,0
 		sts _SFR_MEM_ADDR(MCUSR),r24	
@@ -823,9 +823,9 @@ internal_spi_byte:
 	; Returns: r24:r25(u16)
 	;********************************
 
-	.global GetTrueRandomSeed
-	.section .text.GetTrueRandomSeed
-	GetTrueRandomSeed:
+	.global GetRandomSeed
+	.section .text.GetRandomSeed
+	GetRandomSeed:
 		lds r24,random_value
 		lds r25,random_value+1
 		ret
