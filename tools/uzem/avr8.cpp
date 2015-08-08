@@ -762,26 +762,7 @@ void avr8::update_hardware(int cycles)
 				trigger_interrupt(TIMER1_OVF);
 			}
     	}
-
-/*
-    	}else if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
-
-			TIFR1&= ~OCF1A; //clear CTC match flag
-			trigger_interrupt(TIMER1_COMPA);
-
-		}else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B)){
-
-			TIFR1&= ~OCF1B; //clear CTC match flag
-			trigger_interrupt(TIMER1_COMPB);
-
-		}else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1)){
-
-			TIFR1&= ~TOV1; //clear TOV1 flag
-			trigger_interrupt(TIMER1_OVF);
-		}
-*/
 	}
-
 
 
     //draw pixels on scanline

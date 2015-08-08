@@ -149,7 +149,6 @@ TIMER1_COMPA_vect:
 	;Read timer offset since rollover to remove cycles 
 	;and conpensate for interrupt latency.
 	;This is nessesary to eliminate frame jitter.
-	sleep
 	lds ZL,_SFR_MEM_ADDR(TCNT1L)
 	subi ZL,0x12 ;MIN_INT_LATENCY
 	
@@ -195,7 +194,6 @@ latency_loop:
 	cbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN	;TCNT1=0x68
 	brtc sync_pre_eq_no_sound_update
 	ldi ZL,1	;indicate update_sound to generate the SBI for pre-eq
-	wdr
 	call update_sound
 	rjmp sync_end
 
@@ -214,6 +212,7 @@ sync_pre_eq_no_sound_update:
 ; low pulse duration: 774 clocks
 ;***************************************************	
 sync_eq:
+
 	cpi ZL,SYNC_POST_EQ_PULSES
 	brlo sync_post_eq
 
@@ -251,6 +250,7 @@ sync_eq_skip:
 ; 37 cycles
 ;**********************************************************	
 TIMER1_COMPB_vect:
+
 	push ZL
 	;save flags & status register
 	in ZL,_SFR_IO_ADDR(SREG);1
@@ -442,7 +442,7 @@ no_render:
 	#if CONTROLLERS_VSYNC_READ == 1
 		call ReadControllers
 	#endif 
-	
+
 	;invoke stuff the video mode may have to do
 	call VideoModeVsync	
 
@@ -473,7 +473,7 @@ no_render:
 	pop r20
 	pop r19
 	pop r18
-	
+
 sync_end:	
 	
 	;restore flags
@@ -796,7 +796,7 @@ internal_spi_byte:
 		sts _SFR_MEM_ADDR(TCCR1B),r24
 
 		cli
-		wdr
+		
 		;enable watchdog at fastest speed and generate interrupts
 		ldi r24,0
 		sts _SFR_MEM_ADDR(MCUSR),r24	
@@ -840,8 +840,6 @@ internal_spi_byte:
 		push r16
 		push r17
 	
-		wdr
-
 		in r16,_SFR_IO_ADDR(SREG)
 		push r16
 

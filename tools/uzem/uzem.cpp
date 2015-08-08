@@ -353,7 +353,7 @@ int main(int argc,char **argv)
 
    	uzebox.randomSeed=time(NULL);
    	srand(uzebox.randomSeed);	//used for the watchdog timer entropy
-	const int cycles=30000000;//00;
+	const int cycles=100000000;
 	int left, now;
 	char caption[128];
 	sprintf(caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)");
