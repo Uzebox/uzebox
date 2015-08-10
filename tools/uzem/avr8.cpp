@@ -241,20 +241,16 @@ void avr8::write_io(u8 addr,u8 value)
 	{
 	     pixel = palette[value & DDRC];
 	}
-	// p106 in 644 manual; 16-bit values are latched
-	else if (addr == ports::TCNT1H)
+	else if (addr == ports::OCR2A)
 	{
-		update_hardware(1);	//timer value is fetched on the second cycle of ST instructions
-		cycles-=1;
-		TEMP = value;
-	}
-	else if (addr == ports::TCNT1L)
-	{
-		update_hardware(2);	//timer value is written on the second cycle of the ST instruction and increments next machine cycle
-		cycles-=2;
-		io[addr] = value;
-		io[addr+1] = TEMP;
-		TCNT1=(TEMP<<8)|value;
+		if (enableSound && TCCR2B)
+		{
+			// raw pcm sample at 15.7khz
+			while (audioRing.isFull())SDL_Delay(1);
+			SDL_LockAudio();
+			audioRing.push(value);
+			SDL_UnlockAudio();
+		}
 	}
 	else if (addr == ports::PORTD)
 	{
@@ -262,7 +258,6 @@ void avr8::write_io(u8 addr,u8 value)
         io[addr] = value & DDRD;
 
     }
-
 	else if (addr == ports::PORTB)
 	{
         if(value&1){
@@ -282,7 +277,7 @@ void avr8::write_io(u8 addr,u8 value)
 					current_cycle = left_edge;
 
 					current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
-
+/*
 					if(hsyncHelp){
 						if(prev_scanline!=NULL && elapsedCycles > HSYNC_PERIOD){
 
@@ -318,7 +313,7 @@ void avr8::write_io(u8 addr,u8 value)
 
 						current_cycle += (elapsedCycles - HSYNC_PERIOD); //to simulate line offsync
 					}
-
+*/
 					prev_scanline = current_scanline;
 
 				}
@@ -502,20 +497,21 @@ void avr8::write_io(u8 addr,u8 value)
 
 		io[addr] = value;
 	}
-	else if (addr == ports::OCR2A)
+	// p106 in 644 manual; 16-bit values are latched
+	else if (addr == ports::TCNT1H)
 	{
-		if (enableSound && TCCR2B)
-		{
-			// raw pcm sample at 15.7khz
-			while (audioRing.isFull())SDL_Delay(1);
-			SDL_LockAudio();
-			audioRing.push(value);
-			SDL_UnlockAudio();
-		}
+		update_hardware(1);	//timer value is fetched on the second cycle of ST instructions
+		cycles-=1;
+		TEMP = value;
 	}
-
-
-
+	else if (addr == ports::TCNT1L)
+	{
+		update_hardware(2);	//timer value is written on the second cycle of the ST instruction and increments next machine cycle
+		cycles-=2;
+		io[addr] = value;
+		io[addr+1] = TEMP;
+		TCNT1=(TEMP<<8)|value;
+	}
     else if(addr == ports::SPDR)
     {
         if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled and card is present
@@ -816,13 +812,15 @@ void avr8::update_hardware(int cycles)
 
 u8 avr8::exec()
 {
+
 	currentPc=pc;
-	u16 insn = progmem[pc++];
+	u16 insn = progmem[pc];
 	cycles = 1;				// Most insns run in one cycle, so assume that
 	u8 Rd, Rr, R, d, CH;
 	u16 uTmp, Rd16, R16;
 	s16 sTmp;
 
+	//GDB must be first
 	if (enableGdb == true)
 	{
 		gdb->exec();
@@ -839,7 +837,8 @@ u8 avr8::exec()
 	if (state == CPU_STOPPED)
 		return 0;
 
-
+	//Program counter must be incremented *after* GDB
+	pc++;
 
 	switch (insn >> 12) 
 	{

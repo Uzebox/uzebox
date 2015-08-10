@@ -157,9 +157,21 @@ SECTIONS
     KEEP (*(.fini0))
      _etext = . ;
   }  > text
+  
+  /* Memory mapped IO symbols*/
+  PINA		= 0x800000;
+  DDRA		= 0x800001;
+  PORTA		= 0x800002;
+  TCNT1L 	= 0x800084;
+  
   .data	  : AT (ADDR (.text) + SIZEOF (.text))
   {
+     	
      PROVIDE (__data_start = .) ;
+
+
+
+
     *(.uze_data_origin)
     *(.data)
     *(.data*)

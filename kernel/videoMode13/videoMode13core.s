@@ -276,8 +276,8 @@ next_tile_row:
 	rjmp .
 	rjmp .
 	
-	;nop
-	;nop
+	nop
+	nop
 
 	rjmp next_tile_line
 
@@ -321,7 +321,7 @@ frame_end:
 
 	ldi r16,(1<<OCIE1A)				;restore ints on compare match
 	sts _SFR_MEM_ADDR(TIMSK1),r16
-
+sleep
 	ret
 
 

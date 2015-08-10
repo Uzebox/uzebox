@@ -360,7 +360,7 @@ int main(int argc,char **argv)
 	const int cycles=100000000;
 	int left, now;
 	char caption[128];
-	sprintf(caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)");
+	sprintf(caption,"Uzebox Emulator ** " VERSION " (ESC=quit, F1=help)");
 
 	//to align with AVR Simulator 2 since it has a bug that the first JMP
 	//at the reset vector takes only 2 cycles

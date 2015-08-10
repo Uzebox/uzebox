@@ -25,14 +25,14 @@ CFLAGS = $(COMMON)
 CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS +=  -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS) 
-CFLAGS += -gstrict-dwarf
+#CFLAGS += -gstrict-dwarf
 
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
 ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2 
-ASMFLAGS += -Wa,-gstrict-dwarf
+#ASMFLAGS += -Wa,-gstrict-dwarf
 
 ## Linker flags
 LDFLAGS = $(COMMON)
