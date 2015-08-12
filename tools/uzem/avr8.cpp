@@ -1649,12 +1649,12 @@ bool avr8::init_gui()
 	// Open audio driver
 	SDL_AudioSpec desired;
 	memset(&desired, 0, sizeof(desired));
-	desired.freq = 15700;
+	desired.freq = 15734;
 	desired.format = AUDIO_U8;
 	desired.callback = audio_callback_stub;
 	desired.userdata = this;
 	desired.channels = 1;
-	desired.samples = 512;
+	desired.samples = 1024;
 	if (enableSound)
 	{
 		if (SDL_OpenAudio(&desired, NULL) < 0)

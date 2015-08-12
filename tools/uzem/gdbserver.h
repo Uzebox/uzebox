@@ -47,7 +47,7 @@
 
 #include <unistd.h>
 #include <vector>
-#include "avr8.h"
+
 
 using namespace std;
 
@@ -109,6 +109,8 @@ class GdbServer {
         char *last_reply;  //used in last_reply();
         char buf[MAX_BUF]; //used in send_reply();
         int block_on;      //used in pre_parse_packet();
+
+    	FILE* logFile;
 
         word avr_core_flash_read(int addr) ;
         void avr_core_flash_write(unsigned int addr, word val) ;

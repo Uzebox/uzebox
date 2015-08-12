@@ -102,6 +102,7 @@ int main(){
 	
 	SetPalette(graphicsPalette, GRAPHICSPALETTE_SIZE);
 
+
 //#if SCROLLING == 1
 //    Screen.scrollHeight = 23;	
 //    Screen.overlayHeight=4;

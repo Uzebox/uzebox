@@ -75,6 +75,8 @@ SECTIONS
   .rela.bss      : { *(.rela.bss)		}
   .rel.plt       : { *(.rel.plt)		}
   .rela.plt      : { *(.rela.plt)		}
+  
+  
   /* Internal text space or external memory.  */
   .text   :
   {
@@ -158,19 +160,12 @@ SECTIONS
      _etext = . ;
   }  > text
   
-  /* Memory mapped IO symbols*/
-  PINA		= 0x800000;
-  DDRA		= 0x800001;
-  PORTA		= 0x800002;
-  TCNT1L 	= 0x800084;
+
   
   .data	  : AT (ADDR (.text) + SIZEOF (.text))
   {
      	
      PROVIDE (__data_start = .) ;
-
-
-
 
     *(.uze_data_origin)
     *(.data)
@@ -232,6 +227,101 @@ SECTIONS
   /* DWARF debug sections.
      Symbols in the DWARF debugging sections are relative to the beginning
      of the section so we begin them at 0.  */
+     
+       /* Memory mapped IO symbols defined to support GDB debugging*/
+	PINA	= 0x800020;
+	DDRA	= 0x800021;
+	PORTA	= 0x800022;  
+	PINB	= 0x800023;
+	DDRB	= 0x800024;
+	PORTB	= 0x800025;  
+	PINC	= 0x800026;
+	DDRC	= 0x800027;
+	PORTC	= 0x800028;  
+	PIND	= 0x800029;
+	DDRD	= 0x80002a;
+	PORTD	= 0x80002b;  
+	TIFR0	= 0x800035;
+	TIFR1	= 0x800036;
+	TIFR2	= 0x800037;
+	PCIFR	= 0x80003b;
+	EIFR	= 0x80003c;
+	EIMSK	= 0x80003d;      
+	GPIOR0	= 0x80003e;
+	EECR	= 0x80003f;
+	EEDR	= 0x800040;
+	EEARL	= 0x800041;
+	EEARH	= 0x800042;
+	GTCCR	= 0x800043;
+	TCCR0A	= 0x800044;
+	TCCR0B	= 0x800045;
+	TCNT0	= 0x800046;
+	OCR0A	= 0x800047;
+	OCR0B	= 0x800048;
+	GPIOR1	= 0x80004a;
+	GPIOR2	= 0x80004b;
+	SPCR	= 0x80004c;
+	SPSR	= 0x80004d;
+	SPDR	= 0x80004e;
+	ACSR	= 0x800050;
+	OCDR 	= 0x800051;
+	SMCR	= 0x800053;
+	MCUSR	= 0x800054;
+	MCUCR	= 0x800055;
+	SPMCSR	= 0x800057;
+	SPL		= 0x80005d;
+	SPH		= 0x80005e;
+	SREG	= 0x80005f;	
+	WDTCSR	= 0x800060;
+	CLKPR	= 0x800061;
+	PRR		= 0x800064;
+	OSCCAL	= 0x800066;
+	PCICR	= 0x800068;
+	EICRA	= 0x800069;
+	PCMSK0	= 0x80006b;
+	PCMSK1	= 0x80006c;
+	PCMSK2	= 0x80006d;
+	TIMSK0	= 0x80006e;
+	TIMSK1	= 0x80006f;
+	TIMSK2	= 0x800070;
+	PCMSK3	= 0x800073;
+	ADCL	= 0x800078;
+	ADCH	= 0x800079;
+	ADCSRA	= 0x80007a;
+	ADCSRB	= 0x80007b;
+	ADMUX	= 0x80007c;
+	DIDR0	= 0x80007e;
+	DIDR1	= 0x80007f;
+	TCCR1A	= 0x800080;
+	TCCR1B	= 0x800081;
+	TCCR1C	= 0x800082;	
+	TCNT1L 	= 0x800084;
+	TCNT1H	= 0x800085;
+	ICR1L	= 0x800086;
+	ICR1H	= 0x800087;
+	OCR1AL	= 0x800088;
+	OCR1AH	= 0x800089;	
+	OCR1BL	= 0x80008a;
+	OCR1BH	= 0x80008b;
+	TCCR2A	= 0x8000b0;
+	TCCR2B	= 0x8000b1;		
+	TCNT2	= 0x8000b2;
+	OCR2A	= 0x8000b3;
+	OCR2B	= 0x8000b4;
+	ASSR	= 0x8000b6;	
+	TWBR	= 0x8000b8;
+	TWSR	= 0x8000b9;		
+	TWAR	= 0x8000ba;
+	TWDR	= 0x8000bb;
+	TWCR	= 0x8000bc;
+	TWAMR	= 0x8000bd;				  
+	UCSR0A	= 0x8000c0;
+	UCSR0B	= 0x8000c1;		
+	UCSR0C	= 0x8000c2;
+	UBRR0L	= 0x8000c4;
+	UBRR0H	= 0x8000c5;
+	UDR0	= 0x8000c6;	
+	
   /* DWARF 1 */
   .debug          0 : { *(.debug) }
   .line           0 : { *(.line) }
