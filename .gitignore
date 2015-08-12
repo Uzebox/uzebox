@@ -13,4 +13,4 @@ eeprom.bin
 *.uze
 *.dll
 *.exe
-
+*.class
