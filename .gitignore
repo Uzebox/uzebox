@@ -14,3 +14,5 @@ eeprom.bin
 *.dll
 *.exe
 
+*.log
+*.bak
