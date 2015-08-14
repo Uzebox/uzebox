@@ -181,7 +181,7 @@ void PatchCommand11(struct TrackStruct* track,unsigned char trackNo, char param)
 	
 	currentStep=pgm_read_word(&(steptable[track->note]));
 	targetStep=pgm_read_word(&(steptable[track->note+param]));	
-	delta=((targetStep-currentStep)/tracks->slideSpeed);
+	delta=((targetStep-currentStep)/track->slideSpeed);
 	if(delta==0)delta++;
 
 	mixer.channels.all[trackNo].step+=delta;
@@ -197,7 +197,7 @@ void PatchCommand11(struct TrackStruct* track,unsigned char trackNo, char param)
  * Param: slide speed (fixed 4:4)
  */
 void PatchCommand12(struct TrackStruct* track,unsigned char trackNo, char param){
-	tracks->slideSpeed=param;
+	track->slideSpeed=param;
 }
 
 /*
