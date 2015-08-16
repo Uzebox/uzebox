@@ -119,7 +119,7 @@ int main()
 
     loadEeprom();
 
-	Logo();
+	//Logo();
 
     game.level=0;
 	while(1){
@@ -137,7 +137,7 @@ int main()
 
 
 		SetSpriteVisibility(true);
-		setUserRamTilesCount(1);
+		SetUserRamTilesCount(1);
 		do{
 
 			for(u8 i=0;i<ANIMATION_SLOTS_COUNT;i++){

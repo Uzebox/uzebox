@@ -58,3 +58,7 @@ extern ScreenType Screen;
 
 extern void SetSpritesTileBank(u8 bank,const char* tileData);
 extern u8 GetTile(u8 x,u8 y);
+extern void SetUserRamTilesCount(u8 count);
+extern u8* GetUserRamTiles();
+extern void CopyRamTileToRam(u8 srcTile,u8 destTile);
+

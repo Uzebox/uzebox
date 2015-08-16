@@ -40,7 +40,8 @@
 .global sprites_tile_banks
 .global Screen
 .global SetSpritesTileTable
-.global CopyTileToRam
+.global CopyFlashTileToRam
+.global CopyRamTileToRam
 .global SetSpritesTileBank
 .global SetTile
 .global ClearVram
@@ -694,9 +695,118 @@
 	sub_video_mode3:
 
 		;wait cycles to align with next hsync
-		WAIT r16,36
+		WAIT r16,30-3+340+98
 
+
+		;Refresh ramtiles indexes in VRAM
+		;This has to be done because the main
+		;program may have altered the VRAM
+		;after vsync and the rendering interrupt.
+		lds r16,userRamTilesCount
+
+		ldi ZL,lo8(ram_tiles_restore);
+		ldi ZH,hi8(ram_tiles_restore);
+		ldi r18,3
+		mul r16,r18
+		add ZL,r0
+		adc ZH,r1
+
+		ldi YL,lo8(vram)
+		ldi YH,hi8(vram)
+
+		lds r18,free_tile_index
+		ldi r19,MAX_RAMTILES		;maximum possible ramtiles
+		sub r19,r18					;sub free tile
+		add r19,r16					;add user tiles
+
+		cp r18,r16
+		breq no_ramtiles
+		;nop
+		;clr 16
+		;lds r16,userRamTilesCount
+		nop
+		nop
+upd_loop:
+		ld XL,Z+	;load vram offset of ramtile
+		ld XH,Z+
+
+		ld r17,X	;get latest VRAM tile that may have been modified my
+		st Z+,r17	;the main program and store it in the restore buffer
+		st X,r16	;write the ramtile index back to vram
+
+		inc r16
+		cp r16,r18
+		brlo upd_loop ;loop is 14 cycles
+
+no_ramtiles:
+		;wait for remaining maximum possible ramtiles
+1:
+		ldi r17,3
+		dec r17
+		brne .-4
+		rjmp .
+		dec r19
+		brne 1b
+
+
+/*
 		;Set ramtiles indexes in VRAM 
+		lds r16,userRamTilesCount
+		
+		ldi ZL,lo8(ram_tiles_restore);
+		ldi ZH,hi8(ram_tiles_restore);
+		ldi r18,3	;sizeof(ram_tiles_restore)
+		mul r16,r18
+		add ZL,r0
+		adc ZH,r1
+
+		ldi YL,lo8(vram)
+		ldi YH,hi8(vram)
+
+		lds r18,free_tile_index
+
+	upd_loop:
+		ldd XL,Z+0
+		ldd XH,Z+1
+
+		add XL,YL
+		adc XH,YH
+
+		ld r17,X	;currbgtile
+		std Z+2,r17
+
+		cp r16,r18
+		brsh noov
+		mov r17,r16
+	noov:
+		st X,r17
+
+		adiw ZL,3 ;sizeof(ram_tiles_restore)
+
+		inc r16
+		cpi r16,RAM_TILES_COUNT
+		brlo upd_loop ;23
+
+
+	#if RAM_TILES_COUNT == 0
+		ldi r16,60-RAM_TILES_COUNT
+	#else
+		ldi r16,61-RAM_TILES_COUNT
+	#endif
+		lds r17,userRamTilesCount
+		add r16,r17
+	wait_loop:
+
+		ldi r17,6
+		dec r17
+		brne .-4
+
+		dec r16
+		brne wait_loop
+*/
+/*
+
+		;Set ramtiles indexes in VRAM
 		ldi ZL,lo8(ram_tiles_restore);
 		ldi ZH,hi8(ram_tiles_restore);
 
@@ -745,6 +855,7 @@
 		dec r16
 		brne wait_loop
 
+*/
 		lds r2,overlay_tile_table
 		lds r3,overlay_tile_table+1
 		lds r16,tile_table_lo 
@@ -1017,25 +1128,12 @@
 #endif
 
 ;***********************************
-; SET TILE 8bit mode
+; Copy a flash tile to a ram tile
 ; C-callable
-; r24=ROM tile index
-; r22=RAM tile index
+; r24=Source ROM tile index
+; r22=Dest RAM tile index
 ;************************************
-CopyTileToRam:
-/*
-	src=tile_table_lo+((bt&0x7f)*64);
-	dest=ram_tiles+(free_tile_index*TILE_HEIGHT*TILE_WIDTH);
-
-	ram_tiles_restore[free_tile_index].addr=ramPtr;//(by*VRAM_TILES_H)+bx+x;
-	ram_tiles_restore[free_tile_index].tileIndex=bt;
-
-	for(j=0;j<64;j++){
-		px=pgm_read_byte(src++);
-		*dest++=px;
-	}
-*/
-
+CopyFlashTileToRam:
 	ldi r18,TILE_HEIGHT*TILE_WIDTH
 
 	;compute source adress
@@ -1054,17 +1152,47 @@ CopyTileToRam:
 	add XL,r0
 	adc XH,r1
 
-	clr r0
+	clr r1
 	;copy data (fastest possible)
 .rept TILE_HEIGHT*TILE_WIDTH
-	lpm r0,Z+	
-	st X+,r0
+	lpm r1,Z+
+	st X+,r1
 .endr
 
-
-	clr r1
 	ret
 
+;***********************************
+; Copy a flash tile to a ram tile
+; C-callable
+; r24=Source RAM tile index
+; r22=Dest RAM tile index
+;************************************
+CopyRamTileToRam:
+
+	ldi r18,TILE_HEIGHT*TILE_WIDTH
+
+	;compute source adress
+	ldi ZL,lo8(ram_tiles)
+	ldi ZH,hi8(ram_tiles)
+	mul r24,r18
+	add ZL,r0
+	adc ZH,r1
+
+	;compute destination adress
+	ldi XL,lo8(ram_tiles)
+	ldi XH,hi8(ram_tiles)
+	mul r22,r18
+	add XL,r0
+	adc XH,r1
+
+	clr r1
+	;copy data (fastest possible)
+.rept TILE_HEIGHT*TILE_WIDTH
+	ld r1,Z+
+	st X+,r1
+.endr
+
+	ret
 
 
 
@@ -1211,8 +1339,14 @@ x_check_end:
 
 	mov r25,r19			;ydiff=dy
 
+	//sbrc r16,SPRITE_FLIP_Y_BIT
+	//adiw ZL,(TILE_WIDTH*(TILE_HEIGHT-1))
+
 	sbrc r16,SPRITE_FLIP_Y_BIT
-	adiw ZL,(TILE_WIDTH*(TILE_HEIGHT-1))	;src+=(TILE_WIDTH*(TILE_HEIGHT-1));		
+	subi ZL,lo8(-(TILE_WIDTH*(TILE_HEIGHT-1)));src+=(TILE_WIDTH*(TILE_HEIGHT-1));
+	sbrc r16,SPRITE_FLIP_Y_BIT
+	sbci ZH,hi8(-(TILE_WIDTH*(TILE_HEIGHT-1)))
+
 
 	rjmp y_check_end
 
