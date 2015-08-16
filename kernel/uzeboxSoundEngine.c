@@ -80,14 +80,15 @@ u8 step;
  * Command 00: Set envelope speed per frame +127/-128, 0=no enveloppe
  * Param:
  */
-void PatchCommand00(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand00(struct TrackStruct* track, char param){
 	track->envelopeStep=param;
 }
 /*
  * Command 01: Set noise channel params 
  * Param:
  */
-void PatchCommand01(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand01(struct TrackStruct* track, char param){
+	(void)track; //to remove unused warning
 	#if MIXER_CHAN4_TYPE == 0
 		mixer.channels.type.noise.barrel=0x0101;
 		mixer.channels.type.noise.params=param;
@@ -97,30 +98,31 @@ void PatchCommand01(struct TrackStruct* track,unsigned char trackNo, char param)
  * Command 02: Set wave
  * Param:
  */
-void PatchCommand02(struct TrackStruct* track,unsigned char trackNo, char param){
-	SetMixerWave(trackNo,param);
+void PatchCommand02(struct TrackStruct* track, char param){
+	SetMixerWave(track->channel,param);
 }
 /*
  * Command 03: Note up * param
  * Param:
  */
-void PatchCommand03(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand03(struct TrackStruct* track, char param){
 	track->note+=param;
-	SetMixerNote(trackNo,track->note);
+	SetMixerNote(track->channel,track->note);
 }
 /*
  * Command 04: Note down * param
  * Param:
  */
-void PatchCommand04(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand04(struct TrackStruct* track, char param){
 	track->note-=param;
-	SetMixerNote(trackNo,track->note);
+	SetMixerNote(track->channel,track->note);
 }
 /*
  * Command 05: End of note/fx
  * Param:
  */
-void PatchCommand05(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand05(struct TrackStruct* track, char param){
+	(void)param; //to remove unused warning
 	track->flags&=~(TRACK_FLAGS_PLAYING+TRACK_FLAGS_PRIORITY);	//patchPlaying=false,priority=0	
 }
 
@@ -128,7 +130,8 @@ void PatchCommand05(struct TrackStruct* track,unsigned char trackNo, char param)
  * Command 06: Note hold
  * Param:
  */
-void PatchCommand06(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand06(struct TrackStruct* track, char param){
+	(void)param; //to remove unused warning
 	track->flags|=TRACK_FLAGS_HOLD_ENV; //patchEnvelopeHold=true;
 }
 
@@ -137,7 +140,7 @@ void PatchCommand06(struct TrackStruct* track,unsigned char trackNo, char param)
  * Param:
  */
 
-void PatchCommand07(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand07(struct TrackStruct* track, char param){
 	track->envelopeVol=param;
 }
 
@@ -146,8 +149,8 @@ void PatchCommand07(struct TrackStruct* track,unsigned char trackNo, char param)
  * Param:
  */
 
-void PatchCommand08(struct TrackStruct* track,unsigned char trackNo, char param){
-	SetMixerNote(trackNo,param);
+void PatchCommand08(struct TrackStruct* track, char param){
+	SetMixerNote(track->channel,param);
 	track->note=param;
 	track->flags &= ~(TRACK_FLAGS_SLIDING);	
 }
@@ -157,7 +160,7 @@ void PatchCommand08(struct TrackStruct* track,unsigned char trackNo, char param)
  * Param:
 */
 
-void PatchCommand09(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand09(struct TrackStruct* track, char param){
 	track->tremoloLevel=param;
 }
 
@@ -165,7 +168,7 @@ void PatchCommand09(struct TrackStruct* track,unsigned char trackNo, char param)
  * Command 10: Set tremolo rate
  * Param:
 */
-void PatchCommand10(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand10(struct TrackStruct* track, char param){
 	track->tremoloRate=param;
 }
 
@@ -175,7 +178,7 @@ void PatchCommand10(struct TrackStruct* track,unsigned char trackNo, char param)
  * Param: (+/-) half steps to slide to
 */
 
-void PatchCommand11(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand11(struct TrackStruct* track, char param){
 	//slide to note from current note
 	s16 currentStep,targetStep,delta;	
 	
@@ -184,7 +187,7 @@ void PatchCommand11(struct TrackStruct* track,unsigned char trackNo, char param)
 	delta=((targetStep-currentStep)/track->slideSpeed);
 	if(delta==0)delta++;
 
-	mixer.channels.all[trackNo].step+=delta;
+	mixer.channels.all[track->channel].step+=delta;
 	
 	track->slideStep=delta;
 	track->flags|=TRACK_FLAGS_SLIDING;
@@ -196,7 +199,7 @@ void PatchCommand11(struct TrackStruct* track,unsigned char trackNo, char param)
  * Command 12: Pitch slide speed 
  * Param: slide speed (fixed 4:4)
  */
-void PatchCommand12(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand12(struct TrackStruct* track, char param){
 	track->slideSpeed=param;
 }
 
@@ -205,7 +208,7 @@ void PatchCommand12(struct TrackStruct* track,unsigned char trackNo, char param)
  * Description: Defines the start of a loop. Works in conjunction with command 14 (PC_LOOP_END).
  *		 Param: loop count
  */
-void PatchCommand13(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand13(struct TrackStruct* track, char param){
 	track->loopCount=(u8)param;
 }
 
@@ -227,7 +230,7 @@ void PatchCommand13(struct TrackStruct* track,unsigned char trackNo, char param)
  *					0,PATCH_END  
  *				};
  */
-void PatchCommand14(struct TrackStruct* track,unsigned char trackNo, char param){
+void PatchCommand14(struct TrackStruct* track, char param){
 	if(track->loopCount>0){
 		//track->patchCommandStreamPos=track->loopStart;
 		if(param!=0){
@@ -266,6 +269,7 @@ void InitMusicPlayer(const struct PatchStruct *patchPointersParam){
 
 	//initialize default channels patches			
 	for(unsigned char t=0;t<CHANNELS;t++){		
+		tracks[t].channel=t;
 		tracks[t].flags=TRACK_FLAGS_ALLOCATED;	//allocated=true,priority=0
 		tracks[t].noteVol=0;
 		tracks[t].trackVol=DEFAULT_TRACK_VOL;
@@ -790,7 +794,7 @@ void ProcessMusic(void){
 					}else{
 						c2=pgm_read_byte(track->patchCommandStreamPos++);
 						//invoke patch command function
-						( (PatchCommand)pgm_read_word(&patchCommands[c1]) )(track,trackNo,c2);				
+						( (PatchCommand)pgm_read_word(&patchCommands[c1]) )(track,c2);
 					}			
 			
 					//read next delta time

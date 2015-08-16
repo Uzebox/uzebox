@@ -109,6 +109,7 @@
 									//b7: priority			: 1=Hi/Fx, 0=low/regular note
 
 		unsigned char note;
+		unsigned char channel;
 
 		#if MUSIC_ENGINE == MOD
 			const char *patternPos;
@@ -133,7 +134,6 @@
 		
 		unsigned char patchNo;
 		unsigned char fxPatchNo;
-		unsigned char patchLastStatus;
 		unsigned char patchNextDeltaTime;
 		unsigned char patchCurrDeltaTime;
 		unsigned char patchPlayingTime;	//used by fx to steal oldest voice
@@ -142,7 +142,7 @@
 	};
 
 
-	typedef void (*PatchCommand)(struct TrackStruct* track,unsigned char channel, char value);
+	typedef void (*PatchCommand)(struct TrackStruct* track, char value);
 
 	extern unsigned char mix_buf[];
 	extern volatile unsigned char *mix_pos;
