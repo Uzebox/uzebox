@@ -38,7 +38,7 @@
 #define MIDI_NULL 0xfd
 
 unsigned int ReadVarLen(const char **songPos);
-void SetTriggerCommonValues(struct TrackStruct *track, u8 volume, u8 note);
+void SetTriggerCommonValues(Track *track, u8 volume, u8 note);
 
 #if MIDI_IN == 1
 	static long received=0;
@@ -49,7 +49,7 @@ void SetTriggerCommonValues(struct TrackStruct *track, u8 volume, u8 note);
 extern u8 waves[];
 extern u16 steptable[];
 
-struct TrackStruct tracks[CHANNELS];
+Track tracks[CHANNELS];
 
 //Common player vars
 bool playSong=false;
@@ -80,14 +80,14 @@ u8 step;
  * Command 00: Set envelope speed per frame +127/-128, 0=no enveloppe
  * Param:
  */
-void PatchCommand00(struct TrackStruct* track, char param){
+void PatchCommand00(Track* track, char param){
 	track->envelopeStep=param;
 }
 /*
  * Command 01: Set noise channel params 
  * Param:
  */
-void PatchCommand01(struct TrackStruct* track, char param){
+void PatchCommand01(Track* track, char param){
 	(void)track; //to remove unused warning
 	#if MIXER_CHAN4_TYPE == 0
 		mixer.channels.type.noise.barrel=0x0101;
@@ -98,14 +98,14 @@ void PatchCommand01(struct TrackStruct* track, char param){
  * Command 02: Set wave
  * Param:
  */
-void PatchCommand02(struct TrackStruct* track, char param){
+void PatchCommand02(Track* track, char param){
 	SetMixerWave(track->channel,param);
 }
 /*
  * Command 03: Note up * param
  * Param:
  */
-void PatchCommand03(struct TrackStruct* track, char param){
+void PatchCommand03(Track* track, char param){
 	track->note+=param;
 	SetMixerNote(track->channel,track->note);
 }
@@ -113,7 +113,7 @@ void PatchCommand03(struct TrackStruct* track, char param){
  * Command 04: Note down * param
  * Param:
  */
-void PatchCommand04(struct TrackStruct* track, char param){
+void PatchCommand04(Track* track, char param){
 	track->note-=param;
 	SetMixerNote(track->channel,track->note);
 }
@@ -121,7 +121,7 @@ void PatchCommand04(struct TrackStruct* track, char param){
  * Command 05: End of note/fx
  * Param:
  */
-void PatchCommand05(struct TrackStruct* track, char param){
+void PatchCommand05(Track* track, char param){
 	(void)param; //to remove unused warning
 	track->flags&=~(TRACK_FLAGS_PLAYING+TRACK_FLAGS_PRIORITY);	//patchPlaying=false,priority=0	
 }
@@ -130,7 +130,7 @@ void PatchCommand05(struct TrackStruct* track, char param){
  * Command 06: Note hold
  * Param:
  */
-void PatchCommand06(struct TrackStruct* track, char param){
+void PatchCommand06(Track* track, char param){
 	(void)param; //to remove unused warning
 	track->flags|=TRACK_FLAGS_HOLD_ENV; //patchEnvelopeHold=true;
 }
@@ -140,7 +140,7 @@ void PatchCommand06(struct TrackStruct* track, char param){
  * Param:
  */
 
-void PatchCommand07(struct TrackStruct* track, char param){
+void PatchCommand07(Track* track, char param){
 	track->envelopeVol=param;
 }
 
@@ -149,7 +149,7 @@ void PatchCommand07(struct TrackStruct* track, char param){
  * Param:
  */
 
-void PatchCommand08(struct TrackStruct* track, char param){
+void PatchCommand08(Track* track, char param){
 	SetMixerNote(track->channel,param);
 	track->note=param;
 	track->flags &= ~(TRACK_FLAGS_SLIDING);	
@@ -160,7 +160,7 @@ void PatchCommand08(struct TrackStruct* track, char param){
  * Param:
 */
 
-void PatchCommand09(struct TrackStruct* track, char param){
+void PatchCommand09(Track* track, char param){
 	track->tremoloLevel=param;
 }
 
@@ -168,7 +168,7 @@ void PatchCommand09(struct TrackStruct* track, char param){
  * Command 10: Set tremolo rate
  * Param:
 */
-void PatchCommand10(struct TrackStruct* track, char param){
+void PatchCommand10(Track* track, char param){
 	track->tremoloRate=param;
 }
 
@@ -178,7 +178,7 @@ void PatchCommand10(struct TrackStruct* track, char param){
  * Param: (+/-) half steps to slide to
 */
 
-void PatchCommand11(struct TrackStruct* track, char param){
+void PatchCommand11(Track* track, char param){
 	//slide to note from current note
 	s16 currentStep,targetStep,delta;	
 	
@@ -199,7 +199,7 @@ void PatchCommand11(struct TrackStruct* track, char param){
  * Command 12: Pitch slide speed 
  * Param: slide speed (fixed 4:4)
  */
-void PatchCommand12(struct TrackStruct* track, char param){
+void PatchCommand12(Track* track, char param){
 	track->slideSpeed=param;
 }
 
@@ -208,7 +208,7 @@ void PatchCommand12(struct TrackStruct* track, char param){
  * Description: Defines the start of a loop. Works in conjunction with command 14 (PC_LOOP_END).
  *		 Param: loop count
  */
-void PatchCommand13(struct TrackStruct* track, char param){
+void PatchCommand13(Track* track, char param){
 	track->loopCount=(u8)param;
 }
 
@@ -230,7 +230,7 @@ void PatchCommand13(struct TrackStruct* track, char param){
  *					0,PATCH_END  
  *				};
  */
-void PatchCommand14(struct TrackStruct* track, char param){
+void PatchCommand14(Track* track, char param){
 	if(track->loopCount>0){
 		//track->patchCommandStreamPos=track->loopStart;
 		if(param!=0){
@@ -252,9 +252,9 @@ void PatchCommand14(struct TrackStruct* track, char param){
 
 const PatchCommand patchCommands[] PROGMEM ={&PatchCommand00,&PatchCommand01,&PatchCommand02,&PatchCommand03,&PatchCommand04,&PatchCommand05,&PatchCommand06,&PatchCommand07,&PatchCommand08,&PatchCommand09,&PatchCommand10,&PatchCommand11,&PatchCommand12,&PatchCommand13,&PatchCommand14};
 
-const struct PatchStruct *patchPointers;
+const Patch *patchPointers;
 
-void InitMusicPlayer(const struct PatchStruct *patchPointersParam){
+void InitMusicPlayer(const Patch *patchPointersParam){
 
 	patchPointers=patchPointersParam;
 
@@ -389,7 +389,7 @@ void ProcessMusic(void){
 	s16 vol;
 	u16 uVol,tVol;
 	u8 channel;
-	struct TrackStruct* track;
+	Track* track;
 
 
 	//process patches envelopes & pitch slides
@@ -406,7 +406,10 @@ void ProcessMusic(void){
 			}
 			track->envelopeVol=vol;
 		}
-	
+
+		//if volumes reaches zero and no more patch command, explicitly end playing on track
+		//if(vol==0 && track->patchCommandStreamPos==NULL) track->flags&=~(TRACK_FLAGS_PLAYING);
+
 		if(track->flags & TRACK_FLAGS_SLIDING){
 
 			mixer.channels.all[trackNo].step+=track->slideStep;
@@ -771,21 +774,20 @@ void ProcessMusic(void){
 
 	//
 	// Process patches command streams & final volume
-	//	
+	//
 	for(unsigned char trackNo=0;trackNo<CHANNELS;trackNo++){
 		track=&tracks[trackNo];
 
-		//process patch command stream
-		if((track->flags & TRACK_FLAGS_HOLD_ENV)==0){	//patchEnvelopeHold==false
+		if(track->flags & TRACK_FLAGS_PLAYING){
 
-			if(track->patchCommandStreamPos!=NULL && 
-				track->patchCurrDeltaTime>=track->patchNextDeltaTime){			
+			//process patch command stream
+			if(track->patchCommandStreamPos!=NULL && ((track->flags & TRACK_FLAGS_HOLD_ENV)==0)){	//patchEnvelopeHold==false
 
 				//process all simultaneous events
-				while(track->patchCurrDeltaTime==track->patchNextDeltaTime){	
-					
+				while(track->patchCurrDeltaTime==track->patchNextDeltaTime){
+
 					c1=pgm_read_byte(track->patchCommandStreamPos++);
-					if(c1==0xff){					
+					if(c1==0xff){
 						//end of stream!
 						track->flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
 						track->patchCommandStreamPos=NULL;
@@ -795,23 +797,17 @@ void ProcessMusic(void){
 						c2=pgm_read_byte(track->patchCommandStreamPos++);
 						//invoke patch command function
 						( (PatchCommand)pgm_read_word(&patchCommands[c1]) )(track,c2);
-					}			
-			
+					}
+
 					//read next delta time
-					track->patchNextDeltaTime=pgm_read_byte(track->patchCommandStreamPos++);						
-					
-					track->patchCurrDeltaTime=0;	
+					track->patchNextDeltaTime=pgm_read_byte(track->patchCommandStreamPos++);
+					track->patchCurrDeltaTime=0;
+				}
 
-				}		
-			}				
-			
-			track->patchCurrDeltaTime++;
-		}
-	
+				track->patchCurrDeltaTime++;
+			}
 
 
-		if(track->flags & TRACK_FLAGS_PLAYING){
-		
 			if(track->patchPlayingTime<0xff){
 				track->patchPlayingTime++;
 			}
@@ -891,17 +887,14 @@ unsigned int ReadVarLen(const char **songPos)
 
 
 
-void TriggerCommon(u8 channel,u8 patch,u8 volume,u8 note){
-	struct TrackStruct* track=&tracks[channel];
+void TriggerCommon(Track* track,u8 patch,u8 volume,u8 note){
 		
 	bool isFx = (track->flags&TRACK_FLAGS_PRIORITY);
 
-	track->patchCurrDeltaTime=0;
 	track->envelopeStep=0; 
 	track->envelopeVol=0xff; 
 	track->noteVol=volume;
 	track->patchPlayingTime=0;
-	track->flags|=TRACK_FLAGS_PLAYING;
 	track->flags&=(~(TRACK_FLAGS_HOLD_ENV|TRACK_FLAGS_SLIDING));
 	track->tremoloLevel=0;
 	track->tremoloPos=0;
@@ -914,7 +907,7 @@ void TriggerCommon(u8 channel,u8 patch,u8 volume,u8 note){
 
 	#if SOUND_MIXER == MIXER_TYPE_INLINE
 
-		if(channel==3){
+		if(track->channel==3){
 			//noise channel		
 			if(!isFx) patch=note;			
 			mixer.channels.type.noise.barrel=0x0101;				
@@ -922,47 +915,47 @@ void TriggerCommon(u8 channel,u8 patch,u8 volume,u8 note){
 
 		#if SOUND_CHANNEL_5_ENABLE==1		
 
-		}else if(channel==4){
+		}else if(track->channel==4){
 				//PCM channel					
 				mixer.channels.type.pcm.positionFrac=0;
 				const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
 				mixer.channels.type.pcm.position=pos;				
 				mixer.pcmLoopLenght=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
 				mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
-				SetMixerNote(channel,note);
+				SetMixerNote(track->channel,note);
 		#endif	
 
 		}else{					
 			//wave channels					
-			SetMixerWave(channel,0);//default wave
-			SetMixerNote(channel,note);
+			SetMixerWave(track->channel,0);//default wave
+			SetMixerNote(track->channel,note);
 		}		
 
 	#else
 
 		#if MIXER_CHAN4_TYPE == 0
 			//if it's a noise channel
-			if(channel==3){
+			if(track->channel==3){
 				if(!isFx) patch=note;
 				mixer.channels.type.noise.barrel=0x0101;				
 				mixer.channels.type.noise.params=1; //default 
 			}else{
-				SetMixerNote(channel,note);
-				SetMixerWave(channel,0);
+				SetMixerNote(track->channel,note);
+				SetMixerWave(track->channel,0);
 			}
 		#else
 			//if it's a PCM channel
-			if(channel==3){
+			if(track->channel==3){
 				mixer.channels.type.pcm.positionFrac=0;
 				const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
 				mixer.channels.type.pcm.position=pos;
 				mixer.pcmLoopLenght=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
 				mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
 			}else{
-				SetMixerWave(channel,0);
+				SetMixerWave(track->channel,0);
 			}
 
-			SetMixerNote(channel,note);
+			SetMixerNote(track->channel,note);
 
 		#endif
 
@@ -978,6 +971,7 @@ void TriggerCommon(u8 channel,u8 patch,u8 volume,u8 note){
 	if(pos==NULL){
 		track->patchCommandStreamPos=NULL;
 	}else{
+		track->patchCurrDeltaTime=0;
 		track->patchNextDeltaTime=pgm_read_byte(pos++);
 		track->patchCommandStreamPos=pos;
 	}
@@ -1016,29 +1010,33 @@ void TriggerFx(unsigned char patch,unsigned char volume,bool retrig){
 		}
 	}				
 
-	tracks[channel].flags|=TRACK_FLAGS_PRIORITY; //priority=1;	
-	TriggerCommon(channel,patch,volume,80);
+	Track* track=&tracks[channel];
+	track->flags=TRACK_FLAGS_PRIORITY; //priority=1;
+	TriggerCommon(track,patch,volume,80);
+	track->flags|=TRACK_FLAGS_PLAYING;
 }
 
 
 void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,unsigned char volume){
+	Track* track=&tracks[channel];
 
 	//allow only other music notes 
-	if((tracks[channel].flags&TRACK_FLAGS_PLAYING)==0 || (tracks[channel].flags&TRACK_FLAGS_PRIORITY)==0){
+	if((track->flags&TRACK_FLAGS_PLAYING)==0 || (track->flags&TRACK_FLAGS_PRIORITY)==0){
 			
 		if(volume==0){ //note-off received
 
 			
 			//cut note if there's no envelope & no note hold
-			if(tracks[channel].envelopeStep==0 && !(tracks[channel].flags&TRACK_FLAGS_HOLD_ENV)){
-				tracks[channel].noteVol=0;	
+			if(track->envelopeStep==0 && !(track->flags&TRACK_FLAGS_HOLD_ENV)){
+				track->noteVol=0;
 			}
 
-			tracks[channel].flags&=(~TRACK_FLAGS_HOLD_ENV);//patchEnvelopeHold=false;
+			track->flags&=(~TRACK_FLAGS_HOLD_ENV);//patchEnvelopeHold=false;
 		}else{
 		
-			tracks[channel].flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;	
-			TriggerCommon(channel,patch,volume,note);
+			track->flags=0;//&=(~TRACK_FLAGS_PRIORITY);// priority=0;
+			TriggerCommon(track,patch,volume,note);
+			track->flags|=TRACK_FLAGS_PLAYING;
 		}
 
 	}
