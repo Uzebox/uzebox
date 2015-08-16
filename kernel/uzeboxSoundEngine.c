@@ -778,35 +778,34 @@ void ProcessMusic(void){
 	for(unsigned char trackNo=0;trackNo<CHANNELS;trackNo++){
 		track=&tracks[trackNo];
 
-		if(track->flags & TRACK_FLAGS_PLAYING){
+		//process patch command stream
+		if(track->patchCommandStreamPos!=NULL && ((track->flags & TRACK_FLAGS_HOLD_ENV)==0)){	//patchEnvelopeHold==false
 
-			//process patch command stream
-			if(track->patchCommandStreamPos!=NULL && ((track->flags & TRACK_FLAGS_HOLD_ENV)==0)){	//patchEnvelopeHold==false
+			//process all simultaneous events
+			while(track->patchCurrDeltaTime==track->patchNextDeltaTime){
 
-				//process all simultaneous events
-				while(track->patchCurrDeltaTime==track->patchNextDeltaTime){
+				c1=pgm_read_byte(track->patchCommandStreamPos++);
+				if(c1==0xff){
+					//end of stream!
+					track->flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
+					track->patchCommandStreamPos=NULL;
+					break;
 
-					c1=pgm_read_byte(track->patchCommandStreamPos++);
-					if(c1==0xff){
-						//end of stream!
-						track->flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
-						track->patchCommandStreamPos=NULL;
-						break;
-
-					}else{
-						c2=pgm_read_byte(track->patchCommandStreamPos++);
-						//invoke patch command function
-						( (PatchCommand)pgm_read_word(&patchCommands[c1]) )(track,c2);
-					}
-
-					//read next delta time
-					track->patchNextDeltaTime=pgm_read_byte(track->patchCommandStreamPos++);
-					track->patchCurrDeltaTime=0;
+				}else{
+					c2=pgm_read_byte(track->patchCommandStreamPos++);
+					//invoke patch command function
+					((PatchCommand)pgm_read_word(&patchCommands[c1]))(track,c2);
 				}
 
-				track->patchCurrDeltaTime++;
+				//read next delta time
+				track->patchNextDeltaTime=pgm_read_byte(track->patchCommandStreamPos++);
+				track->patchCurrDeltaTime=0;
 			}
 
+			track->patchCurrDeltaTime++;
+		}
+
+		if(track->flags & TRACK_FLAGS_PLAYING){
 
 			if(track->patchPlayingTime<0xff){
 				track->patchPlayingTime++;
