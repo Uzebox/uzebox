@@ -1654,7 +1654,7 @@ bool avr8::init_gui()
 	desired.callback = audio_callback_stub;
 	desired.userdata = this;
 	desired.channels = 1;
-	desired.samples = 1024;
+	desired.samples = 512;
 	if (enableSound)
 	{
 		if (SDL_OpenAudio(&desired, NULL) < 0)

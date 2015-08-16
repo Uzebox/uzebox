@@ -285,7 +285,7 @@ struct avr8
 		fullscreen(false),inset(0),
 
 		/*Audio*/
-		audioRing(16384),enableSound(true),
+		audioRing(1024),enableSound(true),
 
 		/*Joystick*/
 		joystickFile(0),pad_mode(SNES_PAD), new_input_mode(false),
