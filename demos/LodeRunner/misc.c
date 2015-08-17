@@ -310,7 +310,7 @@ void scrollBg(){
 }
 
 
-u8 miniMapColors[] PROGMEM={1,47,47,0xff,0xff,47,1,63,1,1, //completed colors
+const u8 miniMapColors[] PROGMEM={1,47,47,0xff,0xff,47,1,63,1,1, //completed colors
 							0,0x52,0x52,0xff,0xff,0x52,0,0xf6,0,0};
 
 void blitLevelPreview(u8 level){
@@ -332,7 +332,7 @@ void blitLevelPreview(u8 level){
 	}
 
 	if(saveGame.completedLevels[level/8]&(1<<(level%8))){
-		sprites[10].x=(18*TILE_WIDTH)-3;
+		sprites[10].x=(17*TILE_WIDTH)-3;
 	}else{
 		sprites[10].x=SCREEN_TILES_H*TILE_WIDTH;
 	}
@@ -552,7 +552,7 @@ void GameTitle(){
 		Fill(0,7-anim,SCREEN_TILES_H,1,3);
 		Fill(0,8+anim,SCREEN_TILES_H,1,3);
 
-		tx=12;ty=8;
+		tx=11;ty=8;
 		if(anim==1){
 			for(i=0;i<8;i++){
 				sprites[i].x=(i+tx)*8;
@@ -571,14 +571,14 @@ void GameTitle(){
 	}
 
     SetUserRamTilesCount(9);
-	vram[(SCREEN_TILES_H*5)+14]=1;//RAM_TILES_COUNT-9;
-	vram[(SCREEN_TILES_H*5)+15]=2;//RAM_TILES_COUNT-8;
-	vram[(SCREEN_TILES_H*5)+16]=3;//RAM_TILES_COUNT-7;
-	vram[(SCREEN_TILES_H*5)+17]=4;//RAM_TILES_COUNT-6;
-	vram[(SCREEN_TILES_H*6)+14]=5;//RAM_TILES_COUNT-5;
-	vram[(SCREEN_TILES_H*6)+15]=6;//RAM_TILES_COUNT-4;
-	vram[(SCREEN_TILES_H*6)+16]=7;//RAM_TILES_COUNT-3;
-	vram[(SCREEN_TILES_H*6)+17]=8;//RAM_TILES_COUNT-2;
+	vram[(SCREEN_TILES_H*5)+tx+2]=1;//RAM_TILES_COUNT-9;
+	vram[(SCREEN_TILES_H*5)+tx+3]=2;//RAM_TILES_COUNT-8;
+	vram[(SCREEN_TILES_H*5)+tx+4]=3;//RAM_TILES_COUNT-7;
+	vram[(SCREEN_TILES_H*5)+tx+5]=4;//RAM_TILES_COUNT-6;
+	vram[(SCREEN_TILES_H*6)+tx+2]=5;//RAM_TILES_COUNT-5;
+	vram[(SCREEN_TILES_H*6)+tx+3]=6;//RAM_TILES_COUNT-4;
+	vram[(SCREEN_TILES_H*6)+tx+4]=7;//RAM_TILES_COUNT-3;
+	vram[(SCREEN_TILES_H*6)+tx+5]=8;//RAM_TILES_COUNT-2;
 	blitLevelPreview(game.level);
 
 	u16 lastKey=0,key=0,repeatDelay=0,hold=0,speed;
@@ -691,9 +691,9 @@ void PrintByte2(int x,int y, unsigned char val){
 	for(i=0;i<2;i++){
 		c=val%10;
 		if(val>0 || i==0){
-			SetFont(x--,y,c+CHAR_ZERO+RAM_TILES_COUNT);
+			SetFont(x--,y,c+CHAR_ZERO);
 		}else{
-			SetFont(x--,y,CHAR_ZERO+RAM_TILES_COUNT);
+			SetFont(x--,y,CHAR_ZERO);
 		}
 		val=val/10;
 	}

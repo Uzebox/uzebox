@@ -136,61 +136,55 @@
 		sts _SFR_MEM_ADDR(TIMSK1),ZL
 
 		;wait cycles to align with next hsync
-		WAIT r26,183
+		WAIT r26,183+241
 
-		;**********************
-		; This block updates the ram_tiles_restore buffer
-		; with the actual VRAM. This is required because since the time
-		; the process_sprite is executed at VSYNC, the main program may 
-		; have altered the vram and wrong/old bakground tiles could
-		; be restored.
-		;***********************
+		;Refresh ramtiles indexes in VRAM
+		;This has to be done because the main
+		;program may have altered the VRAM
+		;after vsync and the rendering interrupt.
+		lds r16,userRamTilesCount
 
-		;Set ramtiles indexes in VRAM 
 		ldi ZL,lo8(ram_tiles_restore);
 		ldi ZH,hi8(ram_tiles_restore);
+		ldi r18,3
+		mul r16,r18
+		add ZL,r0
+		adc ZH,r1
 
 		ldi YL,lo8(vram)
 		ldi YH,hi8(vram)
 
 		lds r18,free_tile_index
+		ldi r19,MAX_RAMTILES		;maximum possible ramtiles
+		sub r19,r18					;sub free tile
+		add r19,r16					;add user tiles
 
+		cp r18,r16
+		breq no_ramtiles
+		nop
+		nop
+upd_loop:
+		ld XL,Z+	;load vram offset of ramtile
+		ld XH,Z+
 
-		clr r16
-	upd_loop:	
-		ldd XL,Z+0
-		ldd XH,Z+1
-	
-		add XL,YL
-		adc XH,YH
-
-		ld r17,X	;currbgtile
-		std Z+2,r17
-
-		cp r16,r18
-		brsh noov
-		mov r17,r16
-	noov:
-		st X,r17
-	
-		adiw ZL,3 ;sizeof(ram_tiles_restore)
+		ld r17,X	;get latest VRAM tile that may have been modified my
+		st Z+,r17	;the main program and store it in the restore buffer
+		st X,r16	;write the ramtile index back to vram
 
 		inc r16
-		cpi r16,RAM_TILES_COUNT
-		brlo upd_loop ;23
+		cp r16,r18
+		brlo upd_loop ;loop is 14 cycles
 
+no_ramtiles:
+		;wait for remaining maximum possible ramtiles
+1:
+		ldi r17,3
+		dec r17
+		brne .-4
+		rjmp .
+		dec r19
+		brne 1b
 
-		;align in time with maximum numbers of ramtile possible
-	#if RAM_TILES_COUNT == 0 
-		ldi r16,51-RAM_TILES_COUNT 
-	#else
-		ldi r16,52-RAM_TILES_COUNT 
-	#endif
-	wait_loop:	
-		WAIT r17,18		;wait same as previous upd_loop
-		dec r16
-		brne wait_loop
-		nop
 
 
 		;**********************
@@ -695,8 +689,7 @@
 	sub_video_mode3:
 
 		;wait cycles to align with next hsync
-		WAIT r16,30-3+340+98
-
+		WAIT r16,465 //30-3+340+98
 
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
@@ -721,9 +714,6 @@
 
 		cp r18,r16
 		breq no_ramtiles
-		;nop
-		;clr 16
-		;lds r16,userRamTilesCount
 		nop
 		nop
 upd_loop:
@@ -749,113 +739,6 @@ no_ramtiles:
 		brne 1b
 
 
-/*
-		;Set ramtiles indexes in VRAM 
-		lds r16,userRamTilesCount
-		
-		ldi ZL,lo8(ram_tiles_restore);
-		ldi ZH,hi8(ram_tiles_restore);
-		ldi r18,3	;sizeof(ram_tiles_restore)
-		mul r16,r18
-		add ZL,r0
-		adc ZH,r1
-
-		ldi YL,lo8(vram)
-		ldi YH,hi8(vram)
-
-		lds r18,free_tile_index
-
-	upd_loop:
-		ldd XL,Z+0
-		ldd XH,Z+1
-
-		add XL,YL
-		adc XH,YH
-
-		ld r17,X	;currbgtile
-		std Z+2,r17
-
-		cp r16,r18
-		brsh noov
-		mov r17,r16
-	noov:
-		st X,r17
-
-		adiw ZL,3 ;sizeof(ram_tiles_restore)
-
-		inc r16
-		cpi r16,RAM_TILES_COUNT
-		brlo upd_loop ;23
-
-
-	#if RAM_TILES_COUNT == 0
-		ldi r16,60-RAM_TILES_COUNT
-	#else
-		ldi r16,61-RAM_TILES_COUNT
-	#endif
-		lds r17,userRamTilesCount
-		add r16,r17
-	wait_loop:
-
-		ldi r17,6
-		dec r17
-		brne .-4
-
-		dec r16
-		brne wait_loop
-*/
-/*
-
-		;Set ramtiles indexes in VRAM
-		ldi ZL,lo8(ram_tiles_restore);
-		ldi ZH,hi8(ram_tiles_restore);
-
-		ldi YL,lo8(vram)
-		ldi YH,hi8(vram)
-
-		lds r18,free_tile_index
-
-
-		clr r16
-	upd_loop:	
-		ldd XL,Z+0
-		ldd XH,Z+1
-	
-		add XL,YL
-		adc XH,YH
-
-		ld r17,X	;currbgtile
-		std Z+2,r17
-
-		cp r16,r18
-		brsh noov
-		mov r17,r16
-	noov:
-		st X,r17
-	
-		adiw ZL,3 ;sizeof(ram_tiles_restore)
-
-		inc r16
-		cpi r16,RAM_TILES_COUNT
-		brlo upd_loop ;23
-
-
-	#if RAM_TILES_COUNT == 0 
-		ldi r16,60-RAM_TILES_COUNT 
-	#else
-		ldi r16,61-RAM_TILES_COUNT 
-	#endif
-
-	wait_loop:
-	
-		ldi r17,6
-		dec r17
-		brne .-4
-
-		dec r16
-		brne wait_loop
-
-*/
 		lds r2,overlay_tile_table
 		lds r3,overlay_tile_table+1
 		lds r16,tile_table_lo 

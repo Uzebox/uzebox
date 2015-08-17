@@ -785,7 +785,7 @@ void ProcessMusic(void){
 			while(track->patchCurrDeltaTime==track->patchNextDeltaTime){
 
 				c1=pgm_read_byte(track->patchCommandStreamPos++);
-				if(c1==0xff){
+				if(c1==PATCH_END){
 					//end of stream!
 					track->flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
 					track->patchCommandStreamPos=NULL;

@@ -38,7 +38,7 @@ struct SpriteStruct
 };			
 
 struct BgRestoreStruct{
-	u16 addr;
+	u8* addr;
 	u8 tileIndex;
 };
 

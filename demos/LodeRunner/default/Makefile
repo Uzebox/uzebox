@@ -25,18 +25,20 @@ CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunc
 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
+#CFLAGS+= -gstrict-dwarf
 
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
 ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
+#ASMFLAGS+=-Wa,-gstrict-dwarf
 
 ## Linker flags
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=$(GAME).map 
 LDFLAGS += -Wl,-gc-sections 
-
+LDFLAGS += -T $(KERNEL_DIR)/uzebox_linkscript.x
 
 ## Intel Hex file production flags
 HEX_FLASH_FLAGS = -R .eeprom

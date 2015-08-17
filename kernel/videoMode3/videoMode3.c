@@ -50,7 +50,8 @@
 	void RestoreBackground(){
 		unsigned char i;
 		for(i=userRamTilesCount;i<free_tile_index;i++){
-			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+			//vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+			*ram_tiles_restore[i].addr=ram_tiles_restore[i].tileIndex;
 		}	
 	}
 
@@ -226,7 +227,7 @@
 									//tile is a user ram tile. Copy it to next free RAM tile.
 									CopyRamTileToRam(bt,free_tile_index);
 								}
-								ram_tiles_restore[free_tile_index].addr=ramPtr;
+								ram_tiles_restore[free_tile_index].addr=(&vram[ramPtr]);
 								ram_tiles_restore[free_tile_index].tileIndex=bt;
 								vram[ramPtr]=free_tile_index;
 								bt=free_tile_index;
