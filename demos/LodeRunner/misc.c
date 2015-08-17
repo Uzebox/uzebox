@@ -286,10 +286,10 @@ void VRamFill(int x,int y,int width,int height,u8 tile){
 
 void scrollBg(){
 	static s8 sx=3,sy=0;
-	u8 pix,i=0;//(getUserRamTilesCount()-1)*TILE_WIDTH*TILE_HEIGHT;
+	u8 pix,i=0;
 	s8 offsetX=sx,offsetY=sy;
 
-	u8* userRamTiles=GetUserRamTiles();//getUserRamTilesPtr()+((getUserRamTilesCount()-1)*TILE_WIDTH*TILE_HEIGHT);
+	u8* userRamTiles=GetUserRamTile(0);
 
 	const char* tile=&lode_tileset[13*(TILE_WIDTH*TILE_HEIGHT)];
 	for(u8 y=0;y<TILE_HEIGHT;y++){
@@ -319,7 +319,7 @@ void blitLevelPreview(u8 level){
 	u8 x,y,col,tile=0,offset;
 
 	const char* map=&levels[level*LEVEL_SIZE];
-	u8* userRamTiles=GetUserRamTiles()+(1*TILE_WIDTH*TILE_HEIGHT);
+	u8* userRamTiles=GetUserRamTile(1);
 
 
 	sprites[10].tileIndex=SPR_CHECKMARK; //checkmark sprite

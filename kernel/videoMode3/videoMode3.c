@@ -59,8 +59,8 @@
 		userRamTilesCount_tmp=count;		
 	}
 
-	u8* GetUserRamTiles(){
-		return ram_tiles;
+	u8* GetUserRamTile(u8 index){
+		return ram_tiles+(index*TILE_HEIGHT*TILE_WIDTH);
 	}
 
 	void SetSpriteVisibility(bool visible){
