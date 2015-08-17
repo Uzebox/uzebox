@@ -1035,13 +1035,12 @@ CopyFlashTileToRam:
 	add XL,r0
 	adc XH,r1
 
-	clr r1
 	;copy data (fastest possible)
 .rept TILE_HEIGHT*TILE_WIDTH
 	lpm r1,Z+
 	st X+,r1
 .endr
-
+	clr r1
 	ret
 
 ;***********************************
@@ -1068,13 +1067,12 @@ CopyRamTileToRam:
 	add XL,r0
 	adc XH,r1
 
-	clr r1
 	;copy data (fastest possible)
 .rept TILE_HEIGHT*TILE_WIDTH
 	ld r1,Z+
 	st X+,r1
 .endr
-
+	clr r1
 	ret
 
 
