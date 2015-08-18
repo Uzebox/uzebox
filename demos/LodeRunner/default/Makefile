@@ -1,10 +1,10 @@
-###############################################################################
-# Makefile for the project SpriteDemo
-###############################################################################
+###########################
+# Makefile for the project 
+###########################
 
 ## General Flags
-PROJECT = loderunner
-GAME= loderunner
+PROJECT = LodeRunner
+GAME= LodeRunner
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
@@ -87,7 +87,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../loderunner.c
+$(GAME).o: ../LodeRunner.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
