@@ -34,7 +34,7 @@ u8 findPath(u8 id,u8 srcX, u8 srcY, u8 destX, u8 destY, s8 dir);
 s16 findLadderDownOnPath(u8 x,u8 y, s8 dir);
 s16 findLadderUpOnPath(u8 x,u8 y, s8 dir);
 
-s16 findPathTo(u8 id,u8 srcX, u8 srcY, u8 destX, s8 dir);
+s16 findPathTo(u8 srcX, u8 srcY, u8 destX, s8 dir);
 s16 findCliffOnPath(u8 x,u8 y, s8 dir);
 
 #define AI_NO_PATH				0
@@ -142,7 +142,7 @@ u8 findPath(u8 id,u8 srcX, u8 srcY, u8 destX, u8 destY, s8 dir){
 
 	//check if target is at same altitude and right ahead 
 	if(srcY==destY){
-		if(findPathTo(id,srcX,srcY,destX,dir)!=-1) return AI_ACTION_MOVE;
+		if(findPathTo(srcX,srcY,destX,dir)!=-1) return AI_ACTION_MOVE;
 
 		//try to go up
 		loc=findLadderUpOnPath(srcX,srcY,dir);
@@ -212,12 +212,13 @@ u8 findPath(u8 id,u8 srcX, u8 srcY, u8 destX, u8 destY, s8 dir){
 
 		//if on rope, check if we can reach the player by falling
 		if(player[id].action==ACTION_CLING){
-			u8 y=destY,c;		
+			u8 y=destY;
+			s8 c;
 
 			while(y<FIELD_HEIGHT*TILE_HEIGHT){
 				if(IsTileSolid( GetTileAtFeet(srcX,y+TILE_HEIGHT),id)){
 					if(y==destY){
-						c=findPathTo(id,srcX,y,destX,player[id].dir);
+						c=findPathTo(srcX,y,destX,player[id].dir);
 						if(c!=-1){
 							if((srcX>>3)==(destX>>3)){// && !IsTileSolid(GetTileAt(srcX,srcY+1))){
 								player[id].aiTarget=0;
@@ -226,7 +227,7 @@ u8 findPath(u8 id,u8 srcX, u8 srcY, u8 destX, u8 destY, s8 dir){
 								return AI_ACTION_MOVE;
 							}
 						}else{
-							c=findPathTo(id,srcX,y,destX,-player[id].dir);
+							c=findPathTo(srcX,y,destX,-player[id].dir);
 							if(c!=-1){
 								player[id].dir=-player[id].dir;
 								player[id].aiTarget=0;
@@ -354,7 +355,7 @@ s16 findCliffOnPath(u8 x,u8 y, s8 dir){
 }
 
 
-s16 findPathTo(u8 id,u8 srcX, u8 srcY, u8 destX, s8 dir){
+s16 findPathTo(u8 srcX, u8 srcY, u8 destX, s8 dir){
 
 	u8 tile,tileUnder;
 	srcX&=0xf8;

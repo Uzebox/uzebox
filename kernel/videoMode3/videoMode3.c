@@ -40,8 +40,6 @@
 	extern unsigned char *tile_table_lo;
 	extern struct BgRestoreStruct ram_tiles_restore[];
 
-	extern void CopyFlashTileToRam(unsigned char romTile,unsigned char ramTile);
-//	extern void CopyRamTileToRam(unsigned char romTile,unsigned char ramTile);
 	extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
 
 	unsigned char free_tile_index, userRamTilesCount=0,userRamTilesCount_tmp=0;
@@ -222,10 +220,10 @@
 							if( ((bt>=RAM_TILES_COUNT) | (bt<userRamTilesCount)) && (free_tile_index < RAM_TILES_COUNT) ){ //if no ram free ignore tile
 								if( bt>=RAM_TILES_COUNT ){
 									//tile is mapped to flash. Copy it to next free RAM tile.
-									CopyFlashTileToRam(bt,free_tile_index);
+									CopyFlashTile(bt-RAM_TILES_COUNT,free_tile_index);
 								}else if(bt<userRamTilesCount){
 									//tile is a user ram tile. Copy it to next free RAM tile.
-									CopyRamTileToRam(bt,free_tile_index);
+									CopyRamTile(bt,free_tile_index);
 								}
 								ram_tiles_restore[free_tile_index].addr=(&vram[ramPtr]);
 								ram_tiles_restore[free_tile_index].tileIndex=bt;

@@ -40,8 +40,8 @@
 .global sprites_tile_banks
 .global Screen
 .global SetSpritesTileTable
-.global CopyFlashTileToRam
-.global CopyRamTileToRam
+.global CopyFlashTile
+.global CopyRamTile
 .global SetSpritesTileBank
 .global SetTile
 .global ClearVram
@@ -1016,14 +1016,12 @@ no_ramtiles:
 ; r24=Source ROM tile index
 ; r22=Dest RAM tile index
 ;************************************
-CopyFlashTileToRam:
+CopyFlashTile:
 	ldi r18,TILE_HEIGHT*TILE_WIDTH
 
 	;compute source adress
 	lds ZL,tile_table_lo
 	lds ZH,tile_table_hi
-	;andi r24,0x7f
-	subi r24,RAM_TILES_COUNT
 	mul r24,r18
 	add ZL,r0
 	adc ZH,r1
@@ -1049,7 +1047,7 @@ CopyFlashTileToRam:
 ; r24=Source RAM tile index
 ; r22=Dest RAM tile index
 ;************************************
-CopyRamTileToRam:
+CopyRamTile:
 
 	ldi r18,TILE_HEIGHT*TILE_WIDTH
 
@@ -1656,6 +1654,7 @@ SetTile:
 	ret
 
 #endif
+
 
 ;***********************************
 ; SET FONT Index

@@ -119,7 +119,7 @@ int main()
 
     loadEeprom();
 
-	//Logo();
+	Logo();
 
     game.level=0;
 	while(1){
