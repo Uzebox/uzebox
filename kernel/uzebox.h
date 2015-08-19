@@ -159,6 +159,7 @@
 	extern void WaitUs(unsigned int microseconds);
 	extern void SoftReset(void);
 	extern bool IsRunningInEmulator(void);
+	extern bool IsPowerSwitchPressed();
 
 	extern void SetUserPreVsyncCallback(VsyncCallBackFunc);
 	extern void SetUserPostVsyncCallback(VsyncCallBackFunc);

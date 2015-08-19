@@ -647,12 +647,14 @@ bool isEepromFormatted(){
 }
 
 /*
- * Reads the power button status. Works for all consoles. 
+ * Reads the power button status. 
  *
  * Returns: true if pressed.
  */
-u8 ReadPowerSwitch(){
-	return !((PIND&((1<<PD3)+(1<<PD2)))==((1<<PD3)+(1<<PD2)));
+bool IsPowerSwitchPressed(){
+	
+	return 	((PIND & ((1<<PD3)|(1<<PD2))) != ((1<<PD3)|(1<<PD2)));
+	
 }
 
 /*

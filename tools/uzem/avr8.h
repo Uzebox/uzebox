@@ -304,7 +304,7 @@ struct avr8
 		memset(eeprom, 0, sizeof(eeprom));
 		memset(progmem,0,progSize);
 
-		PIND = 8;
+		PIND = 0b00001100;		//set soft power switch to up (pullup) (both avcore and uzebox)
 		SPL = (SRAMBASE+sramSize-1) & 0x00ff;
 		SPH = (SRAMBASE+sramSize-1) >> 8;
         spiTransfer = 0;

@@ -107,13 +107,9 @@ int main()
 
    SetFontTable(fonts);  // this tells Print___() commands what font to use
    ClearVram();          // clears out display memory (like a 'clear screen')
-
-  //DDRD &= 0xF7; // These are used by the "power" switch and LED on the "Gamer" baseboard that 
-  //PORTD|= 0x08; // is paired with the AVCore.  The 'power' button is used to switch mazes for now.
-  
-  
-
-
+   
+   srand(GetTrueRandomSeed());    		//randomize using the entropy generator
+   
 
 new_maze:
   for(ay=0; ay<Y_SIZE; ay++) 
@@ -179,8 +175,9 @@ new_maze:
  // For a real game, you probably don't want to do this, but it works here and is simple...
  
  //while(PIND&0x04)       // if the button on the Gamer Baseboard isn't pressed
- while(ReadPowerSwitch()==0) // if the button on the Gamer Baseboard isn't pressed
- {z++;                  // the z counter is used later on for a seed for the random number generator (user interaction = randomness)
+ while(!IsPowerSwitchPressed()) // if the button on the Gamer Baseboard isn't pressed
+ {
+ z++;                  // the z counter is used later on for a seed for the random number generator (user interaction = randomness)
  joypad=ReadJoypad(0);  // get the joypad state
 
  WaitVsync(1);          // this waits a frame and essentially slows the gameplay down
@@ -218,8 +215,6 @@ new_maze:
 	// check for idle time                     // use the frame counter to make the player graphic change if you wait around. ;-)
 	}
 
-	srand(z);    // our player-influenced 'z' value is now used to reseed the random number generator, resulting in a 'new' maze
- 
 	redraw();    // redraw the screen to update new player position
  }
 
