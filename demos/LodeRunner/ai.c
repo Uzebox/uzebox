@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
-#include "loderunner.h"
+#include "LodeRunner.h"
 
 extern Game game;
 extern Player player[];

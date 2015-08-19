@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
-#include "loderunner.h"
+#include "LodeRunner.h"
 
 #define CHAR_ZERO 16
 #define USER_RAM_TILES 20
