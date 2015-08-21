@@ -783,6 +783,15 @@ internal_spi_byte:
 		ldi r24,0
 		sts sync_pulse,r24
 
+
+		sts _SFR_MEM_ADDR(TIMSK1),r24
+		sts _SFR_MEM_ADDR(OCR1AL),r24
+		sts _SFR_MEM_ADDR(OCR1AH),r24
+		sts _SFR_MEM_ADDR(OCR1BL),r24
+		sts _SFR_MEM_ADDR(OCR1BH),r24
+		sts _SFR_MEM_ADDR(TCNT1H),r24
+		sts _SFR_MEM_ADDR(TCNT1L),r24
+		
 		sts _SFR_MEM_ADDR(TCCR1A),r24	
 		ldi 24,(1<<CS10)
 		sts _SFR_MEM_ADDR(TCCR1B),r24
