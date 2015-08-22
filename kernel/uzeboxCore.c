@@ -42,7 +42,7 @@ char EepromBlockExistsInternal(unsigned int blockId, u16* eepromAddr, u8* nextFr
 extern unsigned char sync_phase;
 extern unsigned char sync_pulse;
 extern unsigned char sync_flags;
-extern struct TrackStruct tracks[CHANNELS];
+extern Track tracks[CHANNELS];
 extern volatile unsigned int joypad1_status_lo,joypad2_status_lo;
 extern volatile unsigned int joypad1_status_hi,joypad2_status_hi;
 extern unsigned char render_lines_count;
@@ -647,12 +647,14 @@ bool isEepromFormatted(){
 }
 
 /*
- * Reads the power button status. Works for all consoles. 
+ * Reads the power button status. 
  *
  * Returns: true if pressed.
  */
-u8 ReadPowerSwitch(){
-	return !((PIND&((1<<PD3)+(1<<PD2)))==((1<<PD3)+(1<<PD2)));
+bool IsPowerSwitchPressed(){
+	
+	return 	((PIND & ((1<<PD3)|(1<<PD2))) != ((1<<PD3)|(1<<PD2)));
+	
 }
 
 /*

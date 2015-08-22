@@ -86,6 +86,17 @@ void showHelp(char* programName){
     printerr("\t--loadcap -l        Load and replays controllers data from file.\n");
 }
 
+char *strlwr(char *str)
+{
+  size_t i;
+  size_t len = strlen(str);
+
+  for(i=0; i<len; i++)
+    str[i]=tolower((unsigned char)str[i]);
+
+  return str;
+}
+
 int ends_with(const char* name, const char* extension, size_t length)
 {
  const char* ldot = strrchr(name, '.');

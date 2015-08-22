@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
-#include "loderunner.h"
+#include "LodeRunner.h"
 
 #include "data/levelMaps.inc"
 #include "data/tiles.inc"
@@ -137,7 +137,7 @@ int main()
 
 
 		SetSpriteVisibility(true);
-		setUserRamTilesCount(1);
+		SetUserRamTilesCount(1);
 		do{
 
 			for(u8 i=0;i<ANIMATION_SLOTS_COUNT;i++){
@@ -383,6 +383,7 @@ void ProcessPlayer(u8 id){
 					game.goldCollected++;
 					SetTile(game.gold[i].x,game.gold[i].y,TILE_BG);
 					TriggerFx(0,SFX_VOLUME,false);
+					UpdateInfo();
 				}
 			}
 		}
@@ -807,7 +808,7 @@ void Fall(u8 id){
 
 
 void Climb(u8 id,s8 dir){
-	u8 x,y;//tileUnder,tileAtHead,tileAtFeet;
+	u8 y;//tileUnder,tileAtHead,tileAtFeet;
 
 	if(player[id].lastAction!=ACTION_CLIMB){
 		player[id].frame=0;
@@ -821,7 +822,7 @@ void Climb(u8 id,s8 dir){
 	player[id].action=ACTION_CLIMB;
 	player[id].dir=dir;
 
-	x=player[id].x>>8;
+//	x=player[id].x>>8;
 	y=player[id].y>>8;
 
 

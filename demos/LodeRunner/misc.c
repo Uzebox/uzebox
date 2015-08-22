@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
-#include "loderunner.h"
+#include "LodeRunner.h"
 
 #define CHAR_ZERO 16
 #define USER_RAM_TILES 20
@@ -64,9 +64,9 @@ void saveEeprom(){
 }
 
 //in tiles, not pixels
-u8 GetTile(u8 x,u8 y){
-	return vram[(y*VRAM_TILES_H)+x]-RAM_TILES_COUNT;
-}
+//u8 GetTile(u8 x,u8 y){
+//	return vram[(y*VRAM_TILES_H)+x]-RAM_TILES_COUNT;
+//}
 
 u8 GetTileOnSide(u8 x,u8 y,s8 dir){
 	s8 disp=(dir==DIR_LEFT)?0:7;
@@ -272,8 +272,8 @@ const u8 titleSpr[] PROGMEM={0,0, 1,0, 2,0, 5,0, 6,0, 7,0, 10,0, 11,0, 12,0, 13,
 							 0,2, 9,2, 23,2,
 							 7,5, 17,5};
 
-//fill a region with the specified tile from the tile table
-void RamFill(int x,int y,int width,int height,u8 tile){
+//fill a VRAM region with the specified tile index
+void VRamFill(int x,int y,int width,int height,u8 tile){
 	int cx,cy;
 
 	for(cy=0;cy<height;cy++){
@@ -286,10 +286,10 @@ void RamFill(int x,int y,int width,int height,u8 tile){
 
 void scrollBg(){
 	static s8 sx=3,sy=0;
-	u8 pix,i=0;//(getUserRamTilesCount()-1)*TILE_WIDTH*TILE_HEIGHT;
+	u8 pix,i=0;
 	s8 offsetX=sx,offsetY=sy;
 
-	u8* userRamTiles=getUserRamTilesPtr()+((getUserRamTilesCount()-1)*TILE_WIDTH*TILE_HEIGHT);
+	u8* userRamTiles=GetUserRamTile(0);
 
 	const char* tile=&lode_tileset[13*(TILE_WIDTH*TILE_HEIGHT)];
 	for(u8 y=0;y<TILE_HEIGHT;y++){
@@ -310,7 +310,7 @@ void scrollBg(){
 }
 
 
-u8 miniMapColors[] PROGMEM={1,47,47,0xff,0xff,47,1,63,1,1, //completed colors
+const u8 miniMapColors[] PROGMEM={1,47,47,0xff,0xff,47,1,63,1,1, //completed colors
 							0,0x52,0x52,0xff,0xff,0x52,0,0xf6,0,0};
 
 void blitLevelPreview(u8 level){
@@ -319,7 +319,7 @@ void blitLevelPreview(u8 level){
 	u8 x,y,col,tile=0,offset;
 
 	const char* map=&levels[level*LEVEL_SIZE];
-	u8* userRamTiles=getUserRamTilesPtr();
+	u8* userRamTiles=GetUserRamTile(1);
 
 
 	sprites[10].tileIndex=SPR_CHECKMARK; //checkmark sprite
@@ -332,7 +332,7 @@ void blitLevelPreview(u8 level){
 	}
 
 	if(saveGame.completedLevels[level/8]&(1<<(level%8))){
-		sprites[10].x=(18*TILE_WIDTH)-3;
+		sprites[10].x=(17*TILE_WIDTH)-3;
 	}else{
 		sprites[10].x=SCREEN_TILES_H*TILE_WIDTH;
 	}
@@ -369,7 +369,7 @@ void Credits(){
 
 	FadeOut(0,true);
 	ClearVram();
-	setUserRamTilesCount(1);
+	SetUserRamTilesCount(1);
     SetSpriteVisibility(true);
 	SetSpritesTileTable(sprites_title);
 	u8 tx=3,ty=0,x,y,i,wait=0;
@@ -424,11 +424,11 @@ void GameTitle(){
 
 	FadeIn(0,true);
 
-	setUserRamTilesCount(1);
-	u8 bgRamtileNo=RAM_TILES_COUNT-1;
+	SetUserRamTilesCount(1);
+	u8 bgRamtileNo=0;//RAM_TILES_COUNT-1;
 
 	//title screen
-	CopyTileToRam(13+RAM_TILES_COUNT,bgRamtileNo);//USER_RAM_TILES);
+//	CopyRamTileToRam(13+RAM_TILES_COUNT,bgRamtileNo);//USER_RAM_TILES);
 
 	u8 tx=3,ty=6,i,j,x,y;
 	const u8 *pos=titleSpr;
@@ -476,13 +476,13 @@ void GameTitle(){
 		if(anim<7){
 
 			if(anim>0){
-				RamFill(0,7-anim,SCREEN_TILES_H,1,bgRamtileNo);
-				RamFill(0,8+anim,SCREEN_TILES_H,1,bgRamtileNo);
+				VRamFill(0,7-anim,SCREEN_TILES_H,1,bgRamtileNo);
+				VRamFill(0,8+anim,SCREEN_TILES_H,1,bgRamtileNo);
 			}
 			if(anim==0){
-				RamFill(0,7,4,2,bgRamtileNo);
-				RamFill(26,7,4,2,bgRamtileNo);
-				RamFill(12,7,1,2,bgRamtileNo);
+				VRamFill(0,7,4,2,bgRamtileNo);
+				VRamFill(26,7,4,2,bgRamtileNo);
+				VRamFill(12,7,1,2,bgRamtileNo);
 				DrawMap2(tx+23,ty+1,title3);
 			}else if(anim==3){
 				DrawMap2(tx+8,ty+5,title4);
@@ -545,14 +545,14 @@ void GameTitle(){
 		WaitVsync(2);
 		scrollBg();
 
-		RamFill(0,7-anim,SCREEN_TILES_H,1,bgRamtileNo);
-		RamFill(0,8+anim,SCREEN_TILES_H,1,bgRamtileNo);
+		VRamFill(0,7-anim,SCREEN_TILES_H,1,bgRamtileNo);
+		VRamFill(0,8+anim,SCREEN_TILES_H,1,bgRamtileNo);
 		anim++;
 
 		Fill(0,7-anim,SCREEN_TILES_H,1,3);
 		Fill(0,8+anim,SCREEN_TILES_H,1,3);
 
-		tx=12;ty=8;
+		tx=11;ty=8;
 		if(anim==1){
 			for(i=0;i<8;i++){
 				sprites[i].x=(i+tx)*8;
@@ -570,15 +570,15 @@ void GameTitle(){
 		}
 	}
 
-    setUserRamTilesCount(9);
-	vram[(SCREEN_TILES_H*5)+14]=RAM_TILES_COUNT-9;
-	vram[(SCREEN_TILES_H*5)+15]=RAM_TILES_COUNT-8;
-	vram[(SCREEN_TILES_H*5)+16]=RAM_TILES_COUNT-7;
-	vram[(SCREEN_TILES_H*5)+17]=RAM_TILES_COUNT-6;
-	vram[(SCREEN_TILES_H*6)+14]=RAM_TILES_COUNT-5;
-	vram[(SCREEN_TILES_H*6)+15]=RAM_TILES_COUNT-4;
-	vram[(SCREEN_TILES_H*6)+16]=RAM_TILES_COUNT-3;
-	vram[(SCREEN_TILES_H*6)+17]=RAM_TILES_COUNT-2;
+    SetUserRamTilesCount(9);
+	vram[(SCREEN_TILES_H*5)+tx+2]=1;//RAM_TILES_COUNT-9;
+	vram[(SCREEN_TILES_H*5)+tx+3]=2;//RAM_TILES_COUNT-8;
+	vram[(SCREEN_TILES_H*5)+tx+4]=3;//RAM_TILES_COUNT-7;
+	vram[(SCREEN_TILES_H*5)+tx+5]=4;//RAM_TILES_COUNT-6;
+	vram[(SCREEN_TILES_H*6)+tx+2]=5;//RAM_TILES_COUNT-5;
+	vram[(SCREEN_TILES_H*6)+tx+3]=6;//RAM_TILES_COUNT-4;
+	vram[(SCREEN_TILES_H*6)+tx+4]=7;//RAM_TILES_COUNT-3;
+	vram[(SCREEN_TILES_H*6)+tx+5]=8;//RAM_TILES_COUNT-2;
 	blitLevelPreview(game.level);
 
 	u16 lastKey=0,key=0,repeatDelay=0,hold=0,speed;
@@ -691,9 +691,9 @@ void PrintByte2(int x,int y, unsigned char val){
 	for(i=0;i<2;i++){
 		c=val%10;
 		if(val>0 || i==0){
-			SetFont(x--,y,c+CHAR_ZERO+RAM_TILES_COUNT);
+			SetFont(x--,y,c+CHAR_ZERO);
 		}else{
-			SetFont(x--,y,CHAR_ZERO+RAM_TILES_COUNT);
+			SetFont(x--,y,CHAR_ZERO);
 		}
 		val=val/10;
 	}

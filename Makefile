@@ -37,6 +37,7 @@ DEMOS += Megatris
 DEMOS += Mode5Demo
 DEMOS += Mode9Demo
 DEMOS += MusicDemo 	
+DEMOS += LodeRunner
 DEMOS += SDCardDemo
 DEMOS += SpriteDemo	
 DEMOS += SuperMarioDemo

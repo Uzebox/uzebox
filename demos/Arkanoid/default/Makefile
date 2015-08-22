@@ -13,7 +13,7 @@ INFO=../gameinfo.properties
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
 KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSCROLLING=0
-KERNEL_OPTIONS += -DMIXER_WAVES=\"$(realpath ../data/arkanoid_sounds.inc)\" -DMAX_SPRITES=20 -DRAM_TILES_COUNT=28 -DVRAM_TILES_V=29
+KERNEL_OPTIONS += -DMIXER_WAVES=\"$(realpath ../data/arkanoid_sounds.inc)\" -DMAX_SPRITES=20 -DRAM_TILES_COUNT=36 -DVRAM_TILES_V=29
 KERNEL_OPTIONS += -DSOUND_MIXER=1
 
 ## Options common to compile, link and assembly rules

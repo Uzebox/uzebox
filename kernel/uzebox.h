@@ -159,6 +159,7 @@
 	extern void WaitUs(unsigned int microseconds);
 	extern void SoftReset(void);
 	extern bool IsRunningInEmulator(void);
+	extern bool IsPowerSwitchPressed();
 
 	extern void SetUserPreVsyncCallback(VsyncCallBackFunc);
 	extern void SetUserPostVsyncCallback(VsyncCallBackFunc);
@@ -186,7 +187,7 @@
 	/*
 	 * Deprecated functions
 	 */
-	 extern void DrawMap2(unsigned char x,unsigned char y,const char *map) __attribute__ ((deprecated)); // Use generalized DrawMap() function
+	 extern void DrawMap2(unsigned char x,unsigned char y,const char *map); // Use generalized DrawMap() function
 
 
 #endif

@@ -788,7 +788,7 @@ internal_spi_byte:
 		sts _SFR_MEM_ADDR(TCCR1B),r24
 
 		cli
-		wdr
+
 		;enable watchdog at fastest speed and generate interrupts
 		ldi r24,0
 		sts _SFR_MEM_ADDR(MCUSR),r24	
@@ -831,8 +831,6 @@ internal_spi_byte:
 		;save flags & status register
 		push r16
 		push r17
-	
-		wdr
 
 		in r16,_SFR_IO_ADDR(SREG)
 		push r16

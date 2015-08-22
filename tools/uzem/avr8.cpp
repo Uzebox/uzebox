@@ -554,7 +554,9 @@ u8 avr8::read_io(u8 addr)
 		return TEMP;
     }
 	else
+	{
 		return io[addr];
+	}
 }
 
 
@@ -1523,7 +1525,7 @@ void avr8::handle_key_down(SDL_Event &ev)
 				SDL_SaveBMP(screen,ssbuf);
 				break;
 			case SDLK_0:
-				PIND = PIND & ~8;
+				PIND = PIND & ~0b00001100;
 				break;
 			case SDLK_F1:
 				puts("1/2 - Adjust left edge lock");
@@ -1533,7 +1535,7 @@ void avr8::handle_key_down(SDL_Event &ev)
 				puts(" 7  - Re-map joystick");
 				puts(" F1 - This help text");
 				puts("Esc - Quit emulator");
-				puts(" 0  - AVCORE Baseboard power switch");
+				puts(" 0  - Soft Power switch");
 				puts("");
 				puts("            Up Down Left Right A B X Y Start Sel LShldr RShldr");
 				puts("NES:        ----arrow keys---- a s     Enter Tab              ");
@@ -1562,8 +1564,8 @@ void avr8::handle_key_up(SDL_Event &ev)
 	}
 
 	update_buttons(ev.key.keysym.sym,false);
-	if (ev.key.keysym.sym == SDLK_p)
-		PIND |= 8;
+	if (ev.key.keysym.sym == SDLK_0)
+		PIND |= 0b00001100;		//return soft power switch to normal (pullup)
 }
 
 struct keymap { u16 key; u8 player, bit; };
