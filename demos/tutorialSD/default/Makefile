@@ -12,8 +12,8 @@ INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=1 -DINTRO_LOGO=0 -DTILE_HEIGHT=12
-
+KERNEL_OPTIONS  = -DVIDEO_MODE=5 -DINTRO_LOGO=0 -DSOUND_CHANNEL_4_ENABLE=1 -DSOUND_CHANNEL_2_ENABLE=1 -DSOUND_CHANNEL_3_ENABLE=1 -DMIXER_CHAN4_TYPE=1
+KERNEL_OPTIONS += -DMAX_SPRITES=0 -DRAM_TILES_COUNT=0 -DENABLE_MIXER=1
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
@@ -45,7 +45,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o mmc.o mmcextra.o $(GAME).o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o mmc.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -74,9 +74,6 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 
 ## Compile game sources
 $(GAME).o: ../tutorial.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
-mmcextra.o: ../mmcextra.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 mmc.o: ../mmc.s
