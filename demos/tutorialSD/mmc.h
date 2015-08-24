@@ -30,26 +30,23 @@
 #define CMD_STOPTRANSMISSION 12
 
 
-extern uint8_t mmc_cue_sector_exact_position(uint32_t address);
-extern uint8_t mmc_cuesector(uint32_t lba);
-extern uint8_t mmc_stoptransmission(void);
-extern uint8_t mmc_readsector(uint32_t lba);
-extern uint8_t mmc_init(uint8_t *buffer);
-extern uint8_t mmc_init_no_buffer(void);
-extern void mmc_send_command(uint8_t command, uint16_t px, uint16_t py);
-extern uint8_t mmc_datatoken(void);
-extern uint8_t mmc_get(void);
-extern uint8_t spi_byte(uint8_t byte);
-extern uint8_t spibyte_ff(void);
-extern uint8_t mmc_get_byte(void);
-extern void mmc_clock_and_release(void);
 
-extern void mmcSkipBytes(uint16_t toSkip);
-extern char mmcGetChar(void);
-extern int  mmcGetInt(void);
-extern long mmcGetLong(void);
 
-extern long mmcFindFileFirstSector(const char *fileName);
-extern long mmcFindFileFirstSectorFlash(const char *fileName);
+extern void     sdDirectRead(uint8_t *dest, uint16_t count, uint8_t span, uint8_t run);
+extern long     sdFindFileFirstSector(const char *fileName);
+extern long     sdFindFileFirstSectorFlash(const char *fileName);
 
-extern void mmcDirectRead(uint8_t *dest, uint16_t count, uint8_t span, uint8_t run);
+extern void     sdCardSkipBytes(uint16_t toSkip);
+extern uint32_t sdCardGetLong(void);
+extern uint16_t sdCardGetInt(void);
+extern uint8_t  sdCardGetChar(void);
+extern uint8_t  sdCardGetByte(void);
+extern uint8_t  sdCardSendByteFF(void);
+extern void     sdCardSendByte(uint8_t toSend);
+extern void     sdCardAssertCS(void);
+extern void     sdCardDeassertCS(void);
+extern void     sdCardSendCommand(uint8_t command, uint16_t px, uint16_t py);
+extern uint8_t  sdCardInitNoBuffer(void);
+extern uint8_t  sdCardCueSectorAddress(uint32_t lba);
+extern uint8_t  sdCardCueByteAddress(uint32_t address);
+extern uint8_t  sdCardStopTransmission(void);

@@ -42,27 +42,20 @@ ClearVram();					//Clear the screen (fills the vram with tile zero)
 
 int sectorStart;
 
-mmc_init_no_buffer();
-sectorStart = mmcFindFileFirstSectorFlash(fileName);
-mmc_cuesector(sectorStart);
-
-/*
-for(u8 x=6;x<34;x++){
-	PrintChar(x,10,mmcGetChar());
-}
-*/
+sdCardInitNoBuffer();
+sectorStart = sdFindFileFirstSectorFlash(fileName);
+sdCardCueSectorAddress(sectorStart);
 
 
+sdDirectRead(&vram[COORD(0,0)], 28, 0, 1);    // HELLO WORLD
 
-mmcDirectRead(&vram[COORD(0,0)], 28, 0, 1);    // HELLO WORLD
+sdDirectRead(&vram[COORD(0,2)], 13, 39, 1);   // VERTICAL TEXT
 
-mmcDirectRead(&vram[COORD(0,2)], 13, 39, 1);   // VERTICAL TEXT
+sdDirectRead(&vram[COORD(3,2)], 13, 1, 1);    // DOUBLE SPACES
 
-mmcDirectRead(&vram[COORD(3,2)], 13, 1, 1);    // DOUBLE SPACES
+sdDirectRead(&vram[COORD(0,17)], 80, 39, 40); // DOUBLE LINE SPACING
 
-mmcDirectRead(&vram[COORD(0,17)], 80, 39, 40); // DOUBLE LINE SPACING
-
-mmcDirectRead(&vram[COORD(20,4)], 22, 38, 2);  // 16 BIT MODES
+sdDirectRead(&vram[COORD(20,4)], 22, 38, 2);  // 16 BIT MODES
 
 
 while(1);
