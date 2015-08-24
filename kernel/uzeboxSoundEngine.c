@@ -1011,6 +1011,7 @@ void TriggerFx(unsigned char patch,unsigned char volume,bool retrig){
 
 	Track* track=&tracks[channel];
 	track->flags=TRACK_FLAGS_PRIORITY; //priority=1;
+	track->patchCommandStreamPos = NULL;
 	TriggerCommon(track,patch,volume,80);
 	track->flags|=TRACK_FLAGS_PLAYING;
 }
@@ -1034,6 +1035,7 @@ void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,un
 		}else{
 		
 			track->flags=0;//&=(~TRACK_FLAGS_PRIORITY);// priority=0;
+			track->patchCommandStreamPos = NULL;
 			TriggerCommon(track,patch,volume,note);
 			track->flags|=TRACK_FLAGS_PLAYING;
 		}
