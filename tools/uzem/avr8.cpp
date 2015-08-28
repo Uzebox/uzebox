@@ -2216,11 +2216,12 @@ void avr8::update_spi(){
 
         case 0x4c: //CMD12 =  STOP_TRANSMISSION
             SPDR = 0x00;
-            spiState = SPI_RESPOND_SINGLE;
-            spiResponseBuffer[0] = 0x4; // card is in "trans" state
-            spiResponseBuffer[1] = 0xff; //ready
+           	spiState = SPI_RESPOND_SINGLE;
+           	spiResponseBuffer[0] = 0xff; //stuff byte
+           	spiResponseBuffer[1] = 0xff; //stuff byte
+           	spiResponseBuffer[2] = 0x00; // card is ready //in "trans" state
+           	spiResponseEnd = spiResponsePtr+3;
             spiResponsePtr = spiResponseBuffer;
-            spiResponseEnd = spiResponsePtr+2;
             spiByteCount = 0;
             break;
 
