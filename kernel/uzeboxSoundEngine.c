@@ -779,7 +779,7 @@ void ProcessMusic(void){
 		track=&tracks[trackNo];
 
 		//process patch command stream
-		if(track->patchCommandStreamPos!=NULL && ((track->flags & TRACK_FLAGS_HOLD_ENV)==0)){	//patchEnvelopeHold==false
+		if((track->flags & TRACK_FLAGS_PLAYING) && (track->patchCommandStreamPos!=NULL) && ((track->flags & TRACK_FLAGS_HOLD_ENV)==0)){
 
 			//process all simultaneous events
 			while(track->patchCurrDeltaTime==track->patchNextDeltaTime){
