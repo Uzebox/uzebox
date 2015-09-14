@@ -377,7 +377,7 @@ void avr8::write_io(u8 addr,u8 value)
 						if (mouse_buttons & SDL_BUTTON_LMASK)
 							buttons[0] &= ~(1<<9);
 						if (mouse_buttons & SDL_BUTTON_RMASK)
-							buttons[0] &= ~(1<<10);
+							buttons[0] &= ~(1<<8);
 						// keep mouse centered so it doesn't get stuck on edge of screen.
 						// ...and immediately consume the bogus motion event it generated.
 						if (fullscreen)
