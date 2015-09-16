@@ -12,17 +12,16 @@ INFO=../gameinfo.properties
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=1 -DINTRO_LOGO=0 
-#KERNEL_OPTIONS += -DSCREEN_SECTIONS_COUNT=9 -DINCLUDE_DEFAULT_WAVES=0 -DVRAM_TILES_V=39
-#KERNEL_OPTIONS += -DMIXER_CHAN4_TYPE=1
-KERNEL_OPTIONS += -DSOUND_MIXER=1
+KERNEL_OPTIONS  = -DVIDEO_MODE=2 -DINTRO_LOGO=2 -DMIXER_CHAN4_TYPE=1
+KERNEL_OPTIONS += -DSCREEN_SECTIONS_COUNT=9 -DINCLUDE_DEFAULT_WAVES=0 -DVRAM_TILES_V=39
+
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -g3 -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
@@ -30,7 +29,7 @@ CFLAGS += $(KERNEL_OPTIONS)
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
-ASMFLAGS += -x assembler-with-cpp -g3 -Wa,-gdwarf2
+ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
