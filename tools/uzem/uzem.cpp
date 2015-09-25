@@ -41,7 +41,7 @@ static const struct option longopts[] ={
     { "mouse"      , no_argument      , NULL, 'm' },
     { "2p"         , no_argument      , NULL, '2' },
     { "img"        , required_argument, NULL, 'g' },
-    { "mbr"        , no_argument      , NULL, 'r' },
+    { "record"     , no_argument      , NULL, 'r' },
     { "eeprom"     , required_argument, NULL, 'e' },
     { "pgm"        , required_argument, NULL, 'p' },
     { "boot"       , no_argument,       NULL, 'b' },
@@ -81,6 +81,7 @@ void showHelp(char* programName){
     printerr("\t--capture -c        Captures controllers data to file.\n");
     printerr("\t--loadcap -l        Load and replays controllers data from file.\n");
     printerr("\t--synchelp -z       Displays and logs information to help troubleshooting HSYNC timing issues.\n");
+    printerr("\t--record -r         Record a movie in mp4/720p(60fps) format. (ffmpeg executable must be in the same directory as uzem or system path)\n");
 }
 
 int ends_with(const char* name, const char* extension, size_t length)
@@ -146,7 +147,7 @@ int main(int argc,char **argv)
 			uzebox.pad_mode = avr8::SNES_PAD2;
             break;
         case 'r':
-            //TODO: implement MBR emulation option
+            uzebox.recordMovie=true;
             break;
         case 's':
             uzebox.SDpath = optarg;
@@ -245,10 +246,35 @@ int main(int argc,char **argv)
             }
         }
 
+    	//get rom name without extension
+    	char *pfile = heximage + strlen(heximage);
+		for (;; pfile--)
+		{
+			if ((*pfile == '\\') || (*pfile == '/') || pfile==heximage)
+			{
+				if(pfile!=heximage)pfile++; //skip the slash character
+
+				for(int i=0;i<256;i++){
+					if(*pfile=='.')	break;
+					uzebox.romName[i]=*pfile;
+					pfile++;
+				}
+				break;
+			}
+		}
 
 
-    	//get rom name without extension to build
-    	//the capture file name
+    	//build the capture file name
+		int len=strlen(uzebox.romName);
+		char capfname[len+4];
+		strcpy(capfname,uzebox.romName);
+		capfname[len+0]='.';
+		capfname[len+1]='c';
+		capfname[len+2]='a';
+		capfname[len+3]='p';
+		capfname[len+4]=0;
+
+		/*
 		char capfname[256];
     	char *pfile = heximage + strlen(heximage);
 		for (;; pfile--)
@@ -272,7 +298,7 @@ int main(int argc,char **argv)
 				break;
 			}
 		}
-
+		 */
 
         if(uzebox.captureMode==CAPTURE_READ)
         {

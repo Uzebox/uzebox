@@ -219,6 +219,9 @@ static u8 encode_delta(int d)
 u32 hsync_more_col;
 u32 hsync_less_col;
 
+FILE* avconv_video = NULL;
+FILE* avconv_audio = NULL;
+
 void avr8::spi_calculateClock(){
     // calculate the number of cycles before the write completes
     u16 spiClockDivider;
@@ -250,6 +253,10 @@ void avr8::write_io(u8 addr,u8 value)
 			SDL_LockAudio();
 			audioRing.push(value);
 			SDL_UnlockAudio();
+
+			//Send audio byte to ffmpeg
+			if(recordMovie && avconv_audio) fwrite(&value, 1, 1, avconv_audio);
+
 		}
 	}
 	else if (addr == ports::PORTD)
@@ -275,9 +282,11 @@ void avr8::write_io(u8 addr,u8 value)
 				if(scanline_count >= 0){
 
 					current_cycle = left_edge;
-
 					current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
-/*
+
+
+
+					/*
 					if(hsyncHelp){
 						if(prev_scanline!=NULL && elapsedCycles > HSYNC_PERIOD){
 
@@ -323,7 +332,9 @@ void avr8::write_io(u8 addr,u8 value)
 				{
 					if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 					SDL_Flip(screen);
-					//SDL_framerateDelay(&fpsmanager);
+
+					//Send video frame to ffmpeg
+					if (recordMovie && avconv_video) fwrite(screen->pixels, 640*480*4, 1, avconv_video);
 
 					SDL_Event event;
 					while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
@@ -360,6 +371,9 @@ void avr8::write_io(u8 addr,u8 value)
 						buttons[0]=captureData[capturePtr]+(captureData[capturePtr+1]<<8);
 						capturePtr+=2;
 						captureSize-=2;
+					}else if(captureMode==CAPTURE_READ && captureSize==0){
+						printf("Playback reached end of capture file.\n");
+						shutdown(0);
 					}
 
 
@@ -1627,16 +1641,16 @@ bool avr8::init_gui()
 	init_joysticks();
 
 	if (fullscreen)
-		screen = SDL_SetVideoMode(800,600,32,sdl_flags | SDL_FULLSCREEN);
+		screen = SDL_SetVideoMode(640,480,32,sdl_flags | SDL_FULLSCREEN);
 	else
-		screen = SDL_SetVideoMode(630,448,32,sdl_flags);
+		screen = SDL_SetVideoMode(640,480,32,sdl_flags);
 	if (!screen)
 	{
-		fprintf(stderr, "Unable to set 630x448x32 video mode.\n");
+		fprintf(stderr, "Unable to set 640x480x32 video mode.\n");
 		return false;
 	}
-	else if (fullscreen)	// Center in fullscreen
-		inset = ((600-448)/2) * screen->pitch + 4 * ((800-630)/2);
+	//else if (fullscreen)	// Center in fullscreen
+		inset = ((480-448)/2) * screen->pitch + 4 * ((640-630)/2);
 
 	if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) < 0)
 		return false;
@@ -1690,8 +1704,20 @@ bool avr8::init_gui()
 	hsync_more_col=SDL_MapRGB(screen->format, 255,0, 0); //red
 	hsync_less_col=SDL_MapRGB(screen->format, 255,255, 0); //yellow
 
-	SDL_initFramerate(&fpsmanager);
-	SDL_setFramerate(&fpsmanager, 60);
+	if (recordMovie){
+
+		if (avconv_video == NULL) avconv_video = popen("ffmpeg -y -f rawvideo -s 640x480 -pix_fmt bgra -r 60 -i - -vf scale=-1:720 -sws_flags neighbor -an -b:v 1000k uzemtemp.mp4" , "w");
+		if (avconv_video == NULL){
+			fprintf(stderr, "Unable to init ffmpeg.\n");
+			return false;
+		}
+
+		avconv_audio = popen("ffmpeg -y -f u8 -ar 15734 -ac 1 -i - -acodec libmp3lame -ar 44.1k uzemtemp.mp3", "w");
+		if(avconv_audio == NULL){
+			fprintf(stderr, "Unable to init ffmpeg.\n");
+			return false;
+		}
+	}
 
 	//Set window icon
 	SDL_Surface *slogo;
@@ -2547,8 +2573,28 @@ void avr8::shutdown(int errcode){
         }
     }
 
-    if(captureMode==CAPTURE_WRITE && captureFile!=NULL){
+    if(captureFile!=NULL){
     	fclose(captureFile);
+    }
+
+    //movie recording
+    if(recordMovie){
+		if (avconv_video) pclose(avconv_video);
+		if (avconv_audio) pclose(avconv_audio);
+
+		char mux[1024];
+		strcpy(mux,"ffmpeg -y -i uzemtemp.mp4 -i uzemtemp.mp3 -vcodec copy -acodec copy -f mp4 ");
+		strcat(mux,romName);
+		strcat(mux,".mp4");
+
+		FILE* avconv_mux = popen(mux,"r");
+		if (avconv_mux) {
+			pclose(avconv_mux);
+			unlink("uzemtemp.mp4");
+			unlink("uzemtemp.mp3");
+		}else{
+			printf("Error with ffmpeg multiplexer.");
+		}
     }
 
 	if (joystickFile) {

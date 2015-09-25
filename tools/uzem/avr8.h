@@ -279,7 +279,8 @@ struct avr8
 {
 	avr8() :
 		/*Core*/
-		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),newTCCR1B(0),elapsedCyclesSleep(0),hsyncHelp(false),
+		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),
+		newTCCR1B(0),elapsedCyclesSleep(0),hsyncHelp(false),recordMovie(false),
 
 		/*Video*/
 		fullscreen(false),inset(0),
@@ -291,7 +292,8 @@ struct avr8
 		joystickFile(0),pad_mode(SNES_PAD), new_input_mode(false),
 
 		/*GDB*/
-		singleStep(0), nextSingleStep(0), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),state(CPU_STOPPED),gdb(0),
+		singleStep(0), nextSingleStep(0), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),
+		state(CPU_STOPPED),gdb(0),
 
 		/*Uzekeyboard*/
 		uzeKbState(0),uzeKbEnabled(false),
@@ -311,6 +313,7 @@ struct avr8
 		memset(sram, 0, sizeof(sram));
 		memset(eeprom, 0, sizeof(eeprom));
 		memset(progmem,0,progSize);
+		memset(romName,0,sizeof(romName));
 	}
 
 	/*Core*/
@@ -331,6 +334,8 @@ struct avr8
 	int randomSeed;
     const char* eepromFile;
     bool hsyncHelp;
+    bool recordMovie;
+	char romName[256];
 
 	struct
 	{
