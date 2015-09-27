@@ -30,7 +30,6 @@ THE SOFTWARE.
 #include <vector>
 #include <stdint.h>
 #include <queue>
-#include "SDL_framerate.h"
 #include "gdbserver.h"
 #include "SDEmulator.h"
 
@@ -45,7 +44,7 @@ THE SOFTWARE.
 
 // If you're building from the command line or on a non-MS compiler you'll need
 // -lSDL or somesuch.
-#include "SDL.h"
+#include "SDL2/SDL.h"
 #if defined (_MSC_VER)
 	#pragma comment(lib, "SDL.lib")
 	#pragma comment(lib, "SDLmain.lib")
@@ -224,7 +223,7 @@ struct SDPartitionEntry{
 class ringBuffer
 {
 public:
-	ringBuffer(int s) : head(0), tail(0), avail(s), size(s),last(0)
+	ringBuffer(int s) : head(0), tail(0), avail(s), size(s),last(127)
 	{
 		buffer = new u8[size];
 	}
@@ -282,6 +281,9 @@ struct avr8
 		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),
 		newTCCR1B(0),elapsedCyclesSleep(0),hsyncHelp(false),recordMovie(false),
 
+		/*SDL*/
+		window(0),renderer(0),surface(0),texture(0),
+
 		/*Video*/
 		fullscreen(false),inset(0),
 
@@ -305,7 +307,10 @@ struct avr8
 		spiByte(0), spiClock(0), spiTransfer(0), spiState(SPI_IDLE_STATE), spiResponsePtr(0), spiResponseEnd(0),
 
 		/*SD Emulation*/
-		hDisk(INVALID_HANDLE_VALUE), sdImage(0),emulatedMBR(0),SDpath(NULL)
+#if defined(__WIN32__)
+		hDisk(INVALID_HANDLE_VALUE),
+#endif
+ sdImage(0),emulatedMBR(0),SDpath(NULL)
 
 	{
 		memset(r, 0, sizeof(r));
@@ -389,8 +394,12 @@ struct avr8
 
 
 	/*Video*/
-	SDL_Surface *screen;
-	FPSmanager fpsmanager;
+	char caption[128];
+
+	SDL_Window *window;
+	SDL_Renderer *renderer;
+	SDL_Surface *surface;
+	SDL_Texture *texture;
 	int sdl_flags;
 	int scanline_count;
 	int current_cycle;
@@ -418,7 +427,6 @@ struct avr8
 	enum { NES_PAD, SNES_PAD, SNES_PAD2, SNES_MOUSE } pad_mode;
 	const char* joystickFile;
 	bool new_input_mode;
-
 	/*GDB*/
 	GdbServer *gdb;
 	bool gdbBreakpointFound;
@@ -473,8 +481,11 @@ struct avr8
 
 
     /*SD Emulation*/
+
+#if defined(__WIN32__)
     HANDLE hDisk;
     LPBYTE lpSector;
+#endif
     u32 lpSectorIndex;
     FILE* sdImage;
     u8* emulatedMBR;

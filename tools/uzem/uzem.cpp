@@ -111,7 +111,7 @@ int main(int argc,char **argv)
 #endif
 
     // init basic flags before parsing args
-	uzebox.sdl_flags = SDL_DOUBLEBUF | SDL_SWSURFACE;
+	// uzebox.sdl_flags = SDL_DOUBLEBUF | SDL_SWSURFACE;
 
     if(argc == 1) {
         showHelp(argv[0]);
@@ -135,10 +135,10 @@ int main(int argc,char **argv)
 			uzebox.fullscreen = true;
             break;
         case 'w':
-			uzebox.sdl_flags = (uzebox.sdl_flags & ~SDL_SWSURFACE) | SDL_HWSURFACE;
+			// uzebox.sdl_flags = (uzebox.sdl_flags & ~SDL_SWSURFACE) | SDL_HWSURFACE;
             break;
         case 'x':
-			uzebox.sdl_flags &= ~SDL_DOUBLEBUF;
+			// uzebox.sdl_flags &= ~SDL_DOUBLEBUF;
             break;
         case 'm':
 			uzebox.pad_mode = avr8::SNES_MOUSE;
@@ -215,8 +215,8 @@ int main(int argc,char **argv)
 
     	unsigned char* buffer = (unsigned char*)(uzebox.progmem);
 
-    	strlwr(heximage);
-    	if(ends_with(heximage,"uze", 3)){
+	// Converting to lowercase on case sensitive file systems causes not found errors, so check for both here
+    	if(ends_with(heximage,"uze", 3) || ends_with(heximage,"UZE", 3)){
 
 
         	if(isUzeromFile(heximage)){
@@ -315,6 +315,7 @@ int main(int argc,char **argv)
 				uzebox.capturePtr=0;
 				fread(uzebox.captureData,1,fz,uzebox.captureFile);
 				fclose(uzebox.captureFile);
+				uzebox.captureFile = 0;
             }
         }
         else if(uzebox.captureMode==CAPTURE_WRITE)
@@ -364,6 +365,8 @@ int main(int argc,char **argv)
 		}
 	}
 
+	sprintf(uzebox.caption,"Uzebox Emulator ** " VERSION " (ESC=quit, F1=help)");
+
 	// init the GUI
 	if (!uzebox.init_gui()){
         printerr("Error: Failed to init GUI.\n\n");
@@ -385,8 +388,6 @@ int main(int argc,char **argv)
    	srand(uzebox.randomSeed);	//used for the watchdog timer entropy
 	const int cycles=100000000;
 	int left, now;
-	char caption[128];
-	sprintf(caption,"Uzebox Emulator ** " VERSION " (ESC=quit, F1=help)");
 
 	//to align with AVR Simulator 2 since it has a bug that the first JMP
 	//at the reset vector takes only 2 cycles
@@ -395,10 +396,10 @@ int main(int argc,char **argv)
 	while (true)
 	{
 		if (uzebox.fullscreen){
-			puts(caption);
-        }else{
-			SDL_WM_SetCaption(caption, NULL);
-        }
+			puts(uzebox.caption);
+		}else{
+			if (uzebox.window) SDL_SetWindowTitle(uzebox.window,uzebox.caption);
+		}
 
 		left = cycles;
 		now = SDL_GetTicks();
@@ -407,7 +408,7 @@ int main(int argc,char **argv)
 		
 		now = SDL_GetTicks() - now;
 
-		sprintf(caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
+		sprintf(uzebox.caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 	}
 
 	return 0;

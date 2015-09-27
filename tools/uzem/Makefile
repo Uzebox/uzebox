@@ -14,13 +14,13 @@
 TARGETS = debug release
 
 #Uncomment to optimize for local CPU
-#ARCH=native
-#TUNE=y
+ARCH=native
+TUNE=y
 
 ######################################
 # Sources
 ######################################
-SRCS := uzem.cpp avr8.cpp uzerom.cpp gdbserver.cpp SDEmulator.cpp SDL_framerate.cpp
+SRCS := uzem.cpp avr8.cpp uzerom.cpp gdbserver.cpp SDEmulator.cpp
 
 ######################################
 # Architecture
@@ -78,8 +78,8 @@ PLATFORM = Unknown
 ifeq ($(UNAME),Linux)
 OS := LINUX
 PLATFORM := Unix
-SDL_FLAGS := $(shell sdl-config --cflags)
-LDFLAGS += $(shell sdl-config --libs)
+SDL_FLAGS := $(shell sdl2-config --cflags)
+LDFLAGS += $(shell sdl2-config --libs)
 CC := g++
 MKDIR := mkdir -p
 RM := rm -rf
@@ -90,8 +90,8 @@ endif
 ifeq ($(UNAME),Darwin)
 OS := MACOSX
 PLATFORM := Unix
-SDL_FLAGS := $(shell sdl-config --cflags)
-LDFLAGS += $(shell sdl-config --libs)
+SDL_FLAGS := $(shell sdl2-config --cflags)
+LDFLAGS += $(shell sdl2-config --libs)
 CPPFLAG += -framework Cocoa
 CC := g++
 MKDIR := mkdir -p
@@ -133,7 +133,7 @@ endif
 
 SDL_DLL := $(BIN_DIR)SDL.dll
 LDFLAGS += -lws2_32 -static-libgcc -static-libstdc++ 
-LDFLAGS += -lmingw32 -lSDLmain -lSDL #keeping in this order is important
+LDFLAGS += -lmingw32 -lSDL2 #keeping in this order is important
 CC := g++
 MKDIR := mkdir -p
 RM := -rm -rf
