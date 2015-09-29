@@ -42,10 +42,10 @@
 	#include <netinet/in.h>
 	#include <netinet/tcp.h>
 	#include <arpa/inet.h>
-	#include <stdio.h>
 	#define CLOSE_SOCK(s) close(s)
 #endif
 
+#include <stdio.h>
 #include <unistd.h>
 #include <vector>
 
