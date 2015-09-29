@@ -45,6 +45,7 @@
 	#define CLOSE_SOCK(s) close(s)
 #endif
 
+#include <stdio.h>
 #include <unistd.h>
 #include <vector>
 

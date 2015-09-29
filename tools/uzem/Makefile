@@ -20,7 +20,7 @@ TARGETS = debug release
 ######################################
 # Sources
 ######################################
-SRCS := uzem.cpp avr8.cpp uzerom.cpp gdbserver.cpp SDEmulator.cpp SDL_framerate.cpp
+SRCS := uzem.cpp avr8.cpp uzerom.cpp gdbserver.cpp SDEmulator.cpp
 
 ######################################
 # Architecture
@@ -78,8 +78,8 @@ PLATFORM = Unknown
 ifeq ($(UNAME),Linux)
 OS := LINUX
 PLATFORM := Unix
-SDL_FLAGS := $(shell sdl-config --cflags)
-LDFLAGS += $(shell sdl-config --libs)
+SDL_FLAGS := $(shell sdl2-config --cflags)
+LDFLAGS += $(shell sdl2-config --libs)
 CC := g++
 MKDIR := mkdir -p
 RM := rm -rf
@@ -90,8 +90,8 @@ endif
 ifeq ($(UNAME),Darwin)
 OS := MACOSX
 PLATFORM := Unix
-SDL_FLAGS := $(shell sdl-config --cflags)
-LDFLAGS += $(shell sdl-config --libs)
+SDL_FLAGS := $(shell sdl2-config --cflags)
+LDFLAGS += $(shell sdl2-config --libs)
 CPPFLAG += -framework Cocoa
 CC := g++
 MKDIR := mkdir -p
@@ -100,40 +100,46 @@ MTOOLS =
 endif
 
 ## Windows ###########################
+#
+# IMPORTANT: To build under MinGW, you will need file "SDL_platform.h" from SDL2 2.0.4 (currently a snapshot)
+# because of a bug in SDL_platform.h in 2.0.3 (currently stable release)
+# C:\MinGW\include\SDL2/SDL_platform.h:121:26: fatal error: winapifamily.h: No such file or directory
+# Be sure to use SDL /i686-w64-mingw32 folder for 32 bit target
+#
 ifneq (,$(findstring MINGW,$(UNAME)))
 PLATFORM := Windows
 OS_EXTENSION := .exe
 
-# First check in C:/SDL
-SDL_BASE_DIR := C:/SDL
-SDL_DIR_ENTRIES = $(wildcard C:/SDL/*)
+# First check in C:/SDL2
+SDL_BASE_DIR := C:/SDL2
+SDL_DIR_ENTRIES = $(wildcard C:/SDL2/*)
 ifeq ($(findstring include,$(SDL_DIR_ENTRIES)),include)
     ifeq ($(findstring bin,$(SDL_DIR_ENTRIES)),bin)
-        SDL_FLAGS = -I$(SDL_BASE_DIR)/include/SDL -L$(SDL_BASE_DIR)/lib
-        SDL_DLL_FROM = $(SDL_BASE_DIR)/bin/SDL.dll
+        SDL_FLAGS = -I$(SDL_BASE_DIR)/include/SDL2 -L$(SDL_BASE_DIR)/lib
+        SDL_DLL_FROM = $(SDL_BASE_DIR)/bin/SDL2.dll
     endif
 endif
 # Didn't find ?
 ifeq ($(SDL_FLAGS),)
 # Then check in C:\MinGW
 ifneq ($(SDL_DIR_ENTRIES)),)
-    ifneq ($(wildcard C:/MinGW/include/SDL/*)),)
-        ifeq ($(findstring SDL.dll,$(wildcard C:/MinGW/lib/*)),SDL.dll)
-            ## SDL_FLAGS = -IC:\MinGW\includes\SDL -LC:\MinGW\lib
-			SDL_FLAGS = -IC:\MinGW\include\SDL
-            SDL_DLL_FROM = C:\MinGW\bin\SDL.dll
+    ifneq ($(wildcard C:/MinGW/include/SDL2/*)),)
+        ifeq ($(findstring SDL2.dll,$(wildcard C:/MinGW/lib/*)),SDL2.dll)
+			SDL_FLAGS = -IC:\MinGW\include\SDL2 
+            SDL_DLL_FROM = C:\MinGW\bin\SDL2.dll
         endif
     endif
 endif
 endif
 #If didn't find SDL...
 ifeq ($(SDL_FLAGS),)
-    $(error The SDL library not found. Make sure you have it in C:\SDL)
+    $(error The SDL library not found. Make sure you have it in C:\SDL2)
 endif
 
-SDL_DLL := $(BIN_DIR)SDL.dll
+SDL_DLL := $(BIN_DIR)SDL2.dll
 LDFLAGS += -lws2_32 -static-libgcc -static-libstdc++ 
-LDFLAGS += -lmingw32 -lSDLmain -lSDL #keeping in this order is important
+LDFLAGS += -lmingw32 -lSDL2main -lSDL2  #keeping in this order is important
+
 CC := g++
 MKDIR := mkdir -p
 RM := -rm -rf

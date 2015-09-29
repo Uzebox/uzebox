@@ -9,7 +9,7 @@
 #define KEYBOARD_H_
 
 //scan codes
-const u16 uzeKbScancodes[][2] = {
+const u32 uzeKbScancodes[][2] = {
 	{0x0d,SDLK_TAB},
 	{0x0e,SDLK_BACKQUOTE},// `
 	{0x12,SDLK_LSHIFT},
@@ -63,20 +63,20 @@ const u16 uzeKbScancodes[][2] = {
 	{0x5b,SDLK_RIGHTBRACKET},
 	{0x5d,SDLK_BACKSLASH},
 	{0x66,SDLK_BACKSPACE},
-	{0x69,SDLK_KP1},
-	{0x6b,SDLK_KP4},
-	{0x6c,SDLK_KP7},
-	{0x70,SDLK_KP0},
+	{0x69,SDLK_KP_1},
+	{0x6b,SDLK_KP_4},
+	{0x6c,SDLK_KP_7},
+	{0x70,SDLK_KP_0},
 	{0x71,SDLK_KP_PERIOD},
-	{0x72,SDLK_KP2},
-	{0x73,SDLK_KP5},
-	{0x74,SDLK_KP6},
-	{0x75,SDLK_KP8},
+	{0x72,SDLK_KP_2},
+	{0x73,SDLK_KP_5},
+	{0x74,SDLK_KP_6},
+	{0x75,SDLK_KP_8},
 	{0x79,SDLK_KP_PLUS},
-	{0x7a,SDLK_KP3},
+	{0x7a,SDLK_KP_3},
 	{0x7b,SDLK_KP_MINUS},
 	{0x7c,SDLK_KP_MULTIPLY},
-	{0x7d,SDLK_KP9},
+	{0x7d,SDLK_KP_9},
 	{0,0}
 };
 

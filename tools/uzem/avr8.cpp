@@ -43,7 +43,6 @@ More info at uzebox.org
 #include "SDEmulator.h"
 #include "Keyboard.h"
 #include "logo.h"
-#include "SDL_framerate.h"
 #include <iostream>
 #include <queue>
 using namespace std;
@@ -282,7 +281,7 @@ void avr8::write_io(u8 addr,u8 value)
 				if(scanline_count >= 0){
 
 					current_cycle = left_edge;
-					current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
+					current_scanline = (u32*)((u8*)surface->pixels + scanline_count * surface->pitch + inset);
 
 
 
@@ -330,11 +329,14 @@ void avr8::write_io(u8 addr,u8 value)
 
 				if (scanline_count == 224)
 				{
-					if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-					SDL_Flip(screen);
+					//if (SDL_MUSTLOCK(surface)) SDL_UnlockSurface(surface);
+					SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
+					SDL_RenderClear(renderer);
+					SDL_RenderCopy(renderer, texture, NULL, NULL);
+					SDL_RenderPresent(renderer);
 
 					//Send video frame to ffmpeg
-					if (recordMovie && avconv_video) fwrite(screen->pixels, 640*480*4, 1, avconv_video);
+					if (recordMovie && avconv_video) fwrite(surface->pixels, 640*240*4, 1, avconv_video);
 
 					SDL_Event event;
 					while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
@@ -396,7 +398,7 @@ void avr8::write_io(u8 addr,u8 value)
 						// ...and immediately consume the bogus motion event it generated.
 						if (fullscreen)
 						{
-							SDL_WarpMouse(400,300);
+							SDL_WarpMouseInWindow(window,400,300);
 							SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
 						}
 					}
@@ -404,8 +406,7 @@ void avr8::write_io(u8 addr,u8 value)
 						buttons[0] |= 0xFFFF8000;
 					singleStep = nextSingleStep;
 
-					if (SDL_MUSTLOCK(screen))
-						SDL_LockSurface(screen);
+					//if (SDL_MUSTLOCK(surface)) SDL_LockSurface(surface);
 					scanline_count = -999;
 				}
 			}
@@ -453,7 +454,6 @@ void avr8::write_io(u8 addr,u8 value)
 				//check uzekeyboard start condition: clock=low & latch=high simultaneously
 				if((value&0x0c)==0x04){
 					uzeKbState=KB_TX_START;
-					if(!uzeKbEnabled) SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,SDL_DEFAULT_REPEAT_INTERVAL);
 					uzeKbEnabled=true;	//enable keyboard capture for Uzebox Keyboard
 				}
 				break;
@@ -812,7 +812,6 @@ void avr8::update_hardware(int cycles)
 			if (current_cycle >= 0 && current_cycle < 1440)
 			{
 				current_scanline[(current_cycle*7)>>4] = pixel;
-				current_scanline[((current_cycle*7)>>4) +(screen->pitch>>2)] = pixel;
 			}
 			current_cycle++;
 			--cycles;
@@ -1631,7 +1630,7 @@ bool avr8::init_sd()
 
 bool avr8::init_gui()
 {
-	if ( SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0 )
+	if ( SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0 )
 	{
 		fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
 		return false;
@@ -1640,21 +1639,38 @@ bool avr8::init_gui()
 	atexit(SDL_Quit);
 	init_joysticks();
 
-	if (fullscreen)
-		screen = SDL_SetVideoMode(640,480,32,sdl_flags | SDL_FULLSCREEN);
-	else
-		screen = SDL_SetVideoMode(640,480,32,sdl_flags);
-	if (!screen)
-	{
-		fprintf(stderr, "Unable to set 640x480x32 video mode.\n");
+	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,640,480,fullscreen?SDL_WINDOW_FULLSCREEN_DESKTOP:SDL_WINDOW_RESIZABLE);
+	if (!window){
+		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
 		return false;
 	}
-	//else if (fullscreen)	// Center in fullscreen
-		inset = ((480-448)/2) * screen->pitch + 4 * ((640-630)/2);
-
-	if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) < 0)
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	if (!renderer){
+		SDL_DestroyWindow(window);
+		fprintf(stderr, "CreateRenderer failed: %s\n", SDL_GetError());
 		return false;
+	}
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+	SDL_RenderSetLogicalSize(renderer, 640, 480);
 
+	surface = SDL_CreateRGBSurface(0, 640, 240, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+	if(!surface){
+		fprintf(stderr, "CreateRGBSurface failed: %s\n", SDL_GetError());
+		return false;
+	}
+
+	texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ABGR8888,SDL_TEXTUREACCESS_STREAMING,640,240);
+	if (!texture){
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyWindow(window);
+		fprintf(stderr, "CreateTexture failed: %s\n", SDL_GetError());
+		return false;
+	}
+
+	inset = ((240-224)/2) * surface->pitch + 4 * ((640-630)/2);
+
+	// if (SDL_MUSTLOCK(surface) && SDL_LockSurface(surface) < 0)
+	// 	return false;
 	if (fullscreen)
 	{
 		SDL_ShowCursor(0);
@@ -1698,15 +1714,15 @@ bool avr8::init_gui()
 		int red = (((i >> 0) & 7) * 255) / 7;
 		int green = (((i >> 3) & 7) * 255) / 7;
 		int blue = (((i >> 6) & 3) * 255) / 3;
-		palette[i] = SDL_MapRGB(screen->format, red, green, blue);
+		palette[i] = SDL_MapRGB(surface->format, red, green, blue);
 	}
 	
-	hsync_more_col=SDL_MapRGB(screen->format, 255,0, 0); //red
-	hsync_less_col=SDL_MapRGB(screen->format, 255,255, 0); //yellow
+	hsync_more_col=SDL_MapRGB(surface->format, 255,0, 0); //red
+	hsync_less_col=SDL_MapRGB(surface->format, 255,255, 0); //yellow
 
 	if (recordMovie){
 
-		if (avconv_video == NULL) avconv_video = popen("ffmpeg -y -f rawvideo -s 640x480 -pix_fmt bgra -r 60 -i - -vf scale=-1:720 -sws_flags neighbor -an -b:v 1000k uzemtemp.mp4" , "w");
+		if (avconv_video == NULL) avconv_video = popen("ffmpeg -y -f rawvideo -s 640x240 -pix_fmt rgba -r 60 -i - -vf scale=960:720 -sws_flags neighbor -an -b:v 1000k uzemtemp.mp4" , "w");
 		if (avconv_video == NULL){
 			fprintf(stderr, "Unable to init ffmpeg.\n");
 			return false;
@@ -1722,7 +1738,7 @@ bool avr8::init_gui()
 	//Set window icon
 	SDL_Surface *slogo;
 	slogo = SDL_CreateRGBSurfaceFrom((void *)&logo,32,32,32,32*4,0xFF,0xff00,0xff0000,0xff000000);
-	SDL_WM_SetIcon(slogo, NULL);
+	SDL_SetWindowIcon(window,slogo);
 	SDL_FreeSurface(slogo);
 
 	return true;
@@ -1797,10 +1813,10 @@ void avr8::handle_key_down(SDL_Event &ev)
 				printf("user abort (pressed ESC).\n");
                 shutdown(0);
                 /* no break */
-			case SDLK_PRINT:
+			case SDLK_PRINTSCREEN:
 				sprintf(ssbuf,"uzem_%03d.bmp",ssnum++);
 				printf("saving screenshot to '%s'...\n",ssbuf);
-				SDL_SaveBMP(screen,ssbuf);
+				SDL_SaveBMP(surface,ssbuf);
 				break;
 			case SDLK_0:
 				PIND = PIND & ~0b00001100;
@@ -1845,7 +1861,7 @@ void avr8::handle_key_up(SDL_Event &ev)
 	if (ev.key.keysym.sym == SDLK_0) PIND |= 0b00001100;		//return soft power switch to normal (pullup)
 }
 
-struct keymap { u16 key; u8 player, bit; };
+struct keymap { u32 key; u8 player, bit; };
 #define END_OF_MAP { 0,0,0 }
 keymap nes_one_player[] = 
 {	
@@ -1938,7 +1954,7 @@ void avr8::init_joysticks() {
 			else {
 				joysticks[i].buttons = joyButtons[i];
 				joysticks[i].hats = 0;
-				printf("P%i joystick: %s.\n", i+1,SDL_JoystickName(i));
+				printf("P%i joystick: %s.\n", i+1,SDL_JoystickName(joysticks[i].device));
 			}
 			
 			for (int j= 0; j < MAX_JOYSTICK_AXES; ++j)
@@ -2605,7 +2621,7 @@ void avr8::shutdown(int errcode){
 				fwrite(joyButtons[i],sizeof(struct joyButton),NUM_JOYSTICK_BUTTONS,f);
 				fwrite(joysticks[i].axes,sizeof(struct joyAxis),MAX_JOYSTICK_AXES,f);
 				
-				if (joysticks[i].device && SDL_JoystickOpened(SDL_JoystickIndex(joysticks[i].device)))
+				if (joysticks[i].device)
 					SDL_JoystickClose(joysticks[i].device);
 			}
             fclose(f);
