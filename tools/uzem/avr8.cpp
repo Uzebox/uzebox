@@ -258,10 +258,11 @@ void avr8::write_io(u8 addr,u8 value)
 				fwrite(&value, 1, 1, avconv_audio);
 
 				// Keep audio in sync, since the sample rate we encode at is not a factor of the clock speed
-				static u32 accumulated_error = 0;
+				const double needs_extra_sample = 4.0 * 1.0 / 15734.0 / (1.0 / 15734.0 - 1820.0 / 28636360.0);
+				static double accumulated_error = 0.0;
 				accumulated_error += (28636360 % 15734);
-				if (accumulated_error >= ((28636360 % 15734) * (28636360 % 15734))) {
-					accumulated_error -= ((28636360 % 15734) * (28636360 % 15734));
+				if (accumulated_error > needs_extra_sample) {
+					accumulated_error -= needs_extra_sample;
 					fwrite(&value, 1, 1, avconv_audio);
 				}
 			}
