@@ -254,8 +254,17 @@ void avr8::write_io(u8 addr,u8 value)
 			SDL_UnlockAudio();
 
 			//Send audio byte to ffmpeg
-			if(recordMovie && avconv_audio) fwrite(&value, 1, 1, avconv_audio);
+			if(recordMovie && avconv_audio) {
+				fwrite(&value, 1, 1, avconv_audio);
 
+				// Keep audio in sync, since the sample rate we encode at is not a factor of the clock speed
+				static u32 accumulated_error = 0;
+				accumulated_error += (28636360 % 15734);
+				if (accumulated_error >= ((28636360 % 15734) * (28636360 % 15734))) {
+					accumulated_error -= ((28636360 % 15734) * (28636360 % 15734));
+					fwrite(&value, 1, 1, avconv_audio);
+				}
+			}
 		}
 	}
 	else if (addr == ports::PORTD)
@@ -1722,7 +1731,7 @@ bool avr8::init_gui()
 
 	if (recordMovie){
 
-		if (avconv_video == NULL) avconv_video = popen("ffmpeg -y -f rawvideo -s 640x240 -pix_fmt rgba -r 60 -i - -vf scale=960:720 -sws_flags neighbor -an -b:v 1000k uzemtemp.mp4" , "w");
+		if (avconv_video == NULL) avconv_video = popen("ffmpeg -y -f rawvideo -s 640x240 -pix_fmt rgba -r 59.94 -i - -vf scale=960:720 -sws_flags neighbor -an -b:v 1000k uzemtemp.mp4" , "w");
 		if (avconv_video == NULL){
 			fprintf(stderr, "Unable to init ffmpeg.\n");
 			return false;
