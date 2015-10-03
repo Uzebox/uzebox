@@ -203,6 +203,7 @@ $(TARGET_NAME): $(TARGET_OBJS) $(SDL_DLL)
 
 $(TARGET_OBJ_DIR)/%.o: %.cpp
 	$(CC) -c $< -o $@ $(TARGET_CPPFLAGS) $(DEPFLAGS) $(TARGET_D_DEFINES)
+	$(CC) -c -S $< -o $@.asm $(TARGET_CPPFLAGS) $(DEPFLAGS) $(TARGET_D_DEFINES)
 
 # This rule used only for Windows
 $(SDL_DLL): $(SDL_DLL_FROM)
