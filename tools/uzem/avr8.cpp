@@ -339,7 +339,6 @@ void avr8::write_io(u8 addr,u8 value)
 
 				if (scanline_count == 224)
 				{
-					//SDL_UnlockTexture(texture);
 
 					SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
 					SDL_RenderClear(renderer);
@@ -417,8 +416,6 @@ void avr8::write_io(u8 addr,u8 value)
 						buttons[0] |= 0xFFFF8000;
 
 					singleStep = nextSingleStep;
-
-					//SDL_LockTexture(texture,NULL,(void**)&surface->pixels, &surface->pitch);
 					scanline_count = -999;
 				}
 			}
@@ -1679,7 +1676,6 @@ bool avr8::init_gui()
 		return false;
 	}
 
-
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
@@ -1754,10 +1750,6 @@ bool avr8::init_gui()
 	slogo = SDL_CreateRGBSurfaceFrom((void *)&logo,32,32,32,32*4,0xFF,0xff00,0xff0000,0xff000000);
 	SDL_SetWindowIcon(window,slogo);
 	SDL_FreeSurface(slogo);
-
-
-
-	//SDL_LockTexture(texture,NULL,(void**)&surface->pixels, &surface->pitch);
 
 	return true;
 }
