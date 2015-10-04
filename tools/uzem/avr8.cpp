@@ -291,7 +291,7 @@ void avr8::write_io(u8 addr,u8 value)
 				if(scanline_count >= 0){
 
 					current_cycle = left_edge;
-					current_scanline = (u32*)((u8*)surface->pixels + scanline_count * surface->pitch + inset);
+					current_scanline = (u32*)((u8*)surface->pixels + scanline_count * surface->pitch);
 
 
 
@@ -339,7 +339,8 @@ void avr8::write_io(u8 addr,u8 value)
 
 				if (scanline_count == 224)
 				{
-					//if (SDL_MUSTLOCK(surface)) SDL_UnlockSurface(surface);
+					//SDL_UnlockTexture(texture);
+
 					SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
 					SDL_RenderClear(renderer);
 					SDL_RenderCopy(renderer, texture, NULL, NULL);
@@ -414,9 +415,10 @@ void avr8::write_io(u8 addr,u8 value)
 					}
 					else
 						buttons[0] |= 0xFFFF8000;
+
 					singleStep = nextSingleStep;
 
-					//if (SDL_MUSTLOCK(surface)) SDL_LockSurface(surface);
+					//SDL_LockTexture(texture,NULL,(void**)&surface->pixels, &surface->pitch);
 					scanline_count = -999;
 				}
 			}
@@ -821,7 +823,7 @@ void avr8::update_hardware(int cycles)
 		{
 			if (current_cycle >= 0 && current_cycle < 1440)
 			{
-				current_scanline[(current_cycle*7)>>4] = pixel;
+				current_scanline[current_cycle>>1] = pixel;
 			}
 			current_cycle++;
 			--cycles;
@@ -1663,13 +1665,13 @@ bool avr8::init_gui()
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 	SDL_RenderSetLogicalSize(renderer, 640, 480);
 
-	surface = SDL_CreateRGBSurface(0, 640, 240, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+	surface = SDL_CreateRGBSurface(0, 720, 224, 32, 0,0,0,0);
 	if(!surface){
 		fprintf(stderr, "CreateRGBSurface failed: %s\n", SDL_GetError());
 		return false;
 	}
 
-	texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ABGR8888,SDL_TEXTUREACCESS_STREAMING,640,240);
+	texture = SDL_CreateTexture(renderer,surface->format->format,SDL_TEXTUREACCESS_STREAMING,surface->w,surface->h);
 	if (!texture){
 		SDL_DestroyRenderer(renderer);
 		SDL_DestroyWindow(window);
@@ -1677,10 +1679,12 @@ bool avr8::init_gui()
 		return false;
 	}
 
-	inset = ((240-224)/2) * surface->pitch + 4 * ((640-630)/2);
 
-	// if (SDL_MUSTLOCK(surface) && SDL_LockSurface(surface) < 0)
-	// 	return false;
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
+
+
 	if (fullscreen)
 	{
 		SDL_ShowCursor(0);
@@ -1750,6 +1754,10 @@ bool avr8::init_gui()
 	slogo = SDL_CreateRGBSurfaceFrom((void *)&logo,32,32,32,32*4,0xFF,0xff00,0xff0000,0xff000000);
 	SDL_SetWindowIcon(window,slogo);
 	SDL_FreeSurface(slogo);
+
+
+
+	//SDL_LockTexture(texture,NULL,(void**)&surface->pixels, &surface->pitch);
 
 	return true;
 }
