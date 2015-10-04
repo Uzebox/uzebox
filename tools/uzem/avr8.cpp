@@ -647,8 +647,7 @@ void avr8::update_hardware(int cycles)
 
 			if (TCNT1 > (0xFFFF - cycles)){
 
-				 //TIFR1|=TOV1; //overflow interrupt
-				tempTIFR1|=TOV1; //overflow interrupt
+				 TIFR1|=TOV1; //overflow interrupt
 
 			}
 
@@ -683,8 +682,7 @@ void avr8::update_hardware(int cycles)
 
 			if (TCNT1 > (0xFFFF - cycles)){
 				if (TIMSK1 & TOIE1){
-					 //TIFR1|=TOV1; //overflow interrupt
-					tempTIFR1|=TOV1; //overflow interrupt
+					TIFR1|=TOV1; //overflow interrupt
 				}
 			}
 			TCNT1 += cycles;
@@ -829,7 +827,7 @@ void avr8::update_hardware(int cycles)
 
 
 	TCCR1B=newTCCR1B; //Timer increments starts after executing the instruction that sets TCCR1B
-	TIFR1=tempTIFR1;
+	TIFR1|=tempTIFR1;
 }
 
 u8 avr8::exec()
@@ -1653,7 +1651,7 @@ bool avr8::init_gui()
 		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
 		return false;
 	}
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	if (!renderer){
 		SDL_DestroyWindow(window);
 		fprintf(stderr, "CreateRenderer failed: %s\n", SDL_GetError());
