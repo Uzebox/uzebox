@@ -1651,7 +1651,7 @@ bool avr8::init_gui()
 		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
 		return false;
 	}
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!renderer){
 		SDL_DestroyWindow(window);
 		fprintf(stderr, "CreateRenderer failed: %s\n", SDL_GetError());
