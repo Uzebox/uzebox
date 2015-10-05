@@ -265,12 +265,16 @@ void avr8::spi_calculateClock(){
 
 void avr8::write_io(u8 addr,u8 value)
 {
-	if (addr == ports::PORTC)
+	u8 changed;
+	u8 went_low;
+
+	switch (addr)
 	{
-	     pixel = palette[value & DDRC];
-	}
-	else if (addr == ports::OCR2A)
-	{
+	case (ports::PORTC):
+		pixel = palette[value & DDRC];
+		break;
+
+	case (ports::OCR2A):
 		if (enableSound && TCCR2B)
 		{
 			// raw pcm sample at 15.7khz
@@ -293,25 +297,24 @@ void avr8::write_io(u8 addr,u8 value)
 				}
 			}
 		}
-	}
-	else if (addr == ports::PORTD)
-	{
-        // write value with respect to DDRD register
-        io[addr] = value & DDRD;
+		break;
 
-    }
-	else if (addr == ports::PORTB)
-	{
-        if(value&1){
+	case (ports::PORTD):
+		// write value with respect to DDRD register
+		io[addr] = value & DDRD;
+		break;
+
+	case (ports::PORTB):
+		if(value&1){
 			elapsedCycles=cycleCounter-prevCyclesCounter;
 
-		   if (scanline_count == -999 && elapsedCycles >= HSYNC_HALF_PERIOD -10 && elapsedCycles <= HSYNC_HALF_PERIOD + 10)
-		   {
+			if (scanline_count == -999 && elapsedCycles >= HSYNC_HALF_PERIOD -10 && elapsedCycles <= HSYNC_HALF_PERIOD + 10)
+			{
 			   scanline_count = scanline_top;
 			   prev_scanline = NULL;
-		   }
-		   else if (scanline_count != -999)
-		   {
+			}
+			else if (scanline_count != -999)
+			{
 				scanline_count++;
 
 				if(scanline_count >= 0){
@@ -448,13 +451,12 @@ void avr8::write_io(u8 addr,u8 value)
 			}
 
 		   prevCyclesCounter=cycleCounter;
-        }
+		}
+		break;
 
-    }
-	else if (addr == ports::PORTA)
-	{
-		u8 changed = value ^ io[addr];
-		u8 went_low = changed & io[addr];
+	case (ports::PORTA):
+		changed = value ^ io[addr];
+		went_low = changed & io[addr];
 
 		if (went_low == (1<<2))		// LATCH
 		{
@@ -546,14 +548,14 @@ void avr8::write_io(u8 addr,u8 value)
 
 
 		io[addr] = value;
-	}
-	// p106 in 644 manual; 16-bit values are latched
-	else if (addr == ports::TCNT1H)
-	{
+		break;
+
+	case (ports::TCNT1H):
+		// p106 in 644 manual; 16-bit values are latched
 		T16_latch = value;
-	}
-	else if (addr == ports::TCNT1L)
-	{
+		break;
+
+	case (ports::TCNT1L):
 		// Timer value increments next machine cycle after being
 		// written.
 		if (cycles != 0U)
@@ -564,79 +566,91 @@ void avr8::write_io(u8 addr,u8 value)
 		io[addr     ] = value;
 		io[addr + 1U] = T16_latch;
 		TCNT1 = (T16_latch << 8) | value;
-	}
-    else if(addr == ports::SPDR)
-    {
-        if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled and card is present
-            spiByte = value;
-            //TODO: flag collision if x-fer in progress
-            spiClock = spiCycleWait;
-            spiTransfer = 1;
-            SPSR ^= 0x80; // clear interrupt
-            //SPI_DEBUG("spiClock: %0.2X\n",spiClock);
-        }
-       // SPI_DEBUG("SPDR: %0.2X\n",value);
-        io[addr] = value;
-    }
-    else if(addr == ports::SPCR)
-    {
-        SPI_DEBUG("SPCR: %02X\n",value);
-        io[addr] = value;
-        if(SD_ENABLED()) spi_calculateClock();
-    }
-    else if(addr == ports::SPSR){
-        SPI_DEBUG("SPSR: %02X\n",value);
-        io[addr] = value;
-        if(SD_ENABLED()) spi_calculateClock();
-    }
+		break;
 
-    else if(addr == ports::EECR){
-        //printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
-        //EEPROM can only be put into either read or write mode, and the master bit must be set
+	case (ports::SPDR):
+		if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled and card is present
+			spiByte = value;
+			//TODO: flag collision if x-fer in progress
+			spiClock = spiCycleWait;
+			spiTransfer = 1;
+			SPSR ^= 0x80; // clear interrupt
+			//SPI_DEBUG("spiClock: %0.2X\n",spiClock);
+		}
+		// SPI_DEBUG("SPDR: %0.2X\n",value);
+		io[addr] = value;
+		break;
 
-        if(value & EERE){
-            if(io[addr] & EEPE){
-                io[addr] = value ^ EERE; // programming in progress, don't allow this to be set
-            }
-            else{
-                io[addr] = value;
-            }
-        }
-        else if(value & EEPE){
-            if( (io[addr] & EERE) || !(io[addr] & EEMPE)){  // need master program enabled first
-                io[addr] = value ^ EEPE; // read in progress, don't allow this to be set
-            }
-            else{
-                io[addr] = value;
-            }
-        }
-        if(value & EEMPE){
-            io[addr] = value;
-            eeClock = 4;
-        }
-        else{
-            io[addr] = value;
-        }
-    //}
-    //else if(addr == ports::EEARH || addr == ports::EEARL || addr == ports::EEDR){
+	case (ports::SPCR):
+		SPI_DEBUG("SPCR: %02X\n",value);
+		io[addr] = value;
+		if(SD_ENABLED()) spi_calculateClock();
+		break;
+
+	case (ports::SPSR):
+		SPI_DEBUG("SPSR: %02X\n",value);
+		io[addr] = value;
+		if(SD_ENABLED()) spi_calculateClock();
+		break;
+
+	case (ports::EECR):
+		//printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
+		//EEPROM can only be put into either read or write mode, and the master bit must be set
+
+		if(value & EERE){
+			if(io[addr] & EEPE){
+				io[addr] = value ^ EERE; // programming in progress, don't allow this to be set
+			}
+			else{
+				io[addr] = value;
+			}
+		}
+		else if(value & EEPE){
+			if( (io[addr] & EERE) || !(io[addr] & EEMPE)){  // need master program enabled first
+				io[addr] = value ^ EEPE; // read in progress, don't allow this to be set
+			}
+			else{
+				io[addr] = value;
+			}
+		}
+		if(value & EEMPE){
+			io[addr] = value;
+			eeClock = 4;
+		}
+		else{
+			io[addr] = value;
+		}
+		break;
+
+	// Note: This was commented out in the original code. If needed,
+	// integrate in the switch.
+	//else if(addr == ports::EEARH || addr == ports::EEARL || addr == ports::EEDR){
 	//	io[addr] = value;
-    }else if(addr == ports::TIFR1){
+
+	case (ports::TIFR1):
 		//clear flags by writing logical one
 		io[addr] &= ~(value);
-    }else if(addr == ports::TCCR1B){
-    	newTCCR1B=value;	//to detect timer start
-    	//io[addr] = value;
-    }else if(addr == ports::res3A){
-        // emulator-only whisper support
-        printf("%c",value);
-    }
-    else if(addr == ports::res39){
-        // emulator-only whisper support
-        printf("%02x",value);
-    }
+		break;
 
-	else
+	case (ports::TCCR1B):
+		newTCCR1B=value;	//to detect timer start
+		//io[addr] = value;
+		break;
+
+	case (ports::res3A):
+		// emulator-only whisper support
+		printf("%c",value);
+		break;
+
+	case (ports::res39):
+		// emulator-only whisper support
+		printf("%02x",value);
+		break;
+
+	default:
 		io[addr] = value;
+		break;
+	}
 }
 
 
