@@ -365,7 +365,7 @@ int main(int argc,char **argv)
 		}
 	}
 
-	sprintf(uzebox.caption,"Uzebox Emulator ** " VERSION " (ESC=quit, F1=help)");
+	sprintf(uzebox.caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)");
 
 	// init the GUI
 	if (!uzebox.init_gui()){

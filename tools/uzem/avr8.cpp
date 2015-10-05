@@ -320,7 +320,7 @@ void avr8::write_io(u8 addr,u8 value)
 				if(scanline_count >= 0){
 
 					current_cycle = left_edge;
-					current_scanline = (u32*)((u8*)surface->pixels + scanline_count * surface->pitch + inset);
+					current_scanline = (u32*)((u8*)surface->pixels + scanline_count * surface->pitch);
 
 
 
@@ -368,14 +368,14 @@ void avr8::write_io(u8 addr,u8 value)
 
 				if (scanline_count == 224)
 				{
-					//if (SDL_MUSTLOCK(surface)) SDL_UnlockSurface(surface);
+
 					SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
 					SDL_RenderClear(renderer);
 					SDL_RenderCopy(renderer, texture, NULL, NULL);
 					SDL_RenderPresent(renderer);
 
 					//Send video frame to ffmpeg
-					if (recordMovie && avconv_video) fwrite(surface->pixels, 640*240*4, 1, avconv_video);
+					if (recordMovie && avconv_video) fwrite(surface->pixels, 720*224*4, 1, avconv_video);
 
 					SDL_Event event;
 					while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
@@ -443,9 +443,8 @@ void avr8::write_io(u8 addr,u8 value)
 					}
 					else
 						buttons[0] |= 0xFFFF8000;
-					singleStep = nextSingleStep;
 
-					//if (SDL_MUSTLOCK(surface)) SDL_LockSurface(surface);
+					singleStep = nextSingleStep;
 					scanline_count = -999;
 				}
 			}
@@ -861,7 +860,7 @@ void avr8::update_hardware(int cycles)
 		{
 			if (current_cycle >= 0 && current_cycle < 1440)
 			{
-				current_scanline[(current_cycle*7)>>4] = pixel;
+				current_scanline[current_cycle>>1] = pixel;
 			}
 			current_cycle++;
 			--cycles;
@@ -1785,7 +1784,7 @@ bool avr8::init_gui()
 	atexit(SDL_Quit);
 	init_joysticks();
 
-	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,640,480,fullscreen?SDL_WINDOW_FULLSCREEN_DESKTOP:SDL_WINDOW_RESIZABLE);
+	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,630,448,fullscreen?SDL_WINDOW_FULLSCREEN_DESKTOP:SDL_WINDOW_RESIZABLE);
 	if (!window){
 		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
 		return false;
@@ -1797,15 +1796,15 @@ bool avr8::init_gui()
 		return false;
 	}
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-	SDL_RenderSetLogicalSize(renderer, 640, 480);
+	SDL_RenderSetLogicalSize(renderer, 630, 448);
 
-	surface = SDL_CreateRGBSurface(0, 640, 240, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+	surface = SDL_CreateRGBSurface(0, 720, 224, 32, 0,0,0,0);
 	if(!surface){
 		fprintf(stderr, "CreateRGBSurface failed: %s\n", SDL_GetError());
 		return false;
 	}
 
-	texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ABGR8888,SDL_TEXTUREACCESS_STREAMING,640,240);
+	texture = SDL_CreateTexture(renderer,surface->format->format,SDL_TEXTUREACCESS_STREAMING,surface->w,surface->h);
 	if (!texture){
 		SDL_DestroyRenderer(renderer);
 		SDL_DestroyWindow(window);
@@ -1813,10 +1812,11 @@ bool avr8::init_gui()
 		return false;
 	}
 
-	inset = ((240-224)/2) * surface->pitch + 4 * ((640-630)/2);
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
 
-	// if (SDL_MUSTLOCK(surface) && SDL_LockSurface(surface) < 0)
-	// 	return false;
+
 	if (fullscreen)
 	{
 		SDL_ShowCursor(0);
@@ -1868,7 +1868,32 @@ bool avr8::init_gui()
 
 	if (recordMovie){
 
-		if (avconv_video == NULL) avconv_video = popen("ffmpeg -y -f rawvideo -s 640x240 -pix_fmt rgba -r 59.94 -i - -vf scale=960:720 -sws_flags neighbor -an -b:v 1000k uzemtemp.mp4" , "w");
+		if (avconv_video == NULL){
+			// Detect the pixel format that the GPU picked for optimal speed
+			char pix_fmt[] = "aaaa";
+			switch (surface->format->Rmask) {
+			case 0xff000000: pix_fmt[3] = 'r'; break;
+			case 0x00ff0000: pix_fmt[2] = 'r'; break;
+			case 0x0000ff00: pix_fmt[1] = 'r'; break;
+			case 0x000000ff: pix_fmt[0] = 'r'; break;
+			}
+			switch (surface->format->Gmask) {
+			case 0xff000000: pix_fmt[3] = 'g'; break;
+			case 0x00ff0000: pix_fmt[2] = 'g'; break;
+			case 0x0000ff00: pix_fmt[1] = 'g'; break;
+			case 0x000000ff: pix_fmt[0] = 'g'; break;
+			}
+			switch (surface->format->Bmask) {
+			case 0xff000000: pix_fmt[3] = 'b'; break;
+			case 0x00ff0000: pix_fmt[2] = 'b'; break;
+			case 0x0000ff00: pix_fmt[1] = 'b'; break;
+			case 0x000000ff: pix_fmt[0] = 'b'; break;
+			}
+			printf("Pixel Format = %s\n", pix_fmt);
+			char avconv_video_cmd[1024] = {0};
+			snprintf(avconv_video_cmd, sizeof(avconv_video_cmd) - 1, "ffmpeg -y -f rawvideo -s 720x224 -pix_fmt %s -r 59.94 -i - -vf scale=960:720 -sws_flags neighbor -an -b:v 1000k uzemtemp.mp4", pix_fmt);
+			avconv_video = popen(avconv_video_cmd, "w");
+		}
 		if (avconv_video == NULL){
 			fprintf(stderr, "Unable to init ffmpeg.\n");
 			return false;
