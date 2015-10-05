@@ -328,7 +328,7 @@ struct avr8
 	u32 cycleCounter, prevPortB, prevWDR;
 	u32 watchdogTimer;
     u8 eeClock;
-	u8 TEMP;				// for 16-bit timers
+	u8 T16_latch;				// for 16-bit timers
 	u16 TCNT1;
 	u8 tempTIFR1;
 	u16 OCR1A;
@@ -505,15 +505,32 @@ struct avr8
 		return (addr&1)? word>>8 : word;
 	}
 
+
 	inline void write_sram(u16 addr,u8 value)
+	{
+		sram[(addr - SRAMBASE) & (sramSize - 1U)] = value;
+	}
+
+	inline void write_sram_io(u16 addr,u8 value)
 	{
 		if(addr>=SRAMBASE)
 		{
 			sram[(addr - SRAMBASE) & (sramSize-1)] = value;
-		}else if (addr >= IOBASE )
+		}
+		else if (addr >= IOBASE)
 		{
+			// Access is performed on the second cycle of LD
+			// instructions, so progress hardware accordingly.
+			// Don't care about other instructions: those deal
+			// with the stack.
+			if (cycles != 0U)
+			{
+				cycles -= 1U;
+				update_hardware(1U);
+			}
 			write_io(addr - IOBASE, value);
-		}else
+		}
+		else
 		{
 			r[addr] = value;		// Write a register
 		}
@@ -521,23 +538,10 @@ struct avr8
 
 	inline u8 read_sram(u16 addr)
 	{
-
-		if(addr>=SRAMBASE)
-		{
-			return sram[(addr - SRAMBASE) & (sramSize-1)];
-		}
-		else if (addr >= IOBASE)
-		{
-			return read_io(addr - IOBASE);
-		}
-		else
-		{
-			return r[addr];		// Read a register
-		}
+		return sram[(addr - SRAMBASE) & (sramSize - 1U)];
 	}
 
-	//fast version if read_sram for LD instructions
-	inline u8 read_sram_ld(u16 addr)
+	inline u8 read_sram_io(u16 addr)
 	{
 
 		if(addr>=SRAMBASE)
@@ -546,23 +550,16 @@ struct avr8
 		}
 		else if (addr >= IOBASE)
 		{
-			addr-=IOBASE;
-			// p106 in 644 manual; 16-bit values are latched
-			if (addr == ports::TCNT1L)
+			// Access is performed on the second cycle of LD
+			// instructions, so progress hardware accordingly.
+			// Don't care about other instructions: those deal
+			// with the stack.
+			if (cycles != 0U)
 			{
-				update_hardware(1);	//timer value is fetched on the second cycle of the LD instruction
-				cycles-=1;
-				TEMP = io[addr+1];
-				return io[addr];
+				cycles -= 1U;
+				update_hardware(1U);
 			}
-			else if (addr == ports::TCNT1H){
-				update_hardware(1); //timer value is fetched on the second cycle of the LD instruction
-				cycles-=1;
-				return TEMP;
-		    }
-			else
-				return io[addr];
-
+			return read_io(addr - IOBASE);
 		}
 		else
 		{

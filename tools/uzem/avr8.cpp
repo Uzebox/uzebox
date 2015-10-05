@@ -550,17 +550,20 @@ void avr8::write_io(u8 addr,u8 value)
 	// p106 in 644 manual; 16-bit values are latched
 	else if (addr == ports::TCNT1H)
 	{
-		update_hardware(1);	//timer value is fetched on the second cycle of ST instructions
-		cycles-=1;
-		TEMP = value;
+		T16_latch = value;
 	}
 	else if (addr == ports::TCNT1L)
 	{
-		update_hardware(2);	//timer value is written on the second cycle of the ST instruction and increments next machine cycle
-		cycles-=2;
-		io[addr] = value;
-		io[addr+1] = TEMP;
-		TCNT1=(TEMP<<8)|value;
+		// Timer value increments next machine cycle after being
+		// written.
+		if (cycles != 0U)
+		{
+			cycles -= 1U;
+			update_hardware(1U);
+		}
+		io[addr     ] = value;
+		io[addr + 1U] = T16_latch;
+		TCNT1 = (T16_latch << 8) | value;
 	}
     else if(addr == ports::SPDR)
     {
@@ -640,20 +643,19 @@ void avr8::write_io(u8 addr,u8 value)
 u8 avr8::read_io(u8 addr)
 {
 	// p106 in 644 manual; 16-bit values are latched
-	if (addr == ports::TCNT1L || addr == ports::ICR1L)
+	if      (addr == ports::TCNT1L)
 	{
-		update_hardware(1);	//timer value is fetched on the second cycle of the LD instructions
-		cycles-=1;
-		TEMP = io[addr+1];
+		T16_latch = io[addr + 1U];
 		return io[addr];
 	}
-	else if (addr == ports::TCNT1H || addr == ports::ICR1H){
-		update_hardware(1);	//timer value is fetched on the second cycle of the LD instructions
-		cycles-=1;
-		return TEMP;
-    }
+	else if (addr == ports::TCNT1H)
+	{
+		return T16_latch;
+	}
 	else
+	{
 		return io[addr];
+	}
 }
 
 
@@ -888,6 +890,28 @@ u8 avr8::exec()
 	pc++;
 
 
+
+	// Instruction decoder notes:
+	//
+	// Calls to read_sram_io, write_sram_io, read_io, write_io may call
+	// update_hardware as necessary to progress the emulation of other
+	// hardware components. This may cause interrupt entry
+	// (trigger_interrupt). To ensure that the instruction decoder
+	// finishes the decoding of the instruction proper, before calling
+	// these, all opcode fetches and program counter changes should be
+	// carried out.
+	//
+	// The aforementioned calls may also adjust the cycles variable
+	// according to how many cycles they progressed hardware emulation,
+	// so set the cycles variable according to the datasheet's timing info
+	// before calling those.
+	//
+	// The read_sram and write_sram calls only access the sram.
+	// TODO: I am not sure whether the instructions calling these only do
+	// so on the real thing, but doing otherwise is unlikely, and may even
+	// be buggy then (the behavior of things like having the stack over IO
+	// area...). This solution is at least fast for these instructions.
+
 	switch (insn >> 10)
 	{
 	case 0x00U:
@@ -1112,24 +1136,24 @@ u8 avr8::exec()
 		// 10q0 qq1d dddd 1qqq		ST Y+q,Rd
 		Rd = D5;
 		Rr = (insn & 7U) | ((insn >> 7) & 0x18U) | ((insn >> 8) & 0x20U);
-		cycles=2; // Note: read_sram_ld may adjust further it!
+		cycles = 2U;
 		switch (((insn >> 8) & 2U) | ((insn >> 3) & 1U))
 		{
 		case 0U:
 			// 10q0 qq0d dddd 0qqq		LD Rd,Z+q
-			r[Rd] = read_sram_ld(Z + Rr);
+			r[Rd] = read_sram_io(Z + Rr);
 			break;
 		case 1U:
 			// 10q0 qq0d dddd 1qqq		LD Rd,Y+q
-			r[Rd] = read_sram_ld(Y + Rr);
+			r[Rd] = read_sram_io(Y + Rr);
 			break;
 		case 2U:
 			// 10q0 qq1d dddd 0qqq		ST Z+q,Rd
-			write_sram(Z + Rr, r[Rd]);
+			write_sram_io(Z + Rr, r[Rd]);
 			break;
 		default:
 			// 10q0 qq1d dddd 1qqq		ST Y+q,Rd
-			write_sram(Y + Rr, r[Rd]);
+			write_sram_io(Y + Rr, r[Rd]);
 			break;
 		}
 		break;
@@ -1161,20 +1185,20 @@ u8 avr8::exec()
 		{
 		case 0x00U:
 			// 1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
-			cycles=2; // Note: read_sram_ld may adjust further it!
-			r[D5] = read_sram_ld(progmem[pc++]);
+			cycles = 2U;
+			r[D5] = read_sram_io(progmem[pc++]);
 			break;
 		case 0x01U:
 			// 1001 000d dddd 0001		LD Rd,Z+
-			cycles=2; // Note: read_sram_ld may adjust further it!
-			r[D5] = read_sram_ld(Z);
+			cycles = 2U;
+			r[D5] = read_sram_io(Z);
 			INC_Z;
 			break;
 		case 0x02U:
 			// 1001 000d dddd 0010		LD Rd,-Z
 			DEC_Z;
-			cycles=2; // Note: read_sram_ld may adjust further it!
-			r[D5] = read_sram_ld(Z);
+			cycles = 2U;
+			r[D5] = read_sram_io(Z);
 			break;
 		case 0x04U:
 			// 1001 000d dddd 0100		LPM Rd,Z
@@ -1200,88 +1224,88 @@ u8 avr8::exec()
 			break;
 		case 0x09U:
 			// 1001 000d dddd 1001		LD Rd,Y+
-			r[D5] = read_sram_ld(Y);
+			cycles = 2U;
+			r[D5] = read_sram_io(Y);
 			INC_Y;
-			cycles=2; // TODO: Sure no bug here??! (read_sram_ld wants to alter it!!)
 			break;
 		case 0x0AU:
 			// 1001 000d dddd 1010		LD Rd,-Y
 			DEC_Y;
-			cycles=2; // Note: read_sram_ld may adjust further it!
-			r[D5] = read_sram_ld(Y);
+			cycles = 2U;
+			r[D5] = read_sram_io(Y);
 			break;
 		case 0x0CU:
 			// 1001 000d dddd 1100		LD rd,X
-			cycles=2; // Note: read_sram_ld may adjust further it!
-			r[D5] = read_sram_ld(X);
+			cycles = 2U;
+			r[D5] = read_sram_io(X);
 			break;
 		case 0x0DU:
 			// 1001 000d dddd 1101		LD rd,X+
-			cycles=2; // Note: read_sram_ld may adjust further it!
-			r[D5] = read_sram_ld(X);
+			cycles = 2U;
+			r[D5] = read_sram_io(X);
 			INC_X;
 			break;
 		case 0x0EU:
 			// 1001 000d dddd 1110		LD rd,-X
 			DEC_X;
-			cycles=2; // Note: read_sram_ld may adjust further it!
-			r[D5] = read_sram_ld(X);
+			cycles = 2U;
+			r[D5] = read_sram_io(X);
 			break;
 		case 0x0FU:
 			// 1001 000d dddd 1111		POP Rd
 			INC_SP;
+			cycles = 2U;
 			r[D5] = read_sram(SP);
-			cycles=2;
 			break;
 		case 0x10U:
 			// 1001 001d dddd 0000		STS k,Rr (next word is rest of address)
-			cycles=2;
-			write_sram(progmem[pc++],r[D5]);
+			cycles = 2U;
+			write_sram_io(progmem[pc++],r[D5]);
 			break;
 		case 0x11U:
 			// 1001 001r rrrr 0001		ST Z+,Rr
-			cycles=2;
-			write_sram(Z,r[D5]);
+			cycles = 2U;
+			write_sram_io(Z,r[D5]);
 			INC_Z;
 			break;
 		case 0x12U:
 			// 1001 001r rrrr 0010		ST -Z,Rr
 			DEC_Z;
-			cycles=2;
-			write_sram(Z,r[D5]);
+			cycles = 2U;
+			write_sram_io(Z,r[D5]);
 			break;
 		case 0x19U:
 			// 1001 001r rrrr 1001		ST Y+,Rr
-			cycles=2;
-			write_sram(Y,r[D5]);
+			cycles = 2U;
+			write_sram_io(Y,r[D5]);
 			INC_Y;
 			break;
 		case 0x1AU:
 			// 1001 001r rrrr 1010		ST -Y,Rr
 			DEC_Y;
-			cycles=2;
-			write_sram(Y,r[D5]);
+			cycles = 2U;
+			write_sram_io(Y,r[D5]);
 			break;
 		case 0x1CU:
 			// 1001 001r rrrr 1100		ST X,Rr
-			cycles=2;
-			write_sram(X,r[D5]);
+			cycles = 2U;
+			write_sram_io(X,r[D5]);
 			break;
 		case 0x1DU:
 			// 1001 001r rrrr 1101		ST X+,Rr
-			cycles=2;
-			write_sram(X,r[D5]);
+			cycles = 2U;
+			write_sram_io(X,r[D5]);
 			INC_X;
 			break;
 		case 0x1EU:
 			// 1001 001r rrrr 1110		ST -X,Rr
 			DEC_X;
-			cycles=2;
-			write_sram(X,r[D5]);
+			cycles = 2U;
+			write_sram_io(X,r[D5]);
 			break;
 		case 0x1FU:
 			// 1001 001d dddd 1111		PUSH Rd
-			cycles=2;
+			cycles = 2U;
 			write_sram(SP,r[D5]);
 			DEC_SP;
 			break;
@@ -1558,9 +1582,8 @@ u8 avr8::exec()
 		case 0U:
 			// 1001 1000 AAAA Abbb		CBI A,b
 			Rd = (insn >> 3) & 31;
-			// TODO: Sure no bug here??! (see SBI below!!)
+			cycles = 2U; //may be incremented if accessing EEPROM registers
 			write_io(Rd, read_io(Rd) & ~(1<<(insn&7)));
-			cycles=2;
 			break;
 		case 1U:
 			// 1001 1001 AAAA Abbb		SBIC A,b
@@ -1575,7 +1598,7 @@ u8 avr8::exec()
 		case 2U:
 			// 1001 1010 AAAA Abbb		SBI A,b
 			Rd = (insn >> 3) & 31;
-			cycles=2; //may be incremented if accessing EEPROM registers
+			cycles = 2U; //may be incremented if accessing EEPROM registers
 			write_io(Rd, read_io(Rd) | (1<<(insn&7)));
 			break;
 		default:
@@ -1683,7 +1706,9 @@ u8 avr8::exec()
 		break;
 	}
 
-	if(cycles) update_hardware(cycles);
+	if(cycles != 0U){
+		update_hardware(cycles);
+	}
 
 	return cycles;
 }
