@@ -132,28 +132,41 @@ static const char* joySettingsFilename = "joystick-settings";
 #define BIT(x,b)	(((x)>>(b))&1)
 #define C			BIT(SREG,SREG_C)
 
-// Set the given 'bit' of 'dest' to the given 'value'.
-// Zero for 'value' clears the bit, nonzero sets. Only the low 16 bits of
-// 'value' are effective.
-inline static void set_bit(u8 &dest, unsigned int bit, unsigned int value)
+
+// Masks for SREG bits, use to combine them
+#define SREG_IM (1U << SREG_I)
+#define SREG_TM (1U << SREG_T)
+#define SREG_HM (1U << SREG_H)
+#define SREG_SM (1U << SREG_S)
+#define SREG_VM (1U << SREG_V)
+#define SREG_NM (1U << SREG_N)
+#define SREG_ZM (1U << SREG_Z)
+#define SREG_CM (1U << SREG_C)
+
+// Clears bits. Use this on the bits which should change processing
+// the given instruction.
+inline static void clr_bits(u8 &dest, unsigned int bits)
+{
+	dest = dest & (~bits);
+}
+// Inverse set bit: Sets if value is zero. Mostly for Z flag
+inline static void set_bit_inv(u8 &dest, unsigned int bit, unsigned int value)
 {
 	// Assume at most 16 bits input on value, makes it 0 or 1, the latter
 	// if the input was nonzero. The "& 1U" part is usually thrown away by
 	// the compiler (32 bits). The "& 0xFFFFU" part might also be thrown
 	// away depending on the input.
-	value = ((0U - (value & 0xFFFFU)) >> 31) & 1U;
-	dest  = dest & (~(1U << bit));
-	dest  = dest | (value << bit);
+	value = ((value & 0xFFFFU) - 1U) >> 31;
+	dest  = dest | ((value & 1U) << bit);
 }
-// Inverse set bit: Sets if value is zero, clears otherwise
-inline static void set_bit_inv(u8 &dest, unsigned int bit, unsigned int value)
-{
-	value = ((0U - (value & 0xFFFFU)) >> 31) & 1U;
-	dest  = dest | (1U << bit);
-	dest  = dest & (~(value << bit));
-}
-// Set bit using only the lowest bit of 'value'.
+// Set bit using only the lowest bit of 'value': if 1, sets the bit.
 inline static void set_bit_1(u8 &dest, unsigned int bit, unsigned int value)
+{
+	// The "& 1" on 'value' might be thrown away for suitable input.
+	dest  = dest | ((value & 1U) << bit);
+}
+// Store bit (either set or clear) using only the lowest bit of 'value'.
+inline static void store_bit_1(u8 &dest, unsigned int bit, unsigned int value)
 {
 	// The "& 1" on 'value' might be thrown away for suitable input
 	// If 'bit' is constant (inlining), it folds up well on optimizing.
@@ -186,20 +199,21 @@ inline static void set_bit_1(u8 &dest, unsigned int bit, unsigned int value)
 #define UPDATE_SVN_ADD	UPDATE_V_ADD; UPDATE_N; UPDATE_S
 
 // Simplified version for logical insns.
+// sreg_clr on S, V, and N should be called before this.
 // If 7th bit of R is set:
 //     Sets N, sets S, clears V.
 // If 7th bit of R is clear:
 //     Clears N, clears S, clears V.
-// (Note: SREG_S, SREG_V, SREG_N are constants, so a lot is calculated by
-// preprocessor)
 #define UPDATE_SVN_LOGICAL \
-	SREG = \
-		(SREG & (~((1U << SREG_S) | (1U << SREG_V) | (1U << SREG_N)))) | \
-		(((0x7FU - (unsigned int)(R)) >> 8) & ((1U << SREG_S) | (1U << SREG_V)));
+	SREG |= ((0x7FU - (unsigned int)(R)) >> 8) & (SREG_SM | SREG_VM);
 
 #define UPDATE_CZ_MUL(x)		set_bit_1(SREG,SREG_C,(x & 0x8000) >> 15); set_bit_inv(SREG,SREG_Z,x)
 
-#define CLEAR_Z		(SREG &= ~(1<<SREG_Z))
+// UPDATE_CLEAR_Z: Updates Z flag by clearing if result is nonzero. This
+// should be used if the previous Z flag state is meant to be preserved (such
+// as in CPC), so don't include Z in a clr_bits then.
+#define UPDATE_CLEAR_Z		(SREG &= ~(((0U - (unsigned int)(R)) >> 8) & SREG_ZM))
+
 #define SET_C		(SREG |= (1<<SREG_C))
 
 #define ILLEGAL_OP fprintf(stderr,"invalid insn %x\n",insn); shutdown(1);
@@ -1018,6 +1032,7 @@ u8 avr8::exec()
 			sTmp = (s8)Rd * (s8)Rr; 
 			r0 = (u8)sTmp; 
 			r1 = (u8)(sTmp >> 8);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(sTmp);
 			cycles=2;
 			break;
@@ -1028,6 +1043,7 @@ u8 avr8::exec()
 			sTmp = (s8)Rd * (u8)Rr; 
 			r0 = (u8)sTmp; 
 			r1 = (u8)(sTmp >> 8);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(sTmp);
 			cycles=2;
 			break;
@@ -1038,6 +1054,7 @@ u8 avr8::exec()
 			uTmp = (u8)Rd * (u8)Rr; 
 			r0 = (u8)(uTmp << 1); 
 			r1 = (u8)(uTmp >> 7);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(uTmp);
 			cycles=2;
 			break;
@@ -1048,6 +1065,7 @@ u8 avr8::exec()
 			sTmp = (s8)Rd * (s8)Rr; 
 			r0 = (u8)(sTmp << 1); 
 			r1 = (u8)(sTmp >> 7);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(sTmp);
 			cycles=2;
 			break;
@@ -1058,6 +1076,7 @@ u8 avr8::exec()
 			sTmp = (s8)Rd * (u8)Rr; 
 			r0 = (u8)(sTmp << 1); 
 			r1 = (u8)(sTmp >> 7);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(sTmp);
 			cycles=2;
 			break;
@@ -1069,7 +1088,8 @@ u8 avr8::exec()
 		Rd = r[D5];
 		Rr = r[R5];
 		R = Rd - Rr - C;
-		UPDATE_HC_SUB; UPDATE_SVN_SUB; if (R) CLEAR_Z;
+		clr_bits(SREG, SREG_CM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_CLEAR_Z;
 		break;
 
 	case 0x02U:
@@ -1077,7 +1097,8 @@ u8 avr8::exec()
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd - Rr - C;
-		UPDATE_HC_SUB; UPDATE_SVN_SUB; if (R) CLEAR_Z;
+		clr_bits(SREG, SREG_CM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_CLEAR_Z;
 		r[d] = R;
 		break;
 
@@ -1086,6 +1107,7 @@ u8 avr8::exec()
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd + Rr;
+		clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
 		UPDATE_HC_ADD; UPDATE_SVN_ADD; UPDATE_Z; 
 		r[d] = R;
 		break;
@@ -1107,6 +1129,7 @@ u8 avr8::exec()
 		Rd = r[D5];
 		Rr = r[R5];
 		R = Rd - Rr;
+		clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
 		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
 		break;
 
@@ -1115,6 +1138,7 @@ u8 avr8::exec()
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd - Rr;
+		clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
 		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
 		r[d] = R;
 		break;
@@ -1124,6 +1148,7 @@ u8 avr8::exec()
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd + Rr + C;
+		clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
 		UPDATE_HC_ADD; UPDATE_SVN_ADD; UPDATE_Z; 
 		r[d] = R;
 		break;
@@ -1133,6 +1158,7 @@ u8 avr8::exec()
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd & Rr;
+		clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 		UPDATE_SVN_LOGICAL; UPDATE_Z;
 		r[d] = R;
 		break;
@@ -1142,6 +1168,7 @@ u8 avr8::exec()
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd ^ Rr;
+		clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 		UPDATE_SVN_LOGICAL; UPDATE_Z;
 		r[d] = R;
 		break;
@@ -1151,6 +1178,7 @@ u8 avr8::exec()
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd | Rr;
+		clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 		UPDATE_SVN_LOGICAL; UPDATE_Z;
 		r[d] = R;
 		break;
@@ -1165,6 +1193,7 @@ u8 avr8::exec()
 		Rd = r[D4 + 16];
 		Rr = K8;
 		R = Rd - Rr;
+		clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
 		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
 		break;
 
@@ -1173,7 +1202,8 @@ u8 avr8::exec()
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd - Rr - C;
-		UPDATE_HC_SUB; UPDATE_SVN_SUB; if (R) CLEAR_Z;
+		clr_bits(SREG, SREG_CM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_CLEAR_Z;
 		r[d] = R;
 		break;
 
@@ -1182,6 +1212,7 @@ u8 avr8::exec()
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd - Rr;
+		clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
 		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
 		r[d] = R;
 		break;
@@ -1191,6 +1222,7 @@ u8 avr8::exec()
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd | Rr;
+		clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 		UPDATE_SVN_LOGICAL; UPDATE_Z;
 		r[d] = R;
 		break;
@@ -1200,6 +1232,7 @@ u8 avr8::exec()
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd & Rr;
+		clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 		UPDATE_SVN_LOGICAL; UPDATE_Z;
 		r[d] = R;
 		break;
@@ -1425,6 +1458,7 @@ u8 avr8::exec()
 		case 0x00U: case 0x10U:
 			// 1001 010d dddd 0000		COM Rd
 			r[D5] = R = ~r[D5];
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 			UPDATE_SVN_LOGICAL; UPDATE_Z; SET_C;
 			break;
 		case 0x01U: case 0x11U:
@@ -1432,6 +1466,7 @@ u8 avr8::exec()
 			Rr = r[D5];
 			Rd = 0;
 			r[D5] = R = Rd - Rr;
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
 			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
 			break;
 		case 0x02U: case 0x12U:
@@ -1442,6 +1477,7 @@ u8 avr8::exec()
 		case 0x03U: case 0x13U:
 			// 1001 010d dddd 0011		INC Rd
 			R = ++r[D5];
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 			UPDATE_N;
 			set_bit_inv(SREG,SREG_V,(unsigned int)(R) - 0x80U);
 			UPDATE_S;
@@ -1450,6 +1486,7 @@ u8 avr8::exec()
 		case 0x05U: case 0x15U:
 			// 1001 010d dddd 0101		ASR Rd
 			Rd = r[D5];
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 			set_bit_1(SREG,SREG_C,Rd&1);
 			r[D5] = R = (Rd >> 1) | (Rd & 0x80);
 			UPDATE_N;
@@ -1460,6 +1497,7 @@ u8 avr8::exec()
 		case 0x06U: case 0x16U:
 			// 1001 010d dddd 0110		LSR Rd
 			Rd = r[D5];
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 			set_bit_1(SREG,SREG_C,Rd&1);
 			r[D5] = R = (Rd >> 1);
 			UPDATE_N;
@@ -1471,6 +1509,7 @@ u8 avr8::exec()
 			// 1001 010d dddd 0111		ROR Rd
 			Rd = r[D5];
 			r[D5] = R = (Rd >> 1) | ((SREG&1)<<7);
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 			set_bit_1(SREG,SREG_C,Rd&1);
 			UPDATE_N;
 			set_bit_1(SREG,SREG_V,(R>>7)^(Rd&1));
@@ -1480,6 +1519,7 @@ u8 avr8::exec()
 		case 0x0AU: case 0x1AU:
 			// 1001 010d dddd 1010		DEC Rd
 			R = --r[D5];
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 			UPDATE_N;
 			set_bit_inv(SREG,SREG_V,(unsigned int)(R) - 0x7FU);
 			UPDATE_S;
@@ -1616,6 +1656,7 @@ u8 avr8::exec()
 			R16 = Rd16 + Rr;
 			r[Rd] = (u8)R16;
 			r[Rd+1] = (u8)(R16>>8);
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 			set_bit_1(SREG,SREG_V,((~Rd16&R16)&0x8000) >> 15);
 			set_bit_1(SREG,SREG_N,(R16&0x8000) >> 15);
 			UPDATE_S;
@@ -1634,6 +1675,7 @@ u8 avr8::exec()
 			R16 = Rd16 - Rr;
 			r[Rd] = (u8)R16;
 			r[Rd+1] = (u8)(R16>>8);
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
 			set_bit_1(SREG,SREG_V,((Rd16&~R16)&0x8000) >> 15);
 			set_bit_1(SREG,SREG_N,(R16&0x8000) >> 15);
 			UPDATE_S;
@@ -1697,6 +1739,7 @@ u8 avr8::exec()
 		uTmp = Rd * Rr; 
 		r0 = (u8)uTmp; 
 		r1 = (u8)(uTmp >> 8);
+		clr_bits(SREG, SREG_CM | SREG_ZM);
 		UPDATE_CZ_MUL(uTmp);
 		cycles=2;
 		break;
@@ -1762,10 +1805,10 @@ u8 avr8::exec()
 		if ((insn & 0x0200U) == 0U)
 		{      // BLD
 			Rd = D5;
-			set_bit_1(r[Rd],insn&7,(SREG >> SREG_T) & 1U);
+			store_bit_1(r[Rd],insn&7,(SREG >> SREG_T) & 1U);
 		}else{ // BST
 			Rd = r[D5];
-			set_bit_1(SREG,SREG_T,(Rd >> (insn&7)) & 1U);
+			store_bit_1(SREG,SREG_T,(Rd >> (insn&7)) & 1U);
 		}
 		break;
 
@@ -1794,7 +1837,7 @@ void avr8::trigger_interrupt(int location)
 {
 
 		// clear interrupt flag
-		set_bit_1(SREG,SREG_I,0);
+		store_bit_1(SREG,SREG_I,0);
 
 		// push current PC
 		write_sram(SP,(u8)pc);
