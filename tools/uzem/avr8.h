@@ -498,6 +498,8 @@ struct avr8
 
 	void write_io(u8 addr,u8 value);
 	u8 read_io(u8 addr);
+	// Should not be called directly (see write_io)
+	void write_io_x(u8 addr,u8 value);
 
 	inline u8 read_progmem(u16 addr)
 	{
@@ -511,7 +513,7 @@ struct avr8
 		sram[(addr - SRAMBASE) & (sramSize - 1U)] = value;
 	}
 
-	inline void write_sram_io(u16 addr,u8 value)
+	void write_sram_io(u16 addr,u8 value)
 	{
 		if(addr>=SRAMBASE)
 		{
@@ -541,7 +543,7 @@ struct avr8
 		return sram[(addr - SRAMBASE) & (sramSize - 1U)];
 	}
 
-	inline u8 read_sram_io(u16 addr)
+	u8 read_sram_io(u16 addr)
 	{
 
 		if(addr>=SRAMBASE)

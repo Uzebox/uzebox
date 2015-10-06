@@ -263,17 +263,29 @@ void avr8::spi_calculateClock(){
     SPI_DEBUG("SPI divider set to : %d (%d cycles per byte)\n",spiClockDivider,spiCycleWait);
 }
 
-void avr8::write_io(u8 addr,u8 value)
+
+inline void avr8::write_io(u8 addr,u8 value)
+{
+	// Pixel output ideally should inline, it is performed about 2 - 3
+	// million times per second in a Uzebox game.
+	if (addr == ports::PORTC)
+	{
+		pixel = palette[value & DDRC];
+	}
+	else
+	{
+		write_io_x(addr, value);
+	}
+}
+
+// Should not be called directly, use write_io instead (pixel output!)
+void avr8::write_io_x(u8 addr,u8 value)
 {
 	u8 changed;
 	u8 went_low;
 
 	switch (addr)
 	{
-	case (ports::PORTC):
-		pixel = palette[value & DDRC];
-		break;
-
 	case (ports::OCR2A):
 		if (enableSound && TCCR2B)
 		{
