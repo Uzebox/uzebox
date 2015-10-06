@@ -576,7 +576,7 @@ void avr8::write_io_x(u8 addr,u8 value)
 		}
 		io[addr     ] = value;
 		io[addr + 1U] = T16_latch;
-		TCNT1 = (T16_latch << 8) | value;
+		timer1_next = 0U; // Force timer state recalculation (update_hardware)
 		break;
 
 	case (ports::SPDR):
@@ -648,6 +648,16 @@ void avr8::write_io_x(u8 addr,u8 value)
 		//io[addr] = value;
 		break;
 
+	case (ports::OCR1AH):
+	case (ports::OCR1AL):
+	case (ports::OCR1BH):
+	case (ports::OCR1BL):
+		// TODO: These should also be latched by the Atmel docs, maybe
+		// implement it later.
+		io[addr] = value;
+		timer1_next = 0U; // Force timer state recalculation (update_hardware)
+		break;
+
 	case (ports::res3A):
 		// emulator-only whisper support
 		printf("%c",value);
@@ -692,53 +702,90 @@ void avr8::update_hardware(int cycles)
 
 	if (TCCR1B & 7)	//if timer 1 is started
 	{
+
 		TCNT1 = TCNT1L | (TCNT1H<<8);
-		OCR1A = OCR1AL | (OCR1AH<<8);
-		OCR1B = OCR1BL | (OCR1BH<<8);
-		tempTIFR1=TIFR1;
+		tempTIFR1 = TIFR1;
 
-		if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
+		// timer1_next stores the cycles remaining until the next
+		// event on the Timer1 16 bit timer. It can be cleared to zero
+		// whenever the timer's state is changed (port writes).
+		// Locking it to zero should have no effect, causing the timer
+		// to re-calculate its state proper on every update_hardware
+		// call. It should only improve performance.
 
-			if (TCNT1 > (0xFFFF - cycles)){
+		if (timer1_next <= cycles){
 
-				 TIFR1|=TOV1; //overflow interrupt
+			OCR1A = OCR1AL | (OCR1AH<<8);
+			OCR1B = OCR1BL | (OCR1BH<<8);
 
-			}
+			if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
 
-			if (TCNT1 <= OCR1B && (TCNT1 + cycles) > OCR1B){
-				u16 tmp=TCNT1;
-				tmp-=(OCR1B - cycles + 1);
+				if (TCNT1 > (0xFFFF - cycles)){
 
-				if(tmp==0){
-					tempTIFR1|=OCF1B; //CTC match flag interrupt
-				}else{
-					TIFR1|=OCF1B; //CTC match flag interrupt
+					 TIFR1|=TOV1; //overflow interrupt
+
 				}
 
-			}
+				if (TCNT1 <= OCR1B && (TCNT1 + cycles) > OCR1B){
+					u16 tmp=TCNT1;
+					tmp-=(OCR1B - cycles + 1);
 
-			if (TCNT1 <= OCR1A && (TCNT1 + cycles) > OCR1A){
-				TCNT1 -= (OCR1A - cycles + 1);
+					if(tmp==0){
+						tempTIFR1|=OCF1B; //CTC match flag interrupt
+					}else{
+						TIFR1|=OCF1B; //CTC match flag interrupt
+					}
 
-				if(TCNT1==0){
-					//if timer rolls over during the last cycle of an instruction, the int is acknowledged on the next machine cycle
-					tempTIFR1|=OCF1A; //CTC match flag interrupt
-				}else{
-					//otherwise the int is acknowledged for multi-cycles instructions
-					TIFR1|=OCF1A; //CTC match flag interrupt
 				}
 
-			}else{
+				if (TCNT1 <= OCR1A && (TCNT1 + cycles) > OCR1A){
+					TCNT1 -= (OCR1A - cycles + 1);
+
+					if(TCNT1==0){
+						//if timer rolls over during the last cycle of an instruction, the int is acknowledged on the next machine cycle
+						tempTIFR1|=OCF1A; //CTC match flag interrupt
+					}else{
+						//otherwise the int is acknowledged for multi-cycles instructions
+						TIFR1|=OCF1A; //CTC match flag interrupt
+					}
+
+				}else{
+					TCNT1 += cycles;
+				}
+
+				// Calculate next timer event
+
+				timer1_next = 0x10000U - TCNT1;
+				if ( (TCNT1 <= OCR1B) &&
+				     (timer1_next > (OCR1B - TCNT1)) )
+				{
+					timer1_next = (OCR1B - TCNT1);
+				}
+				if ( (TCNT1 <= OCR1A) &&
+				     (timer1_next > (OCR1A - TCNT1)) )
+				{
+					timer1_next = (OCR1A - TCNT1);
+				}
+
+			}else{	//timer in normal mode: counts up to 0xffff then rolls over
+
+				if (TCNT1 > (0xFFFF - cycles)){
+					if (TIMSK1 & TOIE1){
+						TIFR1|=TOV1; //overflow interrupt
+					}
+				}
 				TCNT1 += cycles;
+
+				// Calculate next timer event
+
+				timer1_next = 0x10000U - TCNT1;
+
 			}
 
-		}else{	//timer in normal mode: counts up to 0xffff then rolls over
-
-			if (TCNT1 > (0xFFFF - cycles)){
-				if (TIMSK1 & TOIE1){
-					TIFR1|=TOV1; //overflow interrupt
-				}
-			}
+		}
+		else
+		{
+			timer1_next -= cycles;
 			TCNT1 += cycles;
 		}
 
@@ -880,6 +927,10 @@ void avr8::update_hardware(int cycles)
 	}
 
 
+	if (TCCR1B != newTCCR1B)
+	{
+		timer1_next = 0U; // Timer state changes, so force recalculating
+	}
 	TCCR1B=newTCCR1B; //Timer increments starts after executing the instruction that sets TCCR1B
 	TIFR1|=tempTIFR1;
 }

@@ -328,7 +328,8 @@ struct avr8
 	u32 cycleCounter, prevPortB, prevWDR;
 	u32 watchdogTimer;
     u8 eeClock;
-	u8 T16_latch;				// for 16-bit timers
+	u8 T16_latch;             // Latch for 16-bit timers
+	unsigned int timer1_next; // Cycles remaining until next timer1 event
 	u16 TCNT1;
 	u8 tempTIFR1;
 	u16 OCR1A;
