@@ -280,6 +280,7 @@ struct avr8
 		/*Core*/
 		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),
 		newTCCR1B(0),elapsedCyclesSleep(0),hsyncHelp(false),recordMovie(false),
+		timer1_next(0),
 
 		/*SDL*/
 		window(0),renderer(0),surface(0),texture(0),
@@ -324,18 +325,18 @@ struct avr8
 	/*Core*/
 	u16 progmem[progSize/2];
 	u16 pc,currentPc;
-	u32 elapsedCycles,prevCyclesCounter,elapsedCyclesSleep,lastCyclesSleep;
-	u32 cycleCounter, prevPortB, prevWDR;
-	u32 watchdogTimer;
-    u8 eeClock;
-	u8 T16_latch;             // Latch for 16-bit timers
+	unsigned int cycleCounter;
+private:
+	unsigned int elapsedCycles,prevCyclesCounter,elapsedCyclesSleep,lastCyclesSleep;
+	unsigned int prevPortB, prevWDR;
+	unsigned int watchdogTimer;
+	// u8 eeClock; TODO: Only set at one location, never used. Maybe a never completed EEPROM timing code.
+	unsigned int T16_latch;   // Latch for 16-bit timers (16 bits used)
 	unsigned int timer1_next; // Cycles remaining until next timer1 event
-	u16 TCNT1;
-	u8 tempTIFR1;
-	u16 OCR1A;
-	u16 OCR1B;
-	u8 newTCCR1B;
-	u8 cycles;				// Most insns run in one cycle, so assume that
+	unsigned int tempTIFR1;   // Delaying for TIFR1 (8 bits used)
+	unsigned int newTCCR1B;   // Delaying for TCCR1B (8 bits used)
+	unsigned int cycles;
+public:
 	bool enableGdb;
 	int randomSeed;
     const char* eepromFile;
@@ -403,9 +404,9 @@ struct avr8
 	SDL_Texture *texture;
 	int sdl_flags;
 	int scanline_count;
-	int current_cycle;
+	unsigned int current_cycle;
 	int scanline_top;
-	int left_edge;
+	unsigned int left_edge;
 	u32 inset;
 	u32 *current_scanline, *prev_scanline;
 	u32 pixel;
@@ -497,6 +498,8 @@ struct avr8
 	char *SDpath;
 
 
+private:
+
 	void write_io(u8 addr,u8 value);
 	u8 read_io(u8 addr);
 	// Should not be called directly (see write_io)
@@ -570,7 +573,7 @@ struct avr8
 		}
 	}
 
-	inline static int get_insn_size(u16 insn)
+	inline static int get_insn_size(unsigned int insn)
 	{
 		/*	1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
 		1001 001d dddd 0000		STS k,Rr (next word is rest of address)
@@ -584,6 +587,8 @@ struct avr8
 			return 1;
 	}
 
+public:
+
 	bool init_sd();
 	bool init_gui();
 	void init_joysticks();
@@ -595,10 +600,10 @@ struct avr8
 	void map_joysticks(SDL_Event &ev);
 	void load_joystick_file(const char* filename);
 	void draw_memorymap();
-	void trigger_interrupt(int location);
+	void trigger_interrupt(unsigned int location);
 	u8 exec();
     void spi_calculateClock();    
-	void update_hardware(int cycles);    
+	void update_hardware(unsigned int cycles);    
     void update_spi();
     void SDLoadImage(char *filename);    
     void SDBuildMBR(SDPartitionEntry* entry);    
