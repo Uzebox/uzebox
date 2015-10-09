@@ -1,10 +1,9 @@
 /*
-NOTE THIS IS NOT THE OFFICIAL BRANCH OF THE UZEBOX EMULATOR
-PLEASE SEE THE FORUM FOR MORE DETAILS:  http://uzebox.org/forums/
-
 (The MIT License)
 
-Copyright (c) 2008,2009, David Etherton, Eric Anderton
+Copyright (c) 2008-2015 by
+David Etherton, Eric Anderton, Alec Bourque (Uze), Filipe Rinaldi,
+Sandor Zsuga (Jubatian), Matt Pandina (Artcfox)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

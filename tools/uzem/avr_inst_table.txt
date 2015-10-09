@@ -60,17 +60,13 @@
 1001 0100 0sss 1000		BSET s (SEC, etc are aliases with sss implicit)
 1001 0100 1sss 1000		BCLR s (CLC, etc are aliases with sss implicit)
 1001 0100 0000 1001		IJMP (jump thru Z register)
-1001 0100 0001 1001		EIJMP (probably not on 644)
-1001 0100 KKKK 1011		DES (probably not on 644)
 1001 0101 0000 1000		RET
 1001 0101 0000 1001		ICALL (call thru Z register)
 1001 0101 0001 1000		RETI
-1001 0101 0001 1001		EICALL (probably not on 644)
 1001 0101 1000 1000		SLEEP
 1001 0101 1001 1000		BREAK
 1001 0101 1010 1000		WDR
 1001 0101 1100 1000		LPM (r0 implied, why is this special?)
-1001 0101 1101 1000		ELPM (r0 implied)
 1001 0101 1110 1000		SPM Z (writes R1:R0)
 1001 0110 KKdd KKKK		ADIW Rd+1:Rd,K   (16-bit add to upper four register pairs)
 1001 0111 KKdd KKKK		SBIW Rd+1:Rd,K

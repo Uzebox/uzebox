@@ -1,7 +1,9 @@
 /*
 (The MIT License)
 
-Copyright (c) 2008-2013 David Etherton, Eric Anderton, Alec Bourque et al.
+Copyright (c) 2008-2015 by
+David Etherton, Eric Anderton, Alec Bourque (Uze), Filipe Rinaldi,
+Sandor Zsuga (Jubatian), Matt Pandina (Artcfox)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -37,17 +39,16 @@ More info at uzebox.org
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
+#include <queue>
 
 #include "avr8.h"
 #include "gdbserver.h"
 #include "SDEmulator.h"
 #include "Keyboard.h"
 #include "logo.h"
-#include <iostream>
-#include <queue>
+
 using namespace std;
-
-
 
 #define X		((XL)|(XH<<8))
 #define DEC_X	(XL-- || XH--)
@@ -749,8 +750,13 @@ void avr8::update_hardware(unsigned int cycles)
 			if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
 
 				if (TCNT1 > (0xFFFFU - cycles)){
-
-					 TIFR1|=TOV1; //overflow interrupt
+					unsigned int tmp = TCNT1;
+					tmp -= (0xFFFFU - cycles + 1U);
+					if(tmp==0){
+						tempTIFR1|=TOV1; //if event happens during the last cycle of an instruction, the int is acknowledged on the next machine cycle
+					}else{
+						TIFR1|=TOV1; //otherwise the int is acknowledged for multi-cycles instructions
+					}
 
 				}
 
@@ -797,9 +803,14 @@ void avr8::update_hardware(unsigned int cycles)
 
 			}else{	//timer in normal mode: counts up to 0xffff then rolls over
 
-				if (TCNT1 > (0xFFFFU - cycles)){
-					if (TIMSK1 & TOIE1){
-						TIFR1|=TOV1; //overflow interrupt
+				if (TCNT1 > (0xFFFFU - cycles))
+				{
+					unsigned int tmp = TCNT1;
+					tmp -= (0xFFFFU - cycles + 1U);
+					if(tmp==0){
+						tempTIFR1|=TOV1; //if event happens during the last cycle of an instruction, the int is acknowledged on the next machine cycle
+					}else{
+						TIFR1|=TOV1; //otherwise the int is acknowledged for multi-cycles instructions
 					}
 				}
 				TCNT1 = (TCNT1 + cycles) & 0xFFFFU;
@@ -1306,8 +1317,6 @@ u8 avr8::exec()
 		// 1001 000d dddd 0010		LD Rd,-Z
 		// 1001 000d dddd 0100		LPM Rd,Z
 		// 1001 000d dddd 0101		LPM Rd,Z+
-		// 1001 000d dddd 0110		ELPM Rd,Z
-		// 1001 000d dddd 0111		ELPM Rd,Z+
 		// 1001 000d dddd 1001		LD Rd,Y+
 		// 1001 000d dddd 1010		LD Rd,-Y
 		// 1001 000d dddd 1100		LD rd,X
@@ -1349,17 +1358,6 @@ u8 avr8::exec()
 			break;
 		case 0x05U:
 			// 1001 000d dddd 0101		LPM Rd,Z+
-			r[D5] = read_progmem(Z);
-			INC_Z;
-			cycles=3;
-			break;
-		case 0x06U:
-			// 1001 000d dddd 0110		ELPM Rd,Z
-			r[D5] = read_progmem(Z);
-			cycles=3;
-			break;
-		case 0x07U:
-			// 1001 000d dddd 0111		ELPM Rd,Z+
 			r[D5] = read_progmem(Z);
 			INC_Z;
 			cycles=3;
@@ -1472,17 +1470,13 @@ u8 avr8::exec()
 		// 1001 0100 0sss 1000		BSET s (SEC, etc are aliases with sss implicit)
 		// 1001 0100 1sss 1000		BCLR s (CLC, etc are aliases with sss implicit)
 		// 1001 0100 0000 1001		IJMP (jump thru Z register)
-		// 1001 0100 0001 1001		EIJMP (probably not on 644)
-		// 1001 0100 KKKK 1011		DES (probably not on 644)
 		// 1001 0101 0000 1000		RET
 		// 1001 0101 0000 1001		ICALL (call thru Z register)
 		// 1001 0101 0001 1000		RETI
-		// 1001 0101 0001 1001		EICALL (probably not on 644)
 		// 1001 0101 1000 1000		SLEEP
 		// 1001 0101 1001 1000		BREAK
 		// 1001 0101 1010 1000		WDR
 		// 1001 0101 1100 1000		LPM (r0 implied, why is this special?)
-		// 1001 0101 1101 1000		ELPM (r0 implied)
 		// 1001 0101 1110 1000		SPM Z (writes R1:R0)
 		// 1001 0110 KKdd KKKK		ADIW Rd+1:Rd,K   (16-bit add to upper four register pairs)
 		// 1001 0111 KKdd KKKK		SBIW Rd+1:Rd,K
@@ -1583,13 +1577,8 @@ u8 avr8::exec()
 			break;
 		case 0x09U:
 			// 1001 0100 0000 1001		IJMP (jump thru Z register)
-			// 1001 0100 0001 1001		EIJMP (probably not on 644)
 			pc = Z;
 			cycles = 2;
-			break;
-		case 0x0BU:
-			// 1001 0100 KKKK 1011		DES (probably not on 644)
-			// no operation
 			break;
 		case 0x18U:
 			// 1001 0101 0000 1000		RET
@@ -1646,11 +1635,6 @@ u8 avr8::exec()
 				r0 = read_progmem(Z);
 				cycles = 3;
 				break;
-			case 0xDU:
-				// 1001 0101 1101 1000		ELPM (r0 implied)
-				r0 = read_progmem(Z);
-				cycles = 3;
-				break;
 			case 0xEU:
 				// 1001 0101 1110 1000		SPM Z (writes R1:R0)
 				if (Z >= progSize/2)
@@ -1670,7 +1654,6 @@ u8 avr8::exec()
 			break;
 		case 0x19U:
 			// 1001 0101 0000 1001		ICALL (call thru Z register)
-			// 1001 0101 0001 1001		EICALL (probably not on 644)
 			write_sram(SP,u8(pc));
 			DEC_SP;
 			write_sram(SP,(pc)>>8);
@@ -1884,6 +1867,9 @@ void avr8::trigger_interrupt(unsigned int location)
 		// bill the cycles consumed.
 		// (this in theory can recurse back into here but we've
 		// already cleared the interrupt enable flag)
+		// Note  that there is an error in the Atmega644 datasheet where
+		// it specifies the IRQ cycles as 5.
+		// see: http://www.avrfreaks.net/forum/interrupt-timing-conundrum
 		update_hardware(3);
 
 }
