@@ -305,7 +305,9 @@ void avr8::write_io_x(u8 addr,u8 value)
 		if (enableSound && TCCR2B)
 		{
 			// raw pcm sample at 15.7khz
+#ifndef __EMSCRIPTEN__
 			while (audioRing.isFull())SDL_Delay(1);
+#endif
 			SDL_LockAudio();
 			audioRing.push(value);
 			SDL_UnlockAudio();

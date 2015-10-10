@@ -13,6 +13,14 @@
 
 TARGETS = debug release
 
+#Uncomment to build Emscripten version (and be sure to add `arguments: ["gamefile.uze"],` below `var Module = {` in generated uzem.html file)
+#EMSCRIPTEN_BUILD=1
+
+ifeq ($(EMSCRIPTEN_BUILD),1)
+    EMSCRIPTEN_FLAGS=-O3 -s USE_SDL=2 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 --llvm-lto 1
+    EMSCRIPTEN_TARGET_EXTRAS=.html --preload-file gamefile.uze --preload-file eeprom.bin
+endif
+
 #Uncomment to optimize for local CPU
 #ARCH=native
 #TUNE=y
@@ -50,7 +58,7 @@ CPPFLAGS += $(SDL_FLAGS) -D$(OS) -D_GNU_SOURCE=1 -DGUI=1 -DJOY_ANALOG_DEADZONE=8
 ######################################
 RELEASE_NAME = uzem$(OS_EXTENSION)
 RELEASE_OBJ_DIR := Release
-RELEASE_CPPFLAGS = $(CPPFLAGS) -O3 
+RELEASE_CPPFLAGS = $(CPPFLAGS) -O3 $(EMSCRIPTEN_FLAGS)
 
 ######################################
 # Debug definitions
@@ -58,7 +66,7 @@ RELEASE_CPPFLAGS = $(CPPFLAGS) -O3
 DEBUG_NAME = uzemdbg$(OS_EXTENSION)
 DEBUG_OBJ_DIR := Debug
 DEBUG_DEFINES := USE_SPI_DEBUG=1 USE_EEPROM_DEBUG=1 USE_GDBSERVER_DEBUG=1
-DEBUG_CPPFLAGS = $(CPPFLAGS) -g
+DEBUG_CPPFLAGS = $(CPPFLAGS) -g $(EMSCRIPTEN_FLAGS)
 
 ######################################
 # SD Options
@@ -78,9 +86,15 @@ PLATFORM = Unknown
 ifeq ($(UNAME),Linux)
 OS := LINUX
 PLATFORM := Unix
-SDL_FLAGS := $(shell sdl2-config --cflags)
-LDFLAGS += $(shell sdl2-config --libs)
-CC := g++
+ifeq ($(EMSCRIPTEN_BUILD),1)
+    SDL_FLAGS :=
+    LDFLAGS += $(EMSCRIPTEN_FLAGS)
+    CC := emcc
+else
+    SDL_FLAGS := $(shell sdl2-config --cflags)
+    LDFLAGS += $(shell sdl2-config --libs)
+    CC := g++
+endif
 MKDIR := mkdir -p
 RM := rm -rf
 MTOOLS = 
@@ -199,7 +213,7 @@ $(TARGETS): msg $(TARGET_NAME)
 	@echo done!
 
 $(TARGET_NAME): $(TARGET_OBJS) $(SDL_DLL)
-	$(CC) $(TARGET_OBJS) -o $(TARGET_NAME) $(CPPFLAGS) $(LDFLAGS) $(TARGET_D_DEFINES)
+	$(CC) $(TARGET_OBJS) -o $(TARGET_NAME)$(EMSCRIPTEN_TARGET_EXTRAS) $(CPPFLAGS) $(LDFLAGS) $(TARGET_D_DEFINES)
 
 $(TARGET_OBJ_DIR)/%.o: %.cpp
 	$(CC) -c $< -o $@ $(TARGET_CPPFLAGS) $(DEPFLAGS) $(TARGET_D_DEFINES)

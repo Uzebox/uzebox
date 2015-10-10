@@ -30,6 +30,9 @@ THE SOFTWARE.
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 
 static const struct option longopts[] ={
@@ -98,10 +101,21 @@ int ends_with(const char* name, const char* extension, size_t length)
 
 // header for use with UzeRom files
 RomHeader uzeRomHeader;
+avr8 uzebox;
+
+#ifdef __EMSCRIPTEN__
+void one_iter() {
+       const int cycles=1000000;
+       static int left;
+
+       left = cycles;
+       while (left > 0)
+               left -= uzebox.exec();
+}
+#endif
 
 int main(int argc,char **argv)
 {
-	avr8 uzebox;
         
 #if defined(__GNUC__) && defined(__WIN32__)
     //HACK: workaround for precompiled SDL libraries that block output to console
@@ -393,6 +407,10 @@ int main(int argc,char **argv)
 	//at the reset vector takes only 2 cycles
 	uzebox.cycleCounter=-1;
 
+#ifdef __EMSCRIPTEN__
+	emscripten_set_main_loop(one_iter, 0, 1);
+	emscripten_set_main_loop_timing(EM_TIMING_RAF, 1);
+#else
 	while (true)
 	{
 		if (uzebox.fullscreen){
@@ -410,6 +428,7 @@ int main(int argc,char **argv)
 
 		sprintf(uzebox.caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 	}
+#endif
 
 	return 0;
 }
