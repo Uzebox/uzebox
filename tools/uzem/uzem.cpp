@@ -408,7 +408,7 @@ int main(int argc,char **argv)
 	uzebox.cycleCounter=-1;
 
 #ifdef __EMSCRIPTEN__
-	emscripten_set_main_loop(one_iter, 0, 1);
+	emscripten_set_main_loop(one_iter, 60, 1);
 	emscripten_set_main_loop_timing(EM_TIMING_RAF, 1);
 #else
 	while (true)
