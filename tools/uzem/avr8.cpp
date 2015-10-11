@@ -2818,6 +2818,7 @@ u8 avr8::SDReadByte(){
 }
 
 void avr8::SDWriteByte(u8 value){    
+    (void)value;
     fprintf(stderr, "No write support in SD emulation\n");
 }
 
@@ -2855,7 +2856,7 @@ void avr8::LoadEEPROMFile(const char* filename){
 
 		size_t result=fread(eeprom,1,size,f);
         if (result != size){
-        	printf("Warning: fread in %s returned an unexpected value:%i,\n", __FUNCTION__,result);
+        	printf("Warning: fread in %s returned an unexpected value:%lu,\n", __FUNCTION__,result);
         }
         fclose(f);
     }

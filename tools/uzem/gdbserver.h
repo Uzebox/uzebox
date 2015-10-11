@@ -52,7 +52,7 @@
 
 using namespace std;
 
-class avr8;
+struct avr8;
 
 typedef uint8_t byte;
 typedef uint16_t word;

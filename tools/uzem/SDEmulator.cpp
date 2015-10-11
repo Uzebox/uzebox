@@ -136,7 +136,7 @@ int SDEmu::init_with_directory(const char *path) {
 			clusters[freecluster+fileClustersCount-1]=0xffff; //Last cluster in file marker (EOC)
 
 			toc[i].filesize = st.st_size;
-			printf("\t%d: %s:%d\n", i, entry->d_name, st.st_size, toc[i].cluster_no);
+			printf("\t%d: %s:%ld\n", i, entry->d_name, st.st_size);
 			freecluster += fileClustersCount;
 			if (++i == MAX_FILES) {
 				break;
@@ -146,7 +146,7 @@ int SDEmu::init_with_directory(const char *path) {
 	return 0;
 }
 
-int SDEmu::read(unsigned char *ptr) {
+void SDEmu::read(unsigned char *ptr) {
 	static int lastfile=-1;
 	static int lastfileStart=0;
 	static int lastfileEnd=0;
@@ -221,6 +221,6 @@ int SDEmu::read(unsigned char *ptr) {
 
 }
 
-int SDEmu::seek(int pos) {
+void SDEmu::seek(int pos) {
 	position = pos;
 }
