@@ -118,7 +118,7 @@ static int parse_hex_word(const char *s)
 
 bool loadHex(const char *in_filename,unsigned char *buffer,unsigned int *bytesRead)
 {
-	
+	(void)bytesRead;
 	//http://en.wikipedia.org/wiki/.hex
 
 	//(I've added the spaces for clarity, they don't exist in the real files)

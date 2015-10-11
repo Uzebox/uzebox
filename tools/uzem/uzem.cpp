@@ -197,7 +197,7 @@ int main(int argc,char **argv)
     // get leftovers
     for (int i = optind; i < argc; ++i) {
         if(heximage){
-            printerr("Error: HEX file already specified (too many arguments?).\n\n",heximage);
+            printerr("Error: HEX file already specified (too many arguments?).\n\n");
             showHelp(argv[0]);
             return 1;
         }
@@ -207,7 +207,7 @@ int main(int argc,char **argv)
     }
     
     if (uzebox.gdbPort == 0) {
-        printerr("Error: invalid port address.\n\n",uzebox.gdbPort);
+        printerr("Error: invalid port address.\n\n");
         showHelp(argv[0]);
         return 1;
     }

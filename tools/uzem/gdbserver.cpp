@@ -181,9 +181,9 @@ void GdbServer::avr_core_insert_breakpoint(dword pc) {
     BP.push_back(pc);
 }
 
-int GdbServer::signal_has_occurred(int signo) {return 0;}
-void GdbServer::signal_watch_start(int signo){};
-void GdbServer::signal_watch_stop(int signo){};
+int GdbServer::signal_has_occurred(int signo) {(void)signo; return 0;}
+void GdbServer::signal_watch_start(int signo){(void)signo;}
+void GdbServer::signal_watch_stop(int signo){(void)signo;}
 
 
 static char HEX_DIGIT[] = "0123456789abcdef";
@@ -268,7 +268,7 @@ void GdbServer::gdb_write( const void *buf, size_t count )
     unsent bytes. */
 
     if ((unsigned int)res != count)
-        printf( "write only wrote %d of %d bytes", res, count );
+        printf( "write only wrote %d of %ld bytes", res, count );
 }
 
 /* Use a single function for storing/getting the last reply message.
