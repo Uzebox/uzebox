@@ -266,7 +266,7 @@ int main(int argc,char **argv)
 
     	//build the capture file name
 		int len=strlen(uzebox.romName);
-		char capfname[len+4];
+		char capfname[len+5];
 		strcpy(capfname,uzebox.romName);
 		capfname[len+0]='.';
 		capfname[len+1]='c';
