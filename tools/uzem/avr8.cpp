@@ -134,6 +134,14 @@ static const char* joySettingsFilename = "joystick-settings";
 #define C			BIT(SREG,SREG_C)
 
 
+// Delayed output flags. If either is set, there is a delayed out waiting to
+// be written on the end of update_hardware, so the next cycle it can have
+// effect. The "dly_out" variable contains these flags, and the "dly_xxx"
+// variables the values to be written out.
+#define DLY_TCCR1B     0x0001U
+#define DLY_TCNT1      0x0002U
+
+
 // Masks for SREG bits, use to combine them
 #define SREG_IM (1U << SREG_I)
 #define SREG_TM (1U << SREG_T)
@@ -584,16 +592,9 @@ void avr8::write_io_x(u8 addr,u8 value)
 		break;
 
 	case (ports::TCNT1L):
-		// Timer value increments next machine cycle after being
-		// written.
-		if (cycles != 0U)
-		{
-			cycles -= 1U;
-			update_hardware(1U);
-		}
-		io[addr     ] = value;
-		io[addr + 1U] = T16_latch;
-		timer1_next = 0U; // Force timer state recalculation (update_hardware)
+		dly_TCNT1L = value;
+		dly_TCNT1H = T16_latch;
+		dly_out |= DLY_TCNT1;
 		break;
 
 	case (ports::SPDR):
@@ -661,8 +662,8 @@ void avr8::write_io_x(u8 addr,u8 value)
 		break;
 
 	case (ports::TCCR1B):
-		newTCCR1B=value;	//to detect timer start
-		//io[addr] = value;
+		dly_TCCR1B = value;
+		dly_out |= DLY_TCCR1B;
 		break;
 
 	case (ports::OCR1AH):
@@ -711,27 +712,11 @@ u8 avr8::read_io(u8 addr)
 }
 
 
-void avr8::update_hardware(unsigned int cycles)
+
+// Performs hardware updates which have to be calculated at cycle precision
+void avr8::update_hardware()
 {
-
-
-	// TODO (noted by Jubatian)
-	//
-	// Some register updates are delayed, as described so their effect is
-	// carried out after the instruction. This, as of now, especially with
-	// calling update_hardware from within the instruction decoder got
-	// murky. It should be verified whether these delays aren't in fact
-	// for delaying the effect by one cycle, and if so, should be fixed
-	// accordingly. Cleaning this up might allow decoupling interrupt
-	// processing, so it can be moved after the instruction decoder
-	// proper.
-	//
-	// SPI's interrupt also should be moved in the by-priority processing
-	// block.
-
-	cycleCounter += cycles;
-
-	tempTIFR1 = TIFR1;
+	cycleCounter ++;
 
 	// timer1_next stores the cycles remaining until the next event on the
 	// Timer1 16 bit timer. It can be cleared to zero whenever the timer's
@@ -739,87 +724,77 @@ void avr8::update_hardware(unsigned int cycles)
 	// effect, causing the timer to re-calculate its state proper on every
 	// update_hardware call. It should only improve performance.
 
-	if (timer1_next <= cycles)
+	if (timer1_next == 0U)
 	{
 
-		if ((TCCR1B & 7U) != 0U) //if timer 1 is started
+		// Apply delayed timer interrupt flags
+
+		TIFR1 |= itd_TIFR1;
+		itd_TIFR1 = 0U;
+
+		// Process timer
+
+		if ((TCCR1B & 7U) != 0U) // If timer 1 is started
 		{
 
 			unsigned int TCNT1 = TCNT1L | ((unsigned int)(TCNT1H) << 8);
 			unsigned int OCR1A = OCR1AL | ((unsigned int)(OCR1AH) << 8);
 			unsigned int OCR1B = OCR1BL | ((unsigned int)(OCR1BH) << 8);
 
-			if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
+			if(TCCR1B & WGM12) // Timer in CTC mode: count up to OCRnA then resets to zero
+			{
 
-				if (TCNT1 > (0xFFFFU - cycles)){
-					unsigned int tmp = TCNT1;
-					tmp -= (0xFFFFU - cycles + 1U);
-					if(tmp==0){
-						tempTIFR1|=TOV1; //if event happens during the last cycle of an instruction, the int is acknowledged on the next machine cycle
-					}else{
-						TIFR1|=TOV1; //otherwise the int is acknowledged for multi-cycles instructions
-					}
-
+				if (TCNT1 == 0xFFFFU)
+				{
+					itd_TIFR1 |= TOV1;
 				}
 
-				if (TCNT1 <= OCR1B && (TCNT1 + cycles) > OCR1B){
-					unsigned int tmp = TCNT1;
-					tmp -= (OCR1B - cycles + 1U);
-
-					if(tmp==0){
-						tempTIFR1|=OCF1B; //CTC match flag interrupt
-					}else{
-						TIFR1|=OCF1B; //CTC match flag interrupt
-					}
-
+				if (TCNT1 == OCR1B)
+				{
+					itd_TIFR1 |= OCF1B;
 				}
 
-				if (TCNT1 <= OCR1A && (TCNT1 + cycles) > OCR1A){
-					TCNT1 -= (OCR1A - cycles + 1);
-
-					if(TCNT1==0){
-						//if timer rolls over during the last cycle of an instruction, the int is acknowledged on the next machine cycle
-						tempTIFR1|=OCF1A; //CTC match flag interrupt
-					}else{
-						//otherwise the int is acknowledged for multi-cycles instructions
-						TIFR1|=OCF1A; //CTC match flag interrupt
-					}
-
-				}else{
-					TCNT1 = (TCNT1 + cycles) & 0xFFFFU;
+				if (TCNT1 == OCR1A)
+				{
+					TCNT1 = 0U;
+					itd_TIFR1 |= OCF1A;
+				}
+				else
+				{
+					TCNT1 = (TCNT1 + 1U) & 0xFFFFU;
 				}
 
 				// Calculate next timer event
 
-				timer1_next = 0x10000U - TCNT1;
-				if ( (TCNT1 <= OCR1B) &&
-				     (timer1_next > (OCR1B - TCNT1)) )
+				if (itd_TIFR1 == 0U)
 				{
-					timer1_next = (OCR1B - TCNT1);
-				}
-				if ( (TCNT1 <= OCR1A) &&
-				     (timer1_next > (OCR1A - TCNT1)) )
-				{
-					timer1_next = (OCR1A - TCNT1);
+					timer1_next = 0xFFFFU - TCNT1;
+					if ( (TCNT1 <= OCR1B) &&
+					     (timer1_next > (OCR1B - TCNT1)) )
+					{
+						timer1_next = (OCR1B - TCNT1);
+					}
+					if ( (TCNT1 <= OCR1A) &&
+					     (timer1_next > (OCR1A - TCNT1)) )
+					{
+						timer1_next = (OCR1A - TCNT1);
+					}
 				}
 
 			}else{	//timer in normal mode: counts up to 0xffff then rolls over
 
-				if (TCNT1 > (0xFFFFU - cycles))
+				if (TCNT1 == 0xFFFFU)
 				{
-					unsigned int tmp = TCNT1;
-					tmp -= (0xFFFFU - cycles + 1U);
-					if(tmp==0){
-						tempTIFR1|=TOV1; //if event happens during the last cycle of an instruction, the int is acknowledged on the next machine cycle
-					}else{
-						TIFR1|=TOV1; //otherwise the int is acknowledged for multi-cycles instructions
-					}
+					itd_TIFR1 |= TOV1;
 				}
-				TCNT1 = (TCNT1 + cycles) & 0xFFFFU;
+				TCNT1 = (TCNT1 + 1U) & 0xFFFFU;
 
 				// Calculate next timer event
 
-				timer1_next = 0x10000U - TCNT1;
+				if (itd_TIFR1 == 0U)
+				{
+					timer1_next = 0xFFFFU - TCNT1;
+				}
 
 			}
 
@@ -831,16 +806,61 @@ void avr8::update_hardware(unsigned int cycles)
 	}
 	else
 	{
-		timer1_next -= cycles;
+		timer1_next --;
 		// Note: A little hack is here, by C / C++ standard a logical
 		// operation's result is 0 for false, 1 for true when
 		// converted to integer. This can be optimized well by a sane
 		// compiler.
-		TCNT1L += cycles;
-		TCNT1H += (unsigned int)(cycles > (unsigned int)(TCNT1L));
+		TCNT1L ++;
+		TCNT1H += (unsigned int)(TCNT1L == 0U);
 	}
 
+	// Apply delayed outputs
 
+	if (dly_out != 0U)
+	{
+		if ((dly_out & DLY_TCCR1B) != 0U)
+		{
+			TCCR1B = dly_TCCR1B;
+			timer1_next = 0U; // Timer state changes
+		}
+		if ((dly_out & DLY_TCNT1) != 0U)
+		{
+			TCNT1L = dly_TCNT1L;
+			TCNT1H = dly_TCNT1H;
+			timer1_next = 0U; // Timer state changes
+		}
+		dly_out = 0U;
+	}
+
+	// Draw pixel on scanline
+
+	if (scanline_count >= 0)
+	{
+		if (current_cycle < 1440U){
+			current_scanline[current_cycle >> 1] = pixel;
+		}
+		current_cycle ++;
+	}
+}
+
+
+
+// Performs hardware updates which can be done at instruction precision
+// Also process interrupt requests
+inline void avr8::update_hardware_ins()
+{
+	// Get cycle count to emulate
+
+	unsigned int cycles = cycleCounter - cycle_ctr_ins;
+	cycle_ctr_ins = cycleCounter;
+
+	// Notes:
+	//
+	// From this point if further cycles are required to be consumed,
+	// those should be consumed using update_hardware(). This won't
+	// increase this run's cycle count (cycles), but will show in the
+	// next run proper.
 
 	// Watchdog notes:
 	//
@@ -863,7 +883,7 @@ void avr8::update_hardware(unsigned int cycles)
         //TODO: test for master/slave modes (assume master for now)
         // TODO: factor in clock divider
 
-        if(spiTransfer && (cycles > 0)){
+        if(spiTransfer){
             if(spiClock <= cycles){
                 //SPI_DEBUG("SPI transfer complete\n");
                 update_spi();
@@ -885,13 +905,8 @@ void avr8::update_hardware(unsigned int cycles)
         }*/
 
         // test for interrupt (enable and interrupt flag for SPI)
-        if((SPCR & 0x80) && (SPSR & 0x80)){
-            //TODO: verify that SPI is dependent upon the global interrupt flag
-            if (BIT(SREG,SREG_I)){
-                SPSR ^= 0x80; // clear the interrupt
-                trigger_interrupt(SPI_STC); // execute the vector
-            }
-        }
+        // TODO (Jubatian): Verify that the move is OK, if not, try to fix
+        // it there (where the other interrupts are)
     }
 
     //clock the EEPROM hardware
@@ -944,63 +959,56 @@ void avr8::update_hardware(unsigned int cycles)
 		}
     }
 
-	//process interrupts in order of priority
-    if(SREG & (1<<SREG_I)){
+	// Process interrupts in order of priority
 
-    	if ((WDTCSR&(WDIF|WDIE))==(WDIF|WDIE)){
-
-    		WDTCSR&= ~WDIF; //clear watchdog flag
+	if(SREG & (1<<SREG_I))
+	{
+		// Note (Jubatian):
+		// The SD card's SPI interrupt trigger was within the SPI
+		// handling part in update_hardware, however it belongs to
+		// interrupt triggers. Priority order might be broken (but
+		// essentially the emulator behaved according to this order
+		// prior to this move).
+		if((SPCR & 0x80) && (SPSR & 0x80))
+		{
+			// TODO: verify that SPI is dependent upon the global interrupt flag
+			SPSR ^= 0x80; // Clear the interrupt
+			trigger_interrupt(SPI_STC);
+		}
+		else if ((WDTCSR&(WDIF|WDIE))==(WDIF|WDIE))
+		{
+			WDTCSR&= ~WDIF; // Clear watchdog flag
 			trigger_interrupt(WDT);
-
-    	}else if((TIFR1 & (OCF1A|OCF1B|TOV1)) && (TIMSK1&(OCIE1A|OCIE1B|TOIE1))){
-
-    		if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
-
-				TIFR1&= ~OCF1A; //clear CTC match flag
+		}
+		else if((TIFR1 & (OCF1A|OCF1B|TOV1)) && (TIMSK1&(OCIE1A|OCIE1B|TOIE1)))
+		{
+			if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) )
+			{
+				TIFR1&= ~OCF1A; // Clear CTC match flag
 				trigger_interrupt(TIMER1_COMPA);
-
-			}else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B)){
-
-				TIFR1&= ~OCF1B; //clear CTC match flag
+			}
+			else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B))
+			{
+				TIFR1&= ~OCF1B; // Clear CTC match flag
 				trigger_interrupt(TIMER1_COMPB);
-
-			}else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1)){
-
-				TIFR1&= ~TOV1; //clear TOV1 flag
+			}
+			else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1))
+			{
+				TIFR1&= ~TOV1; // Clear TOV1 flag
 				trigger_interrupt(TIMER1_OVF);
 			}
-    	}
-	}
-
-
-	//draw pixels on scanline
-	if (scanline_count >= 0)
-	{
-		while (cycles != 0U)
-		{
-			if (current_cycle < 1440U){
-				current_scanline[current_cycle >> 1] = pixel;
-			}
-			current_cycle ++;
-			cycles --;
 		}
 	}
-
-
-	if (TCCR1B != newTCCR1B)
-	{
-		TCCR1B = newTCCR1B; // Timer increments starts after executing the instruction that sets TCCR1B
-		timer1_next = 0U;   // Timer state changes, so force recalculating
-	}
-	TIFR1|=tempTIFR1;
 }
 
-u8 avr8::exec()
+
+
+unsigned int avr8::exec()
 {
 
 	currentPc=pc;
 	const unsigned int insn = progmem[pc];
-	cycles = 1;				// Most insns run in one cycle, so assume that
+	const unsigned int startcy = cycleCounter;
 	u8 Rd, Rr, R, d, CH;
 	u16 uTmp, Rd16, R16;
 	s16 sTmp;
@@ -1029,18 +1037,12 @@ u8 avr8::exec()
 
 	// Instruction decoder notes:
 	//
-	// Calls to read_sram_io, write_sram_io, read_io, write_io may call
-	// update_hardware as necessary to progress the emulation of other
-	// hardware components. This may cause interrupt entry
-	// (trigger_interrupt). To ensure that the instruction decoder
-	// finishes the decoding of the instruction proper, before calling
-	// these, all opcode fetches and program counter changes should be
-	// carried out.
-	//
-	// The aforementioned calls may also adjust the cycles variable
-	// according to how many cycles they progressed hardware emulation,
-	// so set the cycles variable according to the datasheet's timing info
-	// before calling those.
+	// The instruction's timing is determined by how many update_hardware
+	// calls are executed during its decoding. One update_hardware call is
+	// placed after the instruction decoder since all instructions take at
+	// least one cycle (there is at least one cycle after the last read /
+	// write effect), so only multi-cycle instructions need to perform
+	// extra calls to update_hardware.
 	//
 	// The read_sram and write_sram calls only access the sram.
 	// TODO: I am not sure whether the instructions calling these only do
@@ -1051,13 +1053,13 @@ u8 avr8::exec()
 	switch (insn >> 10)
 	{
 	case 0x00U:
-		// 0000 0000 0000 0000		NOP
-		// 0000 0001 dddd rrrr		MOVW Rd+1:Rd,Rr+1:R
-		// 0000 0010 dddd rrrr		MULS Rd,Rr
-		// 0000 0011 0ddd 0rrr		MULSU Rd,Rr (registers are in 16-23 range)
-		// 0000 0011 0ddd 1rrr		FMUL Rd,Rr (registers are in 16-23 range)
-		// 0000 0011 1ddd 0rrr		FMULS Rd,Rr
-		// 0000 0011 1ddd 1rrr		FMULSU Rd,Rr
+		// 0000 0000 0000 0000		(1) NOP
+		// 0000 0001 dddd rrrr		(1) MOVW Rd+1:Rd,Rr+1:R
+		// 0000 0010 dddd rrrr		(2) MULS Rd,Rr
+		// 0000 0011 0ddd 0rrr		(2) MULSU Rd,Rr (registers are in 16-23 range)
+		// 0000 0011 0ddd 1rrr		(2) FMUL Rd,Rr (registers are in 16-23 range)
+		// 0000 0011 1ddd 0rrr		(2) FMULS Rd,Rr
+		// 0000 0011 1ddd 1rrr		(2) FMULSU Rd,Rr
 		switch (((insn >> 6) & 0xEU) | ((insn >> 3) & 0x1U))
 		{
 		case 0x0U: case 0x1U: case 0x2U: case 0x3U:
@@ -1080,7 +1082,7 @@ u8 avr8::exec()
 			r1 = (u8)(sTmp >> 8);
 			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(sTmp);
-			cycles=2;
+			update_hardware();
 			break;
 		case 0xCU:
 			// 0000 0011 0ddd 0rrr		MULSU Rd,Rr (registers are in 16-23 range)
@@ -1091,7 +1093,7 @@ u8 avr8::exec()
 			r1 = (u8)(sTmp >> 8);
 			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(sTmp);
-			cycles=2;
+			update_hardware();
 			break;
 		case 0xDU:
 			// 0000 0011 0ddd 1rrr		FMUL Rd,Rr (registers are in 16-23 range)
@@ -1102,7 +1104,7 @@ u8 avr8::exec()
 			r1 = (u8)(uTmp >> 7);
 			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(uTmp);
-			cycles=2;
+			update_hardware();
 			break;
 		case 0xEU:
 			// 0000 0011 1ddd 0rrr		FMULS Rd,Rr
@@ -1113,7 +1115,7 @@ u8 avr8::exec()
 			r1 = (u8)(sTmp >> 7);
 			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(sTmp);
-			cycles=2;
+			update_hardware();
 			break;
 		default:
 			// 0000 0011 1ddd 1rrr		FMULSU Rd,Rr
@@ -1124,13 +1126,13 @@ u8 avr8::exec()
 			r1 = (u8)(sTmp >> 7);
 			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(sTmp);
-			cycles=2;
+			update_hardware();
 			break;
 		}
 		break;
 
 	case 0x01U:
-		// 0000 01rd dddd rrrr		CPC Rd,Rr
+		// 0000 01rd dddd rrrr		(1) CPC Rd,Rr
 		Rd = r[D5];
 		Rr = r[R5];
 		R = Rd - Rr - C;
@@ -1139,7 +1141,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x02U:
-		// 0000 10rd dddd rrrr		SBC Rd,Rr
+		// 0000 10rd dddd rrrr		(1) SBC Rd,Rr
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd - Rr - C;
@@ -1149,7 +1151,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x03U:
-		// 0000 11rd dddd rrrr		ADD Rd,Rr (LSL is ADD Rd,Rd)
+		// 0000 11rd dddd rrrr		(1) ADD Rd,Rr (LSL is ADD Rd,Rd)
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd + Rr;
@@ -1159,19 +1161,23 @@ u8 avr8::exec()
 		break;
 
 	case 0x04U:
-		// 0001 00rd dddd rrrr		CPSE Rd,Rr
+		// 0001 00rd dddd rrrr		(1/2/3) CPSE Rd,Rr
 		Rd = r[D5];
 		Rr = r[R5];
 		if (Rd == Rr)
 		{
-			uTmp = get_insn_size(progmem[pc]);
-			cycles += uTmp;
-			pc += uTmp;
+			unsigned int icc = get_insn_size(progmem[pc]);
+			pc += icc;
+			while (icc != 0U)
+			{
+				update_hardware();
+				icc --;
+			}
 		}
 		break;
 
 	case 0x05U:
-		// 0001 01rd dddd rrrr		CP Rd,Rr
+		// 0001 01rd dddd rrrr		(1) CP Rd,Rr
 		Rd = r[D5];
 		Rr = r[R5];
 		R = Rd - Rr;
@@ -1180,7 +1186,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x06U:
-		// 0001 10rd dddd rrrr		SUB Rd,Rr
+		// 0001 10rd dddd rrrr		(1) SUB Rd,Rr
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd - Rr;
@@ -1190,7 +1196,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x07U:
-		// 0001 11rd dddd rrrr		ADC Rd,Rr (ROL is ADC Rd,Rd)
+		// 0001 11rd dddd rrrr		(1) ADC Rd,Rr (ROL is ADC Rd,Rd)
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd + Rr + C;
@@ -1200,7 +1206,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x08U:
-		// 0010 00rd dddd rrrr		AND Rd,Rr (TST is AND Rd,Rd)
+		// 0010 00rd dddd rrrr		(1) AND Rd,Rr (TST is AND Rd,Rd)
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd & Rr;
@@ -1210,7 +1216,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x09U:
-		// 0010 01rd dddd rrrr		EOR Rd,Rr (CLR is EOR Rd,Rd)
+		// 0010 01rd dddd rrrr		(1) EOR Rd,Rr (CLR is EOR Rd,Rd)
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd ^ Rr;
@@ -1220,7 +1226,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x0AU:
-		// 0010 10rd dddd rrrr		OR Rd,Rr
+		// 0010 10rd dddd rrrr		(1) OR Rd,Rr
 		Rd = r[d = D5];
 		Rr = r[R5];
 		R = Rd | Rr;
@@ -1230,12 +1236,12 @@ u8 avr8::exec()
 		break;
 
 	case 0x0BU:
-		// 0010 11rd dddd rrrr		MOV Rd,Rr
+		// 0010 11rd dddd rrrr		(1) MOV Rd,Rr
 		r[D5]  = r[R5];
 		break;
 
 	case 0x0CU: case 0x0DU: case 0x0EU: case 0x0FU:
-		// 0011 KKKK dddd KKKK		CPI Rd,K
+		// 0011 KKKK dddd KKKK		(1) CPI Rd,K
 		Rd = r[D4 + 16];
 		Rr = K8;
 		R = Rd - Rr;
@@ -1244,7 +1250,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x10U: case 0x11U: case 0x12U: case 0x13U:
-		// 0100 KKKK dddd KKKK		SBCI Rd,K
+		// 0100 KKKK dddd KKKK		(1) SBCI Rd,K
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd - Rr - C;
@@ -1254,7 +1260,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x14U: case 0x15U: case 0x16U: case 0x17U:
-		// 0101 KKKK dddd KKKK		SUBI Rd,K
+		// 0101 KKKK dddd KKKK		(1) SUBI Rd,K
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd - Rr;
@@ -1264,7 +1270,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x18U: case 0x19U: case 0x1AU: case 0x1BU:
-		// 0110 KKKK dddd KKKK		ORI Rd,K (same as SBR insn)
+		// 0110 KKKK dddd KKKK		(1) ORI Rd,K (same as SBR insn)
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd | Rr;
@@ -1274,7 +1280,7 @@ u8 avr8::exec()
 		break;
 
 	case 0x1CU: case 0x1DU: case 0x1EU: case 0x1FU:
-		// 0111 KKKK dddd KKKK		ANDI Rd,K (CBR is ANDI with K complemented)
+		// 0111 KKKK dddd KKKK		(1) ANDI Rd,K (CBR is ANDI with K complemented)
 		Rd = r[d = D4 + 16];
 		Rr = K8;
 		R = Rd & Rr;
@@ -1285,13 +1291,13 @@ u8 avr8::exec()
 
 	case 0x20U: case 0x21U: case 0x22U: case 0x23U:
 	case 0x28U: case 0x29U: case 0x2AU: case 0x2BU:
-		// 10q0 qq0d dddd 0qqq		LD Rd,Z+q
-		// 10q0 qq0d dddd 1qqq		LD Rd,Y+q
-		// 10q0 qq1d dddd 0qqq		ST Z+q,Rd
-		// 10q0 qq1d dddd 1qqq		ST Y+q,Rd
+		// 10q0 qq0d dddd 0qqq		(2) LD Rd,Z+q
+		// 10q0 qq0d dddd 1qqq		(2) LD Rd,Y+q
+		// 10q0 qq1d dddd 0qqq		(2) ST Z+q,Rd
+		// 10q0 qq1d dddd 1qqq		(2) ST Y+q,Rd
 		Rd = D5;
 		Rr = (insn & 7U) | ((insn >> 7) & 0x18U) | ((insn >> 8) & 0x20U);
-		cycles = 2U;
+		update_hardware(); // Load / store effect is carried out in 2nd cycle
 		switch (((insn >> 8) & 2U) | ((insn >> 3) & 1U))
 		{
 		case 0U:
@@ -1314,140 +1320,127 @@ u8 avr8::exec()
 		break;
 
 	case 0x24U:
-		// 1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
-		// 1001 000d dddd 0001		LD Rd,Z+
-		// 1001 000d dddd 0010		LD Rd,-Z
-		// 1001 000d dddd 0100		LPM Rd,Z
-		// 1001 000d dddd 0101		LPM Rd,Z+
-		// 1001 000d dddd 1001		LD Rd,Y+
-		// 1001 000d dddd 1010		LD Rd,-Y
-		// 1001 000d dddd 1100		LD rd,X
-		// 1001 000d dddd 1101		LD rd,X+
-		// 1001 000d dddd 1110		LD rd,-X
-		// 1001 000d dddd 1111		POP Rd
-		// 1001 001d dddd 0000		STS k,Rr (next word is rest of address)
-		// 1001 001r rrrr 0001		ST Z+,Rr
-		// 1001 001r rrrr 0010		ST -Z,Rr
-		// 1001 001r rrrr 1001		ST Y+,Rr
-		// 1001 001r rrrr 1010		ST -Y,Rr
-		// 1001 001r rrrr 1100		ST X,Rr
-		// 1001 001r rrrr 1101		ST X+,Rr
-		// 1001 001r rrrr 1110		ST -X,Rr
-		// 1001 001d dddd 1111		PUSH Rd
+		// 1001 000d dddd 0000		(2) LDS Rd,k (next word is rest of address)
+		// 1001 000d dddd 0001		(2) LD Rd,Z+
+		// 1001 000d dddd 0010		(2) LD Rd,-Z
+		// 1001 000d dddd 0100		(3) LPM Rd,Z
+		// 1001 000d dddd 0101		(3) LPM Rd,Z+
+		// 1001 000d dddd 1001		(2) LD Rd,Y+
+		// 1001 000d dddd 1010		(2) LD Rd,-Y
+		// 1001 000d dddd 1100		(2) LD rd,X
+		// 1001 000d dddd 1101		(2) LD rd,X+
+		// 1001 000d dddd 1110		(2) LD rd,-X
+		// 1001 000d dddd 1111		(2) POP Rd
+		// 1001 001d dddd 0000		(2) STS k,Rr (next word is rest of address)
+		// 1001 001r rrrr 0001		(2) ST Z+,Rr
+		// 1001 001r rrrr 0010		(2) ST -Z,Rr
+		// 1001 001r rrrr 1001		(2) ST Y+,Rr
+		// 1001 001r rrrr 1010		(2) ST -Y,Rr
+		// 1001 001r rrrr 1100		(2) ST X,Rr
+		// 1001 001r rrrr 1101		(2) ST X+,Rr
+		// 1001 001r rrrr 1110		(2) ST -X,Rr
+		// 1001 001d dddd 1111		(2) PUSH Rd
+		// This group only contains 2 or more cycle load / store type
+		// instructions. Progress HW for first cycle of these since
+		// those accessing ports do their access (read / write) in
+		// their 2nd cycle.
+		update_hardware(); // Load / store effect is carried out in 2nd cycle
 		switch (((insn >> 5) & 0x10U) | (insn & 0xFU))
 		{
 		case 0x00U:
 			// 1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
-			cycles = 2U;
 			r[D5] = read_sram_io(progmem[pc++]);
 			break;
 		case 0x01U:
 			// 1001 000d dddd 0001		LD Rd,Z+
-			cycles = 2U;
 			r[D5] = read_sram_io(Z);
 			INC_Z;
 			break;
 		case 0x02U:
 			// 1001 000d dddd 0010		LD Rd,-Z
 			DEC_Z;
-			cycles = 2U;
 			r[D5] = read_sram_io(Z);
 			break;
 		case 0x04U:
 			// 1001 000d dddd 0100		LPM Rd,Z
+			update_hardware(); // 3 cycles
 			r[D5] = read_progmem(Z);
-			cycles=3;
 			break;
 		case 0x05U:
 			// 1001 000d dddd 0101		LPM Rd,Z+
+			update_hardware(); // 3 cycles
 			r[D5] = read_progmem(Z);
 			INC_Z;
-			cycles=3;
 			break;
 		case 0x09U:
 			// 1001 000d dddd 1001		LD Rd,Y+
-			cycles = 2U;
 			r[D5] = read_sram_io(Y);
 			INC_Y;
 			break;
 		case 0x0AU:
 			// 1001 000d dddd 1010		LD Rd,-Y
 			DEC_Y;
-			cycles = 2U;
 			r[D5] = read_sram_io(Y);
 			break;
 		case 0x0CU:
 			// 1001 000d dddd 1100		LD rd,X
-			cycles = 2U;
 			r[D5] = read_sram_io(X);
 			break;
 		case 0x0DU:
 			// 1001 000d dddd 1101		LD rd,X+
-			cycles = 2U;
 			r[D5] = read_sram_io(X);
 			INC_X;
 			break;
 		case 0x0EU:
 			// 1001 000d dddd 1110		LD rd,-X
 			DEC_X;
-			cycles = 2U;
 			r[D5] = read_sram_io(X);
 			break;
 		case 0x0FU:
 			// 1001 000d dddd 1111		POP Rd
 			INC_SP;
-			cycles = 2U;
 			r[D5] = read_sram(SP);
 			break;
 		case 0x10U:
 			// 1001 001d dddd 0000		STS k,Rr (next word is rest of address)
-			cycles = 2U;
 			write_sram_io(progmem[pc++],r[D5]);
 			break;
 		case 0x11U:
 			// 1001 001r rrrr 0001		ST Z+,Rr
-			cycles = 2U;
 			write_sram_io(Z,r[D5]);
 			INC_Z;
 			break;
 		case 0x12U:
 			// 1001 001r rrrr 0010		ST -Z,Rr
 			DEC_Z;
-			cycles = 2U;
 			write_sram_io(Z,r[D5]);
 			break;
 		case 0x19U:
 			// 1001 001r rrrr 1001		ST Y+,Rr
-			cycles = 2U;
 			write_sram_io(Y,r[D5]);
 			INC_Y;
 			break;
 		case 0x1AU:
 			// 1001 001r rrrr 1010		ST -Y,Rr
 			DEC_Y;
-			cycles = 2U;
 			write_sram_io(Y,r[D5]);
 			break;
 		case 0x1CU:
 			// 1001 001r rrrr 1100		ST X,Rr
-			cycles = 2U;
 			write_sram_io(X,r[D5]);
 			break;
 		case 0x1DU:
 			// 1001 001r rrrr 1101		ST X+,Rr
-			cycles = 2U;
 			write_sram_io(X,r[D5]);
 			INC_X;
 			break;
 		case 0x1EU:
 			// 1001 001r rrrr 1110		ST -X,Rr
 			DEC_X;
-			cycles = 2U;
 			write_sram_io(X,r[D5]);
 			break;
 		case 0x1FU:
 			// 1001 001d dddd 1111		PUSH Rd
-			cycles = 2U;
 			write_sram(SP,r[D5]);
 			DEC_SP;
 			break;
@@ -1459,29 +1452,29 @@ u8 avr8::exec()
 		break;
 
 	case 0x25U:
-		// 1001 010d dddd 0000		COM Rd
-		// 1001 010d dddd 0001		NEG Rd
-		// 1001 010d dddd 0010		SWAP Rd
-		// 1001 010d dddd 0011		INC Rd
-		// 1001 010d dddd 0101		ASR Rd
-		// 1001 010d dddd 0110		LSR Rd
-		// 1001 010d dddd 0111		ROR Rd
-		// 1001 010d dddd 1010		DEC Rd
-		// 1001 010k kkkk 110k		JMP k (next word is rest of address)
-		// 1001 010k kkkk 111k		CALL k (next word is rest of address)
-		// 1001 0100 0sss 1000		BSET s (SEC, etc are aliases with sss implicit)
-		// 1001 0100 1sss 1000		BCLR s (CLC, etc are aliases with sss implicit)
-		// 1001 0100 0000 1001		IJMP (jump thru Z register)
-		// 1001 0101 0000 1000		RET
-		// 1001 0101 0000 1001		ICALL (call thru Z register)
-		// 1001 0101 0001 1000		RETI
-		// 1001 0101 1000 1000		SLEEP
-		// 1001 0101 1001 1000		BREAK
-		// 1001 0101 1010 1000		WDR
-		// 1001 0101 1100 1000		LPM (r0 implied, why is this special?)
-		// 1001 0101 1110 1000		SPM Z (writes R1:R0)
-		// 1001 0110 KKdd KKKK		ADIW Rd+1:Rd,K   (16-bit add to upper four register pairs)
-		// 1001 0111 KKdd KKKK		SBIW Rd+1:Rd,K
+		// 1001 010d dddd 0000		(1) COM Rd
+		// 1001 010d dddd 0001		(1) NEG Rd
+		// 1001 010d dddd 0010		(1) SWAP Rd
+		// 1001 010d dddd 0011		(1) INC Rd
+		// 1001 010d dddd 0101		(1) ASR Rd
+		// 1001 010d dddd 0110		(1) LSR Rd
+		// 1001 010d dddd 0111		(1) ROR Rd
+		// 1001 010d dddd 1010		(1) DEC Rd
+		// 1001 010k kkkk 110k		(3) JMP k (next word is rest of address)
+		// 1001 010k kkkk 111k		(4) CALL k (next word is rest of address)
+		// 1001 0100 0sss 1000		(1) BSET s (SEC, etc are aliases with sss implicit)
+		// 1001 0100 1sss 1000		(1) BCLR s (CLC, etc are aliases with sss implicit)
+		// 1001 0100 0000 1001		(2) IJMP (jump thru Z register)
+		// 1001 0101 0000 1000		(4) RET
+		// 1001 0101 0000 1001		(3) ICALL (call thru Z register)
+		// 1001 0101 0001 1000		(4) RETI
+		// 1001 0101 1000 1000		(?) SLEEP
+		// 1001 0101 1001 1000		(?) BREAK
+		// 1001 0101 1010 1000		(1) WDR
+		// 1001 0101 1100 1000		(3) LPM (r0 implied, why is this special?)
+		// 1001 0101 1110 1000		(?) SPM Z (writes R1:R0)
+		// 1001 0110 KKdd KKKK		(2) ADIW Rd+1:Rd,K   (16-bit add to upper four register pairs)
+		// 1001 0111 KKdd KKKK		(2) SBIW Rd+1:Rd,K
 		switch (((insn >> 4) & 0x30U) | (insn & 0xFU))
 		{
 		case 0x00U: case 0x10U:
@@ -1557,18 +1550,21 @@ u8 avr8::exec()
 		case 0x0CU: case 0x0DU: case 0x1CU: case 0x1DU:
 			// 1001 010k kkkk 110k		JMP k (next word is rest of address)
 			// Note: 64K progmem, so 'k' in first insn word is unused
+			update_hardware();
+			update_hardware();
 			pc = progmem[pc];
-			cycles = 3;
 			break;
 		case 0x0EU: case 0x0FU: case 0x1EU: case 0x1FU:
 			// 1001 010k kkkk 111k		CALL k (next word is rest of address)
 			// Note: 64K progmem, so 'k' in first insn word is unused
+			update_hardware();
+			update_hardware();
+			update_hardware();
 			write_sram(SP,(pc+1));
 			DEC_SP;
 			write_sram(SP,(pc+1)>>8);
 			DEC_SP;
 			pc = progmem[pc];
-			cycles = 4;
 			break;
 		case 0x08U:
 			// 1001 0100 0sss 1000		BSET s (SEC, etc are aliases with sss implicit)
@@ -1579,8 +1575,8 @@ u8 avr8::exec()
 			break;
 		case 0x09U:
 			// 1001 0100 0000 1001		IJMP (jump thru Z register)
+			update_hardware();
 			pc = Z;
-			cycles = 2;
 			break;
 		case 0x18U:
 			// 1001 0101 0000 1000		RET
@@ -1595,19 +1591,23 @@ u8 avr8::exec()
 			{
 			case 0x0U:
 				// 1001 0101 0000 1000		RET
+				update_hardware();
+				update_hardware();
+				update_hardware();
 				INC_SP;
 				pc = read_sram(SP) << 8;
 				INC_SP;
 				pc |= read_sram(SP);
-				cycles = 4;
 				break;
 			case 0x1U:
 				// 1001 0101 0001 1000		RETI
+				update_hardware();
+				update_hardware();
+				update_hardware();
 				INC_SP;
 				pc = read_sram(SP) << 8;
 				INC_SP;
 				pc |= read_sram(SP);
-				cycles = 4;
 				SREG |= (1<<SREG_I);
 				//--interruptLevel;
 				break;
@@ -1634,11 +1634,15 @@ u8 avr8::exec()
 				break;
 			case 0xCU:
 				// 1001 0101 1100 1000		LPM (r0 implied, why is this special?)
+				update_hardware();
+				update_hardware();
 				r0 = read_progmem(Z);
-				cycles = 3;
 				break;
 			case 0xEU:
 				// 1001 0101 1110 1000		SPM Z (writes R1:R0)
+				update_hardware();
+				update_hardware(); // Cycle count undocumented?!?!?
+				update_hardware(); // (4 cycles emulated)
 				if (Z >= progSize/2)
 				{
 					fprintf(stderr,"illegal write to progmem addr %x\n",Z);
@@ -1646,7 +1650,6 @@ u8 avr8::exec()
 				}else{
 					progmem[Z] = r0 | (r1<<8);
 				}
-				cycles = 4; // undocumented?!?!?
 				break;
 			default:
 				// Illegal op.
@@ -1656,12 +1659,13 @@ u8 avr8::exec()
 			break;
 		case 0x19U:
 			// 1001 0101 0000 1001		ICALL (call thru Z register)
+			update_hardware();
+			update_hardware();
 			write_sram(SP,u8(pc));
 			DEC_SP;
 			write_sram(SP,(pc)>>8);
 			DEC_SP;
 			pc = Z;
-			cycles = 3;
 			break;
 		case 0x20U: case 0x21U: case 0x22U: case 0x23U:
 		case 0x24U: case 0x25U: case 0x26U: case 0x27U:
@@ -1680,7 +1684,7 @@ u8 avr8::exec()
 			UPDATE_S;
 			set_bit_inv(SREG,SREG_Z,R16);
 			set_bit_1(SREG,SREG_C,((~R16&Rd16)&0x8000) >> 15);
-			cycles=2;
+			update_hardware();
 			break;
 		case 0x30U: case 0x31U: case 0x32U: case 0x33U:
 		case 0x34U: case 0x35U: case 0x36U: case 0x37U:
@@ -1699,7 +1703,7 @@ u8 avr8::exec()
 			UPDATE_S;
 			set_bit_inv(SREG,SREG_Z,R16);
 			set_bit_1(SREG,SREG_C,((R16&~Rd16)&0x8000) >> 15);
-			cycles=2;
+			update_hardware();
 			break;
 		default:
 			// Illegal op.
@@ -1709,16 +1713,16 @@ u8 avr8::exec()
 		break;
 
 	case 0x26U:
-		// 1001 1000 AAAA Abbb		CBI A,b
-		// 1001 1001 AAAA Abbb		SBIC A,b
-		// 1001 1010 AAAA Abbb		SBI A,b
-		// 1001 1011 AAAA Abbb		SBIS A,b
+		// 1001 1000 AAAA Abbb		(2) CBI A,b
+		// 1001 1001 AAAA Abbb		(1/2/3) SBIC A,b
+		// 1001 1010 AAAA Abbb		(2) SBI A,b
+		// 1001 1011 AAAA Abbb		(1/2/3) SBIS A,b
 		switch ((insn >> 8) & 3U)
 		{
 		case 0U:
 			// 1001 1000 AAAA Abbb		CBI A,b
+			update_hardware();
 			Rd = (insn >> 3) & 31;
-			cycles = 2U; //may be incremented if accessing EEPROM registers
 			write_io(Rd, read_io(Rd) & ~(1<<(insn&7)));
 			break;
 		case 1U:
@@ -1726,15 +1730,19 @@ u8 avr8::exec()
 			Rd = (insn >> 3) & 31;
 			if (!(read_io(Rd) & (1<<(insn&7))))
 			{
-				uTmp = get_insn_size(progmem[pc]);
-				cycles += uTmp;
-				pc += uTmp;
+				unsigned int icc = get_insn_size(progmem[pc]);
+				pc += icc;
+				while (icc != 0U)
+				{
+					update_hardware();
+					icc --;
+				}
 			}
 			break;
 		case 2U:
 			// 1001 1010 AAAA Abbb		SBI A,b
+			update_hardware();
 			Rd = (insn >> 3) & 31;
-			cycles = 2U; //may be incremented if accessing EEPROM registers
 			write_io(Rd, read_io(Rd) | (1<<(insn&7)));
 			break;
 		default:
@@ -1742,16 +1750,20 @@ u8 avr8::exec()
 			Rd = (insn >> 3) & 31;
 			if (read_io(Rd) & (1<<(insn&7)))
 			{
-				uTmp = get_insn_size(progmem[pc]);
-				cycles += uTmp;
-				pc += uTmp;
+				unsigned int icc = get_insn_size(progmem[pc]);
+				pc += icc;
+				while (icc != 0U)
+				{
+					update_hardware();
+					icc --;
+				}
 			}
 			break;
 		}
 		break;
 
 	case 0x27U:
-		// 1001 11rd dddd rrrr		MUL Rd,Rr
+		// 1001 11rd dddd rrrr		(2) MUL Rd,Rr
 		Rd = r[D5];
 		Rr = r[R5];
 		uTmp = Rd * Rr; 
@@ -1759,67 +1771,68 @@ u8 avr8::exec()
 		r1 = (u8)(uTmp >> 8);
 		clr_bits(SREG, SREG_CM | SREG_ZM);
 		UPDATE_CZ_MUL(uTmp);
-		cycles=2;
+		update_hardware();
 		break;
 
 	case 0x2CU: case 0x2DU:
-		// 1011 0AAd dddd AAAA		IN Rd,A
+		// 1011 0AAd dddd AAAA		(1) IN Rd,A
 		Rd = D5;
 		Rr = ((insn >> 5) & 0x30) | (insn & 0xF);
 		r[Rd] = read_io(Rr);
 		break;
 
 	case 0x2EU: case 0x2FU:
-		// 1011 1AAd dddd AAAA		OUT A,Rd
+		// 1011 1AAd dddd AAAA		(1) OUT A,Rd
 		Rd = D5;
 		Rr = ((insn >> 5) & 0x30) | (insn & 0xF);
 		write_io(Rr,r[Rd]);
 		break;
 
 	case 0x30U: case 0x31U: case 0x32U: case 0x33U:
-		// 1100 kkkk kkkk kkkk		RJMP k
+		// 1100 kkkk kkkk kkkk		(2) RJMP k
+		update_hardware();
 		pc += k12;
-		cycles=2;
 		break;
 
 	case 0x34U: case 0x35U: case 0x36U: case 0x37U:
-		// 1101 kkkk kkkk kkkk		RCALL k
+		// 1101 kkkk kkkk kkkk		(3) RCALL k
+		update_hardware();
+		update_hardware();
 		write_sram(SP,(u8)pc);
 		DEC_SP;
 		write_sram(SP,pc>>8);
 		DEC_SP;
 		pc += k12;
-		cycles=3;
 		break;
 
 	case 0x38U: case 0x39U: case 0x3AU: case 0x3BU:
-		// 1110 KKKK dddd KKKK		LDI Rd,K (SER is just LDI Rd,255)
+		// 1110 KKKK dddd KKKK		(1) LDI Rd,K (SER is just LDI Rd,255)
 		r[D4 + 16] = K8;
 		break;
 
 	case 0x3CU:
-		// 1111 00kk kkkk ksss		BRBS s,k (same here)
+		// 1111 00kk kkkk ksss		(1/2) BRBS s,k (same here)
 		sTmp = k7;
 		if (SREG & (1<<(insn&7)))
 		{
+			update_hardware();
 			pc += sTmp;
-			cycles=2;
 		}
 		break;
 
 	case 0x3DU:
-		// 1111 01kk kkkk ksss		BRBC s,k (BRCC, etc are aliases for this with sss implicit)
+		// 1111 01kk kkkk ksss		(1/2) BRBC s,k (BRCC, etc are aliases for this with sss implicit)
 		sTmp = k7;
 		if (!(SREG & (1<<(insn&7))))
 		{
+			update_hardware();
 			pc += sTmp;
-			cycles=2;
 		}
 		break;
 
 	case 0x3EU:
-		// 1111 100d dddd 0bbb		BLD Rd,b
-		// 1111 101d dddd 0bbb		BST Rd,b
+		// 1111 100d dddd 0bbb		(1) BLD Rd,b
+		// 1111 101d dddd 0bbb		(1) BST Rd,b
 		if ((insn & 0x0200U) == 0U)
 		{      // BLD
 			Rd = D5;
@@ -1831,23 +1844,33 @@ u8 avr8::exec()
 		break;
 
 	default:
-		// 1111 110r rrrr 0bbb		SBRC Rr,b
-		// 1111 111r rrrr 0bbb		SBRS Rr,b
+		// 1111 110r rrrr 0bbb		(1/2/3) SBRC Rr,b
+		// 1111 111r rrrr 0bbb		(1/2/3) SBRS Rr,b
 		Rd = r[D5];
 		if (((Rd >> (insn & 7U)) & 1U) == ((insn & 0x0200U) >> 9))
 		{
-			uTmp = get_insn_size(progmem[pc]);
-			cycles += uTmp;
-			pc += uTmp;
+			unsigned int icc = get_insn_size(progmem[pc]);
+			pc += icc;
+			while (icc != 0U)
+			{
+				update_hardware();
+				icc --;
+			}
 		}
 		break;
 	}
 
-	if(cycles != 0U){
-		update_hardware(cycles);
-	}
+	// Process hardware for the last instruction cycle
 
-	return cycles;
+	update_hardware();
+
+	// Run instruction precise emulation tasks
+
+	update_hardware_ins();
+
+	// Done, return cycles consumed during the processing of this instruction.
+
+	return cycleCounter - startcy;
 }
 
 
@@ -1866,13 +1889,13 @@ void avr8::trigger_interrupt(unsigned int location)
 		// jump to new location (which jumps to the real handler)
 		pc = location;
 
-		// bill the cycles consumed.
-		// (this in theory can recurse back into here but we've
-		// already cleared the interrupt enable flag)
+		// bill the cycles consumed (3 cycles).
 		// Note  that there is an error in the Atmega644 datasheet where
 		// it specifies the IRQ cycles as 5.
 		// see: http://www.avrfreaks.net/forum/interrupt-timing-conundrum
-		update_hardware(3);
+		update_hardware();
+		update_hardware();
+		update_hardware();
 
 }
 

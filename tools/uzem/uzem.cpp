@@ -403,10 +403,6 @@ int main(int argc,char **argv)
 	const int cycles=100000000;
 	int left, now;
 
-	//to align with AVR Simulator 2 since it has a bug that the first JMP
-	//at the reset vector takes only 2 cycles
-	uzebox.cycleCounter=-1;
-
 #ifdef __EMSCRIPTEN__
 	emscripten_set_main_loop(one_iter, 60, 1);
 	emscripten_set_main_loop_timing(EM_TIMING_RAF, 1);
