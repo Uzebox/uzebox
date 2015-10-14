@@ -114,7 +114,7 @@ int SDEmu::init_with_directory(const char *path) {
 	int freecluster = 2;
 	printf("SD Emulation of following files:\n");
 	while ((entry = readdir(dir))) {
-		if (entry->d_name && entry->d_name[0] != '.') {
+		if (entry && entry->d_name[0] != '.') {
 			char *statpath = (char *)malloc(strlen(path) + strlen(entry->d_name) + 2);
 			strcpy(statpath, path);
 			strcat(statpath, "/");
