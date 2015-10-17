@@ -1887,7 +1887,7 @@ bool avr8::init_gui()
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 	SDL_RenderSetLogicalSize(renderer, 630, 448);
 
-	surface = SDL_CreateRGBSurface(0, 720, 224, 32, 0,0,0,0);
+	surface = SDL_CreateRGBSurface(0, VIDEO_DISP_WIDTH, 224, 32, 0, 0, 0, 0);
 	if(!surface){
 		fprintf(stderr, "CreateRGBSurface failed: %s\n", SDL_GetError());
 		return false;
@@ -2090,8 +2090,10 @@ void avr8::handle_key_down(SDL_Event &ev)
                                   } else {
                                     if (SDL_BlitScaled(surface, NULL, surfBMP, NULL) < 0) {
                                       fprintf(stderr, "BlitScaled failed: %s\n", SDL_GetError());
+                                      SDL_FreeSurface(surfBMP);
                                     } else {
                                       SDL_SaveBMP(surfBMP,ssbuf);
+                                      SDL_FreeSurface(surfBMP);
                                       break;
                                     }
                                   }
