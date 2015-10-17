@@ -282,8 +282,8 @@ void avr8::spi_calculateClock(){
 // Performs a shrink by 2
 static inline void render_line(u32* dest, u8 const* src, u32 const* pal)
 {
-	for (unsigned int i = 0; i < 1440; i += 2)
-		dest[i>>1] = pal[src[i]];
+	for (unsigned int i = 0; i < VIDEO_DISP_WIDTH; i++)
+		dest[i] = pal[src[i<<1]];
 }
 
 inline void avr8::write_io(u8 addr,u8 value)
