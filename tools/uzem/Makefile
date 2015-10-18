@@ -22,7 +22,7 @@ ifeq ($(EMSCRIPTEN_BUILD),1)
 endif
 
 #Uncomment to optimize for local CPU
-ARCH=core2
+#ARCH=native
 #TUNE=y
 
 ######################################
@@ -58,7 +58,11 @@ CPPFLAGS += $(SDL_FLAGS) -D$(OS) -D_GNU_SOURCE=1 -DGUI=1 -DJOY_ANALOG_DEADZONE=8
 ######################################
 RELEASE_NAME = uzem$(OS_EXTENSION)
 RELEASE_OBJ_DIR := Release
-RELEASE_CPPFLAGS = $(CPPFLAGS) -Ofast -flto -fwhole-program $(EMSCRIPTEN_FLAGS)
+ifeq ($(EMSCRIPTEN_BUILD),1)
+    RELEASE_CPPFLAGS = $(CPPFLAGS) $(EMSCRIPTEN_FLAGS)
+else
+    RELEASE_CPPFLAGS = $(CPPFLAGS) -Ofast -flto -fwhole-program 
+endif
 
 ######################################
 # Debug definitions
