@@ -278,6 +278,13 @@ void avr8::spi_calculateClock(){
     SPI_DEBUG("SPI divider set to : %d (%d cycles per byte)\n",spiClockDivider,spiCycleWait);
 }
 
+// Renders a line into a 32 bit output buffer.
+// Performs a shrink by 2
+static inline void render_line(u32* dest, u8 const* src, u32 const* pal)
+{
+	for (unsigned int i = 0; i < VIDEO_DISP_WIDTH; i++)
+		dest[i] = pal[src[i<<1]];
+}
 
 inline void avr8::write_io(u8 addr,u8 value)
 {
@@ -285,7 +292,7 @@ inline void avr8::write_io(u8 addr,u8 value)
 	// million times per second in a Uzebox game.
 	if (addr == ports::PORTC)
 	{
-		pixel = palette[value & DDRC];
+		pixel_raw = value & DDRC;
 	}
 	else
 	{
@@ -340,60 +347,19 @@ void avr8::write_io_x(u8 addr,u8 value)
 			if (scanline_count == -999 && elapsedCycles >= HSYNC_HALF_PERIOD -10 && elapsedCycles <= HSYNC_HALF_PERIOD + 10)
 			{
 			   scanline_count = scanline_top;
-			   prev_scanline = NULL;
 			}
 			else if (scanline_count != -999)
 			{
-				scanline_count++;
 
-				if(scanline_count >= 0){
-
-					current_cycle = 0U - left_edge;
-					current_scanline = (u32*)((u8*)surface->pixels + scanline_count * surface->pitch);
-
-
-
-					/*
-					if(hsyncHelp){
-						if(prev_scanline!=NULL && elapsedCycles > HSYNC_PERIOD){
-
-							for(u8 x=0;x<(elapsedCycles-HSYNC_PERIOD);x++){
-								prev_scanline[(x*5)+5] = hsync_more_col;
-								prev_scanline[(x*5)+6] = hsync_more_col;
-								prev_scanline[(x*5)+7] = hsync_more_col;
-								prev_scanline[(x*5)+8] = 0;
-								prev_scanline[(x*5)+9] = 0;
-
-								prev_scanline[(x*5)+5+(screen->pitch>>2)] = hsync_more_col;
-								prev_scanline[(x*5)+6+(screen->pitch>>2)] = hsync_more_col;
-								prev_scanline[(x*5)+7+(screen->pitch>>2)] = hsync_more_col;
-								prev_scanline[(x*5)+8+(screen->pitch>>2)] = 0;
-								prev_scanline[(x*5)+9+(screen->pitch>>2)] = 0;
-							}
-
-						}else if(prev_scanline!=NULL && elapsedCycles < HSYNC_PERIOD){
-							for(u8 x=0;x<(HSYNC_PERIOD-elapsedCycles);x++){
-								prev_scanline[(x*5)+5] = hsync_less_col;
-								prev_scanline[(x*5)+6] = hsync_less_col;
-								prev_scanline[(x*5)+7] = hsync_less_col;
-								prev_scanline[(x*5)+8] = 0;
-								prev_scanline[(x*5)+9] = 0;
-
-								prev_scanline[(x*5)+5+(screen->pitch>>2)] = hsync_less_col;
-								prev_scanline[(x*5)+6+(screen->pitch>>2)] = hsync_less_col;
-								prev_scanline[(x*5)+7+(screen->pitch>>2)] = hsync_less_col;
-								prev_scanline[(x*5)+8+(screen->pitch>>2)] = 0;
-								prev_scanline[(x*5)+9+(screen->pitch>>2)] = 0;
-							}
-						}
-
-						current_cycle += (elapsedCycles - HSYNC_PERIOD); //to simulate line offsync
-					}
-*/
-					prev_scanline = current_scanline;
-
+				if (scanline_count >= 0){
+					render_line(
+						(u32*)((u8*)surface->pixels + scanline_count * surface->pitch),
+						&scanline_buf[left_edge],
+						palette);
 				}
 
+				scanline_count ++;
+				current_cycle = 0U;
 
 				if (scanline_count == 224)
 				{
@@ -404,7 +370,7 @@ void avr8::write_io_x(u8 addr,u8 value)
 					SDL_RenderPresent(renderer);
 
 					//Send video frame to ffmpeg
-					if (recordMovie && avconv_video) fwrite(surface->pixels, 720*224*4, 1, avconv_video);
+					if (recordMovie && avconv_video) fwrite(surface->pixels, VIDEO_DISP_WIDTH*224*4, 1, avconv_video);
 
 					SDL_Event event;
 					while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
@@ -973,19 +939,15 @@ void avr8::update_hardware(unsigned int cycles)
 	}
 
 
-	//draw pixels on scanline
-	if (scanline_count >= 0)
-	{
-		while (cycles != 0U)
-		{
-			if (current_cycle < 1440U){
-				current_scanline[current_cycle >> 1] = pixel;
-			}
-			current_cycle ++;
-			cycles --;
-		}
-	}
 
+	// Draw pixels in the line buffer
+
+	while (cycles != 0U)
+	{
+		scanline_buf[current_cycle & 0x7FFU] = pixel_raw;
+		current_cycle ++;
+		cycles --;
+	}
 
 	if (TCCR1B != newTCCR1B)
 	{
@@ -1911,12 +1873,12 @@ bool avr8::init_gui()
 	atexit(SDL_Quit);
 	init_joysticks();
 
-	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,630,448,fullscreen?SDL_WINDOW_FULLSCREEN_DESKTOP:SDL_WINDOW_RESIZABLE);
+	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,630,448,fullscreen?SDL_WINDOW_FULLSCREEN:SDL_WINDOW_RESIZABLE);
 	if (!window){
 		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
 		return false;
 	}
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	renderer = SDL_CreateRenderer(window, -1, sdl_flags);
 	if (!renderer){
 		SDL_DestroyWindow(window);
 		fprintf(stderr, "CreateRenderer failed: %s\n", SDL_GetError());
@@ -1925,13 +1887,13 @@ bool avr8::init_gui()
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 	SDL_RenderSetLogicalSize(renderer, 630, 448);
 
-	surface = SDL_CreateRGBSurface(0, 720, 224, 32, 0,0,0,0);
+	surface = SDL_CreateRGBSurface(0, VIDEO_DISP_WIDTH, 224, 32, 0, 0, 0, 0);
 	if(!surface){
 		fprintf(stderr, "CreateRGBSurface failed: %s\n", SDL_GetError());
 		return false;
 	}
 
-	texture = SDL_CreateTexture(renderer,surface->format->format,SDL_TEXTUREACCESS_STREAMING,surface->w,surface->h);
+	texture = SDL_CreateTexture(renderer,surface->format->format,SDL_TEXTUREACCESS_STATIC,surface->w,surface->h);
 	if (!texture){
 		SDL_DestroyRenderer(renderer);
 		SDL_DestroyWindow(window);
@@ -1974,7 +1936,7 @@ bool avr8::init_gui()
 	scanline_count = -999;
 	//Syncronized with the kernel, this value now results in the image 
 	//being perfectly centered in both the emulator and a real TV
-	left_edge = 166U;
+	left_edge = VIDEO_LEFT_EDGE;
 
 	latched_buttons[0] = buttons[0] = ~0;
 	latched_buttons[1] = buttons[1] = ~0;
@@ -2018,7 +1980,7 @@ bool avr8::init_gui()
 			}
 			printf("Pixel Format = %s\n", pix_fmt);
 			char avconv_video_cmd[1024] = {0};
-			snprintf(avconv_video_cmd, sizeof(avconv_video_cmd) - 1, "ffmpeg -y -f rawvideo -s 720x224 -pix_fmt %s -r 59.94 -i - -vf scale=960:720 -sws_flags neighbor -an -b:v 1000k uzemtemp.mp4", pix_fmt);
+			snprintf(avconv_video_cmd, sizeof(avconv_video_cmd) - 1, "ffmpeg -y -f rawvideo -s %ux224 -pix_fmt %s -r 59.94 -i - -vf scale=960:720 -sws_flags neighbor -an -preset ultrafast -qp 0 -tune animation uzemtemp.mp4", VIDEO_DISP_WIDTH, pix_fmt);
 			avconv_video = popen(avconv_video_cmd, "w");
 		}
 		if (avconv_video == NULL){
@@ -2075,8 +2037,8 @@ void avr8::handle_key_down(SDL_Event &ev)
 			// SDLK_LEFT/RIGHT/UP/DOWN
 			// SDLK_abcd...
 			// SDLK_RETURN...
-			case SDLK_1: left_edge++; printf("left=%u\n",left_edge); break;
-			case SDLK_2: left_edge--; printf("left=%u\n",left_edge); break;
+			case SDLK_1: if (left_edge > 0U) { left_edge--; } printf("left=%u\n",left_edge); break;
+			case SDLK_2: if (left_edge < 2047U - ((VIDEO_DISP_WIDTH * 7U) / 3U)) { left_edge++; } printf("left=%u\n",left_edge); break;
 			case SDLK_3: scanline_top--; printf("top=%d\n",scanline_top); break;
 			case SDLK_4: scanline_top++; printf("top=%d\n",scanline_top); break;
 			case SDLK_5: 
@@ -2114,7 +2076,30 @@ void avr8::handle_key_down(SDL_Event &ev)
 			case SDLK_PRINTSCREEN:
 				sprintf(ssbuf,"uzem_%03d.bmp",ssnum++);
 				printf("saving screenshot to '%s'...\n",ssbuf);
-				SDL_SaveBMP(surface,ssbuf);
+                                {
+                                  SDL_Surface* surfBMP;
+                                  const Uint8 *kbstate = SDL_GetKeyboardState(NULL);
+                                  if (kbstate[SDL_SCANCODE_LSHIFT] || kbstate[SDL_SCANCODE_RSHIFT]) {
+                                    surfBMP = SDL_CreateRGBSurface(0, 240, 224, 32, 0, 0, 0, 0);
+                                  } else {
+                                    surfBMP = SDL_CreateRGBSurface(0, 630, 448, 32, 0, 0, 0, 0);
+                                  }
+                                  
+                                  if (!surfBMP){
+                                    fprintf(stderr, "CreateRGBSurface failed: %s\n", SDL_GetError());
+                                  } else {
+                                    if (SDL_BlitScaled(surface, NULL, surfBMP, NULL) < 0) {
+                                      fprintf(stderr, "BlitScaled failed: %s\n", SDL_GetError());
+                                      SDL_FreeSurface(surfBMP);
+                                    } else {
+                                      SDL_SaveBMP(surfBMP,ssbuf);
+                                      SDL_FreeSurface(surfBMP);
+                                      break;
+                                    }
+                                  }
+                                }
+                                fprintf(stderr, "There was a problem rescaling the screenshot, saving the unscaled version.\n");
+                                SDL_SaveBMP(surface,ssbuf); // at least save the weirdly scaled one				
 				break;
 			case SDLK_0:
 				PIND = PIND & ~0b00001100;
