@@ -43,11 +43,19 @@ THE SOFTWARE.
 
 // If you're building from the command line or on a non-MS compiler you'll need
 // -lSDL or somesuch.
-#include "SDL2/SDL.h"
+#include <SDL2/SDL.h>
 #if defined (_MSC_VER)
 	#pragma comment(lib, "SDL.lib")
 	#pragma comment(lib, "SDLmain.lib")
 #endif
+
+// Video: Offset of display on the emulator's surface
+// Syncronized with the kernel, this value now results in the image
+// being perfectly centered in both the emulator and a real TV
+#define VIDEO_LEFT_EDGE  168U
+// Video: Display width; the width of the emulator's output (before any
+// scaling applied) and video capturing
+#define VIDEO_DISP_WIDTH 720U
 
 //Uzebox keyboard defines
 #define KB_STOP		0
@@ -413,9 +421,9 @@ public:
 	int scanline_top;
 	unsigned int left_edge;
 	u32 inset;
-	u32 *current_scanline, *prev_scanline;
-	u32 pixel;
 	u32 palette[256];
+	u8  scanline_buf[2048]; // For collecting pixels from a single scanline
+	u8  pixel_raw;          // Raw (8 bit) input pixel
 	bool fullscreen;
 
 	/*Audio*/

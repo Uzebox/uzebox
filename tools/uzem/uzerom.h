@@ -33,12 +33,7 @@
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
 
-#if defined(__GNUC__)
-    #define ALIGN1 __attribute__ ((aligned(1)))
-#else
-    #define ALIGN1
-#endif
-
+#pragma pack( 1 )
 struct RomHeader{
     //Header fields (512 bytes)
     uint8_t marker[6]; //'UZEBOX'
@@ -51,8 +46,11 @@ struct RomHeader{
     uint8_t icon[16*16];
     uint32_t crc32;
     uint8_t mouse;
-    uint8_t reserved[178];
-} ALIGN1;
+	uint8_t description[64];
+    uint8_t reserved[114];
+};
+#pragma pack()
+
 
 /*
     isUzeromFile - returns true if the file is indeed an .uze file

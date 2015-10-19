@@ -39,8 +39,8 @@ static const struct option longopts[] ={
     { "help"       , no_argument      , NULL, 'h' },
     { "nosound"    , no_argument      , NULL, 'n' },
     { "fullscreen" , no_argument      , NULL, 'f' },
-    { "hwsurface"  , no_argument      , NULL, 'w' },
-    { "nodoublebuf", no_argument      , NULL, 'x' },
+    { "swrenderer" , no_argument      , NULL, 'w' },
+    { "novsync"    , no_argument      , NULL, 'v' },
     { "mouse"      , no_argument      , NULL, 'm' },
     { "2p"         , no_argument      , NULL, '2' },
     { "img"        , required_argument, NULL, 'g' },
@@ -72,8 +72,8 @@ void showHelp(char* programName){
     printerr("\t--help -h           Show this help screen\n");
     printerr("\t--nosound  -n       Disable sound playback\n");
     printerr("\t--fullscreen -f     Enable full screen\n");
-    printerr("\t--hwsurface -w      Use SDL hardware surface (probably slower)\n");
-    printerr("\t--nodoublebuf -x    No double buffering\n");
+    printerr("\t--swrenderer -w     Use SDL software renderer (probably faster on older computers)\n");
+    printerr("\t--novsync -v        Disables VSYNC (does not apply to software renderer)\n");
     printerr("\t--mouse -m          Start with emulated mouse enabled\n");
     printerr("\t--2p -2             Start with snes 2p mode enabled\n");
     printerr("\t--sd -s <path>      SD card emulation from contents of path\n");
@@ -125,7 +125,7 @@ int main(int argc,char **argv)
 #endif
 
     // init basic flags before parsing args
-	// uzebox.sdl_flags = SDL_DOUBLEBUF | SDL_SWSURFACE;
+    uzebox.sdl_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
 
     if(argc == 1) {
         showHelp(argv[0]);
@@ -149,10 +149,10 @@ int main(int argc,char **argv)
 			uzebox.fullscreen = true;
             break;
         case 'w':
-			// uzebox.sdl_flags = (uzebox.sdl_flags & ~SDL_SWSURFACE) | SDL_HWSURFACE;
+			uzebox.sdl_flags = (uzebox.sdl_flags & ~(SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)) | SDL_RENDERER_SOFTWARE;
             break;
-        case 'x':
-			// uzebox.sdl_flags &= ~SDL_DOUBLEBUF;
+        case 'v':
+			uzebox.sdl_flags &= ~SDL_RENDERER_PRESENTVSYNC;
             break;
         case 'm':
 			uzebox.pad_mode = avr8::SNES_MOUSE;
