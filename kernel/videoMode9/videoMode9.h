@@ -29,6 +29,11 @@
 
 extern unsigned char vram[];  
 extern u8 backgroundColor[];
+extern u8 GetTile(u8 x,u8 y);
+
+extern void MoveCursor(u8 x,u8 y);
+extern void SetCursorVisible(bool visible);
+extern void SetCursorParams(u8 tileIndex,u8 blinkSpeed);
 
 
 
