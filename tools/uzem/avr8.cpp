@@ -664,8 +664,8 @@ u8 avr8::read_io(u8 addr)
 	// p106 in 644 manual; 16-bit values are latched
 	if      (addr == ports::TCNT1L)
 	{
-		T16_latch = io[addr + 1U];
-		return io[addr];
+		T16_latch = (TCNT1 >> 8) & 0xFFU;
+		return TCNT1 & 0xFFU;
 	}
 	else if (addr == ports::TCNT1H)
 	{
@@ -703,7 +703,6 @@ void avr8::update_hardware()
 		if ((TCCR1B & 7U) != 0U) // If timer 1 is started
 		{
 
-			unsigned int TCNT1 = TCNT1L | ((unsigned int)(TCNT1H) << 8);
 			unsigned int OCR1A = OCR1AL | ((unsigned int)(OCR1AH) << 8);
 			unsigned int OCR1B = OCR1BL | ((unsigned int)(OCR1BH) << 8);
 
@@ -764,21 +763,13 @@ void avr8::update_hardware()
 
 			}
 
-			TCNT1L = (u8) TCNT1;
-			TCNT1H = (u8) (TCNT1>>8);
-
 		}
 
 	}
 	else
 	{
 		timer1_next --;
-		// Note: A little hack is here, by C / C++ standard a logical
-		// operation's result is 0 for false, 1 for true when
-		// converted to integer. This can be optimized well by a sane
-		// compiler.
-		TCNT1L ++;
-		TCNT1H += (unsigned int)(TCNT1L == 0U);
+		TCNT1 ++;
 	}
 
 	// Apply delayed outputs
@@ -792,8 +783,7 @@ void avr8::update_hardware()
 		}
 		if ((dly_out & DLY_TCNT1) != 0U)
 		{
-			TCNT1L = dly_TCNT1L;
-			TCNT1H = dly_TCNT1H;
+			TCNT1 = (dly_TCNT1H << 8) | dly_TCNT1L;
 			timer1_next = 0U; // Timer state changes
 		}
 		dly_out = 0U;

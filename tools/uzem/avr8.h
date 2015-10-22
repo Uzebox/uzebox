@@ -287,7 +287,7 @@ struct avr8
 		/*Core*/
 		pc(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),
 		dly_out(0), itd_TIFR1(0), elapsedCyclesSleep(0),hsyncHelp(false),recordMovie(false),
-		timer1_next(0),
+		timer1_next(0), TCNT1(0),
 		//to align with AVR Simulator 2 since it has a bug that the first JMP
 		//at the reset vector takes only 2 cycles
 		cycleCounter(-1),
@@ -343,6 +343,7 @@ private:
 	unsigned int cycle_ctr_ins;  // Used in update_hardware_ins to track elapsed cycles between calls
 	// u8 eeClock; TODO: Only set at one location, never used. Maybe a never completed EEPROM timing code.
 	unsigned int T16_latch;   // Latch for 16-bit timers (16 bits used)
+	unsigned int TCNT1;       // Timer 1 counter (used instead of TCNT1H:TCNT1L)
 	unsigned int timer1_next; // Cycles remaining until next timer1 event
 	unsigned int itd_TIFR1;   // Interrupt delaying for TIFR1 (8 bits used)
 	unsigned int dly_out;     // Delayed output flags
