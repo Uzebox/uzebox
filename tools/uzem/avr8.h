@@ -285,9 +285,12 @@ struct avr8
 {
 	avr8() :
 		/*Core*/
-		pc(0), cycleCounter(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),
-		newTCCR1B(0),elapsedCyclesSleep(0),hsyncHelp(false),recordMovie(false),
-		timer1_next(0),
+		pc(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),
+		dly_out(0), itd_TIFR1(0), elapsedCyclesSleep(0),hsyncHelp(false),recordMovie(false),
+		timer1_next(0), TCNT1(0),
+		//to align with AVR Simulator 2 since it has a bug that the first JMP
+		//at the reset vector takes only 2 cycles
+		cycleCounter(-1),
 
 		/*SDL*/
 		window(0),renderer(0),surface(0),texture(0),
@@ -332,17 +335,21 @@ struct avr8
 	/*Core*/
 	u16 progmem[progSize/2];
 	u16 pc,currentPc;
-	unsigned int cycleCounter;
 private:
+	unsigned int cycleCounter;
 	unsigned int elapsedCycles,prevCyclesCounter,elapsedCyclesSleep,lastCyclesSleep;
 	unsigned int prevPortB, prevWDR;
 	unsigned int watchdogTimer;
+	unsigned int cycle_ctr_ins;  // Used in update_hardware_ins to track elapsed cycles between calls
 	// u8 eeClock; TODO: Only set at one location, never used. Maybe a never completed EEPROM timing code.
 	unsigned int T16_latch;   // Latch for 16-bit timers (16 bits used)
+	unsigned int TCNT1;       // Timer 1 counter (used instead of TCNT1H:TCNT1L)
 	unsigned int timer1_next; // Cycles remaining until next timer1 event
-	unsigned int tempTIFR1;   // Delaying for TIFR1 (8 bits used)
-	unsigned int newTCCR1B;   // Delaying for TCCR1B (8 bits used)
-	unsigned int cycles;
+	unsigned int itd_TIFR1;   // Interrupt delaying for TIFR1 (8 bits used)
+	unsigned int dly_out;     // Delayed output flags
+	unsigned int dly_TCCR1B;  // Delayed Timer1 controls
+	unsigned int dly_TCNT1L;  // Delayed Timer1 count (low)
+	unsigned int dly_TCNT1H;  // Delayed Timer1 count (high)
 public:
 	bool enableGdb;
 	int randomSeed;
@@ -532,15 +539,6 @@ private:
 		}
 		else if (addr >= IOBASE)
 		{
-			// Access is performed on the second cycle of LD
-			// instructions, so progress hardware accordingly.
-			// Don't care about other instructions: those deal
-			// with the stack.
-			if (cycles != 0U)
-			{
-				cycles -= 1U;
-				update_hardware(1U);
-			}
 			write_io(addr - IOBASE, value);
 		}
 		else
@@ -563,15 +561,6 @@ private:
 		}
 		else if (addr >= IOBASE)
 		{
-			// Access is performed on the second cycle of LD
-			// instructions, so progress hardware accordingly.
-			// Don't care about other instructions: those deal
-			// with the stack.
-			if (cycles != 0U)
-			{
-				cycles -= 1U;
-				update_hardware(1U);
-			}
 			return read_io(addr - IOBASE);
 		}
 		else
@@ -580,7 +569,7 @@ private:
 		}
 	}
 
-	inline static int get_insn_size(unsigned int insn)
+	inline static unsigned int get_insn_size(unsigned int insn)
 	{
 		/*	1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
 		1001 001d dddd 0000		STS k,Rr (next word is rest of address)
@@ -589,9 +578,9 @@ private:
 		// This code is simplified by assuming upper k bits are zero on 644
 		insn &= 0xFE0F;
 		if (insn == 0x9000 || insn == 0x9200 || insn == 0x940C || insn == 0x940E)
-			return 2;
+			return 2U;
 		else
-			return 1;
+			return 1U;
 	}
 
 public:
@@ -608,9 +597,10 @@ public:
 	void load_joystick_file(const char* filename);
 	void draw_memorymap();
 	void trigger_interrupt(unsigned int location);
-	u8 exec();
+	unsigned int exec();
     void spi_calculateClock();    
-	void update_hardware(unsigned int cycles);    
+	void update_hardware();
+	void update_hardware_ins();
     void update_spi();
     void SDLoadImage(char *filename);    
     void SDBuildMBR(SDPartitionEntry* entry);    
