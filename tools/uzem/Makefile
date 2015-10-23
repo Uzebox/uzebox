@@ -17,13 +17,34 @@ TARGETS = debug release
 #EMSCRIPTEN_BUILD=1
 
 ifeq ($(EMSCRIPTEN_BUILD),1)
-    EMSCRIPTEN_FLAGS=-O3 -s USE_SDL=2 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 --llvm-lto 1
+    EMSCRIPTEN_FLAGS=-s USE_SDL=2
     EMSCRIPTEN_TARGET_EXTRAS=.html --preload-file gamefile.uze --preload-file eeprom.bin
 endif
 
 #Uncomment to optimize for local CPU
 #ARCH=native
 #TUNE=y
+
+######################################
+# Profile Guided Optimization
+######################################
+# To use properly, do:
+#
+# make clean
+# GEN=1 make release
+# (Now run through your game normally to generate a profile)
+# ./uzem yourgame.hex
+# make clean
+# USE=1 make release
+
+ifneq ($(GEN),)
+    CPPFLAGS += -fprofile-generate
+    LDFLAGS  += -fprofile-generate
+endif
+ifneq ($(USE),)
+    CPPFLAGS += -fprofile-use
+    LDFLAGS  += -fprofile-use
+endif
 
 ######################################
 # Sources
@@ -59,9 +80,11 @@ CPPFLAGS += $(SDL_FLAGS) -D$(OS) -D_GNU_SOURCE=1 -DGUI=1 -DJOY_ANALOG_DEADZONE=8
 RELEASE_NAME = uzem$(OS_EXTENSION)
 RELEASE_OBJ_DIR := Release
 ifeq ($(EMSCRIPTEN_BUILD),1)
-    RELEASE_CPPFLAGS = $(CPPFLAGS) $(EMSCRIPTEN_FLAGS)
+    RELEASE_CPPFLAGS = $(CPPFLAGS) $(EMSCRIPTEN_FLAGS) -O3 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 --llvm-lto 1
+    RELEASE_LDFLAGS  = $(LDFLAGS)  $(EMSCRIPTEN_FLAGS) -O3 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 --llvm-lto 1
 else
-    RELEASE_CPPFLAGS = $(CPPFLAGS) -Ofast -flto -fwhole-program 
+    RELEASE_CPPFLAGS = $(CPPFLAGS) -O3 -flto -fwhole-program
+    RELEASE_LDFLAGS  = $(LDFLAGS)  -O3 -flto -fwhole-program
 endif
 
 ######################################
@@ -70,7 +93,13 @@ endif
 DEBUG_NAME = uzemdbg$(OS_EXTENSION)
 DEBUG_OBJ_DIR := Debug
 DEBUG_DEFINES := USE_SPI_DEBUG=1 USE_EEPROM_DEBUG=1 USE_GDBSERVER_DEBUG=1
-DEBUG_CPPFLAGS = $(CPPFLAGS) -g $(EMSCRIPTEN_FLAGS)
+ifeq ($(EMSCRIPTEN_BUILD),1)
+    DEBUG_CPPFLAGS = $(CPPFLAGS) -g $(EMSCRIPTEN_FLAGS)
+    DEBUG_LDFLAGS  = $(LDFLAGS)  -g $(EMSCRIPTEN_FLAGS)
+else
+    DEBUG_CPPFLAGS = $(CPPFLAGS) -g
+    DEBUG_LDFLAGS  = $(LDFLAGS)  -g
+endif
 
 ######################################
 # SD Options
@@ -92,11 +121,10 @@ OS := LINUX
 PLATFORM := Unix
 ifeq ($(EMSCRIPTEN_BUILD),1)
     SDL_FLAGS :=
-    LDFLAGS += $(EMSCRIPTEN_FLAGS)
     CC := emcc
 else
     SDL_FLAGS := $(shell sdl2-config --cflags)
-    LDFLAGS += $(shell sdl2-config --libs) -Ofast -flto -fwhole-program
+    LDFLAGS += $(shell sdl2-config --libs)
     CC := g++
 endif
 MKDIR := mkdir -p
@@ -190,6 +218,7 @@ endif
 TARGET_NAME = $(BIN_DIR)$($(CFG)_NAME)
 TARGET_OBJ_DIR = $($(CFG)_OBJ_DIR)
 TARGET_CPPFLAGS = $($(CFG)_CPPFLAGS)
+TARGET_LDFLAGS = $($(CFG)_LDFLAGS)
 TARGET_DEFINES = $($(CFG)_DEFINES)
 TARGET_MSG = $($(CFG)_MSG)
 
@@ -217,7 +246,7 @@ $(TARGETS): msg $(TARGET_NAME)
 	@echo done!
 
 $(TARGET_NAME): $(TARGET_OBJS) $(SDL_DLL)
-	$(CC) $(TARGET_OBJS) -o $(TARGET_NAME)$(EMSCRIPTEN_TARGET_EXTRAS) $(CPPFLAGS) $(LDFLAGS) $(TARGET_D_DEFINES)
+	$(CC) $(TARGET_OBJS) -o $(TARGET_NAME)$(EMSCRIPTEN_TARGET_EXTRAS) $(TARGET_CPPFLAGS) $(TARGET_LDFLAGS) $(TARGET_D_DEFINES)
 
 $(TARGET_OBJ_DIR)/%.o: %.cpp
 	$(CC) -c $< -o $@ $(TARGET_CPPFLAGS) $(DEPFLAGS) $(TARGET_D_DEFINES)
@@ -238,7 +267,10 @@ debug-sd: all SDCardDemo
 
 .PHONY: clean    
 clean:
-	-@$(RM) $(RELEASE_OBJ_DIR) 
+	-@$(RM) $(RELEASE_OBJ_DIR)/*.o
+	-@$(RM) $(RELEASE_OBJ_DIR)/*.d
+	-@$(RM) $(RELEASE_OBJ_DIR)/*.asm
+# DO NOT DELETE $(RELEASE_OBJ_DIR)/*.gcda in order to use PGO
 	-@$(RM) $(DEBUG_OBJ_DIR)
 	-@$(RM) $(BIN_DIR)$(RELEASE_NAME)
 	-@$(RM) $(BIN_DIR)$(DEBUG_NAME)
