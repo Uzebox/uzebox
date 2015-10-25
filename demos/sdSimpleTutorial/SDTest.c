@@ -70,7 +70,7 @@ if(sectorStart == 0){
     // That is SPAN = 0 RUN = 0
 
     sdDirectReadSimple(&vram[COORD(0,0)], 28);    // HELLO WORLD
-    sdCardSkipBytes(2);                           // Skip the CR/LF
+    sdCardSkipBytes(1);                           // Skip the CR/LF
 
     // VERTICAL TEXT
     // SPAN = 39
@@ -81,7 +81,7 @@ if(sectorStart == 0){
     // Screen width = 40 so 39 is screen width - 1
 
     sdDirectRead(&vram[COORD(0,2)], 13, 39, 1);   // VERTICAL TEXT
-    sdCardSkipBytes(2);                           // Skip the CR/LF
+    sdCardSkipBytes(1);                           // Skip the CR/LF
 
     // DOUBLE SPACES
     // SPAN = 1
@@ -90,7 +90,7 @@ if(sectorStart == 0){
     // Every 1 (RUN) byte skip 1 (SPAN) bytes
 
     sdDirectRead(&vram[COORD(3,2)], 13, 1, 1);    // DOUBLE SPACES
-    sdCardSkipBytes(2);                           // Skip the CR/LF
+    sdCardSkipBytes(1);                           // Skip the CR/LF
 
     // DOUBLE SPACES
     // SPAN = 39
@@ -101,7 +101,7 @@ if(sectorStart == 0){
     // 39 is (40-1)
 
     sdDirectRead(&vram[COORD(0,17)], 80, 39, 40); // DOUBLE LINE SPACING
-    sdCardSkipBytes(2);                           // Skip the CR/LF
+    sdCardSkipBytes(1);                           // Skip the CR/LF
 
     // 16 bit modes
     // SPAN = 38

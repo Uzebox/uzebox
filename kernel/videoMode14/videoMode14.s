@@ -1,5 +1,5 @@
 /*
- *  Uzebox Kernel - Mode 14
+ *  Uzebox Kernel - Mode T
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published bys
@@ -18,7 +18,7 @@
 */
 
 ;***************************************************
-; Video Mode 14 - Cunning Fellow
+; Video Mode T Cunning Fellows Modifications
 ; 256x224
 ; Section 1 (used for life / score / highscore / messages)
 ;    256x16
@@ -156,7 +156,7 @@ sub_video_mode14:					; At this point R0..R29 have all been saved to the stack
 									; So all can be trashed.
 
 
-	//sbi   _SFR_IO_ADDR(GPIOR0),1 testing clearvramflag
+	//sbi   _SFR_IO_ADDR(GPIOR1),1 testing clearvramflag
 
 
 
@@ -213,8 +213,9 @@ sub_video_mode14:					; At this point R0..R29 have all been saved to the stack
 	inc		r19								// a new frame is draw from the C code (waiting VSync)
 	sts		FrameNo, r19
 
-    sbis   _SFR_IO_ADDR(GPIOR0),0	; Test to see if Video Mode is allowed to acces SD card.
-    rjmp   SubVideoModeNoSD
+	in		r19, _SFR_IO_ADDR(GPIOR1)
+    sbrs   	r19,0					; Test to see if Video Mode is allowed to acces SD card.
+    rjmp  	SubVideoModeNoSD
 
 
 	ldi		r25, hi8(pm(End_of_scanline_Section_1))  ; Where we are going to jump too after the TCNT1 int
@@ -244,7 +245,7 @@ sub_video_mode14:					; At this point R0..R29 have all been saved to the stack
 	ldi		r19, 0xFF
 	rcall	send_byte_in_17_CLK
 
-	WAIT r19,582					; waste cycles to align with next
+	WAIT r19,578					; waste cycles to align with next
 									; hsync that is first rendered line
 									; This is going in the middle of the STOP_CMD and the READ_MULTI
 									; so there is time for the SD card to get ready
@@ -257,7 +258,8 @@ sub_video_mode14:					; At this point R0..R29 have all been saved to the stack
 ;
 ; otherwise if the flag is not set then waste time
 
-	sbis   _SFR_IO_ADDR(GPIOR0),2
+	in		r19, _SFR_IO_ADDR(GPIOR1)
+	sbrs   	r19, 2
 	rjmp	showScoreDontUpdate
 
 ; Show Score
@@ -450,8 +452,10 @@ showScoreDontUpdate:
 	wait	r20, 379
 
 showLivesEnd:
-	cbi		_SFR_IO_ADDR(GPIOR0),2
 
+	in		r20, _SFR_IO_ADDR(GPIOR1)
+	andi	r20, 0b11111011
+	out		_SFR_IO_ADDR(GPIOR1), r20
 
 	ldi		XL, lo8(vram)			; Load start of VRAM into X
 	ldi		XH, hi8(vram)
@@ -703,8 +707,9 @@ Next_pixel_row_section_2:
 .endm
 
 
-	WAIT r19,4     //88
-	sbis   _SFR_IO_ADDR(GPIOR0),1
+	WAIT r19,3     //88
+	in		r19, _SFR_IO_ADDR(GPIOR1)
+	sbrs   	r19, 1
 	rjmp	DontClear1
 
 ; X contains the VRAM pointer
@@ -828,8 +833,9 @@ End_of_scanline_Section_2:
 										; we have to step back (32+1) bytes in the VRAM
 										; counter
 
-	WAIT 	r19,9	//141					; Extra Cycles becuase 256 pixels instead of 280
-	sbis   _SFR_IO_ADDR(GPIOR0),1
+	WAIT 	r19,8	//141					; Extra Cycles becuase 256 pixels instead of 280
+	in		r19, _SFR_IO_ADDR(GPIOR1)
+	sbrs   	r19, 1
 	rjmp	DontClear2
 
 	WAIT 	r19,12
@@ -862,8 +868,9 @@ Pixel_row_mod_8:
 	sbiw	XL, 1						; Subrtact 1 from the VRAM counter because the
 										; the last phase_b of "renderlines" read one byte
 										; of the next line.
-	WAIT 	r19,5	//137
-	sbis   _SFR_IO_ADDR(GPIOR0),1
+	WAIT 	r19,4	//137
+	in		r19, _SFR_IO_ADDR(GPIOR1)
+	sbrs   	r19, 1
 	rjmp	DontClear3
 
 	WAIT 	r19,12
@@ -906,7 +913,9 @@ End_of_Video_Mode_cleanup:
 
 	sts _SFR_MEM_ADDR(TIMSK1),r8		; Restore TimerMask to what it was
 
-	cbi	    _SFR_IO_ADDR(GPIOR0), 1		; unset the "ClearVram" flag
+	in		r19, _SFR_IO_ADDR(GPIOR1)	; unset the "ClearVram" flag
+	andi	r19, 0b11111101
+	out		_SFR_IO_ADDR(GPIOR1), r19
 
 	ret									; Return kernel then user code.
 
@@ -1017,7 +1026,7 @@ SubVideoModeNoSD:
 	ldi		r25, hi8(pm(End_of_scanline_Section_NoSD))  ; Where we are going to jump too after the TCNT1 int
 	ldi		r24, lo8(pm(End_of_scanline_Section_NoSD))
 
-	WAIT r19,1299						; waste cycles to align with next
+	WAIT r19,1298						; waste cycles to align with next
 										; hsync that is first rendered line
 
                                     	;            bbgggrrr
@@ -1176,7 +1185,9 @@ End_of_Video_Mode_cleanup_NoSD:
 
 	sts _SFR_MEM_ADDR(TIMSK1),r8		; Restore TimerMask to what it was
 
-	cbi	    _SFR_IO_ADDR(GPIOR0), 1		; unset the "ClearVram" flag
+	in		r19, _SFR_IO_ADDR(GPIOR1)	; unset the "ClearVram" flag
+	andi	r19, 0b11111101
+	out		_SFR_IO_ADDR(GPIOR1), r19
 
 	ret									; Return kernel then user code.
 
@@ -1390,14 +1401,16 @@ ClearBufferLoop16Byte:				; Clears (R24 * 16) bytes pointed to by X
 
 
 SDCardVideoModeEnable:
-	sbi	    _SFR_IO_ADDR(GPIOR0), 0             ; Because of the render line code having to share
-	                                            ; space with the reset vector, we have to set a GPIO bit
-	                                            ; to indicate we are rendering rather than reseting.
+	in	    r24, _SFR_IO_ADDR(GPIOR1)           ; Because of the render line code having to share
+	ori		r24, 0b00000001                     ; space with the reset vector, we have to set a GPIO bit
+	out		_SFR_IO_ADDR(GPIOR1), r24           ; to indicate we are rendering rather than reseting.
 	                                            ; GPIO bits are in a "known state" after reset.
 	ret
 
 SDCardVideoModeDisable:							; restore video mode to text only mode (no SD card)
-	cbi	    _SFR_IO_ADDR(GPIOR0), 0
+	in	    r24, _SFR_IO_ADDR(GPIOR1)
+	andi	r24, 0b11111110
+	out		_SFR_IO_ADDR(GPIOR1), r24
 	rcall	ClearBufferTextMode
 	ret
 
@@ -4311,10 +4324,12 @@ getSectorBMP:							; R21                     r20                     R19       
 
 	lds    r18, sectorStart+0			; get the start sector of the movie on the SD card
 	lds    r19, sectorStart+1
+	lds    r20, sectorStart+2
 
 	add    r22, r18						; add the start sector to the return result
 	adc    r23, r19
-	adc    r24, r1
+	adc    r24, r20
+	adc    r25, r1
 
 	ret
 

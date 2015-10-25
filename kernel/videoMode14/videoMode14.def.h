@@ -1,5 +1,5 @@
 /*
- *  Uzebox(tm) Video Mode 14
+ *  Uzebox(tm) Video Mode 6
  *  Copyright (C) 20098  Alec Bourque
  *  
  *  This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 /** 
  * ==============================================================================
  *
- * This file contains global defines for video mode 14
+ * This file contains global defines for video mode 6
  *
  * ===============================================================================
  */
@@ -48,7 +48,7 @@
 #endif
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V
 #define VRAM_ADDR_SIZE 1 //in bytes
-
+#define VRAM_PTR_TYPE char
 
 #ifndef FRAME_LINES
 	#define FRAME_LINES SCREEN_TILES_V*TILE_HEIGHT
