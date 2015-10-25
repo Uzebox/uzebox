@@ -30,7 +30,7 @@
 
 
 	#if EXTENDED_PALETTE
-		#include "videomode13/paletteTable.h"
+		#include "videoMode13/paletteTable.h"
 	#endif
 
 	#if INTRO_LOGO !=0
