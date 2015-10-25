@@ -170,6 +170,30 @@ typedef int16_t s16;
 typedef uint32_t u32;
 typedef int32_t s32;
 
+typedef struct {
+	s16  arg2;
+	u8   arg1;
+	u8   opNum;
+} __attribute__((packed)) instructionDecode_t;
+
+typedef struct {
+	u8   opNum;
+	char opName[32];
+	u8   arg1Type;
+	u8   arg1Mul;
+	u8   arg1Offset;
+	u8   arg1Neg;
+	u8   arg2Type;
+	u8   arg2Mul;
+	u8   arg2Offset;
+	u8   arg2Neg;
+	u8   words;
+	u8   clocks;
+	u16  mask;
+	u16  arg1Mask;
+	u16  arg2Mask;
+} instructionList_t;
+
 using namespace std;
 
 struct joyButton { u8 button; u8 bit; };
@@ -328,12 +352,14 @@ struct avr8
 		memset(io, 0, sizeof(io));
 		memset(sram, 0, sizeof(sram));
 		memset(eeprom, 0, sizeof(eeprom));
-		memset(progmem,0,progSize);
+		memset(progmem,0,progSize/2);
+		memset(progmemDecoded,0,progSize/2);
 		memset(romName,0,sizeof(romName));
 	}
 
 	/*Core*/
 	u16 progmem[progSize/2];
+	instructionDecode_t progmemDecoded[progSize/2];
 	u16 pc,currentPc;
 private:
 	unsigned int cycleCounter;
@@ -357,6 +383,10 @@ public:
     bool hsyncHelp;
     bool recordMovie;
 	char romName[256];
+	u16 decodeArg(u16 flash, u16 argMask, u8 argNeg);
+	void instructionDecode(u16 address);
+	void decodeFlash(void);
+	void decodeFlash(u16 address);
 
 	struct
 	{
@@ -571,16 +601,17 @@ private:
 
 	inline static unsigned int get_insn_size(unsigned int insn)
 	{
-		/*	1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
-		1001 001d dddd 0000		STS k,Rr (next word is rest of address)
-		1001 010k kkkk 110k		JMP k (next word is rest of address)
-		1001 010k kkkk 111k		CALL k (next word is rest of address) */
+		/* 41  LDS Rd,k (next word is rest of address)
+		   82  STS k,Rr (next word is rest of address)
+		   30  JMP k (next word is rest of address)
+		   14  CALL k (next word is rest of address) */
 		// This code is simplified by assuming upper k bits are zero on 644
-		insn &= 0xFE0F;
-		if (insn == 0x9000 || insn == 0x9200 || insn == 0x940C || insn == 0x940E)
+		
+		if (insn == 14 || insn == 30 || insn == 41 || insn == 82) {
 			return 2U;
-		else
+		} else {
 			return 1U;
+		}
 	}
 
 public:
