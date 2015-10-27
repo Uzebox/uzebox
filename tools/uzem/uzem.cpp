@@ -260,6 +260,8 @@ int main(int argc,char **argv)
             }
         }
 
+	uzebox.decodeFlash();
+	
     	//get rom name without extension
     	char *pfile = heximage + strlen(heximage);
 		for (;; pfile--)
