@@ -1367,7 +1367,7 @@ unsigned int avr8::exec()
 			break;
 
 		case  27: // 1001 0100 0000 1001		(2) IJMP (jump thru Z register)
-			update_hardware();
+			update_hardware_fast();
 			pc = Z;
 			break;
 
@@ -1465,14 +1465,14 @@ unsigned int avr8::exec()
 			break;
 
 		case  43: // 1001 000d dddd 0100		(3) LPM Rd,Z
-			update_hardware();
-			update_hardware();
+			update_hardware_fast();
+			update_hardware_fast();
 			r[arg1_8] = read_progmem(Z);
 			break;
 
 		case  44: // 1001 000d dddd 0101		(3) LPM Rd,Z+
-			update_hardware();
-			update_hardware();
+			update_hardware_fast();
+			update_hardware_fast();
 			r[arg1_8] = read_progmem(Z);
 			INC_Z;
 			break;
@@ -1507,7 +1507,7 @@ unsigned int avr8::exec()
 			r1 = (u8)(uTmp >> 8);
 			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(uTmp);
-			update_hardware();
+			update_hardware_fast();
 			break;
 
 		case  49: // 0000 0010 dddd rrrr		(2) MULS Rd,Rr
@@ -1612,7 +1612,7 @@ unsigned int avr8::exec()
 			break;
 
 		case  61: // 1100 kkkk kkkk kkkk		(2) RJMP k
-			update_hardware();
+			update_hardware_fast();
 			pc += arg2_8;
 			break;
 
@@ -1692,7 +1692,7 @@ unsigned int avr8::exec()
 			UPDATE_S;
 			set_bit_inv(SREG,SREG_Z,R16);
 			set_bit_1(SREG,SREG_C,((R16&~Rd16)&0x8000) >> 15);
-			update_hardware_fast();
+			update_hardware();
 			break;
 
 		case  69: // 1111 110r rrrr 0bbb		(1/2/3) SBRC Rr,b
