@@ -290,10 +290,10 @@ void avr8::spi_calculateClock(){
 
 // Renders a line into a 32 bit output buffer.
 // Performs a shrink by 2
-static inline void render_line(u32* dest, u8 const* src, u32 const* pal)
+static inline void render_line(u32* dest, u8 const* src, unsigned int spos, u32 const* pal)
 {
 	for (unsigned int i = 0; i < VIDEO_DISP_WIDTH; i++)
-		dest[i] = pal[src[i<<1]];
+		dest[i] = pal[src[((i << 1) + spos) & 0x7FFU]];
 }
 
 inline void avr8::write_io(u8 addr,u8 value)
@@ -364,12 +364,13 @@ void avr8::write_io_x(u8 addr,u8 value)
 				if (scanline_count >= 0){
 					render_line(
 						(u32*)((u8*)surface->pixels + scanline_count * surface->pitch),
-						&scanline_buf[left_edge],
+						&scanline_buf[0],
+						left_edge + left_edge_cycle,
 						palette);
 				}
 
 				scanline_count ++;
-				current_cycle = 0U;
+				left_edge_cycle = cycleCounter;
 
 				if (scanline_count == 224)
 				{
@@ -641,6 +642,8 @@ void avr8::write_io_x(u8 addr,u8 value)
 		// TODO: These should also be latched by the Atmel docs, maybe
 		// implement it later.
 		io[addr] = value;
+		TCNT1 += timer1_base - timer1_next;
+		timer1_base = 0U;
 		timer1_next = 0U; // Force timer state recalculation (update_hardware)
 		break;
 
@@ -666,8 +669,9 @@ u8 avr8::read_io(u8 addr)
 	// p106 in 644 manual; 16-bit values are latched
 	if      (addr == ports::TCNT1L)
 	{
-		T16_latch = (TCNT1 >> 8) & 0xFFU;
-		return TCNT1 & 0xFFU;
+		unsigned int curr_timer = TCNT1 + timer1_base - timer1_next;
+		T16_latch = (curr_timer >> 8) & 0xFFU;
+		return curr_timer & 0xFFU;
 	}
 	else if (addr == ports::TCNT1H)
 	{
@@ -677,6 +681,23 @@ u8 avr8::read_io(u8 addr)
 	{
 		return io[addr];
 	}
+}
+
+
+
+// Inline variation of update_hardware, to be used with frequent multi-cycle
+// instructions.
+inline void avr8::update_hardware_fast()
+{
+	if (timer1_next == 0U)
+	{
+		update_hardware();
+		return;
+	}
+
+	cycleCounter ++;
+	timer1_next --;
+	scanline_buf[cycleCounter & 0x7FFU] = pixel_raw;
 }
 
 
@@ -694,6 +715,10 @@ void avr8::update_hardware()
 
 	if (timer1_next == 0U)
 	{
+
+		// Apply time elapsed between full timer processings
+
+		TCNT1 += timer1_base;
 
 		// Apply delayed timer interrupt flags
 
@@ -767,34 +792,20 @@ void avr8::update_hardware()
 
 		}
 
+		// Set timer base to be able to reproduce TCNT1 outside full timer
+		// processing
+
+		timer1_base = timer1_next;
+
 	}
 	else
 	{
 		timer1_next --;
-		TCNT1 ++;
-	}
-
-	// Apply delayed outputs
-
-	if (dly_out != 0U)
-	{
-		if ((dly_out & DLY_TCCR1B) != 0U)
-		{
-			TCCR1B = dly_TCCR1B;
-			timer1_next = 0U; // Timer state changes
-		}
-		if ((dly_out & DLY_TCNT1) != 0U)
-		{
-			TCNT1 = (dly_TCNT1H << 8) | dly_TCNT1L;
-			timer1_next = 0U; // Timer state changes
-		}
-		dly_out = 0U;
 	}
 
 	// Draw pixel on scanline
 
-	scanline_buf[current_cycle & 0x7FFU] = pixel_raw;
-	current_cycle ++;
+	scanline_buf[cycleCounter & 0x7FFU] = pixel_raw;
 }
 
 
@@ -803,6 +814,32 @@ void avr8::update_hardware()
 // Also process interrupt requests
 inline void avr8::update_hardware_ins()
 {
+	// Apply delayed outputs
+	//
+	// Notes: This can be here since as of now, it looks like all
+	// instructions writing IO registers perform that in their last
+	// cycle, so a delayed output may only be produced then, that is,
+	// after the instruction. If this doesn't hold up, this will have
+	// to be placed in the update_hardware call.
+
+	if (dly_out != 0U)
+	{
+		if ((dly_out & DLY_TCCR1B) != 0U)
+		{
+			TCCR1B = dly_TCCR1B;
+			TCNT1 += timer1_base - timer1_next;
+			timer1_base = 0U;
+			timer1_next = 0U; // Timer state changes
+		}
+		if ((dly_out & DLY_TCNT1) != 0U)
+		{
+			TCNT1 = (dly_TCNT1H << 8) | dly_TCNT1L;
+			timer1_base = 0U;
+			timer1_next = 0U; // Timer state changes
+		}
+		dly_out = 0U;
+	}
+
 	// Get cycle count to emulate
 
 	unsigned int cycles = cycleCounter - cycle_ctr_ins;
@@ -1330,7 +1367,7 @@ unsigned int avr8::exec()
 			break;
 
 		case  27: // 1001 0100 0000 1001		(2) IJMP (jump thru Z register)
-			update_hardware();
+			update_hardware_fast();
 			pc = Z;
 			break;
 
@@ -1428,14 +1465,14 @@ unsigned int avr8::exec()
 			break;
 
 		case  43: // 1001 000d dddd 0100		(3) LPM Rd,Z
-			update_hardware();
-			update_hardware();
+			update_hardware_fast();
+			update_hardware_fast();
 			r[arg1_8] = read_progmem(Z);
 			break;
 
 		case  44: // 1001 000d dddd 0101		(3) LPM Rd,Z+
-			update_hardware();
-			update_hardware();
+			update_hardware_fast();
+			update_hardware_fast();
 			r[arg1_8] = read_progmem(Z);
 			INC_Z;
 			break;
@@ -1470,7 +1507,7 @@ unsigned int avr8::exec()
 			r1 = (u8)(uTmp >> 8);
 			clr_bits(SREG, SREG_CM | SREG_ZM);
 			UPDATE_CZ_MUL(uTmp);
-			update_hardware();
+			update_hardware_fast();
 			break;
 
 		case  49: // 0000 0010 dddd rrrr		(2) MULS Rd,Rr
@@ -1575,7 +1612,7 @@ unsigned int avr8::exec()
 			break;
 
 		case  61: // 1100 kkkk kkkk kkkk		(2) RJMP k
-			update_hardware();
+			update_hardware_fast();
 			pc += arg2_8;
 			break;
 
@@ -1809,7 +1846,7 @@ unsigned int avr8::exec()
 
 	// Process hardware for the last instruction cycle
 
-	update_hardware();
+	update_hardware_fast();
 
 	// Run instruction precise emulation tasks
 
@@ -2020,7 +2057,7 @@ bool avr8::init_gui()
 			SDL_PauseAudio(0);
 	}
 
-	current_cycle = 0U;
+	left_edge_cycle = cycleCounter;
 	scanline_top = -33-5;
 	scanline_count = -999;
 	//Syncronized with the kernel, this value now results in the image 
