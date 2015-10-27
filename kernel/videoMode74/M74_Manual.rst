@@ -289,3 +289,226 @@ lines to either the screen section below or above, in case of palette effect,
 sharing the effect with the tied region.
 
 
+
+
+Scanline logic
+------------------------------------------------------------------------------
+
+
+The rendering of the frame is broken up in scanlines, whose render may be
+controlled individually.
+
+Normally and at most the frame has 224 displayed lines, this figure can be
+configured by the kernel's SetRenderingParameters() function. Giving less
+lines for the display increases lines within VBlank which can be used to
+perform more demanding tasks.
+
+Each displayed line (physical scanline) can contain any logical scanline of
+the 256 from the 32 configurable tile rows. This selection may be directed by
+two methods:
+
+- RAM line + restart pairs with X scrolling.
+- RAM / ROM scanline map.
+
+The first uses byte triplets defining locations where the logical scanline
+counter has to be re-loaded, and the X scroll register has to be set.
+Afterwards the logical scanline counter increments by one on every line. The
+triplets are as follows:
+
+- byte 0: Physical scanline to act on (0 - 223)
+- byte 1: Logical scanline to set
+- byte 2: X scroll value
+
+The first triplet is partial, only having bytes 1 and 2 (that is, line 0 is
+implicit for that). The list can be terminated by a byte 0 value which can
+not be reached any more, such as zero or 255.
+
+The RAM / ROM scanline map is simply a list of logical scanlines to use on
+each physical scanline. This may be used for special effects or to achieve
+double scanning of regions. For X scrolling, an X shift map can also be
+enabled.
+
+
+
+
+Tile descriptors
+------------------------------------------------------------------------------
+
+
+The tile descriptors define 32 tile rows spanning 256 logical scanlines. They
+contain the mode to use for rendering the row, pointers for tile data, mode
+specific configuration and VRAM start pointers (Tile index source addresses).
+
+They may be located either in RAM or ROM, usually for memory efficiency, the
+latter may be used. In this case the VRAM start pointers may still be located
+in RAM to make certain scrolling algorithms possible.
+
+The width of the display lines may be configured between 24 and 18 tiles (24,
+22, 20 and 18 tile options). Note that if 24 tiles width is configured, the
+Color 0 reload feature becomes inaccessible (whatever color 0 was before the
+first 24 tiles wide scanline will be preserved).
+
+
+Implementing Y scrolling
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Y scrolling can be implemented in the most economic manner by rotating tile
+rows as the position changes, so only necessiting the loading of tiles on the
+appropriate edge. An added benefit of this method is that it can support tile
+rows with different configurations (for example different tile source
+offsets).
+
+
+Implementing X scrolling
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A problem when devising methods for X scrolling is that there is no
+wrap-around mechaninsm in the mode, so infinite scroll in X direction requires
+more complex algorithms.
+
+A larger display surface that the screen (up to some 400 pixels wide depending
+on tile row widths) may be panned easily using the X scroll values in the
+scanline selection logic. This method may also be used if the actual VRAM
+lines are set narrower for memory efficiency, but no more scrollable width is
+required.
+
+If more is necessary to be scrolled, one way to implement is to simply copy
+the entire VRAM when a tile of scroll happens in either direction.
+
+The faster way, needing an excess line of VRAM is to scroll a screenful, then
+copy one line of VRAM from the top to the bottom or vice-versa depending on
+the scroll direction (along with an appropriate Y adjustment) before
+continuing. If all involved tile row configurations are identical, this method
+may be utilized without necessiting VRAM start pointers in RAM.
+
+
+
+
+The palette
+------------------------------------------------------------------------------
+
+
+The mode requires a 256 byte palette buffer, which it normally locates at
+0x0F00, below the Stack. Normally this buffer doesn't have to be accessed
+since the mode automatically manages it.
+
+A global (initial) 16 color (16 byte) palette either in RAM or ROM may be set
+up to be loaded before starting the display of the frame. By manipulating this
+palette in VBlank, palette effects (color cycling, fading) can be achieved.
+
+The palette can be replaced within the frame by using the separator tile row
+mode (Mode 7).
+
+Note that palettes may be located anywhere, they need not be aligned on any
+boundary.
+
+
+
+
+Extra features
+------------------------------------------------------------------------------
+
+
+User video mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This feature may be used to implement additional video modes to be selected
+as alternative to Mode 74. The "m74_umod" variable accepting the entry point
+of these modes is also used to enable or disable Mode 74's display.
+
+Note that upon initialization, display is disabled so Mode 74 can be set up
+proper (particularly the scanline logic and a tile row configuration). When
+preparations are completed, writing "1" to this variable will enable normal
+Mode 74 display.
+
+
+RAM clear function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This function can be used to request the clearing of an arbitrary RAM region
+during display. The length can be set up in 16 byte block units (however the
+region doesn't need to start at a 16 byte boundary).
+
+The scanline to start the clear at can be set up by "m74_ldsl". The clear will
+begin after the render of the given line is completed.
+
+Different amounts of memory can be cleared depending on the configured row
+widths:
+
+- 24 tiles: No clearing.
+- 22 tiles: 16 bytes / scanline.
+- 20 tiles: 48 bytes / scanline.
+- 18 tiles: 80 bytes / scanline.
+
+In addition, during a separator line, 256 or 272 additional bytes may be
+cleared.
+
+The M74_Finish() function may be called after the frame to ensure that the
+region is completely cleared.
+
+The RAM clear once set up by setting "m74_totc", and supplying a scanline
+what can be reached, will perform in every frame until it is turned off.
+
+This function may be used to assist certain rendering algorithms, such as
+wireframe renders (in 1bpp or 2bpp areas set up for this purpose).
+
+
+SPI load function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This function may be used to stream in data from an SD card during the
+display. It properly handles 512 byte block boundaries, waiting for the SD
+card becoming ready for the subsequent block, and continuing the streaming
+when it happens. The load is assumed to start on the beginning of a block.
+
+It is controlled by the same variables like the RAM clear function, in the
+same manner, however its block size is 2 bytes.
+
+The following amount of bytes may be loaded depending on the configured row
+widths:
+
+- 24 tiles: No loading.
+- 22 tiles: 2 bytes / scanline.
+- 20 tiles: 6 bytes / scanline.
+- 18 tiles: 10 bytes / scanline.
+
+In addition, during a separator line, 32 or 34 additional bytes may be
+loaded.
+
+The M74_Finish() function may be called after the frame to finish the load.
+It may return 1 if it hits an SD card block boundary, and the card doesn't
+supply data right away, so the caller may decide to do some other things
+until the card becomes ready to continue loading. If its return becomes
+zero, it indicates that the load completed.
+
+
+Color 0 reload
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Color 0 of the palette may be reloaded from a ROM / RAM table for every
+scanline if the row width is less than 24 tiles (so 22, 20 or 18 tiles). This
+reload overrides the previous color, even if it was supplied by a separator
+line. Note that within a separator line, Color 0 reload is not active (so it
+can not affect the coloring of the line itself).
+
+
+
+
+Kernel integration
+------------------------------------------------------------------------------
+
+
+To support the Uzebox kernel's Print function, SetTile, SetFont and ClearVram
+are implemented. Note however that they don't operate directly on the display
+as this is not possible by the configurability of Mode 74.
+
+To use these functions, first a target area has to be set up for them using
+M74_SetVram. After this the kernel functions will operate into that area like
+if it was VRAM. A proper tile row configuration and scanline logic has to be
+set up to actually display this region.
+
+Some functions within the kernel rely on compile time defined width and height
+parameters. These should be set up by planning how the kernel's output will be
+displayed with Mode 74 (for example if 6 pixels wide tiles are used at 24
+tiles width, 32 could be set up for VRAM_TILES_H and SCREEN_TILES_H).
+
