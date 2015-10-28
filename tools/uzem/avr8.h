@@ -29,7 +29,9 @@ THE SOFTWARE.
 #include <vector>
 #include <stdint.h>
 #include <queue>
-#include "gdbserver.h"
+#ifndef NOGDB
+    #include "gdbserver.h"
+#endif // NOGDB
 #include "SDEmulator.h"
 
 #if defined(__WIN32__)
@@ -310,7 +312,10 @@ struct avr8
 	avr8() :
 		/*Core*/
 		pc(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),
-		dly_out(0), itd_TIFR1(0), elapsedCyclesSleep(0),hsyncHelp(false),recordMovie(false),
+		dly_out(0), itd_TIFR1(0), elapsedCyclesSleep(0),hsyncHelp(false),
+#ifndef __EMSCRIPTEN__
+		recordMovie(false),
+#endif // __EMSCRIPTEN__
 		timer1_next(0), timer1_base(0), TCNT1(0),
 		//to align with AVR Simulator 2 since it has a bug that the first JMP
 		//at the reset vector takes only 2 cycles
@@ -328,9 +333,11 @@ struct avr8
 		/*Joystick*/
 		joystickFile(0),pad_mode(SNES_PAD), new_input_mode(false),
 
+#ifndef NOGDB
 		/*GDB*/
 		singleStep(0), nextSingleStep(0), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),
 		state(CPU_STOPPED),gdb(0),
+#endif // NOGDB
 
 		/*Uzekeyboard*/
 		uzeKbState(0),uzeKbEnabled(false),
@@ -380,9 +387,11 @@ private:
 public:
 	bool enableGdb;
 	int randomSeed;
-    const char* eepromFile;
-    bool hsyncHelp;
-    bool recordMovie;
+	const char* eepromFile;
+	bool hsyncHelp;
+#ifndef __EMSCRIPTEN__
+	bool recordMovie;
+#endif // __EMSCRIPTEN__
 	char romName[256];
 	u16 decodeArg(u16 flash, u16 argMask, u8 argNeg);
 	void instructionDecode(u16 address);
@@ -474,6 +483,8 @@ public:
 	enum { NES_PAD, SNES_PAD, SNES_PAD2, SNES_MOUSE } pad_mode;
 	const char* joystickFile;
 	bool new_input_mode;
+
+#ifndef NOGDB
 	/*GDB*/
 	GdbServer *gdb;
 	bool gdbBreakpointFound;
@@ -481,6 +492,7 @@ public:
 	int gdbPort;
 	cpu_state state;
 	bool singleStep, nextSingleStep;
+#endif // NOGDB
 
 	/*Uzebox Keyboard*/
 	u8 uzeKbState;

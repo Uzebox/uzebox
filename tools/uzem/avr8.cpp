@@ -39,11 +39,14 @@ More info at uzebox.org
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <iostream>
 #include <queue>
 
 #include "avr8.h"
-#include "gdbserver.h"
+#ifndef NOGDB
+    #include "gdbserver.h"
+#endif // NOGDB
 #include "SDEmulator.h"
 #include "Keyboard.h"
 #include "logo.h"
@@ -269,8 +272,10 @@ static u8 encode_delta(int d)
 u32 hsync_more_col;
 u32 hsync_less_col;
 
+#ifndef __EMSCRIPTEN__
 FILE* avconv_video = NULL;
 FILE* avconv_audio = NULL;
+#endif // __EMSCRIPTEN__
 
 void avr8::spi_calculateClock(){
     // calculate the number of cycles before the write completes
@@ -324,11 +329,12 @@ void avr8::write_io_x(u8 addr,u8 value)
 			// raw pcm sample at 15.7khz
 #ifndef __EMSCRIPTEN__
 			while (audioRing.isFull())SDL_Delay(1);
-#endif
+#endif // __EMSCRIPTEN__
 			SDL_LockAudio();
 			audioRing.push(value);
 			SDL_UnlockAudio();
 
+#ifndef __EMSCRIPTEN__
 			//Send audio byte to ffmpeg
 			if(recordMovie && avconv_audio) {
 				fwrite(&value, 1, 1, avconv_audio);
@@ -342,6 +348,7 @@ void avr8::write_io_x(u8 addr,u8 value)
 					fwrite(&value, 1, 1, avconv_audio);
 				}
 			}
+#endif // __EMSCRIPTEN__
 		}
 		break;
 
@@ -380,11 +387,17 @@ void avr8::write_io_x(u8 addr,u8 value)
 					SDL_RenderCopy(renderer, texture, NULL, NULL);
 					SDL_RenderPresent(renderer);
 
+#ifndef __EMSCRIPTEN__
 					//Send video frame to ffmpeg
 					if (recordMovie && avconv_video) fwrite(surface->pixels, VIDEO_DISP_WIDTH*224*4, 1, avconv_video);
+#endif // __EMSCRIPTEN__
 
 					SDL_Event event;
+#ifndef NOGDB
 					while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
+#else // NOGDB
+					while (SDL_PollEvent(&event))
+#endif // NOGDB
 					{
 						switch (event.type) {
 							case SDL_KEYDOWN:
@@ -450,7 +463,9 @@ void avr8::write_io_x(u8 addr,u8 value)
 					else
 						buttons[0] |= 0xFFFF8000;
 
+#ifndef NOGDB
 					singleStep = nextSingleStep;
+#endif // NOGDB
 					scanline_count = -999;
 				}
 			}
@@ -1100,6 +1115,7 @@ unsigned int avr8::exec()
 	u16 uTmp, Rd16, R16;
 	s16 sTmp;
 
+#ifndef NOGDB
 	//GDB must be first
 	if (enableGdb == true)
 	{
@@ -1116,6 +1132,7 @@ unsigned int avr8::exec()
 
 	if (state == CPU_STOPPED)
 		return 0;
+#endif // NOGDB
 
 	//Program counter must be incremented *after* GDB
 	pc++;
@@ -2081,6 +2098,7 @@ bool avr8::init_gui()
 	hsync_more_col=SDL_MapRGB(surface->format, 255,0, 0); //red
 	hsync_less_col=SDL_MapRGB(surface->format, 255,255, 0); //yellow
 
+#ifndef __EMSCRIPTEN__
 	if (recordMovie){
 
 		if (avconv_video == NULL){
@@ -2120,6 +2138,7 @@ bool avr8::init_gui()
 			return false;
 		}
 	}
+#endif // __EMSCRIPTEN__
 
 	//Set window icon
 	SDL_Surface *slogo;
@@ -3003,6 +3022,7 @@ void avr8::shutdown(int errcode){
     	fclose(captureFile);
     }
 
+#ifndef __EMSCRIPTEN__
     //movie recording
     if(recordMovie){
 		if (avconv_video) pclose(avconv_video);
@@ -3022,6 +3042,7 @@ void avr8::shutdown(int errcode){
 			printf("Error with ffmpeg multiplexer.");
 		}
     }
+#endif // __EMSCRIPTEN__
 
 	if (joystickFile) {
 		FILE* f = fopen(joystickFile,"wb");
