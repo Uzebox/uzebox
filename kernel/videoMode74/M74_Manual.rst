@@ -68,7 +68,7 @@ bytes:
 - byte 0x003: High nybble: Row 0, pixel 6; Low nybble: Row 0, pixel 7.
 - byte 0x200: High nybble: Row 1, pixel 0; Low nybble: Row 1, pixel 1.
 - (and so on...)
-- byte 0xF03: High nybble: Row 7, pixel 6; Low nybble: Row 7, pixel 7.
+- byte 0xE03: High nybble: Row 7, pixel 6; Low nybble: Row 7, pixel 7.
 
 Subsequent tile start offsets (the byte containing row 0, pixel 0) can be
 acquired by multiplying the tile index by 4, and adding this to the base
@@ -91,7 +91,7 @@ amount of memory for them (the setting of zero is interpreted as 256, thus
 allowing the use of 64 tiles).
 
 
-ROM / RAM 1bpp tiles (both 6px and 8px widhts)
+ROM / RAM 1bpp tiles (both 6px and 8px widths)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1bpp tilesets can take up to 1Kb, and doesn't have any boundary constraint
@@ -124,7 +124,7 @@ the configured width of 2bpp surface).
 
 
 
-Tile row modes overwiev
+Tile row modes overview
 ------------------------------------------------------------------------------
 
 
@@ -275,8 +275,8 @@ This mode uses no VRAM.
 This mode is capable to display a simple separator line, where one entire tile
 can have at most a single color with some limitations (symmetric layout).
 
-An important underlaying feature is the capability to reload the entire
-16 color palette from either ROM or RAM, thus supporting the use of multiple
+An important underlying feature is the capability to reload the entire 16
+color palette from either ROM or RAM, thus supporting the use of multiple
 color sets (or distinct palette effects) in separate vertical regions of the
 display.
 
@@ -353,9 +353,9 @@ Implementing Y scrolling
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Y scrolling can be implemented in the most economic manner by rotating tile
-rows as the position changes, so only necessiting the loading of tiles on the
-appropriate edge. An added benefit of this method is that it can support tile
-rows with different configurations (for example different tile source
+rows as the position changes, so only necessitating the loading of tiles on
+the appropriate edge. An added benefit of this method is that it can support
+tile rows with different configurations (for example different tile source
 offsets).
 
 
@@ -363,7 +363,7 @@ Implementing X scrolling
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A problem when devising methods for X scrolling is that there is no
-wrap-around mechaninsm in the mode, so infinite scroll in X direction requires
+wrap-around mechanism in the mode, so infinite scroll in X direction requires
 more complex algorithms.
 
 A larger display surface that the screen (up to some 400 pixels wide depending
@@ -379,7 +379,7 @@ The faster way, needing an excess line of VRAM is to scroll a screenful, then
 copy one line of VRAM from the top to the bottom or vice-versa depending on
 the scroll direction (along with an appropriate Y adjustment) before
 continuing. If all involved tile row configurations are identical, this method
-may be utilized without necessiting VRAM start pointers in RAM.
+may be utilized without necessitating VRAM start pointers in RAM.
 
 
 
