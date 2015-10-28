@@ -19,6 +19,7 @@ TARGETS = debug release
 ifeq ($(EMSCRIPTEN_BUILD),1)
     EMSCRIPTEN_FLAGS=-s USE_SDL=2
     EMSCRIPTEN_TARGET_EXTRAS=.html --preload-file gamefile.uze --preload-file eeprom.bin
+    NOGDB=1
 endif
 
 #Uncomment to optimize for local CPU
@@ -49,7 +50,20 @@ endif
 ######################################
 # Sources
 ######################################
-SRCS := uzem.cpp avr8.cpp uzerom.cpp gdbserver.cpp SDEmulator.cpp
+# By default, GDB support is enabled, but if compiled with:
+#
+# NOGDB=1 make release
+#
+# then GDB support will be excluded, and the binary will run faster
+
+NOGDB ?= 0
+ifeq ($(NOGDB),0)
+GDB_SRCS := gdbserver.cpp
+else
+CPPFLAGS += -DNOGDB=1
+endif
+
+SRCS := uzem.cpp avr8.cpp uzerom.cpp $(GDB_SRCS) SDEmulator.cpp
 
 ######################################
 # Architecture
@@ -80,8 +94,8 @@ CPPFLAGS += $(SDL_FLAGS) -D$(OS) -D_GNU_SOURCE=1 -DGUI=1 -DJOY_ANALOG_DEADZONE=8
 RELEASE_NAME = uzem$(OS_EXTENSION)
 RELEASE_OBJ_DIR := Release
 ifeq ($(EMSCRIPTEN_BUILD),1)
-    RELEASE_CPPFLAGS = $(CPPFLAGS) $(EMSCRIPTEN_FLAGS) -O3 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 --llvm-lto 1
-    RELEASE_LDFLAGS  = $(LDFLAGS)  $(EMSCRIPTEN_FLAGS) -O3 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 --llvm-lto 1
+    RELEASE_CPPFLAGS = $(CPPFLAGS) $(EMSCRIPTEN_FLAGS) -O3 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 --llvm-lto 3
+    RELEASE_LDFLAGS  = $(LDFLAGS)  $(EMSCRIPTEN_FLAGS) -O3 -s AGGRESSIVE_VARIABLE_ELIMINATION=1 --llvm-lto 3
 else
     RELEASE_CPPFLAGS = $(CPPFLAGS) -O3 -flto -fwhole-program
     RELEASE_LDFLAGS  = $(LDFLAGS)  -O3 -flto -fwhole-program

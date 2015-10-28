@@ -23,7 +23,9 @@ THE SOFTWARE.
 */
 #include "uzem.h"
 #include "avr8.h"
-#include "gdbserver.h"
+#ifndef NOGDB
+    #include "gdbserver.h"
+#endif // NOGDB
 #include "uzerom.h"
 #include <getopt.h>
 #include <limits.h>
@@ -48,8 +50,10 @@ static const struct option longopts[] ={
     { "eeprom"     , required_argument, NULL, 'e' },
     { "pgm"        , required_argument, NULL, 'p' },
     { "boot"       , no_argument,       NULL, 'b' },
+#ifndef NOGDB
     { "gdbserver"  , no_argument,       NULL, 'd' },
     { "port"       , required_argument, NULL, 't' },
+#endif // NOGDB
     { "capture"    , no_argument,       NULL, 'c' },
     { "loadcap"    , no_argument,       NULL, 'l' },
     { "synchelp"   , no_argument,       NULL, 'z' },
@@ -79,8 +83,10 @@ void showHelp(char* programName){
     printerr("\t--sd -s <path>      SD card emulation from contents of path\n");
     printerr("\t--eeprom -e <file>  Use following filename for EEPRROM data (default is eeprom.bin).\n");
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
+#ifndef NOGDB
     printerr("\t--gdbserver -d      Debug mode. Start the built-in gdb support.\n");
     printerr("\t--port -t <port>    Port used by gdb (default 1284).\n");
+#endif // NOGDB
     printerr("\t--capture -c        Captures controllers data to file.\n");
     printerr("\t--loadcap -l        Load and replays controllers data from file.\n");
     printerr("\t--synchelp -z       Displays and logs information to help troubleshooting HSYNC timing issues.\n");
@@ -105,14 +111,14 @@ avr8 uzebox;
 
 #ifdef __EMSCRIPTEN__
 void one_iter() {
-       const int cycles=1000000;
+       const int cycles=700000;
        static int left;
 
        left = cycles;
        while (left > 0)
                left -= uzebox.exec();
 }
-#endif
+#endif // __EMSCRIPTEN__
 
 int main(int argc,char **argv)
 {
@@ -160,9 +166,11 @@ int main(int argc,char **argv)
         case '2':
 			uzebox.pad_mode = avr8::SNES_PAD2;
             break;
+#ifndef __EMSCRIPTEN__
         case 'r':
             uzebox.recordMovie=true;
             break;
+#endif // __EMSCRIPTEN__
         case 's':
             uzebox.SDpath = optarg;
             break;
@@ -181,6 +189,7 @@ int main(int argc,char **argv)
         case 'z':
             uzebox.hsyncHelp=true;
             break;
+#ifndef NOGDB
         case 'd':
             uzebox.enableGdb = true;
             break;
@@ -191,6 +200,7 @@ int main(int argc,char **argv)
 	    else
             	uzebox.gdbPort = port;
             break;
+#endif // NOGDB
         }
     }
     
@@ -206,11 +216,13 @@ int main(int argc,char **argv)
         }
     }
     
+#ifndef NOGDB
     if (uzebox.gdbPort == 0) {
         printerr("Error: invalid port address.\n\n");
         showHelp(argv[0]);
         return 1;
     }
+#endif // NOGDB
 
     // start EEPROM emulation if appropriate
     if(uzebox.eepromFile){
@@ -390,6 +402,7 @@ int main(int argc,char **argv)
 		return 1;
     	}
 
+#ifndef NOGDB
    	if (uzebox.enableGdb == true) {
 #if defined(USE_GDBSERVER_DEBUG)
             uzebox.gdb = new GdbServer(&uzebox, uzebox.gdbPort, true, true);
@@ -399,6 +412,7 @@ int main(int argc,char **argv)
 	}
         else
             uzebox.state = CPU_RUNNING;
+#endif // NOGDB
 
    	uzebox.randomSeed=time(NULL);
    	srand(uzebox.randomSeed);	//used for the watchdog timer entropy
@@ -408,7 +422,7 @@ int main(int argc,char **argv)
 #ifdef __EMSCRIPTEN__
 	emscripten_set_main_loop(one_iter, 60, 1);
 	emscripten_set_main_loop_timing(EM_TIMING_RAF, 1);
-#else
+#else // __EMSCRIPTEN__
 	while (true)
 	{
 		if (uzebox.fullscreen){
@@ -426,7 +440,7 @@ int main(int argc,char **argv)
 
 		sprintf(uzebox.caption,"Uzebox Emulator " VERSION " (ESC=quit, F1=help)  %02d.%03d Mhz",cycles/now/1000,(cycles/now)%1000);
 	}
-#endif
+#endif // __EMSCRIPTEN__
 
 	return 0;
 }

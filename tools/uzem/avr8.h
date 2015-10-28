@@ -29,7 +29,9 @@ THE SOFTWARE.
 #include <vector>
 #include <stdint.h>
 #include <queue>
-#include "gdbserver.h"
+#ifndef NOGDB
+    #include "gdbserver.h"
+#endif // NOGDB
 #include "SDEmulator.h"
 
 #if defined(__WIN32__)
@@ -310,8 +312,11 @@ struct avr8
 	avr8() :
 		/*Core*/
 		pc(0), watchdogTimer(0), prevPortB(0), prevWDR(0), eepromFile("eeprom.bin"),enableGdb(false),
-		dly_out(0), itd_TIFR1(0), elapsedCyclesSleep(0),hsyncHelp(false),recordMovie(false),
-		timer1_next(0), TCNT1(0),
+		dly_out(0), itd_TIFR1(0), elapsedCyclesSleep(0),hsyncHelp(false),
+#ifndef __EMSCRIPTEN__
+		recordMovie(false),
+#endif // __EMSCRIPTEN__
+		timer1_next(0), timer1_base(0), TCNT1(0),
 		//to align with AVR Simulator 2 since it has a bug that the first JMP
 		//at the reset vector takes only 2 cycles
 		cycleCounter(-1),
@@ -328,9 +333,11 @@ struct avr8
 		/*Joystick*/
 		joystickFile(0),pad_mode(SNES_PAD), new_input_mode(false),
 
+#ifndef NOGDB
 		/*GDB*/
 		singleStep(0), nextSingleStep(0), gdbBreakpointFound(false),gdbInvalidOpcode(false),gdbPort(1284),
 		state(CPU_STOPPED),gdb(0),
+#endif // NOGDB
 
 		/*Uzekeyboard*/
 		uzeKbState(0),uzeKbEnabled(false),
@@ -371,6 +378,7 @@ private:
 	unsigned int T16_latch;   // Latch for 16-bit timers (16 bits used)
 	unsigned int TCNT1;       // Timer 1 counter (used instead of TCNT1H:TCNT1L)
 	unsigned int timer1_next; // Cycles remaining until next timer1 event
+	unsigned int timer1_base; // Where the between-events timer started (to reproduce TCNT1)
 	unsigned int itd_TIFR1;   // Interrupt delaying for TIFR1 (8 bits used)
 	unsigned int dly_out;     // Delayed output flags
 	unsigned int dly_TCCR1B;  // Delayed Timer1 controls
@@ -379,9 +387,11 @@ private:
 public:
 	bool enableGdb;
 	int randomSeed;
-    const char* eepromFile;
-    bool hsyncHelp;
-    bool recordMovie;
+	const char* eepromFile;
+	bool hsyncHelp;
+#ifndef __EMSCRIPTEN__
+	bool recordMovie;
+#endif // __EMSCRIPTEN__
 	char romName[256];
 	u16 decodeArg(u16 flash, u16 argMask, u8 argNeg);
 	void instructionDecode(u16 address);
@@ -448,7 +458,7 @@ public:
 	SDL_Texture *texture;
 	int sdl_flags;
 	int scanline_count;
-	unsigned int current_cycle;
+	unsigned int left_edge_cycle;
 	int scanline_top;
 	unsigned int left_edge;
 	u32 inset;
@@ -473,6 +483,8 @@ public:
 	enum { NES_PAD, SNES_PAD, SNES_PAD2, SNES_MOUSE } pad_mode;
 	const char* joystickFile;
 	bool new_input_mode;
+
+#ifndef NOGDB
 	/*GDB*/
 	GdbServer *gdb;
 	bool gdbBreakpointFound;
@@ -480,6 +492,7 @@ public:
 	int gdbPort;
 	cpu_state state;
 	bool singleStep, nextSingleStep;
+#endif // NOGDB
 
 	/*Uzebox Keyboard*/
 	u8 uzeKbState;
@@ -631,6 +644,7 @@ public:
 	unsigned int exec();
     void spi_calculateClock();    
 	void update_hardware();
+	void update_hardware_fast();
 	void update_hardware_ins();
     void update_spi();
     void SDLoadImage(char *filename);    
