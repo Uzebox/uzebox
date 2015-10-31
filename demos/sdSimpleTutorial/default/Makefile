@@ -45,7 +45,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o sdSimple.o $(GAME).o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o sdBase.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -77,7 +77,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 $(GAME).o: ../SDTest.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-sdSimple.o: $(KERNEL_DIR)/sdSimple.s
+sdBase.o: $(KERNEL_DIR)/sdBase.S
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
 ##Link
