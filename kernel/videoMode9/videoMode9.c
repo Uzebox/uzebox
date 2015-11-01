@@ -30,6 +30,9 @@
 	//Callback invoked by UzeboxCore.Initialize()
 	void InitializeVideoMode(){
 		foregroundColor=0xff; //for 80 cols mode
+		MoveCursor(0,0);
+		SetCursorVisible(false);
+		SetCursorParams(0,30);
 	}
 
 	//Callback invoked during hsync
