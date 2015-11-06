@@ -76,8 +76,8 @@ const u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 
 extern void wdt_randomize(void);
 
-void wdt_init(void) __attribute__((naked)) __attribute__((section(".init7")));
-void Initialize(void) __attribute__((naked)) __attribute__((section(".init8")));
+void wdt_init(void) __attribute__((naked)) __attribute__((section(".init7"), used));
+void Initialize(void) __attribute__((naked)) __attribute__((section(".init8"), used));
 
 void wdt_init(void)
 {
