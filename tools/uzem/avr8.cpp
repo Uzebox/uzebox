@@ -219,7 +219,7 @@ inline static void store_bit_1(u8 &dest, unsigned int bit, unsigned int value)
 // If 7th bit of R is clear:
 //     Clears N, clears S, clears V.
 #define UPDATE_SVN_LOGICAL \
-	SREG |= ((0x7FU - (unsigned int)(R)) >> 8) & (SREG_SM | SREG_VM);
+	SREG |= ((0x7FU - (unsigned int)(R)) >> 8) & (SREG_SM | SREG_NM);
 
 #define UPDATE_CZ_MUL(x)		set_bit_1(SREG,SREG_C,(x & 0x8000) >> 15); set_bit_inv(SREG,SREG_Z,x)
 
