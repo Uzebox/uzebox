@@ -41,10 +41,11 @@
 	/* Callback invoked by UzeboxCore.Initialize() */
 	void InitializeVideoMode()
 	{
-		m74_palbuf = 0x0FU; /* Palette buffer just below stack, should be OK for most users */
-		m74_ldsl   = 0xFFU; /* Turn off RAM clear or SPI load (never reached line) */
-		m74_totc   = 0U;    /* Same, nothing to clear / load */
-		m74_umod   = 0U;    /* No user video mode, display disabled */
+		m74_ldsl  = 0xFFU; /* Turn off RAM clear or SPI load (never reached line) */
+		m74_totc  = 0x00U; /* Same, just have everything right */
+		m74_skip  = 0xFFU; /* Same, just have everything right */
+		m74_umod  = 0U;    /* No user video mode, display disabled */
+		m74_bgcol = 0U;    /* Background color: index zero */
 	}
 
 	/* Callback invoked during hsync */

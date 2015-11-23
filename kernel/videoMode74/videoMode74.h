@@ -30,17 +30,23 @@
 #pragma once
 
 extern volatile unsigned char m74_config;
+extern volatile unsigned char m74_bgcol;
 extern volatile unsigned int  m74_rows;
 extern volatile unsigned int  m74_tdesc;
 extern volatile unsigned int  m74_tidx;
-extern volatile unsigned char m74_palbuf;
 extern volatile unsigned int  m74_pal;
+#if (M74_COL0_RELOAD != 0)
 extern volatile unsigned int  m74_col0;
-extern volatile unsigned int  m74_xsh;
+#endif
 extern volatile unsigned char m74_ldsl;
-extern volatile unsigned int  m74_totc;
+extern volatile unsigned char m74_totc;
+extern volatile unsigned char m74_skip;
 extern volatile unsigned int  m74_fadd;
 extern volatile unsigned int  m74_umod;
+#if (M74_M3_ENABLE != 0)
+extern volatile unsigned int  m74_mcadd;
+#endif
 
 extern void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt);
-extern unsigned char M74_Finish(void);
+extern void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hgt, unsigned char pt);
+extern void M74_Finish(void);

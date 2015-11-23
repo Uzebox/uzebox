@@ -27,6 +27,7 @@ Overall key features are as follows:
 - Up to 128 1bpp ROM tiles with selectable fg & bg color / tile row
 - Up to 128 1bpp RAM tiles with selectable fg & bg color / tile row
 - 2bpp rendering surface of arbitrary width above 2 tiles
+- Special 2bpp Multicolor mode (with 8x8 pixel tiles) using RAM source
 - Up to 128 6 px wide 1bpp ROM tiles with selectable fg & bg color / tile row
 - Up to 128 6 px wide 1bpp ROM tiles with individually selectable fg color
 - Uses the inline mixer (either 5 channels or 4 channels + UART available)
@@ -117,9 +118,18 @@ RAM 2bpp surface
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The RAM 2bpp surface adheres the same rules like tilesets, however the width
-of it can be supplied by parameter, thus supporting linear layout directly,
-and also saving VRAM (since only one tile index byte is required to output
-the configured width of 2bpp surface).
+of it can be supplied by compile-time parameter, thus supporting linear layout
+directly, and also saving VRAM (since only one tile index byte is required to
+output the configured width of 2bpp surface).
+
+
+RAM 2bpp Multicolor surface
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Similar to the normal 2bpp surface, however it operates strictly over a linear
+framebuffer. Unlike other modes it has a state across rows: whenever a 2bpp
+Multicolor tile is hit, the appropriate number of pixels are fetched from the
+framebuffer, and the framebuffer's pointer increments accordingly.
 
 
 
@@ -133,11 +143,11 @@ Mode 0: 192 4bpp ROM tiles + 64 4bpp RAM tiles
 
 Tile indices are used as follows:
 
-- 0x00 - 0x3F: 4bpp ROM tiles
-- 0x40 - 0x7F: 4bpp RAM tiles
-- 0x80 - 0xFF: 4bpp ROM tiles
+- 0x00 - 0x7F: 4bpp ROM tiles
+- 0x80 - 0xBF: 4bpp ROM tiles (half of a 4K ROM tile map)
+- 0xC0 - 0xFF: 4bpp RAM tiles
 
-The 0x00 - 0x3F region also requires a 4Kb tile map, but can only use the
+The 0x80 - 0xBF region also requires a 4Kb tile map, but can only use the
 lower or upper half of it depending on the defined start offset. When using
 several sets of tiles, this doesn't result in a waste since two distinct such
 regions may share a 4Kb tile map, or in other cases, such a region may also
@@ -151,7 +161,8 @@ Mode 1: RAM 8px wide 1bpp tiles
 Tile indices are used as follows:
 
 - 0x00 - 0x7F: RAM 8px wide 1bpp tiles
-- 0x80 - 0xFF: 4bpp ROM tiles
+- 0x80 - 0xBF: 4bpp ROM tiles (half of a 4K ROM tile map)
+- 0xC0 - 0xFF: 4bpp RAM tiles
 
 The foreground and background colors are selectable for the entire row from
 the palette. Using color index 0 allows for using the related feature (color0
@@ -169,7 +180,8 @@ Mode 2: ROM 8px wide 1bpp tiles
 Tile indices are used as follows:
 
 - 0x00 - 0x7F: ROM 8px wide 1bpp tiles
-- 0x80 - 0xFF: 4bpp ROM tiles
+- 0x80 - 0xBF: 4bpp ROM tiles (half of a 4K ROM tile map)
+- 0xC0 - 0xFF: 4bpp RAM tiles
 
 The foreground and background colors are selectable for the entire row from
 the palette. Using color index 0 allows for using the related feature (color0
@@ -179,13 +191,53 @@ This setup might be used for text output if the capability of X scrolling is
 required. Otherwise the 6px wide modes may be more useful for this purpose.
 
 
+Mode 3: RAM 2bpp Multicolor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Tile indices are used as follows:
+
+- 0x00 - 0x7F: ROM 6px wide 1bpp tiles
+- 0x80 - 0xBF: ROM 8px wide 1bpp tiles
+- 0xC0 - 0xFF: ROM 8px wide 1bpp tiles, Multicolor region start mark
+
+This is an optional mode, needs to be enabled explicitly (M74_M3_ENABLE = 1)
+if needed.
+
+The various 1bpp tiles work the same manner like in other modes offering
+similar capabilities. The source however is fixed to start at a 256 byte
+boundary in Flash, having a 256 byte row increment.
+
+The 0xC0 - 0xFF region uses a second VRAM byte specifying the number of
+multicolor tiles following the tile. It can be zero, such tiles may be used
+as fillers in such multicolor images which optimize their size by omitting
+blank tiles (the filler takes 2 VRAM bytes like a normal multicolor tile,
+thus allowing replacement without rearranging the VRAM).
+
+The multicolor tiles use 2 VRAM bytes each, for four color attributes. The
+high nybble of the first byte specifies the color index to use for '0' pixels,
+the low nybble of the second the color index for '3' pixels.
+
+The multicolor tiles consume a 2bpp buffer, hitting a multicolor tile always
+fetching 2 bytes (8 pixels) from it. The start offset of the buffer is only
+set up on the frame lead-in (so it has state across rows unlike other modes).
+
+This tile row mode can not be scrolled horizontally, the related input is
+completely ignored.
+
+Note that the leftmost column can only be an 1bpp tile (optionally starting a
+multicolor region). The rightmost tile must be an 1bpp tile of the 0x00 - 0xBF
+range (also considering that 6px wide tiles can not be scrolled off
+partially). Breaking these will corrupt the video signal.
+
+
 Mode 4: RAM 2bpp region
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Tile indices are used as follows:
 
 - 0x00 - 0x7F: RAM 2bpp region
-- 0x80 - 0xFF: 4bpp ROM tiles
+- 0x80 - 0xBF: 4bpp ROM tiles (half of a 4K ROM tile map)
+- 0xC0 - 0xFF: 4bpp RAM tiles
 
 This mode uses colors 0 - 3 from the palette. The color0 reload feature may be
 used to increase the number of colors in this region by changing it on every
@@ -213,7 +265,8 @@ Mode 5: ROM 6px wide 1bpp tiles
 Tile indices are used as follows:
 
 - 0x00 - 0x7F: ROM 6px wide 1bpp tiles
-- 0x80 - 0xFF: 4bpp ROM tiles
+- 0x80 - 0xBF: 4bpp ROM tiles (half of a 4K ROM tile map)
+- 0xC0 - 0xFF: 4bpp RAM tiles
 
 The foreground and background colors are selectable for the entire row from
 the palette. Using color index 0 allows for using the related feature (color0
@@ -238,7 +291,8 @@ Mode 6: ROM 6px wide 1bpp tiles with attributes
 Tile indices are used as follows:
 
 - 0x00 - 0x7F: ROM 6px wide 1bpp tiles with attributes
-- 0x80 - 0xFF: 4bpp ROM tiles
+- 0x80 - 0xBF: 4bpp ROM tiles (half of a 4K ROM tile map)
+- 0xC0 - 0xFF: 4bpp RAM tiles
 
 The background color is selectable for the entire row from the palette. Using
 color index 0 allows for using the related feature (color0 reload) to change
@@ -254,12 +308,12 @@ The packet uses 6 bytes of VRAM in the following layout:
 
 - byte 0: Tile index of leftmost tile of packet
 - byte 1: Next tile's index
-- byte 2: Next tile's index
-- byte 3: Tile index of last tile in packet
-- byte 4: High nybble: Leftmost tile color, Low nybble: next tile's color
+- byte 2: High nybble: Leftmost tile color, Low nybble: next tile's color
+- byte 3: Next tile's index
+- byte 4: Tile index of last tile in packet
 - byte 5: High nybble: next tile's color, Low nybble: last tile's color
 
-This setup is useful for colored text output. It may share tile map with
+This setup is useful for colored text output. It may share tile data with
 normal (non-attribute mode) 6px wide regions as they use the same format.
 
 Note that tiles of this mode can not be scrolled partially off on the left or
@@ -325,7 +379,7 @@ not be reached any more, such as zero or 255.
 
 The RAM / ROM scanline map is simply a list of logical scanlines to use on
 each physical scanline. This may be used for special effects or to achieve
-double scanning of regions. For X scrolling, an X shift map can also be
+double scanning of regions. For X scrolling, an X scroll map can also be
 enabled.
 
 
@@ -336,12 +390,11 @@ Tile descriptors
 
 
 The tile descriptors define 32 tile rows spanning 256 logical scanlines. They
-contain the mode to use for rendering the row, pointers for tile data, mode
-specific configuration and VRAM start pointers (Tile index source addresses).
+contain the mode to use for rendering the row, selectors for tile data, and
+mode specific configuration.
 
 They may be located either in RAM or ROM, usually for memory efficiency, the
-latter may be used. In this case the VRAM start pointers may still be located
-in RAM to make certain scrolling algorithms possible.
+latter may be used.
 
 The width of the display lines may be configured between 24 and 18 tiles (24,
 22, 20 and 18 tile options). Note that if 24 tiles width is configured, the
@@ -388,7 +441,7 @@ The palette
 ------------------------------------------------------------------------------
 
 
-The mode requires a 256 byte palette buffer, which it normally locates at
+The mode requires a 256 byte palette buffer, which it normally located at
 0x0F00, below the Stack. Normally this buffer doesn't have to be accessed
 since the mode automatically manages it.
 
@@ -433,15 +486,14 @@ The scanline to start the clear at can be set up by "m74_ldsl". The clear will
 begin after the render of the given line is completed.
 
 Different amounts of memory can be cleared depending on the configured row
-widths:
+widths and whether color 0 reloading takes place:
 
 - 24 tiles: No clearing.
-- 22 tiles: 16 bytes / scanline.
-- 20 tiles: 48 bytes / scanline.
-- 18 tiles: 80 bytes / scanline.
+- 22 tiles: 16 / 32 bytes / scanline.
+- 20 tiles: 48 / 64 bytes / scanline.
+- 18 tiles: 80 / 96 bytes / scanline.
 
-In addition, during a separator line, 256 or 272 additional bytes may be
-cleared.
+In addition, during a separator line, 272 additional bytes may be cleared.
 
 The M74_Finish() function may be called after the frame to ensure that the
 region is completely cleared.
@@ -456,30 +508,25 @@ wireframe renders (in 1bpp or 2bpp areas set up for this purpose).
 SPI load function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This function may be used to stream in data from an SD card during the
-display. It properly handles 512 byte block boundaries, waiting for the SD
-card becoming ready for the subsequent block, and continuing the streaming
-when it happens. The load is assumed to start on the beginning of a block.
+This function may be used to stream in data from an SD card or SPI RAM
+during the display. It can load up to 512 bytes, but the more important
+featre is that it can skip to a specific byte (in 2 byte steps).
 
 It is controlled by the same variables like the RAM clear function, in the
 same manner, however its block size is 2 bytes.
 
-The following amount of bytes may be loaded depending on the configured row
-widths:
+The following amount of bytes may be skipped or loaded depending on the
+configured row widths and whether color 0 reloading takes place:
 
 - 24 tiles: No loading.
-- 22 tiles: 2 bytes / scanline.
-- 20 tiles: 6 bytes / scanline.
-- 18 tiles: 10 bytes / scanline.
+- 22 tiles: 2 / 4 bytes / scanline.
+- 20 tiles: 6 / 8 bytes / scanline.
+- 18 tiles: 10 / 12 bytes / scanline.
 
-In addition, during a separator line, 32 or 34 additional bytes may be
-loaded.
+In addition, during a separator line, 34 additional bytes may be loaded or
+skipped.
 
 The M74_Finish() function may be called after the frame to finish the load.
-It may return 1 if it hits an SD card block boundary, and the card doesn't
-supply data right away, so the caller may decide to do some other things
-until the card becomes ready to continue loading. If its return becomes
-zero, it indicates that the load completed.
 
 
 Color 0 reload

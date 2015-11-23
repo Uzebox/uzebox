@@ -83,4 +83,168 @@
 #endif
 
 /* Maximum free cycles usable by the hysnc and audio */
-#define HSYNC_USABLE_CYCLES 220
+#define HSYNC_USABLE_CYCLES 217
+
+
+/* Notes: Don't use 'U' suffixes for the defines since they are used in
+** assembler sources where the assembler doesn't understand them. */
+
+
+/* Width of 2bpp mode output. At least 2 tiles. Note that multiple 2bpp chunks
+** can occur within a row, so you can use more than one effective width by
+** appropriately combining smaller blocks. */
+
+#ifndef M74_2BPP_WIDTH
+	#define M74_2BPP_WIDTH     16
+#endif
+
+
+/* Location of the palette buffer in RAM, high byte. The default location of
+** 0x0F00 places it under the stack. */
+
+#ifndef M74_PALBUF_H
+	#define M74_PALBUF_H       0x0F
+#endif
+
+
+/* The Color 0 reload feature may be disabled to save a tiny bit of flash and
+** two bytes of RAM. */
+
+#ifndef M74_COL0_RELOAD
+	#define M74_COL0_RELOAD    1
+#endif
+
+
+/* This can be used to disable separator line (Row mode 7) to save some flash
+** space if this mode is not needed. */
+
+#ifndef M74_M7_ENABLE
+	#define M74_M7_ENABLE      1
+#endif
+
+
+/* This can be used to enable 2bpp Multicolor (Rom mode 3). This mode takes
+** almost 3K of flash and also some bytes of RAM. */
+
+#ifndef M74_M3_ENABLE
+	#define M74_M3_ENABLE      0
+#endif
+
+
+/* Resource locations. At least one for each of the three resources must
+** be provided. */
+
+/* 0x00 - 0x7F: Mode dependent tiles for modes 1 - 6. 'OFF' is the offset,
+** 'INC' is the increment per row in 4 byte units. */
+
+#ifndef M74_TBANK01_0_OFF
+	#define M74_TBANK01_0_OFF  0
+#endif
+#ifndef M74_TBANK01_0_INC
+	#define M74_TBANK01_0_INC  32
+#endif
+#ifndef M74_TBANK01_1_OFF
+	#define M74_TBANK01_1_OFF  M74_TBANK01_0_OFF
+#endif
+#ifndef M74_TBANK01_1_INC
+	#define M74_TBANK01_1_INC  M74_TBANK01_0_INC
+#endif
+#ifndef M74_TBANK01_2_OFF
+	#define M74_TBANK01_2_OFF  M74_TBANK01_0_OFF
+#endif
+#ifndef M74_TBANK01_2_INC
+	#define M74_TBANK01_2_INC  M74_TBANK01_0_INC
+#endif
+#ifndef M74_TBANK01_3_OFF
+	#define M74_TBANK01_3_OFF  M74_TBANK01_0_OFF
+#endif
+#ifndef M74_TBANK01_3_INC
+	#define M74_TBANK01_3_INC  M74_TBANK01_0_INC
+#endif
+#define M74_TBANK01_0_H ((M74_TBANK01_0_OFF >> 8) & 0xFF)
+#define M74_TBANK01_0_L ((M74_TBANK01_0_OFF     ) & 0xFF)
+#define M74_TBANK01_1_H ((M74_TBANK01_1_OFF >> 8) & 0xFF)
+#define M74_TBANK01_1_L ((M74_TBANK01_1_OFF     ) & 0xFF)
+#define M74_TBANK01_2_H ((M74_TBANK01_2_OFF >> 8) & 0xFF)
+#define M74_TBANK01_2_L ((M74_TBANK01_2_OFF     ) & 0xFF)
+#define M74_TBANK01_3_H ((M74_TBANK01_3_OFF >> 8) & 0xFF)
+#define M74_TBANK01_3_L ((M74_TBANK01_3_OFF     ) & 0xFF)
+
+/* 0x00 - 0x7F: Mode dependent tiles for mode 0 (4Kb ROM tile maps). At least
+** one must be defined. The low byte should be zero (it is ignored). */
+
+#ifndef M74_TBANKM0_0_OFF
+	#error At least one tile bank 0-1 offset needed (M74_TBANKM0_0_OFF)
+#endif
+#ifndef M74_TBANKM0_1_OFF
+	#define M74_TBANKM0_1_OFF  M74_TBANKM0_0_OFF
+#endif
+#ifndef M74_TBANKM0_2_OFF
+	#define M74_TBANKM0_2_OFF  M74_TBANKM0_0_OFF
+#endif
+#ifndef M74_TBANKM0_3_OFF
+	#define M74_TBANKM0_3_OFF  M74_TBANKM0_0_OFF
+#endif
+#define M74_TBANKM0_0_H ((M74_TBANKM0_0_OFF >> 8) & 0xFF)
+#define M74_TBANKM0_1_H ((M74_TBANKM0_1_OFF >> 8) & 0xFF)
+#define M74_TBANKM0_2_H ((M74_TBANKM0_2_OFF >> 8) & 0xFF)
+#define M74_TBANKM0_3_H ((M74_TBANKM0_3_OFF >> 8) & 0xFF)
+
+/* 0x80 - 0xBF: 2Kb ROM tile maps (half 4Kb maps). At least one must be
+** defined. The low byte should be zero (it is ignored). */
+
+#ifndef M74_TBANK2_0_OFF
+	#error At least one tile bank 2 offset needed (M74_TBANK2_0_OFF)
+#endif
+#ifndef M74_TBANK2_1_OFF
+	#define M74_TBANK2_1_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_2_OFF
+	#define M74_TBANK2_2_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_3_OFF
+	#define M74_TBANK2_3_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_4_OFF
+	#define M74_TBANK2_4_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_5_OFF
+	#define M74_TBANK2_5_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_6_OFF
+	#define M74_TBANK2_6_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_7_OFF
+	#define M74_TBANK2_7_OFF  M74_TBANK2_0_OFF
+#endif
+#define M74_TBANK2_0_H ((M74_TBANK2_0_OFF >> 8) & 0xFF)
+#define M74_TBANK2_1_H ((M74_TBANK2_1_OFF >> 8) & 0xFF)
+#define M74_TBANK2_2_H ((M74_TBANK2_2_OFF >> 8) & 0xFF)
+#define M74_TBANK2_3_H ((M74_TBANK2_3_OFF >> 8) & 0xFF)
+#define M74_TBANK2_4_H ((M74_TBANK2_4_OFF >> 8) & 0xFF)
+#define M74_TBANK2_5_H ((M74_TBANK2_5_OFF >> 8) & 0xFF)
+#define M74_TBANK2_6_H ((M74_TBANK2_6_OFF >> 8) & 0xFF)
+#define M74_TBANK2_7_H ((M74_TBANK2_7_OFF >> 8) & 0xFF)
+
+/* 0xC0 - 0xFF: 4bpp RAM tile maps. At least one must be defined. 'OFF' is the
+** offset, 'INC' is the increment per row in 4 byte units (64 is the maximum
+** sensible value expect probably if combining the two RAM tile sections for
+** some reason). */
+
+#ifndef M74_TBANK3_0_OFF
+	#error At least one tile bank 3 offset needed (M74_TBANK3_0_OFF)
+#endif
+#ifndef M74_TBANK3_0_INC
+	#error At least one tile bank 3 increment needed (M74_TBANK3_0_INC)
+#endif
+#ifndef M74_TBANK3_1_OFF
+	#define M74_TBANK3_1_OFF  M74_TBANK3_0_OFF
+#endif
+#ifndef M74_TBANK3_1_INC
+	#define M74_TBANK3_1_INC  M74_TBANK3_0_INC
+#endif
+#define M74_TBANK3_0_H ((M74_TBANK3_0_OFF >> 8) & 0xFF)
+#define M74_TBANK3_0_L ((M74_TBANK3_0_OFF     ) & 0xFF)
+#define M74_TBANK3_1_H ((M74_TBANK3_1_OFF >> 8) & 0xFF)
+#define M74_TBANK3_1_L ((M74_TBANK3_1_OFF     ) & 0xFF)
+
