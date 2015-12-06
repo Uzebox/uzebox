@@ -76,16 +76,16 @@
 ;
 ; r16: Scanline counter (increments it by one)
 ; r17: Logical row counter (increments it by one)
-; r23: Byte 0 of tile descriptor
+; r22: Byte 0 of tile descriptor
 ; YL:  Byte 1 of tile descriptor
 ; X:   Offset from tile index list
 ; r9:  Global configuration (m74_config)
 ; r14: RAM clear / SPI load address, low
 ; r15: RAM clear / SPI load address, high
-; r22: Zero
+; r23: Zero
 ; YH:  Palette buffer, high
 ;
-; Everything expect r14, r15, r16, r17, r22, and YH may be clobbered.
+; Everything expect r14, r15, r16, r17, r23, and YH may be clobbered.
 ;
 ; Register usage in the output logic:
 ;
@@ -97,17 +97,17 @@
 ; r11:                0xFF, used for an add in MC output
 ; r12:                Stores base offset low for code tile blk. for MC output
 ; r13:                Stores base offset high for code tile blk. for MC output
-; r23:                MC output remaining tile counter
+; r22:                MC output remaining tile counter
 ; X:                  VRAM pointer (offset from tile index list used)
 ; r24, r25:           Background color for 1bpp tiles
 ; SP:                 Multicolor framebuffer pointer
 ; r6,  r7:            Saved stack pointer
-; r22:                Tile counter (reusing zero)
+; r23:                Tile counter (reusing zero)
 ; r16:                Foreground color for 1bpp tiles (reusing scanline ctr)
 ; r17:                1bpp tiles offset high (reusing logical row ctr)
 ;
-; r22, r16 and r17 is restored before return, they are stored on the stack
-; (expect r22 which is just zero; this is not a problem: it doesn't increase
+; r23, r16 and r17 is restored before return, they are stored on the stack
+; (expect r23 which is just zero; this is not a problem: it doesn't increase
 ; stack use since inline audio mixer also needs stack space).
 ;
 
@@ -119,14 +119,20 @@ m74_m3_2bppmc:
 	; without taking away RAM clears / SPI reloads at reduced widths.
 	;
 
-#if (M74_COL0_RELOAD != 0U)
+#if (M74_COL0_RELOAD != 0)
 	sbrs  r9,      4       ; (1773 / 1774)
 	rjmp  m3dfrl0          ; (1775)
 	mov   r0,      YL      ; (1775) Put aside byte 1 of tile descriptor
+#if (M74_COL0_PTRE != 0)
 	lds   ZL,      m74_col0_lo  ; (1777)
 	lds   ZH,      m74_col0_hi  ; (1779)
+#else
+	ldi   ZL,      lo8(M74_COL0_OFF) ; (1776)
+	ldi   ZH,      hi8(M74_COL0_OFF) ; (1777)
+	rjmp  .                ; (1779)
+#endif
 	add   ZL,      r17     ; (1780)
-	adc   ZH,      r22     ; (1781) (Just carry, r22 is zero)
+	adc   ZH,      r23     ; (1781) (Just carry, r23 is zero)
 	sbrs  r9,      5       ; (1782 / 1783)
 	rjmp  m3dfrl00         ; (1784)
 	ld    r8,      Z       ; (1785) Color0 table in RAM
@@ -183,14 +189,14 @@ m3dfrl1:
 	; Also calculate number of tiles to generate into r20 for now.
 	;
 
-	andi  r23,     0x18    ; ( 230)
-	sts   v_hsize, r23     ; ( 232)
+	andi  r22,     0x18    ; ( 230)
+	sts   v_hsize, r22     ; ( 232)
 	ldi   r20,      96     ; ( 233) 4 * 24
-	sub   r20,     r23     ; ( 234) 4 * 18; 4 * 20; 4 * 22; 4 * 24 depending on tile count
+	sub   r20,     r22     ; ( 234) 4 * 18; 4 * 20; 4 * 22; 4 * 24 depending on tile count
 	lsr   r20              ; ( 235)
 	lsr   r20              ; ( 236)
 m3dfloop:
-	subi  r23,     8       ; ( 1) (237)
+	subi  r22,     8       ; ( 1) (237)
 	brcs  m3dfend          ; ( 2 /  3) (239)
 	lpm   r24,     Z       ; ( 5) Dummy load (nop)
 	nop                    ; ( 6)
@@ -202,24 +208,24 @@ m3dfloop:
 	movw  ZL,      r14     ; (15) ZH:ZL, r15:r14 Target pointer
 	inc   r7               ; (16)
 	brne  m3dfspil         ; (17 / 18) SPI load if v_rems is not 0xFF
-	cp    r6,      r22     ; (18)
+	cp    r6,      r23     ; (18)
 	breq  m3dfnfn1         ; (19 / 20) v_remc drained, nothing to process
-	st    Z+,      r22     ; (21)
-	st    Z+,      r22     ; (23)
-	st    Z+,      r22     ; (25)
-	st    Z+,      r22     ; (27)
-	st    Z+,      r22     ; (29)
-	st    Z+,      r22     ; (31)
-	st    Z+,      r22     ; (33)
-	st    Z+,      r22     ; (35)
-	st    Z+,      r22     ; (37)
-	st    Z+,      r22     ; (39)
-	st    Z+,      r22     ; (41)
-	st    Z+,      r22     ; (43)
-	st    Z+,      r22     ; (45)
-	st    Z+,      r22     ; (47)
-	st    Z+,      r22     ; (49)
-	st    Z+,      r22     ; (51)
+	st    Z+,      r23     ; (21)
+	st    Z+,      r23     ; (23)
+	st    Z+,      r23     ; (25)
+	st    Z+,      r23     ; (27)
+	st    Z+,      r23     ; (29)
+	st    Z+,      r23     ; (31)
+	st    Z+,      r23     ; (33)
+	st    Z+,      r23     ; (35)
+	st    Z+,      r23     ; (37)
+	st    Z+,      r23     ; (39)
+	st    Z+,      r23     ; (41)
+	st    Z+,      r23     ; (43)
+	st    Z+,      r23     ; (45)
+	st    Z+,      r23     ; (47)
+	st    Z+,      r23     ; (49)
+	st    Z+,      r23     ; (51)
 	dec   r6               ; (52)
 m3dfspie:
 	sts   v_remc,  r6      ; (54)
@@ -252,14 +258,14 @@ m3dfend:
 
 	sbrs  YL,      1       ; ( 7 /  8)
 	rjmp  m3cfg0x          ; ( 9)
-	ldi   r17,     M74_TBANK01_3_H ; ( 9)
+	ldi   r17,     hi8(M74_TBANK01_3_OFF) ; ( 9)
 	sbrs  YL,      0       ; (10)
-	ldi   r17,     M74_TBANK01_2_H ; (11)
+	ldi   r17,     hi8(M74_TBANK01_2_OFF) ; (11)
 	rjmp  m3cfge           ; (13)
 m3cfg0x:
-	ldi   r17,     M74_TBANK01_1_H ; (10)
+	ldi   r17,     hi8(M74_TBANK01_1_OFF) ; (10)
 	sbrs  YL,      0       ; (11)
-	ldi   r17,     M74_TBANK01_0_H ; (12)
+	ldi   r17,     hi8(M74_TBANK01_0_OFF) ; (12)
 	nop                    ; (13)
 m3cfge:
 
@@ -304,9 +310,9 @@ m3cfge:
 	; otherwise everything is in the green at this point.
 	;
 
-	mov   r4,      r22     ; ( 330)
-	mov   r5,      r22     ; ( 331) Zero partial -1th tile
-	mov   r22,     r20     ; ( 332)
+	mov   r4,      r23     ; ( 330)
+	mov   r5,      r23     ; ( 331) Zero partial -1th tile
+	mov   r23,     r20     ; ( 332)
 	rjmp  m3tlcom          ; ( 334) (12 of half-tile)
 
 
@@ -337,18 +343,18 @@ m3tl8:
 	movw  r2,      r24     ; () r3:r2, r25:r24; BG color loads
 	sbrc  r0,      1       ; ()
 	mov   r2,      r16     ; ()
-	dec   r22              ; () One tile less to go (zero test below)
+	dec   r23              ; () One tile less to go (zero test below)
 	out   PIXOUT,  r5      ; (22) Pixel 3 of current tile
 	sbrc  r0,      0       ; ()
 	mov   r3,      r16     ; ()
 	movw  r4,      r2      ; () r5:r4, r3:r2; Transfer to proper last two px regs
-	lpm   r23,     Z       ; () Dummy load (nop)
+	lpm   r22,     Z       ; () Dummy load (nop)
 	out   PIXOUT,  r8      ; ( 1) Pixel 4 of current tile
-	lpm   r23,     Z       ; () Dummy load (nop)
-	lpm   r23,     Z       ; () Dummy load (nop)
+	lpm   r22,     Z       ; () Dummy load (nop)
+	lpm   r22,     Z       ; () Dummy load (nop)
 	out   PIXOUT,  r9      ; ( 8) Pixel 5 of current tile
 	nop                    ; ( 9)
-	breq  m3tlend          ; (10 / 11) Note that r22 is zero on exit, so restored
+	breq  m3tlend          ; (10 / 11) Note that r23 is zero on exit, so restored
 	rjmp  m3tlcom          ; (12)
 
 
@@ -357,11 +363,11 @@ m3tl8:
 ; Tail of 6px wide tiles
 ;
 m3tl6e:
-	dec   r22              ; () One tile less to go (zero test below)
+	dec   r23              ; () One tile less to go (zero test below)
 	lpm   r0,      Z       ; () Dummy load (nop)
 	out   PIXOUT,  r5      ; (22) Pixel 3 of current tile
 	movw  r4,      r8      ; () r5:r4, r9:r8, fix trailing pixels
-	breq  m3tlend          ; (10 / 11) Note that r22 is zero on exit, so restored
+	breq  m3tlend          ; (10 / 11) Note that r23 is zero on exit, so restored
 	rjmp  m3tlcom          ; (12)
 
 
@@ -373,11 +379,11 @@ m3tlnor:
 	cpi   ZL,      0x80    ; (14) 8px / tile or 6px / tile comparison
 	out   PIXOUT,  r4      ; (15) Pixel 2 of current tile
 	brcc  m3tl8            ; () >= 0x80: 8px / tile
-	ldi   r23,     2       ; ()
-	subi  r22,     2       ; () 3 8px wide tiles will be consumed
+	ldi   r22,     2       ; ()
+	subi  r23,     2       ; () 3 8px wide tiles will be consumed
 m3tl6l:
 	ld    ZL,      X+      ; ()
-	subi  r23,     1       ; () Sets carry when all tiles done
+	subi  r22,     1       ; () Sets carry when all tiles done
 	out   PIXOUT,  r5      ; (22) Pixel 3 of current tile
 	lpm   r0,      Z       ; () Dummy load (nop)
 	lpm   r0,      Z       ; () Dummy load (nop)
@@ -411,19 +417,19 @@ m3tl6l:
 
 ;
 ; Entry / filler tile processing, accompanying the 2bpp Multicolor main loop.
-; Register r22 is used as tile counter. Note that line termination is only
+; Register r23 is used as tile counter. Note that line termination is only
 ; checked in the 0x00 - 0xBF tile range, so only those can exit. The "m3tlcom"
 ; is the main entry point for the tile loop.
 ;
 m3tlef:
-	ld    r23,     X+      ; () Count of multicolor tiles
+	ld    r22,     X+      ; () Count of multicolor tiles
 	out   PIXOUT,  r4      ; (15) Pixel 2 of current tile (bg)
 	ld    YL,      X+      ; ()
 	ld    r18,     Y       ; ()
 	swap  YL               ; ()
-	dec   r22              ; () Subtract the current tile from total tiles
+	dec   r23              ; () Subtract the current tile from total tiles
 	out   PIXOUT,  r5      ; (22) Pixel 3 of current tile (bg)
-	sub   r22,     r23     ; () Subtract multicolor tile count from total tiles
+	sub   r23,     r22     ; () Subtract multicolor tile count from total tiles
 	movw  r4,      r24     ; () r5:r4, r25:r24; BG color loads
 	sbrc  r0,      1       ; ()
 	mov   r4,      r16     ; ()
@@ -434,7 +440,7 @@ m3tlef:
 	ld    YL,      X+      ; ()
 	ld    r20,     Y       ; ()
 	out   PIXOUT,  r9      ; ( 8) Pixel 5 of current tile
-	cpi   r23,     0       ; ( 9)
+	cpi   r22,     0       ; ( 9)
 	brne  m3pxentry        ; (10 / 11) Go for rendering 2bpp Multicolor if any
 m3pxend:
 	subi  XL,      2       ; (11) Attributes weren't needed, so restore
@@ -476,13 +482,13 @@ m3pxcom:
 	movw  r18,     r8      ; ( 5) r19:r18, r9:r8; Move temp color 0 and 1
 	ld    YL,      X+      ; ( 7) Continue loading attrs for coming tile (might be extra past end)
 	out   PIXOUT,  r3      ; ( 8)
-	breq  m3pxend          ; ( 9 / 10) r23 "decremented" to zero
+	breq  m3pxend          ; ( 9 / 10) r22 "decremented" to zero
 	ld    r20,     Y       ; (11)
 m3pxentry:
 	swap  YL               ; (12)
 	ld    r21,     Y       ; (14)
 	out   PIXOUT,  r4      ; (15)
-	pop   r0               ; (17) Does an extra read past end, don't care
+	pop   r0               ; (17)
 	mul   r0,      r10     ; (19) r10 contains 0x05 for the assignment block size
 	movw  ZL,      r12     ; (20) ZH:ZL, r13:r12, latter contains base for px. assign blocks
 	add   ZL,      r0      ; (21)
@@ -503,7 +509,7 @@ m3pxshalf:
 	add   ZL,      r0      ; (20)
 	adc   ZH,      r1      ; (21)
 	out   PIXOUT,  r5      ; (22) Prev. block color
-	add   r23,     r11     ; (23) r11 contains 0xFF, always producing carry
+	add   r22,     r11     ; (23) r11 contains 0xFF, always producing carry
 	ijmp                   ; (25)
 
 

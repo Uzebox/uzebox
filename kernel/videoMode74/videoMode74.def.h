@@ -50,14 +50,14 @@
 	#define VRAM_TILES_H   24
 	#define SCREEN_TILES_H 24
 #else
-	#error Invalid value defined in the makefile for TILE_WIDTH. Supported values are 6 or 8.
+	#error "Invalid value defined in the makefile for TILE_WIDTH. Supported values are 6 or 8."
 #endif
 
 #ifndef TILE_HEIGHT
 	#define TILE_HEIGHT 8
 #elif   TILE_HEIGHT == 8
 #else
-	#error Invalid value defined in the makefile for TILE_HEIGHT. Supported value is 8.
+	#error "Invalid value defined in the makefile for TILE_HEIGHT. Supported value is 8."
 #endif
 
 #ifndef VRAM_TILES_V
@@ -90,6 +90,15 @@
 ** assembler sources where the assembler doesn't understand them. */
 
 
+/* Notes on the "_PTRE" defines:
+** Several offsets can be either used as compile time definition of accessed
+** by a pointer in RAM. The latter needs 2 RAM bytes each. If you need
+** multiple configurations for one, you can enable it by setting the
+** accompanying "_PTRE" definition to '1' for the cost of 2 RAM bytes. They
+** will still be initialized with the corresponding compile time definition
+** for convenience. */
+
+
 /* Width of 2bpp mode output. At least 2 tiles. Note that multiple 2bpp chunks
 ** can occur within a row, so you can use more than one effective width by
 ** appropriately combining smaller blocks. */
@@ -100,18 +109,35 @@
 
 
 /* Location of the palette buffer in RAM, high byte. The default location of
-** 0x0F00 places it under the stack. */
+** 0x0F00 places it below the stack. */
 
 #ifndef M74_PALBUF_H
 	#define M74_PALBUF_H       0x0F
 #endif
 
 
+/* Location of the 16 color palette. By default place it below the stack
+** (0x1000 - 0x100F) */
+
+#ifndef M74_PAL_PTRE
+	#define M74_PAL_PTRE       0
+#endif
+#ifndef M74_PAL_OFF
+	#define M74_PAL_OFF        0x1000
+#endif
+
+
 /* The Color 0 reload feature may be disabled to save a tiny bit of flash and
-** two bytes of RAM. */
+** two bytes of RAM. You may also limit it to a single offset. */
 
 #ifndef M74_COL0_RELOAD
 	#define M74_COL0_RELOAD    1
+#endif
+#ifndef M74_COL0_OFF
+	#define M74_COL0_OFF       0
+#endif
+#ifndef M74_COL0_PTRE
+	#define M74_COL0_PTRE      0
 #endif
 
 
@@ -128,6 +154,33 @@
 
 #ifndef M74_M3_ENABLE
 	#define M74_M3_ENABLE      0
+#endif
+#ifndef M74_M3_OFF
+	#define M74_M3_OFF         0
+#endif
+#ifndef M74_M3_PTRE
+	#define M74_M3_PTRE        0
+#endif
+
+
+/* The VRAM used for the kernel and sprite output. Setting it compile time
+** saves 5 bytes of RAM and some flash space. */
+
+#ifndef M74_VRAM_CONST
+	#define M74_VRAM_CONST     0
+#elif   (M74_VRAM_CONST != 0)
+	#ifndef M74_VRAM_OFF
+		#error "A base address for VRAM is necessary if M74_VRAM_CONST is used!"
+	#endif
+	#ifndef M74_VRAM_W
+		#define M74_VRAM_W VRAM_TILES_H
+	#endif
+	#ifndef M74_VRAM_H
+		#define M74_VRAM_H VRAM_TILES_V
+	#endif
+	#ifndef M74_VRAM_P
+		#define M74_VRAM_P M74_VRAM_W
+	#endif
 #endif
 
 
@@ -161,81 +214,105 @@
 #ifndef M74_TBANK01_3_INC
 	#define M74_TBANK01_3_INC  M74_TBANK01_0_INC
 #endif
-#define M74_TBANK01_0_H ((M74_TBANK01_0_OFF >> 8) & 0xFF)
-#define M74_TBANK01_0_L ((M74_TBANK01_0_OFF     ) & 0xFF)
-#define M74_TBANK01_1_H ((M74_TBANK01_1_OFF >> 8) & 0xFF)
-#define M74_TBANK01_1_L ((M74_TBANK01_1_OFF     ) & 0xFF)
-#define M74_TBANK01_2_H ((M74_TBANK01_2_OFF >> 8) & 0xFF)
-#define M74_TBANK01_2_L ((M74_TBANK01_2_OFF     ) & 0xFF)
-#define M74_TBANK01_3_H ((M74_TBANK01_3_OFF >> 8) & 0xFF)
-#define M74_TBANK01_3_L ((M74_TBANK01_3_OFF     ) & 0xFF)
 
 /* 0x00 - 0x7F: Mode dependent tiles for mode 0 (4Kb ROM tile maps). At least
-** one must be defined. The low byte should be zero (it is ignored). */
+** one must be defined. The low byte should be zero (it is ignored). The MSK
+** definitions may be omitted if there are no masks (used for sprites), they
+** are ROM offsets for mask indices (1 byte each). */
 
 #ifndef M74_TBANKM0_0_OFF
-	#error At least one tile bank 0-1 offset needed (M74_TBANKM0_0_OFF)
+	#error "At least one tile bank 0-1 offset needed (M74_TBANKM0_0_OFF)"
+#endif
+#ifndef M74_TBANKM0_0_MSK
+	#define M74_TBANKM0_0_MSK  0
 #endif
 #ifndef M74_TBANKM0_1_OFF
 	#define M74_TBANKM0_1_OFF  M74_TBANKM0_0_OFF
 #endif
+#ifndef M74_TBANKM0_1_MSK
+	#define M74_TBANKM0_1_MSK  M74_TBANKM0_0_MSK
+#endif
 #ifndef M74_TBANKM0_2_OFF
 	#define M74_TBANKM0_2_OFF  M74_TBANKM0_0_OFF
+#endif
+#ifndef M74_TBANKM0_2_MSK
+	#define M74_TBANKM0_2_MSK  M74_TBANKM0_0_MSK
 #endif
 #ifndef M74_TBANKM0_3_OFF
 	#define M74_TBANKM0_3_OFF  M74_TBANKM0_0_OFF
 #endif
-#define M74_TBANKM0_0_H ((M74_TBANKM0_0_OFF >> 8) & 0xFF)
-#define M74_TBANKM0_1_H ((M74_TBANKM0_1_OFF >> 8) & 0xFF)
-#define M74_TBANKM0_2_H ((M74_TBANKM0_2_OFF >> 8) & 0xFF)
-#define M74_TBANKM0_3_H ((M74_TBANKM0_3_OFF >> 8) & 0xFF)
+#ifndef M74_TBANKM0_3_MSK
+	#define M74_TBANKM0_3_MSK  M74_TBANKM0_0_MSK
+#endif
 
 /* 0x80 - 0xBF: 2Kb ROM tile maps (half 4Kb maps). At least one must be
-** defined. The low byte should be zero (it is ignored). */
+** defined. The low byte should be zero (it is ignored). The MSK definitions
+** may be omitted if there are no masks (used for sprites), they are ROM
+** offsets for mask indices (1 byte each). */
 
 #ifndef M74_TBANK2_0_OFF
-	#error At least one tile bank 2 offset needed (M74_TBANK2_0_OFF)
+	#error "At least one tile bank 2 offset needed (M74_TBANK2_0_OFF)"
+#endif
+#ifndef M74_TBANK2_0_MSK
+	#define M74_TBANK2_0_MSK  0
 #endif
 #ifndef M74_TBANK2_1_OFF
 	#define M74_TBANK2_1_OFF  M74_TBANK2_0_OFF
 #endif
+#ifndef M74_TBANK2_1_MSK
+	#define M74_TBANK2_1_MSK  M74_TBANK2_0_MSK
+#endif
 #ifndef M74_TBANK2_2_OFF
 	#define M74_TBANK2_2_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_2_MSK
+	#define M74_TBANK2_2_MSK  M74_TBANK2_0_MSK
 #endif
 #ifndef M74_TBANK2_3_OFF
 	#define M74_TBANK2_3_OFF  M74_TBANK2_0_OFF
 #endif
+#ifndef M74_TBANK2_3_MSK
+	#define M74_TBANK2_3_MSK  M74_TBANK2_0_MSK
+#endif
 #ifndef M74_TBANK2_4_OFF
 	#define M74_TBANK2_4_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_4_MSK
+	#define M74_TBANK2_4_MSK  M74_TBANK2_0_MSK
 #endif
 #ifndef M74_TBANK2_5_OFF
 	#define M74_TBANK2_5_OFF  M74_TBANK2_0_OFF
 #endif
+#ifndef M74_TBANK2_5_MSK
+	#define M74_TBANK2_5_MSK  M74_TBANK2_0_MSK
+#endif
 #ifndef M74_TBANK2_6_OFF
 	#define M74_TBANK2_6_OFF  M74_TBANK2_0_OFF
+#endif
+#ifndef M74_TBANK2_6_MSK
+	#define M74_TBANK2_6_MSK  M74_TBANK2_0_MSK
 #endif
 #ifndef M74_TBANK2_7_OFF
 	#define M74_TBANK2_7_OFF  M74_TBANK2_0_OFF
 #endif
-#define M74_TBANK2_0_H ((M74_TBANK2_0_OFF >> 8) & 0xFF)
-#define M74_TBANK2_1_H ((M74_TBANK2_1_OFF >> 8) & 0xFF)
-#define M74_TBANK2_2_H ((M74_TBANK2_2_OFF >> 8) & 0xFF)
-#define M74_TBANK2_3_H ((M74_TBANK2_3_OFF >> 8) & 0xFF)
-#define M74_TBANK2_4_H ((M74_TBANK2_4_OFF >> 8) & 0xFF)
-#define M74_TBANK2_5_H ((M74_TBANK2_5_OFF >> 8) & 0xFF)
-#define M74_TBANK2_6_H ((M74_TBANK2_6_OFF >> 8) & 0xFF)
-#define M74_TBANK2_7_H ((M74_TBANK2_7_OFF >> 8) & 0xFF)
+#ifndef M74_TBANK2_7_MSK
+	#define M74_TBANK2_7_MSK  M74_TBANK2_0_MSK
+#endif
 
 /* 0xC0 - 0xFF: 4bpp RAM tile maps. At least one must be defined. 'OFF' is the
 ** offset, 'INC' is the increment per row in 4 byte units (64 is the maximum
 ** sensible value expect probably if combining the two RAM tile sections for
-** some reason). */
+** some reason). The MSK definitions may be omitted if there are no masks
+** (used for sprites), they are RAM offsets for mask indices (1 byte each). */
 
 #ifndef M74_TBANK3_0_OFF
-	#error At least one tile bank 3 offset needed (M74_TBANK3_0_OFF)
+	#error "At least one tile bank 3 offset needed (M74_TBANK3_0_OFF)"
 #endif
 #ifndef M74_TBANK3_0_INC
-	#error At least one tile bank 3 increment needed (M74_TBANK3_0_INC)
+	#error "At least one tile bank 3 increment needed (M74_TBANK3_0_INC)"
+#endif
+#ifndef M74_TBANK3_0_MSK
+	#define M74_TBANK3_0_MSK  0
 #endif
 #ifndef M74_TBANK3_1_OFF
 	#define M74_TBANK3_1_OFF  M74_TBANK3_0_OFF
@@ -243,8 +320,36 @@
 #ifndef M74_TBANK3_1_INC
 	#define M74_TBANK3_1_INC  M74_TBANK3_0_INC
 #endif
-#define M74_TBANK3_0_H ((M74_TBANK3_0_OFF >> 8) & 0xFF)
-#define M74_TBANK3_0_L ((M74_TBANK3_0_OFF     ) & 0xFF)
-#define M74_TBANK3_1_H ((M74_TBANK3_1_OFF >> 8) & 0xFF)
-#define M74_TBANK3_1_L ((M74_TBANK3_1_OFF     ) & 0xFF)
+#ifndef M74_TBANK3_1_MSK
+	#define M74_TBANK3_1_MSK  M74_TBANK3_0_MSK
+#endif
 
+/* ROM mask pool's address. At most 224 x 8 bytes (depends on used masks). */
+
+#ifndef M74_ROMMASK_OFF
+	#define M74_ROMMASK_OFF   0
+#endif
+#ifndef M74_ROMMASK_PTRE
+	#define M74_ROMMASK_PTRE  0
+#endif
+
+/* RAM mask pool's address. At most 14 x 8 bytes (depends on used masks). */
+
+#ifndef M74_RAMMASK_OFF
+	#define M74_RAMMASK_OFF   0
+#endif
+#ifndef M74_RAMMASK_PTRE
+	#define M74_RAMMASK_PTRE  0
+#endif
+
+/* RAM tile allocation workspace pointer for sprites. Up to 192 bytes (depends
+** on maximal number of RAM tiles used, 3 bytes for a RAM tile). By default it
+** is dropped below the stack which may be suitable if not too many RAM tiles
+** are used, and the program doesn't use much of stack. */
+
+#ifndef M74_RTLIST_OFF
+	#define M74_RTLIST_OFF    0x1010
+#endif
+#ifndef M74_RTLIST_PTRE
+	#define M74_RTLIST_PTRE   0
+#endif

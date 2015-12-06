@@ -171,6 +171,7 @@
 ;
 .global m74_bgcol
 
+#if (M74_PAL_PTRE != 0)
 ;
 ; volatile unsigned int m74_pal;
 ;
@@ -178,8 +179,9 @@
 ; The frame's render starts with this palette.
 ;
 .global m74_pal
+#endif
 
-#if (M74_COL0_RELOAD != 0)
+#if ((M74_COL0_PTRE != 0) && (M74_COL0_RELOAD != 0))
 ;
 ; volatile unsigned int m74_col0;
 ;
@@ -245,7 +247,7 @@
 ;
 .global m74_umod
 
-#if (M74_M3_ENABLE != 0)
+#if ((M74_M3_PTRE != 0) && (M74_M3_ENABLE != 0))
 ;
 ; volatile unsigned int m74_mcadd;
 ;
@@ -255,6 +257,27 @@
 .global m74_mcadd
 #endif
 
+#if (M74_ROMMASK_PTRE != 0)
+;
+; volatile unsigned int m74_romma;
+;
+; Address of ROM mask pool containing at most 224 masks, 8 bytes each. These
+; are used for sprite blitting.
+;
+.global m74_romma
+#endif
+
+#if (M74_RAMMASK_PTRE != 0)
+;
+; volatile unsigned int m74_ramma;
+;
+; Address of RAM mask pool containing at most 14 masks, 8 bytes each. These
+; are used for sprite blitting.
+;
+.global m74_ramma
+#endif
+
+#if (M74_VRAM_CONST == 0)
 ;
 ; void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt);
 ;
@@ -264,7 +287,9 @@
 ; actually display the area.
 ;
 .global M74_SetVram
+#endif
 
+#if (M74_VRAM_CONST == 0)
 ;
 ; void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hgt, unsigned char pt);
 ;
@@ -275,6 +300,7 @@
 ; than the used width.
 ;
 .global M74_SetVramEx
+#endif
 
 ;
 ; void M74_Finish(void);
@@ -330,13 +356,25 @@
 	m74_tidx:
 	m74_tidx_lo:   .byte 1 ; Tile index source address list, low
 	m74_tidx_hi:   .byte 1 ; Tile index source address list, high
+#if (M74_PAL_PTRE != 0)
 	m74_pal:
 	m74_pal_lo:    .byte 1 ; Palette source, low
 	m74_pal_hi:    .byte 1 ; Palette source, high
-#if (M74_COL0_RELOAD != 0)
+#endif
+#if ((M74_COL0_PTRE != 0) && (M74_COL0_RELOAD != 0))
 	m74_col0:
 	m74_col0_lo:   .byte 1 ; Color 0 reload address, low
 	m74_col0_hi:   .byte 1 ; Color 0 reload address, high
+#endif
+#if (M74_ROMMASK_PTRE != 0)
+	m74_romma:
+	m74_romma_lo:  .byte 1 ; ROM mask pool address, low
+	m74_romma_hi:  .byte 1 ; ROM mask pool address, high
+#endif
+#if (M74_RAMMASK_PTRE != 0)
+	m74_ramma:
+	m74_ramma_lo:  .byte 1 ; RAM mask pool address, low
+	m74_ramma_hi:  .byte 1 ; RAM mask pool address, high
 #endif
 	m74_totc:      .byte 1 ; Total block count for RAM clear / SPI load
 	m74_skip:      .byte 1 ; Blocks to skip count for SPI load
@@ -346,7 +384,7 @@
 	m74_umod:
 	m74_umod_lo:   .byte 1 ; User video mode entry, low
 	m74_umod_hi:   .byte 1 ; User video mode entry, high
-#if (M74_M3_ENABLE != 0)
+#if ((M74_M3_PTRE != 0) && (M74_M3_ENABLE != 0))
 	m74_mcadd:
 	m74_mcadd_lo:  .byte 1 ; 2bpp Multicolor framebuffer start, low
 	m74_mcadd_hi:  .byte 1 ; 2bpp Multicolor framebuffer start, high
@@ -356,11 +394,13 @@
 	; done since the latter is only set up after exiting the scanline
 	; loop.
 
+#if (M74_VRAM_CONST == 0)
 	v_vram_lo:     .byte 1 ; VRAM location for rectangular VRAM functions, low
 	v_vram_hi:     .byte 1 ; VRAM location for rectangular VRAM functions, high
 	v_vram_w:      .byte 1 ; Width of VRAM for rectangular VRAM functions
 	v_vram_h:      .byte 1 ; Height of VRAM for rectangular VRAM functions
 	v_vram_p:      .byte 1 ; Pitch of VRAM for rectangular VRAM functions
+#endif
 	v_remc:        .byte 1 ; Remaining block count for RAM clear / SPI load
 	v_rems:        .byte 1 ; Remaining skip count for SPI load
 	v_m3ptr_lo:            ; Current location in multicolor framebuffer, low
@@ -373,6 +413,7 @@
 
 
 
+#if (M74_VRAM_CONST == 0)
 ;
 ; void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt);
 ;
@@ -392,9 +433,11 @@ M74_SetVram:
 	sts   v_vram_h, r20
 	sts   v_vram_p, r22
 	ret
+#endif
 
 
 
+#if (M74_VRAM_CONST == 0)
 ;
 ; void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hgt, unsigned char pt);
 ;
@@ -417,6 +460,7 @@ M74_SetVramEx:
 	sts   v_vram_h, r20
 	sts   v_vram_p, r18
 	ret
+#endif
 
 
 
@@ -481,11 +525,21 @@ lfise:
 ;
 .section .text.ClearVram
 ClearVram:
-	lds   r18,     v_vram_w
+#if (M74_VRAM_CONST == 0)
+	lds   r18,     v_vram_p
 	lds   r19,     v_vram_h
+#else
+	ldi   r18,     M74_VRAM_P
+	ldi   r19,     M74_VRAM_H
+#endif
 	mul   r18,     r19     ; Length of VRAM in r1:r0
+#if (M74_VRAM_CONST == 0)
 	lds   ZL,      v_vram_lo
 	lds   ZH,      v_vram_hi
+#else
+	ldi   ZL,      lo8(M74_VRAM_OFF)
+	ldi   ZH,      hi8(M74_VRAM_OFF)
+#endif
 	clr   r20
 	; Clear excess bytes compared to lower multiple of 4
 	sbrs  r0,      0
@@ -536,14 +590,23 @@ clvr2:
 .section .text
 SetTile:
 SetFont:
-	lds   r25,     v_vram_w
+#if (M74_VRAM_CONST == 0)
+	lds   r25,     v_vram_p
+#else
+	ldi   r25,     M74_VRAM_P
+#endif
 	mul   r25,     r22
 	add   r0,      r24
 	brcc  sttl0
 	inc   r1               ; Carry over
 sttl0:
+#if (M74_VRAM_CONST == 0)
 	lds   ZL,      v_vram_lo
 	lds   ZH,      v_vram_hi
+#else
+	ldi   ZL,      lo8(M74_VRAM_OFF)
+	ldi   ZH,      hi8(M74_VRAM_OFF)
+#endif
 	add   ZL,      r0
 	adc   ZH,      r1
 	st    Z,       r20
@@ -562,6 +625,7 @@ sttl0:
 ; some hsync_pulse rcalls which the kernel adds after the video mode), to
 ; ensure that all relative jumps are within range.
 ;
+#include "videoMode74/videoMode74_sprite.s"
 #include "videoMode74/videoMode74_scloop.s"
 #if (M74_M7_ENABLE != 0)
 #include "videoMode74/videoMode74_m7.s"

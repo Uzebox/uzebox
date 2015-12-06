@@ -34,16 +34,16 @@
 ;
 ; r16: Scanline counter (increments it by one)
 ; r17: Logical row counter (increments it by one)
-; r23: Byte 0 of tile descriptor
+; r22: Byte 0 of tile descriptor
 ; YL:  Byte 1 of tile descriptor
 ; X:   Offset from tile index list
 ; r9:  Global configuration (m74_config)
 ; r14: RAM clear / SPI load address, low
 ; r15: RAM clear / SPI load address, high
-; r22: Zero
+; r23: Zero
 ; YH:  Palette buffer, high
 ;
-; Everything expect r14, r15, r16, r17, r22, and YH may be clobbered.
+; Everything expect r14, r15, r16, r17, r23, and YH may be clobbered.
 ;
 m74_m7_separator:
 
@@ -57,11 +57,11 @@ m74_m7_separator:
 	andi  r24,     0x7     ; (1778)
 	swap  r24              ; (1779)
 	add   XL,      r24     ; (1780)
-	adc   XH,      r22     ; (1781)
+	adc   XH,      r23     ; (1781)
 
 	; Branch off for new / old palette load
 
-	sbrs  r23,     1       ; (1782 / 1783)
+	sbrs  r22,     1       ; (1782 / 1783)
 	rjmp  m7oldp           ; (1784) Color the separator line by old palette
 
 	; Color the separator by new palette
@@ -76,13 +76,13 @@ m74_m7_separator:
 
 	movw  ZL,      XL      ; (1789) ZH:ZL, XH:XL
 	add   ZL,      r20     ; (1790)
-	adc   ZH,      r22     ; (1791)
-	sbrs  r23,     2       ; (1792 / 1793) RAM / ROM source select
+	adc   ZH,      r23     ; (1791)
+	sbrs  r22,     2       ; (1792 / 1793) RAM / ROM source select
 	rjmp  m7nrom           ; (1794) ROM source
 	ld    r20,     Z       ; (1795) Color 0 value
 	movw  ZL,      XL      ; (1796) ZH:ZL, XH:XL
 	add   ZL,      r21     ; (1797)
-	adc   ZH,      r22     ; (1798)
+	adc   ZH,      r23     ; (1798)
 	ld    r21,     Z       ; (1800) Color 1 value
 	nop                    ; (1801)
 	rjmp  m7pend           ; (1803)
@@ -104,7 +104,7 @@ m7nrom:
 	lpm   r20,     Z       ; (1797) Color 0 value
 	movw  ZL,      XL      ; (1798) ZH:ZL, XH:XL
 	add   ZL,      r21     ; (1799)
-	adc   ZH,      r22     ; (1800)
+	adc   ZH,      r23     ; (1800)
 	lpm   r21,     Z       ; (1803) Color 1 value
 m7pend:
 
@@ -116,16 +116,16 @@ m7pend:
 
 	; Cut edge tiles depending on selected display width
 
-	sbrc  r23,     4       ; (1806)
-	mov   r2,      r22     ; (1807) 20 or 18 tiles width: r2 black
-	sbrc  r23,     4       ; (1808)
-	mov   r3,      r22     ; (1809) 20 or 18 tiles width: r3 black
-	sbrc  r23,     3       ; (1810)
-	mov   r2,      r22     ; (1811) 22 or 18 tiles width: r2 black
-	andi  r23,     0x18    ; (1812)
-	cpi   r23,     0x18    ; (1813)
+	sbrc  r22,     4       ; (1806)
+	mov   r2,      r23     ; (1807) 20 or 18 tiles width: r2 black
+	sbrc  r22,     4       ; (1808)
+	mov   r3,      r23     ; (1809) 20 or 18 tiles width: r3 black
+	sbrc  r22,     3       ; (1810)
+	mov   r2,      r23     ; (1811) 22 or 18 tiles width: r2 black
+	andi  r22,     0x18    ; (1812)
+	cpi   r22,     0x18    ; (1813)
 	brne  m7nwd18          ; (1814 / 1815)
-	mov   r4,      r22     ; (1815) 18 tiles width: r4 black
+	mov   r4,      r23     ; (1815) 18 tiles width: r4 black
 m7nwd18:
 
 	; Wait the remaining few cycles until hsync
@@ -153,21 +153,21 @@ m7nwd18:
 	;
 	; Load palette (cycle ctr. is at 229)
 	; Register usage:
-	; r24, r22, r0,  r1,  r5,  r8,  r9,  r10,
-	; r11, r12, r13, r19, r23, r25, XL,  XH
-	; Temporarily clobbers zero (r22) too, being a bit short on regs. To
-	; fix this, the first two colors (to release r24 and r22) are
+	; r24, r23, r0,  r1,  r5,  r8,  r9,  r10,
+	; r11, r12, r13, r19, r22, r25, XL,  XH
+	; Temporarily clobbers zero (r23) too, being a bit short on regs. To
+	; fix this, the first two colors (to release r24 and r23) are
 	; processed before doing anything else.
 	;
 
 	movw  ZL,      XL      ; ( 230) ZH:ZL, XH:XL
-	sbrs  r23,     2       ; ( 231 /  232) RAM / ROM source select
+	sbrs  r22,     2       ; ( 231 /  232) RAM / ROM source select
 	rjmp  m7lrom           ; ( 233) ROM source
 
 	; RAM palette source
 
 	ld    r24,     Z+      ; ( 234)
-	ld    r22,     Z+      ; ( 236)
+	ld    r23,     Z+      ; ( 236)
 	ld    r0,      Z+      ; ( 238)
 	ld    r1,      Z+      ; ( 240)
 	ld    r5,      Z+      ; ( 242)
@@ -178,7 +178,7 @@ m7nwd18:
 	ld    r12,     Z+      ; ( 252)
 	ld    r13,     Z+      ; ( 254)
 	ld    r19,     Z+      ; ( 256)
-	ld    r23,     Z+      ; ( 258)
+	ld    r22,     Z+      ; ( 258)
 	ld    r25,     Z+      ; ( 260)
 	ld    XL,      Z+      ; ( 262)
 	ld    XH,      Z+      ; ( 264)
@@ -193,7 +193,7 @@ m7lrom:
 	; ROM palette source
 
 	lpm   r24,     Z+      ; ( 236)
-	lpm   r22,     Z+      ; ( 239)
+	lpm   r23,     Z+      ; ( 239)
 	lpm   r0,      Z+      ; ( 242)
 	lpm   r1,      Z+      ; ( 245)
 	lpm   r5,      Z+      ; ( 248)
@@ -204,7 +204,7 @@ m7lrom:
 	lpm   r12,     Z+      ; ( 263)
 	lpm   r13,     Z+      ; ( 266)
 	lpm   r19,     Z+      ; ( 269)
-	lpm   r23,     Z+      ; ( 272)
+	lpm   r22,     Z+      ; ( 272)
 	lpm   r25,     Z+      ; ( 275)
 	lpm   XL,      Z+      ; ( 278)
 	lpm   XH,      Z+      ; ( 281)
@@ -215,24 +215,24 @@ m7lend:
 	clr   YL               ; ( 282)
 	rcall m74_setpalcol    ; ( 321) 3 + 36
 	inc   YL               ; ( 322)
-	st    Y+,      r22     ; ( 324)
-	st    Y+,      r22     ; ( 326)
-	st    Y+,      r22     ; ( 328)
-	st    Y+,      r22     ; ( 330)
-	st    Y+,      r22     ; ( 332)
-	st    Y+,      r22     ; ( 334)
-	st    Y+,      r22     ; ( 336)
-	st    Y+,      r22     ; ( 338)
-	st    Y+,      r22     ; ( 340)
-	st    Y+,      r22     ; ( 342)
-	st    Y+,      r22     ; ( 344)
-	st    Y+,      r22     ; ( 346)
-	st    Y+,      r22     ; ( 348)
-	st    Y+,      r22     ; ( 350)
+	st    Y+,      r23     ; ( 324)
+	st    Y+,      r23     ; ( 326)
+	st    Y+,      r23     ; ( 328)
+	st    Y+,      r23     ; ( 330)
+	st    Y+,      r23     ; ( 332)
+	st    Y+,      r23     ; ( 334)
+	st    Y+,      r23     ; ( 336)
+	st    Y+,      r23     ; ( 338)
+	st    Y+,      r23     ; ( 340)
+	st    Y+,      r23     ; ( 342)
+	st    Y+,      r23     ; ( 344)
+	st    Y+,      r23     ; ( 346)
+	st    Y+,      r23     ; ( 348)
+	st    Y+,      r23     ; ( 350)
 	out   PIXOUT,  r2      ; ( 351) Tile 0, Color r2
-	st    Y+,      r22     ; ( 353)
-	st    Y+,      r22     ; ( 355)
-	clr   r22              ; ( 356) Restore zero
+	st    Y+,      r23     ; ( 353)
+	st    Y+,      r23     ; ( 355)
+	clr   r23              ; ( 356) Restore zero
 	movw  ZL,      r14     ; ( 357) ZH:ZL, r15:r14, preparing for RAM clear / SPI load
 
 	; From here things are right for working with color or RAM clear / SPI load.
@@ -362,7 +362,7 @@ m7lend:
 	st    Y+,      r19     ; ()
 	out   PIXOUT,  r20     ; (1303) Tile 17, Color 0
 	st    Y+,      r19     ; ()
-	mov   r24,     r23     ; ()
+	mov   r24,     r22     ; ()
 	rcall m74_setpalcol    ; () 3 + 36
 	inc   YL               ; ()
 	st    Y+,      r25     ; ()
@@ -412,7 +412,7 @@ m7lend:
 	st    Y+,      XH      ; ()
 	st    Y,       XH      ; ()
 	sts   v_remc,  r6      ; () Restore stuff after RAM clear / SPI load
-	out   PIXOUT,  r22     ; (1695) Termination
+	out   PIXOUT,  r23     ; (1695) Termination
 	sts   v_rems,  r7      ; ()
 	movw  r14,     ZL      ; () r15:r14, ZH:ZL
 	rjmp  m74_scloop       ; (1700)

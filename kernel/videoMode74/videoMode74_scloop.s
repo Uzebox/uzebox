@@ -63,22 +63,22 @@
 ; Tile bank location data
 ;
 d_tbank2:
-	.byte M74_TBANK2_0_H
-	.byte M74_TBANK2_1_H
-	.byte M74_TBANK2_2_H
-	.byte M74_TBANK2_3_H
-	.byte M74_TBANK2_4_H
-	.byte M74_TBANK2_5_H
-	.byte M74_TBANK2_6_H
-	.byte M74_TBANK2_7_H
+	.byte (M74_TBANK2_0_OFF >> 8) & 0xFF
+	.byte (M74_TBANK2_1_OFF >> 8) & 0xFF
+	.byte (M74_TBANK2_2_OFF >> 8) & 0xFF
+	.byte (M74_TBANK2_3_OFF >> 8) & 0xFF
+	.byte (M74_TBANK2_4_OFF >> 8) & 0xFF
+	.byte (M74_TBANK2_5_OFF >> 8) & 0xFF
+	.byte (M74_TBANK2_6_OFF >> 8) & 0xFF
+	.byte (M74_TBANK2_7_OFF >> 8) & 0xFF
 
 
 
 ;
 ; Core tile output loop.
 ;
-; r22: Zero
-; r23, r0, r1: Temp
+; r23: Zero
+; r22, r0, r1: Temp
 ; r2, r3, r4, r5, r6, r7, r8, r9: Preloaded pixels for the tile
 ; r10: Tiles 0x00 - 0x7F, offset low (Unused in Mode 0)
 ; r11: Tiles 0x00 - 0x7F, offset high
@@ -139,14 +139,14 @@ centry:
 	out   PIXOUT,  r2      ; ( 1) Pixel 0
 	brcs  cb80ff           ; ( 2)
 	mov   ZH,      r11     ; ( 3)
-	cpse  r19,     r22     ; ( 4 /  5) Mode nonzero: Special modes for 0x00 - 0x7F
+	cpse  r19,     r23     ; ( 4 /  5) Mode nonzero: Special modes for 0x00 - 0x7F
 	rjmp  csp00            ; ( 6)
 	nop                    ; ( 6)
 	lsl   ZL               ; ( 7)
 ccom:
 	; 4bpp ROM tile output
 	out   PIXOUT,  r3      ; ( 8) Pixel 1
-	adc   ZH,      r22     ; ( 9) Use bit 6 of tile index for 0xC0 - 0xFF tiles
+	adc   ZH,      r23     ; ( 9) Use bit 6 of tile index for 0xC0 - 0xFF tiles
 	lpm   YL,      Z+      ; (12)
 	ld    r2,      Y       ; (14)
 	out   PIXOUT,  r4      ; (15) Pixel 2
@@ -183,7 +183,7 @@ cend0:
 cramt:
 	; 4bpp RAM tile output
 	add   ZL,      r20     ; (11)
-	adc   ZH,      r22     ; (12) (Just carry, r22 is zero)
+	adc   ZH,      r23     ; (12) (Just carry, r23 is zero)
 	ld    YL,      Z+      ; (14)
 	out   PIXOUT,  r4      ; (15) Pixel 2
 	ld    r2,      Y       ; (17)
@@ -219,8 +219,8 @@ c2bpp:
 	; 2bpp 2+ tile (16+ px / 4+ bytes) wide surface
 	; ZL at this point is 0x00 - 0xFE, even, OK. ZH loaded proper.
 	add   ZL,      r10     ; (12)
-	adc   ZH,      r22     ; (13) (Just carry, r22 is zero)
-	ldi   r23,     16      ; (14) Base width is 16 pixels (2 tiles)
+	adc   ZH,      r23     ; (13) (Just carry, r23 is zero)
+	ldi   r22,     16      ; (14) Base width is 16 pixels (2 tiles)
 	out   PIXOUT,  r4      ; (15) Pixel 2
 	ldi   r24,     (M74_2BPP_WIDTH - 1) ; (16)
 	mov   r0,      r24     ; (17)
@@ -284,7 +284,7 @@ c2bpple:
 	andi  r25,     0x33    ; ()
 	andi  YL,      0x33    ; ()
 	out   PIXOUT,  r7      ; (36) Pixel 5
-	sub   r18,     r23     ; () Bill the number of pixels output
+	sub   r18,     r22     ; () Bill the number of pixels output
 	ld    ZL,      X+      ; ()
 	ld    r6,      Y       ; ()
 	swap  YL               ; ()
@@ -300,7 +300,7 @@ c2bpple:
 c2bppe:
 	rjmp  cend0            ; (56)
 c2bppl:
-	subi  r23,     0xF8    ; () +8 pixels output
+	subi  r22,     0xF8    ; () +8 pixels output
 	out   PIXOUT,  r3      ; ( 8) Pixel 1
 	lpm   r24,     Z       ; () Dummy load (nop)
 	lpm   r24,     Z       ; () Dummy load (nop)
@@ -310,39 +310,39 @@ c1bp8:
 	; 1bpp 8 pixels wide ROM / RAM tile output
 	lsr   ZL               ; (12) Back to 0x00 - 0x7F range
 	add   ZL,      r10     ; (13)
-	adc   ZH,      r22     ; (14) (Just carry, r22 is zero)
+	adc   ZH,      r23     ; (14) (Just carry, r23 is zero)
 	out   PIXOUT,  r4      ; (15) Pixel 2
 	cpi   r19,     0x40    ; (16)
 	brpl  c1bp8r           ; (17 / 18)
-	ld    r23,     Z+      ; (19) RAM tile
+	ld    r22,     Z+      ; (19) RAM tile
 	rjmp  c1bp8c           ; (21)
 c1bp8r:
-	lpm   r23,     Z+      ; (21) ROM tile
+	lpm   r22,     Z+      ; (21) ROM tile
 c1bp8c:
 	out   PIXOUT,  r5      ; (22) Pixel 3
 	movw  r2,      r24     ; () r3:r2, r25:r24
 	movw  r4,      r24     ; () r5:r4, r25:r24
-	sbrc  r23,     7       ; ()
+	sbrc  r22,     7       ; ()
 	mov   r2,      r13     ; ()
-	sbrc  r23,     6       ; ()
+	sbrc  r22,     6       ; ()
 	mov   r3,      r13     ; ()
 	out   PIXOUT,  r6      ; (29) Pixel 4
-	sbrc  r23,     5       ; ()
+	sbrc  r22,     5       ; ()
 	mov   r4,      r13     ; ()
-	sbrc  r23,     4       ; ()
+	sbrc  r22,     4       ; ()
 	mov   r5,      r13     ; ()
 	rjmp  .                ; ()
 	out   PIXOUT,  r7      ; (36) Pixel 5
 	movw  r6,      r24     ; () r7:r6, r25:r24
 	movw  r0,      r24     ; () r1:r0, r25:r24
-	sbrc  r23,     3       ; ()
+	sbrc  r22,     3       ; ()
 	mov   r6,      r13     ; ()
-	sbrc  r23,     2       ; ()
+	sbrc  r22,     2       ; ()
 	mov   r7,      r13     ; ()
 	out   PIXOUT,  r8      ; (43) Pixel 6
-	sbrc  r23,     1       ; ()
+	sbrc  r22,     1       ; ()
 	mov   r0,      r13     ; ()
-	sbrc  r23,     0       ; ()
+	sbrc  r22,     0       ; ()
 	mov   r1,      r13     ; ()
 	ld    ZL,      X+      ; ()
 	out   PIXOUT,  r9      ; (50) Pixel 7
@@ -353,7 +353,7 @@ c1bp8c:
 c1bp6a:
 	; 1bpp 6 pixels wide ROM tile components
 	rjmp  .                ; (41)
-	mov   r23,     r13     ; (42) Replicate fg. color into r23
+	mov   r22,     r13     ; (42) Replicate fg. color into r22
 	out   PIXOUT,  r8      ; (43) Pixel 6
 	rjmp  .                ; (45)
 	rjmp  c1bp6b           ; (47)
@@ -362,13 +362,13 @@ c1bp6:
 	out   PIXOUT,  r4      ; (15) Pixel 2
 	lsr   ZL               ; (16) Back to 0x00 - 0x7F range
 	add   ZL,      r10     ; (17) Complete offset low (Tile 0)
-	adc   ZH,      r22     ; (18) (Just carry, r22 is zero)
+	adc   ZH,      r23     ; (18) (Just carry, r23 is zero)
 	lpm   r0,      Z+      ; (21) Tile 0 pixel data
 	out   PIXOUT,  r5      ; (22) Pixel 3
 	mov   ZH,      r11     ; (23)
 	ld    ZL,      X+      ; (25)
 	add   ZL,      r10     ; (26) Complete offset low (Tile 1)
-	adc   ZH,      r22     ; (27) (Just carry, r22 is zero)
+	adc   ZH,      r23     ; (27) (Just carry, r23 is zero)
 	movw  r2,      r24     ; (28) r3:r2, r25:r24
 	out   PIXOUT,  r6      ; (29) Pixel 4
 	movw  r4,      r24     ; (30) r5:r4, r25:r24
@@ -381,7 +381,7 @@ c1bp6:
 	ld    r13,     Y       ; (41) First tile px 1 color in r13
 	swap  YL               ; (42)
 	out   PIXOUT,  r8      ; (43) Pixel 6
-	ld    r23,     Y       ; (45) Second tile px 1 color in r23
+	ld    r22,     Y       ; (45) Second tile px 1 color in r22
 	ld    ZL,      X+      ; (47)
 c1bp6b:
 	sbrc  r0,      7       ; ()
@@ -402,39 +402,39 @@ c1bp6b:
 	mov   r7,      r13     ; ()
 	out   PIXOUT,  r3      ; ( 8) Pixel 1
 	sbrc  r1,      7       ; ()
-	mov   r8,      r23     ; ()
+	mov   r8,      r22     ; ()
 	sbrc  r1,      6       ; ()
-	mov   r9,      r23     ; ()
+	mov   r9,      r22     ; ()
 	movw  r2,      r24     ; () r3:r2, r25:r24
 	add   ZL,      r10     ; () Complete offset low (Tile 2)
 	out   PIXOUT,  r4      ; (15) Pixel 2
-	adc   ZH,      r22     ; () (Just carry, r22 is zero)
+	adc   ZH,      r23     ; () (Just carry, r23 is zero)
 	lpm   r0,      Z+      ; () Tile 2 pixel data
 	sbrc  r1,      5       ; ()
-	mov   r2,      r23     ; ()
+	mov   r2,      r22     ; ()
 	out   PIXOUT,  r5      ; (22) Pixel 3
 	sbrc  r1,      4       ; ()
-	mov   r3,      r23     ; ()
+	mov   r3,      r22     ; ()
 	movw  r4,      r24     ; () r5:r4, r25:r24
 	nop                    ; ()
 	sbrc  r1,      3       ; ()
-	mov   r4,      r23     ; ()
+	mov   r4,      r22     ; ()
 	out   PIXOUT,  r6      ; (29) Pixel 4
 	sbrc  r1,      2       ; ()
-	mov   r5,      r23     ; ()
+	mov   r5,      r22     ; ()
 	ld    ZL,      X+      ; ()
 	add   ZL,      r10     ; () Complete offset low (Tile 3)
-	adc   ZH,      r22     ; () (Just carry, r22 is zero)
+	adc   ZH,      r23     ; () (Just carry, r23 is zero)
 	out   PIXOUT,  r7      ; (36) Pixel 5
 	lpm   r1,      Z+      ; () Tile 3 pixel data
 	ld    ZL,      X+      ; ()
 	nop                    ; ()
 	out   PIXOUT,  r8      ; (43) Pixel 6
-	lpm   r23,     Z       ; () Dummy read (nop)
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 	out   PIXOUT,  r9      ; (50) Pixel 7
-	lpm   r23,     Z       ; () Dummy read (nop)
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 	out   PIXOUT,  r2      ; ( 1) Pixel 0 (Output tile 1 & 2)
 	cpi   r19,     0xC0    ; ( 2)
 	brmi  c1bp6c           ; ( 3 /  4) Attribute mode branch
@@ -442,7 +442,7 @@ c1bp6b:
 	ld    r13,     Y       ; ( 6) First tile px 1 color in r13
 	swap  YL               ; ( 7)
 	out   PIXOUT,  r3      ; ( 8) Pixel 1
-	ld    r23,     Y       ; (10) Second tile px 1 color in r23
+	ld    r22,     Y       ; (10) Second tile px 1 color in r22
 	ld    ZL,      X+      ; (12)
 c1bp6d:
 	movw  r6,      r24     ; () r7:r6, r25:r24
@@ -465,23 +465,23 @@ c1bp6d:
 	sbrc  r0,      2       ; ()
 	mov   r3,      r13     ; ()
 	sbrc  r1,      7       ; ()
-	mov   r4,      r23     ; ()
+	mov   r4,      r22     ; ()
 	sbrc  r1,      6       ; ()
-	mov   r5,      r23     ; ()
+	mov   r5,      r22     ; ()
 	out   PIXOUT,  r7      ; (36) Pixel 5
 	mov   r6,      r24     ; ()
 	sbrc  r1,      5       ; ()
-	mov   r6,      r23     ; ()
+	mov   r6,      r22     ; ()
 	mov   r7,      r24     ; ()
 	sbrc  r1,      4       ; ()
-	mov   r7,      r23     ; ()
+	mov   r7,      r22     ; ()
 	out   PIXOUT,  r8      ; (43) Pixel 6
 	mov   r8,      r24     ; ()
 	sbrc  r1,      3       ; ()
-	mov   r8,      r23     ; ()
+	mov   r8,      r22     ; ()
 	mov   r0,      r24     ; ()
 	sbrc  r1,      2       ; ()
-	mov   r0,      r23     ; ()
+	mov   r0,      r22     ; ()
 	out   PIXOUT,  r9      ; (50) Pixel 7
 	mov   r9,      r0      ; ()
 	subi  r18,     24      ; () Bill the number of pixels output
@@ -491,7 +491,7 @@ c1bp6x:
 	rjmp  cend0            ; (56)
 c1bp6c:
 	rjmp  .                ; ( 6)
-	mov   r23,     r13     ; ( 7) Replicate fg. color into r23
+	mov   r22,     r13     ; ( 7) Replicate fg. color into r22
 	out   PIXOUT,  r2      ; ( 8) Pixel 1
 	rjmp  .                ; (10)
 	rjmp  c1bp6d           ; (12)
@@ -503,38 +503,38 @@ cend1:
 	breq  cend             ; ()
 	nop                    ; ()
 	out   PIXOUT,  r3      ; ( 8) Pixel 1
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 	inc   r18              ; ()
 	breq  cend             ; ()
 	nop                    ; ()
 	out   PIXOUT,  r4      ; (15) Pixel 2
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 	inc   r18              ; ()
 	breq  cend             ; ()
 	nop                    ; ()
 	out   PIXOUT,  r5      ; (22) Pixel 3
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 	inc   r18              ; ()
 	breq  cend             ; ()
 	nop                    ; ()
 	out   PIXOUT,  r6      ; (29) Pixel 4
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 	inc   r18              ; ()
 	breq  cend             ; ()
 	nop                    ; ()
 	out   PIXOUT,  r7      ; (36) Pixel 5
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 	inc   r18              ; ()
 	breq  cend             ; ()
 	nop                    ; ()
 	out   PIXOUT,  r8      ; (43) Pixel 6
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 	inc   r18              ; ()
 	breq  cend             ; ()
 	nop                    ; ()
 	out   PIXOUT,  r9      ; (50) Pixel 7
-	lpm   r23,     Z       ; () Dummy read (nop)
-	lpm   r23,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
+	lpm   r22,     Z       ; () Dummy read (nop)
 cend:
 	;
 	; At this point 25 tiles worth of cycles were consumed, the cycle
@@ -550,7 +550,7 @@ cend:
 	; 1694
 	;
 m74_scloop_sr:
-	out   PIXOUT,  r22     ; (1695) Right border (blanking) starts
+	out   PIXOUT,  r23     ; (1695) Right border (blanking) starts
 
 
 
@@ -571,24 +571,24 @@ drloop:
 	movw  ZL,      r14     ; (15) ZH:ZL, r15:r14 Target pointer
 	inc   r7               ; (16)
 	brne  drspil           ; (17 / 18) SPI load if v_rems is not 0xFF
-	cp    r6,      r22     ; (18)
+	cp    r6,      r23     ; (18)
 	breq  drnfn1           ; (19 / 20) v_remc drained, nothing to process
-	st    Z+,      r22     ; (21)
-	st    Z+,      r22     ; (23)
-	st    Z+,      r22     ; (25)
-	st    Z+,      r22     ; (27)
-	st    Z+,      r22     ; (29)
-	st    Z+,      r22     ; (31)
-	st    Z+,      r22     ; (33)
-	st    Z+,      r22     ; (35)
-	st    Z+,      r22     ; (37)
-	st    Z+,      r22     ; (39)
-	st    Z+,      r22     ; (41)
-	st    Z+,      r22     ; (43)
-	st    Z+,      r22     ; (45)
-	st    Z+,      r22     ; (47)
-	st    Z+,      r22     ; (49)
-	st    Z+,      r22     ; (51)
+	st    Z+,      r23     ; (21)
+	st    Z+,      r23     ; (23)
+	st    Z+,      r23     ; (25)
+	st    Z+,      r23     ; (27)
+	st    Z+,      r23     ; (29)
+	st    Z+,      r23     ; (31)
+	st    Z+,      r23     ; (33)
+	st    Z+,      r23     ; (35)
+	st    Z+,      r23     ; (37)
+	st    Z+,      r23     ; (39)
+	st    Z+,      r23     ; (41)
+	st    Z+,      r23     ; (43)
+	st    Z+,      r23     ; (45)
+	st    Z+,      r23     ; (47)
+	st    Z+,      r23     ; (49)
+	st    Z+,      r23     ; (51)
 	dec   r6               ; (52)
 drspie:
 	sts   v_remc,  r6      ; (54)
@@ -619,17 +619,17 @@ drend:
 ; Exit is at 1709.
 ;
 m74_scloop:
-	lds   r23,     render_lines_count ; (1702)
-	cp    r23,     r16     ; (1703)
+	lds   r22,     render_lines_count ; (1702)
+	cp    r22,     r16     ; (1703)
 	breq  sclpret          ; (1704 / 1705)
-	clr   r22              ; (1705) r22 is used as a permanent zero register.
+	clr   r23              ; (1705) r23 is used as a permanent zero register.
 
 
 
 ;
 ; Row management code
 ;
-; r22: Zero
+; r23: Zero
 ; r16: Scanline counter (Normally 0 => 223)
 ; r17: Logical row counter
 ;
@@ -647,7 +647,7 @@ m74_scloop:
 	rjmp  mresp            ; ( 9)
 	; RAM / ROM scanline map + optional RAM X scroll map
 	add   ZL,      r16     ; ( 9)
-	adc   ZH,      r22     ; (10)
+	adc   ZH,      r23     ; (10)
 	sbrs  r9,      7       ; (11 / 12)
 	rjmp  mresro           ; (13)
 	ld    r17,     Z       ; (14) RAM scanline map
@@ -690,24 +690,24 @@ mrese:
 	lsr   r24              ; ( 7)
 	lsr   r24              ; ( 8) Tile descriptor offset from log. row counter
 	add   ZL,      r24     ; ( 9)
-	adc   ZH,      r22     ; (10)
+	adc   ZH,      r23     ; (10)
 	sbrs  r9,      1       ; (11 / 12)
 	rjmp  mtdro            ; (13)
 	; RAM tile descriptors
-	ld    r23,     Z+      ; (14)
+	ld    r22,     Z+      ; (14)
 	ld    YL,      Z+      ; (16)
 	nop                    ; (17)
 	rjmp  mtdre            ; (19)
 mtdro:
 	; ROM tile descriptors
-	lpm   r23,     Z+      ; (16)
+	lpm   r22,     Z+      ; (16)
 	lpm   YL,      Z+      ; (19)
 mtdre:
 	; Tile index list
 	lds   ZL,      m74_tidx_lo  ; (21)
 	lds   ZH,      m74_tidx_hi  ; (23)
 	add   ZL,      r24     ; (24)
-	adc   ZH,      r22     ; (25)
+	adc   ZH,      r23     ; (25)
 	sbrs  r9,      2       ; (26 / 27)
 	rjmp  mtdroi           ; (28)
 	; RAM tile index list
@@ -724,7 +724,7 @@ mtdrie:
 	; Prepare for scanline render
 	;
 	; Process tile row configuration
-	mov   r19,     r23     ; ( 1)
+	mov   r19,     r22     ; ( 1)
 	andi  r19,     0xE0    ; ( 2) Mode selector's final resting place is r19
 	breq  mtnm0            ; ( 3 /  4) Is it mode 0 (ROM 4bpp)?
 #if (M74_M7_ENABLE != 0U)
@@ -744,8 +744,8 @@ mtdrie:
 	rjmp  mtst0x           ; (10)
 	sbrs  YL,      0       ; (10 / 11)
 	rjmp  mtst10           ; (12)
-	ldi   ZL,      M74_TBANK01_3_L    ; (12)
-	ldi   ZH,      M74_TBANK01_3_H    ; (13)
+	ldi   ZL,      lo8(M74_TBANK01_3_OFF) ; (12)
+	ldi   ZH,      hi8(M74_TBANK01_3_OFF) ; (13)
 	ldi   r18,     M74_TBANK01_3_INC  ; (14)
 	nop                    ; (15)
 	rjmp  mtste            ; (17)
@@ -763,33 +763,33 @@ mtnm0:
 	ldi   r18,     128     ; ( 6) Row increment is always 512 bytes
 	sbrs  YL,      1       ; ( 7 /  8)
 	rjmp  mtm0t0x          ; ( 9)
-	ldi   ZH,      M74_TBANKM0_3_H    ; ( 9)
+	ldi   ZH,      hi8(M74_TBANKM0_3_OFF) ; ( 9)
 	sbrs  YL,      0       ; (10 / 11)
-	ldi   ZH,      M74_TBANKM0_2_H    ; (11)
+	ldi   ZH,      hi8(M74_TBANKM0_2_OFF) ; (11)
 	rjmp  mtm0te           ; (13)
 mtm0t0x:
-	ldi   ZH,      M74_TBANKM0_1_H    ; (10)
+	ldi   ZH,      hi8(M74_TBANKM0_1_OFF) ; (10)
 	sbrs  YL,      0       ; (11 / 12)
-	ldi   ZH,      M74_TBANKM0_0_H    ; (12)
+	ldi   ZH,      hi8(M74_TBANKM0_0_OFF) ; (12)
 	nop                    ; (13)
 mtm0te:
 	rjmp  .                ; (15)
 	rjmp  mtste            ; (17)
 mtst10:
-	ldi   ZL,      M74_TBANK01_2_L    ; (13)
-	ldi   ZH,      M74_TBANK01_2_H    ; (14)
+	ldi   ZL,      lo8(M74_TBANK01_2_OFF) ; (13)
+	ldi   ZH,      hi8(M74_TBANK01_2_OFF) ; (14)
 	ldi   r18,     M74_TBANK01_2_INC  ; (15)
 	rjmp  mtste            ; (17)
 mtst0x:
 	sbrs  YL,      0       ; (11 / 12)
 	rjmp  mtst00           ; (13)
-	ldi   ZL,      M74_TBANK01_1_L    ; (13)
-	ldi   ZH,      M74_TBANK01_1_H    ; (14)
+	ldi   ZL,      lo8(M74_TBANK01_1_OFF) ; (13)
+	ldi   ZH,      hi8(M74_TBANK01_1_OFF) ; (14)
 	ldi   r18,     M74_TBANK01_1_INC  ; (15)
 	rjmp  mtste            ; (17)
 mtst00:
-	ldi   ZL,      M74_TBANK01_0_L    ; (14)
-	ldi   ZH,      M74_TBANK01_0_H    ; (15)
+	ldi   ZL,      lo8(M74_TBANK01_0_OFF) ; (14)
+	ldi   ZH,      hi8(M74_TBANK01_0_OFF) ; (15)
 	ldi   r18,     M74_TBANK01_0_INC  ; (16)
 	nop                    ; (17)
 mtste:
@@ -797,32 +797,32 @@ mtste:
 	; Load 0xC0 - 0xFF configuration
 	sbrs  YL,      2       ; (19 / 20)
 	rjmp  mtsr0            ; (21)
-	ldi   r20,     M74_TBANK3_1_L    ; (21)
-	ldi   r21,     M74_TBANK3_1_H    ; (22)
+	ldi   r20,     lo8(M74_TBANK3_1_OFF)  ; (21)
+	ldi   r21,     hi8(M74_TBANK3_1_OFF)  ; (22)
 	ldi   r24,     M74_TBANK3_1_INC  ; (23)
 	rjmp  mtsre            ; (25)
 mtsr0:
-	ldi   r20,     M74_TBANK3_0_L    ; (22)
-	ldi   r21,     M74_TBANK3_0_H    ; (23)
+	ldi   r20,     lo8(M74_TBANK3_0_OFF)  ; (22)
+	ldi   r21,     hi8(M74_TBANK3_0_OFF)  ; (23)
 	ldi   r24,     M74_TBANK3_0_INC  ; (24)
 	nop                    ; (25)
 mtsre:
 	; Load 0x80 - 0xBF configuration
-	mov   ZL,      r23     ; (26)
+	movw  ZL,      r22     ; (26) ZH:ZL, r23:r22 (r23 is zero)
 	andi  ZL,      0x7     ; (27) 2Kb ROM half tile map selector
 	subi  ZL,      lo8(-(d_tbank2)) ; (28)
 	sbci  ZH,      hi8(-(d_tbank2)) ; (29)
 	lpm   r12,     Z       ; (32)
 	; Prepare horizontal size
-	andi  r23,     0x18    ; (33) Mask off size bits
-	sts   v_hsize, r23     ; (35) Save them
+	andi  r22,     0x18    ; (33) Mask off size bits
+	sts   v_hsize, r22     ; (35) Save them
 	; Apply X scroll
 	mov   r25,     r2      ; (36) X scroll in r2
 	lsr   r2               ; (37)
 	lsr   r2               ; (38)
 	lsr   r2               ; (39)
 	add   XL,      r2      ; (40) Apply high 5 bits as offset
-	adc   XH,      r22     ; (41)
+	adc   XH,      r23     ; (41)
 	andi  r25,     0x7     ; (42)
 	; Apply row increment on tiles 0x00 - 0x7F
 	mov   ZL,      r17     ; (43) Logical row counter
@@ -874,8 +874,8 @@ mtsre:
 	ldi   ZL,      2       ; (   8)
 	call  update_sound     ; (  12) (+ AUDIO)
 	WAIT  ZL,      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
-	sub   r18,     r23     ; ( 230)
-	sub   r18,     r23     ; ( 231) Reduced by output tile count
+	sub   r18,     r22     ; ( 230)
+	sub   r18,     r22     ; ( 231) Reduced by output tile count
 
 
 
@@ -885,19 +885,25 @@ mtsre:
 ; up to reflect the number of pixels to generate (initialized above the hsync)
 ; r9 still contains the global config at this point
 ;
-#if (M74_COL0_RELOAD != 0U)
+#if (M74_COL0_RELOAD != 0)
 dfloop0:
-	subi  r23,     8       ; ( 1)
+	subi  r22,     8       ; ( 1)
 	brcs  dfend0           ; ( 2 /  3)
 	; Perform Color 0 reload under leftmost omitted tile if it was
 	; enabled.
 	sbrs  r9,      4       ; ( 3 /  4)
 	rjmp  dfrl0            ; ( 5) Reload disabled
 	mov   r0,      YL      ; ( 5) Put aside already loaded fg. palette index
+#if (M74_COL0_PTRE != 0)
 	lds   ZL,      m74_col0_lo  ; ( 7)
 	lds   ZH,      m74_col0_hi  ; ( 9)
+#else
+	ldi   ZL,      lo8(M74_COL0_OFF) ; ( 6)
+	ldi   ZH,      hi8(M74_COL0_OFF) ; ( 7)
+	rjmp  .                ; ( 9)
+#endif
 	add   ZL,      r17     ; (10)
-	adc   ZH,      r22     ; (11) (Just carry, r22 is zero)
+	adc   ZH,      r23     ; (11) (Just carry, r23 is zero)
 	sbrs  r9,      5       ; (12 / 13)
 	rjmp  dfrl00           ; (14)
 	ld    r8,      Z       ; (15) Color0 table in RAM
@@ -922,7 +928,7 @@ dfrl02:
 	mov   YL,      r0      ; (56 = 0) Restore YL (Fg. palette index)
 #endif
 dfloop:
-	subi  r23,     8       ; ( 1)
+	subi  r22,     8       ; ( 1)
 	brcs  dfend1           ; ( 2 /  3)
 	lpm   r24,     Z       ; ( 5) Dummy load (nop)
 dfrl0:
@@ -935,24 +941,24 @@ dfrl0:
 	movw  ZL,      r14     ; (15) ZH:ZL, r15:r14 Target pointer
 	inc   r7               ; (16)
 	brne  dfspil           ; (17 / 18) SPI load if v_rems is not 0xFF
-	cp    r6,      r22     ; (18)
+	cp    r6,      r23     ; (18)
 	breq  dfnfn1           ; (19 / 20) v_remc drained, nothing to process
-	st    Z+,      r22     ; (21)
-	st    Z+,      r22     ; (23)
-	st    Z+,      r22     ; (25)
-	st    Z+,      r22     ; (27)
-	st    Z+,      r22     ; (29)
-	st    Z+,      r22     ; (31)
-	st    Z+,      r22     ; (33)
-	st    Z+,      r22     ; (35)
-	st    Z+,      r22     ; (37)
-	st    Z+,      r22     ; (39)
-	st    Z+,      r22     ; (41)
-	st    Z+,      r22     ; (43)
-	st    Z+,      r22     ; (45)
-	st    Z+,      r22     ; (47)
-	st    Z+,      r22     ; (49)
-	st    Z+,      r22     ; (51)
+	st    Z+,      r23     ; (21)
+	st    Z+,      r23     ; (23)
+	st    Z+,      r23     ; (25)
+	st    Z+,      r23     ; (27)
+	st    Z+,      r23     ; (29)
+	st    Z+,      r23     ; (31)
+	st    Z+,      r23     ; (33)
+	st    Z+,      r23     ; (35)
+	st    Z+,      r23     ; (37)
+	st    Z+,      r23     ; (39)
+	st    Z+,      r23     ; (41)
+	st    Z+,      r23     ; (43)
+	st    Z+,      r23     ; (45)
+	st    Z+,      r23     ; (47)
+	st    Z+,      r23     ; (49)
+	st    Z+,      r23     ; (51)
 	dec   r6               ; (52)
 dfspie:
 	sts   v_remc,  r6      ; (54)
@@ -1019,7 +1025,7 @@ dfend:
 ; left. So now it totals 49 cycles instead of 54.
 ;
 	ld    ZL,      X+      ; ( 7) Load first tile index from RAM
-	cp    r25,     r22     ; ( 8)
+	cp    r25,     r23     ; ( 8)
 	breq  pnscrl0          ; ( 9 /10) No scrolling: No first partial tile load
 	;
 	; Partial tile load code
@@ -1030,13 +1036,13 @@ dfend:
 	lsl   ZL               ; (10)
 	brcs  pb80ff           ; (11 / 12)
 	mov   ZH,      r11     ; (12)
-	cpse  r19,     r22     ; (13 / 14) Mode nonzero: Special modes for 0x00 - 0x7F
+	cpse  r19,     r23     ; (13 / 14) Mode nonzero: Special modes for 0x00 - 0x7F
 	rjmp  psp00            ; (15)
 	nop                    ; (15)
 	lsl   ZL               ; (16)
 pcom:
 	; 4bpp ROM tile output
-	adc   ZH,      r22     ; (17) Use bit 6 of tile index for 0xC0 - 0xFF tiles
+	adc   ZH,      r23     ; (17) Use bit 6 of tile index for 0xC0 - 0xFF tiles
 	lpm   YL,      Z+      ; (20)
 	swap  YL               ; (21)
 	ld    r3,      Y       ; (23)
@@ -1066,7 +1072,7 @@ pnscrl0:
 pramt:
 	; 4bpp RAM tile output
 	add   ZL,      r20     ; (19)
-	adc   ZH,      r22     ; (20) (Just carry, r22 is zero)
+	adc   ZH,      r23     ; (20) (Just carry, r23 is zero)
 	ld    YL,      Z+      ; (22)
 	swap  YL               ; (23)
 	ld    r3,      Y       ; (25)
@@ -1090,32 +1096,32 @@ psp00:
 	; (just branch here for everything special, don't care)
 	lsr   ZL               ; (16) Back to 0x00 - 0x7F range
 	add   ZL,      r10     ; (17)
-	adc   ZH,      r22     ; (18) (Just carry, r22 is zero)
+	adc   ZH,      r23     ; (18) (Just carry, r23 is zero)
 	cpi   r19,     0x40    ; (19)
 	brpl  p1bp8r           ; (20 / 21)
-	ld    r23,     Z+      ; (22) RAM tile
+	ld    r22,     Z+      ; (22) RAM tile
 	rjmp  p1bp8c           ; (24)
 p1bp8r:
-	lpm   r23,     Z+      ; (24) ROM tile
+	lpm   r22,     Z+      ; (24) ROM tile
 p1bp8c:
 	mov   r3,      r24     ; (25)
 	mov   r4,      r24     ; (26)
 	mov   r5,      r24     ; (27)
 	movw  r6,      r4      ; (28) r7:r6, r5:r4
 	movw  r8,      r4      ; (29) r9:r8, r5:r4
-	sbrc  r23,     6       ; (30)
+	sbrc  r22,     6       ; (30)
 	mov   r3,      r13     ; (31)
-	sbrc  r23,     5       ; (32)
+	sbrc  r22,     5       ; (32)
 	mov   r4,      r13     ; (33)
-	sbrc  r23,     4       ; (34)
+	sbrc  r22,     4       ; (34)
 	mov   r5,      r13     ; (35)
-	sbrc  r23,     3       ; (36)
+	sbrc  r22,     3       ; (36)
 	mov   r6,      r13     ; (37)
-	sbrc  r23,     2       ; (38)
+	sbrc  r22,     2       ; (38)
 	mov   r7,      r13     ; (39)
-	sbrc  r23,     1       ; (40)
+	sbrc  r22,     1       ; (40)
 	mov   r8,      r13     ; (41)
-	sbrc  r23,     0       ; (42)
+	sbrc  r22,     0       ; (42)
 	mov   r9,      r13     ; (43)
 	rjmp  .                ; (45)
 	rjmp  p1bcom           ; (47)
@@ -1155,7 +1161,7 @@ pte123456:
 	movw  r4,      r2      ; (59) r5:r4, r3:r2
 	movw  r6,      r2      ; (60) r7:r6, r3:r2
 ptej2:
-	lpm   r23,     Z       ; (63) Dummy load (nop)
+	lpm   r22,     Z       ; (63) Dummy load (nop)
 	rjmp  ptej1            ; (65)
 pte12345:
 	cpi   r25,     5       ; (59)
@@ -1172,7 +1178,7 @@ pte1234:
 	clr   r3               ; (64)
 	movw  r4,      r2      ; (65) r5:r4, r3:r2
 ptej4:
-	lpm   r23,     Z       ; (68) Dummy load (nop)
+	lpm   r22,     Z       ; (68) Dummy load (nop)
 	rjmp  ptej3            ; (70)
 pte123:
 	cpi   r25,     3       ; (65)
@@ -1187,9 +1193,9 @@ pte12:
 	brne  pte1             ; (69 / 70)
 	clr   r3               ; (70)
 ptej6:
-	lpm   r23,     Z       ; (73) Dummy load (nop)
+	lpm   r22,     Z       ; (73) Dummy load (nop)
 	rjmp  ptej5            ; (75)
 pte1:
-	lpm   r23,     Z       ; (73) Dummy load (nop)
+	lpm   r22,     Z       ; (73) Dummy load (nop)
 	rjmp  .                ; (75)
 	rjmp  ptej6            ; (77)

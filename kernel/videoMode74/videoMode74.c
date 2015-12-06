@@ -41,11 +41,31 @@
 	/* Callback invoked by UzeboxCore.Initialize() */
 	void InitializeVideoMode()
 	{
-		m74_ldsl  = 0xFFU; /* Turn off RAM clear or SPI load (never reached line) */
-		m74_totc  = 0x00U; /* Same, just have everything right */
-		m74_skip  = 0xFFU; /* Same, just have everything right */
-		m74_umod  = 0U;    /* No user video mode, display disabled */
-		m74_bgcol = 0U;    /* Background color: index zero */
+		m74_ldsl   = 0xFFU; /* Turn off RAM clear or SPI load (never reached line) */
+		m74_totc   = 0x00U; /* Same, just have everything right */
+		m74_skip   = 0xFFU; /* Same, just have everything right */
+		m74_umod   = 0U;    /* No user video mode, display disabled */
+		m74_bgcol  = 0U;    /* Background color: index zero */
+		m74_rtmax  = 32U;   /* Allow 32 RAM tiles by default (should leave enough stack with default config) */
+		m74_rtno   = 0U;    /* Currently allocated RAM tiles */
+#if (M74_PAL_PTRE != 0)
+		m74_pal    = M74_PAL_OFF;     /* 16 color palette address */
+#endif
+#if ((M74_COL0_PTRE != 0) && (M74_COL0_RELOAD != 0))
+		m74_col0   = M74_COL0_OFF;    /* Color 0 reload address */
+#endif
+#if ((M74_M3_PTRE != 0) && (M74_M3_ENABLE != 0))
+		m74_mcadd  = M74_M3_OFF;      /* Multicolor framebuffer address */
+#endif
+#if (M74_ROMMASK_PTRE != 0)
+		m74_romma  = M74_ROMMASK_OFF; /* ROM mask pool address */
+#endif
+#if (M74_RAMMASK_PTRE != 0)
+		m74_ramma  = M74_RAMMASK_OFF; /* RAM mask pool address */
+#endif
+#if (M74_RTLIST_PTRE != 0)
+		m74_rtlist = M74_RTLIST_OFF;  /* RAM tile allocation workspace address */
+#endif
 	}
 
 	/* Callback invoked during hsync */

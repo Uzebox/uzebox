@@ -57,8 +57,14 @@ umod0:
 
 	lds   r23,     m74_config   ; ( 476)
 	ldi   YH,      M74_PALBUF_H ; ( 477)
+#if (M74_PAL_PTRE != 0)
 	lds   ZL,      m74_pal_lo   ; ( 479)
 	lds   ZH,      m74_pal_hi   ; ( 481)
+#else
+	ldi   ZL,      lo8(M74_PAL_OFF) ; ( 478)
+	ldi   ZH,      hi8(M74_PAL_OFF) ; ( 479)
+	rjmp  .                ; ( 481)
+#endif
 	clr   YL               ; ( 482)
 lcloop:
 	sbrs  r23,     3       ; ( 1)
@@ -124,8 +130,14 @@ lrese:
 #if (M74_M3_ENABLE != 0)
 	; Initialize 2bpp Multicolor mode
 
+#if (M74_M3_PTRE != 0)
 	lds   r18,     m74_mcadd_lo ; (1288)
 	lds   r19,     m74_mcadd_hi ; (1290)
+#else
+	ldi   r18,     lo8(M74_M3_OFF)   ; (1287)
+	ldi   r19,     hi8(M74_M3_OFF)   ; (1288)
+	rjmp  .                ; (1290)
+#endif
 	subi  r18,     1       ; (1291) Stack is pre-incrementing, so correct
 	sbci  r19,     0       ; (1292)
 	sts   v_m3ptr_lo, r18  ; (1294)
@@ -231,7 +243,7 @@ m74_setpalcol:
 ; r6:  Pre-load with v_remc
 ; r7:  Pre-load with v_rems
 ; Z:   Target memory area
-; r22: Zero
+; r23: Zero
 ; Returns:
 ; r6, r7, Z updated, Carry set on end of load, clear otherwise.
 ; Clobbers:
@@ -245,7 +257,7 @@ m74_setpalcol:
 ;	breq  spil0            ; ( 2 /  3) End of SPI load (v_rems is 0xFF)
 m74_spiload_core_nc:
 	in    r24,     _SFR_IO_ADDR(SPDR) ; ( 3)
-	out   _SFR_IO_ADDR(SPDR), r22     ; ( 4)
+	out   _SFR_IO_ADDR(SPDR), r23     ; ( 4)
 	dec   r7               ; ( 5) Restore v_rems, also setting zero flag if in loading stage
 	brne  spil1            ; ( 6 /  7) If nonzero, then skipping, otherwise loading
 	st    Z+,      r24     ; ( 8) Store loaded byte
@@ -261,7 +273,7 @@ spil3:
 	lpm   r24,     Z       ; (19) Dummy load (nop)
 	nop                    ; (20)
 	in    r24,     _SFR_IO_ADDR(SPDR) ; (21)
-	out   _SFR_IO_ADDR(SPDR), r22     ; (22)
+	out   _SFR_IO_ADDR(SPDR), r23     ; (22)
 	st    Z+,      r24     ; (24)
 spil4:
 	ret                    ; (28)
@@ -278,7 +290,7 @@ spil1:
 	lpm   r24,     Z       ; (18) Dummy load (nop)
 	rjmp  .                ; (20)
 	in    r24,     _SFR_IO_ADDR(SPDR) ; (21)
-	out   _SFR_IO_ADDR(SPDR), r22     ; (22)
+	out   _SFR_IO_ADDR(SPDR), r23     ; (22)
 	rjmp  spil4            ; (24)
 
 
@@ -291,7 +303,7 @@ spil1:
 ; r6:  Pre-load with v_remc
 ; r7:  Pre-load with v_rems
 ; Z:   Target memory area
-; r22: Zero
+; r23: Zero
 ; Clobbers:
 ; r24
 ;
@@ -300,24 +312,24 @@ m74_sl_func:
 	brcc  slf0             ; ( 2 /  3) Function may only run if reached
 	inc   r7               ; ( 3)
 	brne  slf1             ; ( 4 /  5) RAM clear or SPI load select
-	cp    r6,      r22     ; ( 5)
+	cp    r6,      r23     ; ( 5)
 	breq  slf2             ; ( 6 /  7) No more 16 byte blocks to process
-	st    Z+,      r22     ; ( 8)
-	st    Z+,      r22     ; (10)
-	st    Z+,      r22     ; (12)
-	st    Z+,      r22     ; (14)
-	st    Z+,      r22     ; (16)
-	st    Z+,      r22     ; (18)
-	st    Z+,      r22     ; (20)
-	st    Z+,      r22     ; (22)
-	st    Z+,      r22     ; (24)
-	st    Z+,      r22     ; (26)
-	st    Z+,      r22     ; (28)
-	st    Z+,      r22     ; (30)
-	st    Z+,      r22     ; (32)
-	st    Z+,      r22     ; (34)
-	st    Z+,      r22     ; (36)
-	st    Z+,      r22     ; (38)
+	st    Z+,      r23     ; ( 8)
+	st    Z+,      r23     ; (10)
+	st    Z+,      r23     ; (12)
+	st    Z+,      r23     ; (14)
+	st    Z+,      r23     ; (16)
+	st    Z+,      r23     ; (18)
+	st    Z+,      r23     ; (20)
+	st    Z+,      r23     ; (22)
+	st    Z+,      r23     ; (24)
+	st    Z+,      r23     ; (26)
+	st    Z+,      r23     ; (28)
+	st    Z+,      r23     ; (30)
+	st    Z+,      r23     ; (32)
+	st    Z+,      r23     ; (34)
+	st    Z+,      r23     ; (36)
+	st    Z+,      r23     ; (38)
 	dec   r6               ; (39)
 	dec   r7               ; (40) Restore r7 (v_rems)
 	ret                    ; (44)
