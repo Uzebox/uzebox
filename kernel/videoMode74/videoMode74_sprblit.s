@@ -136,7 +136,7 @@ spbs2:
 	ldi   r20,     lo8(pm(spljta))
 	ldi   r21,     hi8(pm(spljta))
 	sbrc  r16,     0       ; Flipped?
-	subi  r22,     0xF2    ; Cheat: Add 14 to reach flipped jump table (spljtaf)
+	subi  r22,     0xF1    ; Cheat: Add 15 to reach flipped jump table (spljtaf)
 	add   r20,     r22
 	adc   r21,     r1
 	movw  r0,      r20     ; From now r1 is not zero
