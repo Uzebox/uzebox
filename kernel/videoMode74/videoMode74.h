@@ -83,6 +83,11 @@ extern void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hg
 extern void M74_Finish(void);
 extern void M74_VramRestore(void);
 extern void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl, unsigned char flg);
+extern void M74_PutPixel(unsigned char col, unsigned char xl, unsigned char yl, unsigned char flg);
+extern void M74_VramMove(signed char x, signed char y);
+extern void M74_VramFillCol(unsigned char y, unsigned int src, unsigned char incr);
+extern void M74_VramFillRow(unsigned char x, unsigned int src, unsigned char incr);
+extern void M74_VramFill(unsigned int src, unsigned char pitch);
 
 
 /*
@@ -94,7 +99,7 @@ extern void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl,
 #define M74_SPR_FLIPY 0x04U
 #define M74_SPR_RAM   0x02U
 #define M74_SPR_MASK  0x10U
-#define M74_SPR_I3    0x00U
-#define M74_SPR_I2    0x40U
-#define M74_SPR_I1    0x80U
-#define M74_SPR_I0    0xC0U
+#define M74_SPR_I3    0xC0U
+#define M74_SPR_I2    0x80U
+#define M74_SPR_I1    0x40U
+#define M74_SPR_I0    0x00U
