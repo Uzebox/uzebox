@@ -99,7 +99,36 @@
 ; The sprite has fixed 8x8 pixel layout, 4 bytes per line, 32 bytes total,
 ; high nybble first for pixels. Color index 0 is transparent.
 ;
+; The flags:
+; bit0: If set, flip horizontally (M74_SPR_FLIPX)
+; bit1: If set, sprite source is RAM (M74_SPR_RAM)
+; bit2: If set, flip vertically (M74_SPR_FLIPY)
+; bit4: If set, mask is used (M74_SPR_MASK)
+; bit6-7: Sprite importance (M74_SPR_I0 - M74_SPR_I3)
+;
 .global M74_BlitSprite
+
+;
+; void M74_PutPixel(unsigned char col, unsigned char xl, unsigned char yl,
+;                   unsigned char flg);
+;
+; Plots a single pixel.
+;
+; Uses the rectangular VRAM as target area, xl and yl specifying locations on
+; it with a 8:8 offset to align proper with sprites (so 8:8 is the upper left
+; corner).
+;
+; A pixel importance value of 3 (M74_SPR_I3) gives the highest possible
+; importance score to the allocated RAM tile. A pixel importance of 1
+; (M74_SPR_I1) is the lowest importance which adds up when plotting multiple
+; pixels on the same tile. A pixel importance of 0 (M74_SPR_I0) gives the
+; lowest possible importance score which doesn't add up with multiple pixels.
+;
+; The flags:
+; bit4: If set, mask is used (M74_SPR_MASK)
+; bit6-7: Sprite importance (M74_SPR_I0 - M74_SPR_I3)
+;
+.global M74_PutPixel
 
 #if (M74_SPLIST_PTRE != 0)
 ;
@@ -161,7 +190,6 @@
 ; Clobbered registers:
 ; r0, r1 (set zero), XL, XH, ZL, ZH
 ;
-.section .text.M74_VramRestore
 M74_VramRestore:
 #if (M74_RTLIST_PTRE != 0)
 	lds   ZL,      m74_rtlist_lo
@@ -189,6 +217,202 @@ rlsrr1:
 
 
 ;
+; void M74_PutPixel(unsigned char col, unsigned char xl, unsigned char yl,
+;                   unsigned char flg);
+;
+; Plots a single pixel.
+;
+; Uses the rectangular VRAM as target area, xl and yl specifying locations on
+; it with a 8:8 offset to align proper with sprites (so 8:8 is the upper left
+; corner).
+;
+; A pixel importance value of 3 (M74_SPR_I3) gives the highest possible
+; importance score to the allocated RAM tile. A pixel importance of 1
+; (M74_SPR_I1) is the lowest importance which adds up when plotting multiple
+; pixels on the same tile. A pixel importance of 0 (M74_SPR_I0) gives the
+; lowest possible importance score which doesn't add up with multiple pixels.
+;
+;     r24: Pixel color (only low 4 bits used)
+;     r22: X location
+;     r20: Y location
+;     r18: Flags
+;          bit4: If set, mask is used
+;          bit6-7: Pixel importance (larger: higher)
+; Clobbered registers:
+; r0, r1 (set zero), r18, r19, r20, r21, r22, r23, r24, r25, XL, XH, ZL, ZH, T
+;
+M74_PutPixel:
+
+	mov   r25,     r12
+	push  r13
+	push  r14
+	push  r15
+	push  r16
+	push  r17
+	push  YL
+	push  YH
+
+	; Load tile descriptor first row which will determine what to use as
+	; tile sources.
+
+	mov   r16,     r18     ; Flags will stay in r16
+	lds   ZL,      m74_tdesc_lo
+	lds   ZH,      m74_tdesc_hi
+	lds   r19,     m74_config
+	sbrs  r19,     1       ; RAM or ROM descriptors?
+	rjmp  .+6
+	ld    r17,     Z+
+	ld    r18,     Z+
+	rjmp  .+4
+	lpm   r17,     Z+
+	lpm   r18,     Z+
+	andi  r16,     0xD7    ; Mask off flag bits not loaded from input
+	bst   r18,     2       ; T: RAM tile config to use
+	swap  r18
+	andi  r18,     0x30    ; Mask out 0x00 - 0x7F config selector
+	andi  r17,     0x07    ; Mask out 0x80 - 0xBF config selector
+	or    r17,     r18     ; Stores combined config selectors
+	bld   r16,     3       ; RAM tile config selector in flags
+
+	; Load RAM tile maximum and current RAM tile count
+
+	lds   r13,     m74_rtmax
+	lds   r12,     m74_rtno
+
+	; Load VRAM properties
+
+#if (M74_VRAM_CONST == 0)
+	lds   r18,     v_vram_lo
+	lds   r19,     v_vram_hi
+	lds   r14,     v_vram_w
+	lds   r15,     v_vram_h
+	lds   r21,     v_vram_p
+#else
+	ldi   r18,     lo8(M74_VRAM_OFF)
+	ldi   r19,     hi8(M74_VRAM_OFF)
+	ldi   ZL,      M74_VRAM_W
+	ldi   ZH,      M74_VRAM_H
+	ldi   r21,     M74_VRAM_P
+	movw  r14,     ZL
+#endif
+
+	; Save away X:Y locations (to retain them across calls)
+
+	mov   r23,     r20     ; Y into r23, enables movw usage
+	movw  XL,      r22     ; XH:XL, r23:r22 (Y:X)
+	andi  r23,     0x07
+	andi  r22,     0x07
+	lsr   XL
+	lsr   XL
+	lsr   XL               ; Tile location on VRAM
+	lsr   XH
+	lsr   XH
+	lsr   XH
+
+	; Calculate pixel's tile location
+
+	dec   XL
+	dec   XH
+	cp    XL,      r14
+	brcc  bpixe            ; No pixel (off to the right or left)
+	cp    XH,      r15
+	brcc  bpixe            ; No pixel (off to the bottom or top)
+	movw  ZL,      r18
+	mul   XH,      r21
+	add   ZL,      r0
+	adc   ZH,      r1
+	clr   r1
+	add   ZL,      XL
+	adc   ZH,      r1
+
+	; Prepare pixel's importance into r20
+
+	mov   r20,     r16
+	andi  r20,     0xC0
+	breq  .+8              ; 0x00: Don't change any more
+	sbrc  r20,     6
+	subi  r20,     0xD0    ; (0x00); 0x70; 0x80; 0xF0 importances
+	sbrs  r20,     7
+	subi  r20,     0x60    ; (0x00); 0x10; 0x80; 0xF0 importances
+
+	; Allocate RAM tile
+
+	rcall m74_ramtilealloc
+	brtc  bpixe            ; No RAM tile
+
+	; Plot pixel
+	; From RAM tile allocation:
+	; r14:r15: Mask offset (only set up if masking remined enabled)
+	;     r16: Flags updated:
+	;          bit4 cleared if backround's mask is zero (no masking)
+	;          bit5 indicates whether mask is in ROM (0) or RAM (1)
+	;     r20: Allocated RAM tile's pitch in bytes - 4
+	;       Y: Allocated RAM tile's data address
+
+	sbrs  r16,     4
+	rjmp  bpixnm           ; No mask: pixel will be produced
+	add   r14,     r23
+	adc   r15,     r1      ; Set up mask source adding Y
+	movw  ZL,      r14
+	sbrs  r16,     5
+	rjmp  .+4
+	ld    r17,     Z       ; RAM mask source
+	rjmp  .+2
+	lpm   r17,     Z       ; ROM mask source
+	sbrc  r22,     2
+	swap  r17
+	bst   r22,     1
+	brtc  .+4
+	lsl   r17
+	lsl   r17
+	sbrc  r22,     0
+	lsl   r17
+	sbrc  r17,     7
+	rjmp  bpixe            ; Pixel masked off
+bpixnm:
+	subi  r20,     0xFC    ; Add 4 to destination increment, so bytes
+	mov   r1,      r23
+	breq  .+4              ; Carry is clear here
+	mul   r23,     r20     ; Calculate offset on target
+	add   YL,      r0
+	adc   YH,      r1
+	clr   r1
+	ldi   r19,     0xF0    ; Preserve mask on target
+	andi  r24,     0x0F    ; Pixel color
+	lsr   r22              ; X offset
+	brcs  .+4
+	swap  r19
+	swap  r24              ; Align pixel in byte to high for even offsets
+	add   YL,      r22
+	adc   YH,      r1      ; Target address obtained
+	ld    r0,      Y
+	and   r0,      r19
+	or    r0,      r24
+	st    Y,       r0      ; Pixel completed
+
+	; Pixel output completed
+
+bpixe:
+
+	; Save current RAM tile count
+
+	sts   m74_rtno,  r12
+
+	; Done
+
+	pop   YH
+	pop   YL
+	pop   r17
+	pop   r16
+	pop   r15
+	pop   r14
+	pop   r13
+	mov   r12,     r25
+	ret
+
+
+
+;
 ; void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl,
 ;                     unsigned char flg);
 ;
@@ -209,11 +433,10 @@ rlsrr1:
 ;          bit1: If set, sprite source is RAM
 ;          bit2: If set, flip vertically
 ;          bit4: If set, mask is used
-;          bit6-7: Sprite importance (smaller: higher)
+;          bit6-7: Sprite importance (larger: higher)
 ; Clobbered registers:
 ; r0, r1 (set zero), r18, r19, r20, r21, r22, r23, r24, r25, XL, XH, ZL, ZH, T
 ;
-.section .text.M74_BlitSprite
 M74_BlitSprite:
 
 	push  r2
@@ -420,7 +643,7 @@ bspure:
 ;          bit2: If set, flip vertically
 ;          bit3: RAM tile map selector, if set, uses config 1
 ;          bit4: If set, mask is used
-;          bit6-7: Sprite importance (smaller: higher)
+;          bit6-7: Sprite importance (larger: higher)
 ;       Z: Tile offset to blit sprite onto
 ;     r13: Maximal number of RAM tiles allocated to sprites
 ;     r12: Current first free RAM tile index
@@ -454,7 +677,8 @@ m74_blitspriteptprep:
 	swap  r21              ; Importance bits at 3 - 4
 	lsr   r21              ; Importance bits at 2 - 3 (0, 2, 4 or 6)
 	andi  r21,     0x06
-	sub   r20,     r21     ; Importance subtracted
+	add   r20,     r21     ; Importance added
+	subi  r20,     0x06    ; Compensate it (so lower importance makes result less)
 	sbrc  r20,     7
 	clr   r20              ; Gone below 0: constrain to 0.
 	swap  r20              ; Make it suitable for the RAM tile allocator
@@ -531,9 +755,6 @@ m74_ramtilealloc:
 	ld    r18,     Z       ; Load tile index
 	movw  XL,      ZL      ; Save VRAM address for later use in the RAM tile allocator
 	mov   r19,     r18     ; r19 will be used to index in the mask index list
-	mov   ZL,      r17
-	lsl   ZL
-	clr   ZH               ; Prepare Z for ROM tiles (r17: Configuration selectors)
 	sbrs  r18,     7
 	rjmp  bsppmt00         ; ROM tiles 0x00 - 0x7F
 	sbrs  r18,     6
@@ -581,12 +802,18 @@ bsppmt80d:
 	.byte ((M74_TBANK2_7_MSK  >> 8) & 0xFF)
 	.byte ( M74_TBANK2_7_MSK        & 0xFF)
 bsppmt00:
+	clr   ZH
+	mov   ZL,      r17
+	lsl   ZL
 	swap  ZL
 	andi  ZL,      0x6
 	subi  ZL,      lo8(-(bsppmt00d))
 	sbci  ZH,      hi8(-(bsppmt00d))
 	rjmp  bsppmtcom
 bsppmt80:
+	clr   ZH
+	mov   ZL,      r17
+	lsl   ZL
 	andi  r19,     0x3F
 	andi  ZL,      0xE
 	subi  ZL,      lo8(-(bsppmt80d))
@@ -605,11 +832,10 @@ bsppme:
 	brne  bsppmex          ; Not full mask, so something will render
 	brts  bsppramtnone     ; Masks used and tile has full mask: No sprite rendered
 bsppmex:
-	movw  ZL,      XL      ; Restore VRAM address
-	cpi   r18,     0xC0    ; Check whether it is a sprite workspace RAM tile
-	andi  r18,     0x3F    ; (if not, then a RAM tile has to be allocated at this location)
+	cpi   r18,     0xC0
 	brcs  bsppallc         ; ROM tile: Needs allocation
-	cp    r18,     r13
+	andi  r18,     0x3F    ; Check whether it is a sprite workspace RAM tile
+	cp    r18,     r13     ; (if not, then a RAM tile has to be allocated at this location)
 	brcc  bsppallc         ; RAM tile at or above sprite limit: Needs allocation
 
 	; Already allocated RAM tile. Add importance of new sprite part to it,
@@ -651,6 +877,7 @@ bsppallc:
 	; Try to allocate a new RAM tile for the sprite, then prepare it for
 	; sprite blitting.
 
+	movw  ZL,      XL      ; Restore VRAM address
 	cpse  r12,     r13     ; Already hit sprite limit?
 	rjmp  bsppallcnw       ; No, can allocate new RAM tile
 
@@ -991,6 +1218,6 @@ bsppzma:
 
 
 ;
-; Add the blitter, to the same section (M74_BlitSprite)
+; Add the blitter, to the same section
 ;
 #include "videoMode74/videoMode74_sprblit.s"

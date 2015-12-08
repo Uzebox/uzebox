@@ -82,7 +82,7 @@ m74_blitspritept:
 	adc   YH,      r1
 	clr   r1
 	add   YL,      r23     ; Compensate for the -1
-	adc   YH,      r1      ; Target start address obtained in X
+	adc   YH,      r1      ; Target start address obtained in Y
 
 	; Calculate source offset and increment (A sprite line is 4 bytes)
 
