@@ -41,60 +41,47 @@
 ; sprite pixels are rendered, that is, the mask has no effect).
 ;
 ; r25:r24: Source 8x8 sprite start address
+;       Y: Target RAM tile address
+;     r23: Y location on tile (2's complement; 0xF9 - 0x07)
 ;     r22: X location on tile (2's complement; 0xF9 - 0x07)
-;     r20: Y location on tile (2's complement; 0xF9 - 0x07)
-;     r18: Target tile number (0x00 - 0x3F selecting a RAM tile)
+;     r20: Target RAM tile pitch in bytes - 4
 ;     r16: Flags
 ;          bit0: If set, flip horizontally
 ;          bit1: If set, sprite source is RAM
 ;          bit2: If set, flip vertically
-;          bit3: RAM tile map selector, if set, uses config 1
 ;          bit4: If set, mask is used
 ;          bit5: If set, mask source is RAM
 ;     r1:  Zero
 ; r15:r14: Mask source offset (8 bytes). Only used if r16 bit4 is set
 ; Clobbered registers:
-; r0, r14, r15, r18, r19, r20, r21, r22, r23, r24, r25, XL, XH, ZL, ZH, T
+; r0, r14, r15, r18, r19, r20, r21, r22, r23, XL, XH, ZL, ZH, T
 ;
 m74_blitspritept:
 
 	; Save a few registers to have something to work with
 
-	push  r17              ; Will be used for mask (zero if no mask)
+	push  r17              ; Will be used for mask
 	push  r13              ; Will store destination increment
 	push  r12              ; Will be used for loop counter
-	push  YH
-	push  YL               ; Will be used for target address
+	push  r24
+	push  r25              ; Preserve source start address
 
 	; Calculate target offset including mask (which belongs / aligns with
 	; the target). Increments are used as byte units -1, so the increment
 	; of 256 bytes may be supported properly.
 
-	sbrs  r16,     3
-	rjmp  spbt0
-	ldi   YL,      lo8(M74_TBANK3_0_OFF)
-	ldi   YH,      hi8(M74_TBANK3_0_OFF)
-	ldi   r23,     ((M74_TBANK3_0_INC << 2) - 1)
-	rjmp  spbt1
-spbt0:
-	ldi   YL,      lo8(M74_TBANK3_1_OFF)
-	ldi   YH,      hi8(M74_TBANK3_1_OFF)
-	ldi   r23,     ((M74_TBANK3_1_INC << 2) - 1)
-spbt1:
-	bst   r20,     7       ; T: Set if Y location negative, clear otherwise
+	subi  r20,     0xFD    ; Add 3 to destination increment, to make it only bytes - 1
+	mov   r13,     r20     ; Store destination increment
+	bst   r23,     7       ; T: Set if Y location negative, clear otherwise
 	brts  .+4              ; Y location positive (move down?)
-	add   r14,     r20
+	add   r14,     r23
 	adc   r15,     r1      ; Set up mask source
-	lsl   r18
-	lsl   r18
-	add   YL,      r18
-	adc   YH,      r1      ; Offset by tile number (r18: 0x00 - 0x3F)
 	brts  .+12             ; Y location positive (move down?)
-	mul   r20,     r23     ; If positive, calculate offset on target
+	mul   r23,     r20     ; If positive, calculate offset on target
 	add   YL,      r0
 	adc   YH,      r1
 	clr   r1
-	add   YL,      r20     ; Compensate for the -1
+	add   YL,      r23     ; Compensate for the -1
 	adc   YH,      r1      ; Target start address obtained in X
 
 	; Calculate source offset and increment (A sprite line is 4 bytes)
@@ -106,13 +93,13 @@ spbt1:
 	subi  r24,     0xE4
 	sbci  r25,     0xFF    ; Add 28, to start at the last line
 	brtc  spbs2            ; If Y location is positive (moving down), then OK
-	mov   r21,     r20
+	mov   r21,     r23
 	rjmp  spbs1            ; Subtract lines to skip (Y loc. negative!)
 spbs0:
 	ldi   XL,      0x04
 	ldi   XH,      0x00    ; Source increments after each line
 	brtc  spbs2            ; If Y location is positive (moving down), then OK
-	mov   r21,     r20
+	mov   r21,     r23
 	neg   r21              ; Add lines to skip
 spbs1:
 	lsl   r21
@@ -123,12 +110,12 @@ spbs2:
 
 	; Calculate number of lines to output
 
-	ldi   r17,     8
-	mov   r12,     r17     ; Normally 8 lines
+	ldi   r20,     8
+	mov   r12,     r20     ; Normally 8 lines
 	brts  .+4
-	sub   r12,     r20     ; Positive Y location: subtract
+	sub   r12,     r23     ; Positive Y location: subtract
 	brtc  .+2
-	add   r12,     r20     ; Negative Y location: add
+	add   r12,     r23     ; Negative Y location: add
 
 	; Calculate jump target by X alignment into r1:r0
 
@@ -144,13 +131,12 @@ spbs2:
 	; Render the sprite part (two separate loops: one with masking and
 	; one without)
 
-	mov   r13,     r23     ; Store destination increment
 	bst   r16,     1       ; T: ROM / RAM sprite source
-	clr   r17              ; Use zero for mask unless it is enabled
 	clr   r20              ; Prepare sprite data clearing for both loops
-	sbrs  r16,     4       ; Has mask?
-	rjmp  spbl             ; No mask, enter maskless render loop
+	sbrc  r16,     4       ; Has mask?
 	rjmp  spbml            ; Enter render loop with mask
+	clr   r17              ; Use zero for mask
+	rjmp  spbl             ; No mask, enter maskless render loop
 spblret:
 	dec   r12
 	breq  spbex
@@ -192,8 +178,8 @@ spbml:
 	; Done, clean up and return
 
 spbex:
-	pop   YL
-	pop   YH
+	pop   r25
+	pop   r24
 	pop   r12
 	pop   r13
 	pop   r17
