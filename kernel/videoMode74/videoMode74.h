@@ -83,6 +83,9 @@ extern void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hg
 extern void M74_Finish(void);
 extern void M74_VramRestore(void);
 extern void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl, unsigned char flg);
+#if ((M74_RECTB_OFF >> 8) != 0)
+extern void M74_BlitSpriteCol(unsigned int spo, unsigned char xl, unsigned char yl, unsigned char flg, unsigned char col);
+#endif
 extern void M74_PutPixel(unsigned char col, unsigned char xl, unsigned char yl, unsigned char flg);
 extern void M74_VramMove(signed char x, signed char y);
 extern void M74_VramFillCol(unsigned char y, unsigned int src, unsigned char incr);

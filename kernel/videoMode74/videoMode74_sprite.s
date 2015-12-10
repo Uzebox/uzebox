@@ -108,6 +108,27 @@
 ;
 .global M74_BlitSprite
 
+#if ((M74_RECTB_OFF >> 8) != 0)
+;
+; void M74_BlitSpriteCol(unsigned int spo, unsigned char xl, unsigned char yl,
+;                        unsigned char flg, unsigned char col);
+;
+; Blits a 8x8 sprite with recoloring.
+;
+; Uses the rectangular VRAM as target area, xl and yl specifying locations on
+; it by the sprite's lower right corner (so location 0:0 produces no sprite,
+; 1:1 would make the lower right corner pixel visible).
+;
+; The sprite has fixed 8x8 pixel layout, 4 bytes per line, 32 bytes total,
+; high nybble first for pixels. Color index 0 is transparent.
+;
+; The col parameter selects the recolor table. If it is larger than 127,
+; recoloring is turned off.
+;
+;
+.global M74_BlitSpriteCol
+#endif
+
 ;
 ; void M74_PutPixel(unsigned char col, unsigned char xl, unsigned char yl,
 ;                   unsigned char flg);
@@ -412,6 +433,7 @@ bpixe:
 
 
 
+
 ;
 ; void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl,
 ;                     unsigned char flg);
@@ -438,7 +460,45 @@ bpixe:
 ; r0, r1 (set zero), r18, r19, r20, r21, r22, r23, r24, r25, XL, XH, ZL, ZH, T
 ;
 M74_BlitSprite:
+	push  r16
+#if ((M74_RECTB_OFF >> 8) != 0)
+	ldi   r16,     0xFF    ; Recoloring is off
+	rjmp  m74_blitsprite_entry
 
+
+
+;
+; void M74_BlitSpriteCol(unsigned int spo, unsigned char xl, unsigned char yl,
+;                        unsigned char flg, unsigned char col);
+;
+; Blits a 8x8 sprite with recoloring.
+;
+; Uses the rectangular VRAM as target area, xl and yl specifying locations on
+; it by the sprite's lower right corner (so location 0:0 produces no sprite,
+; 1:1 would make the lower right corner pixel visible).
+;
+; The sprite has fixed 8x8 pixel layout, 4 bytes per line, 32 bytes total,
+; high nybble first for pixels. Color index 0 is transparent.
+;
+; r25:r24: Source 8x8 sprite start address
+;     r22: X location (right side)
+;     r20: Y location (bottom)
+;     r18: Flags
+;          bit0: If set, flip horizontally
+;          bit1: If set, sprite source is RAM
+;          bit2: If set, flip vertically
+;          bit4: If set, mask is used
+;          bit6-7: Sprite importance (larger: higher)
+;     r16: Recolor table index, bit 7 set: Recoloring is off.
+; Clobbered registers:
+; r0, r1 (set zero), r18, r19, r20, r21, r22, r23, r24, r25, XL, XH, ZL, ZH, T
+;
+M74_BlitSpriteCol:
+
+	push  r16
+m74_blitsprite_entry:
+	push  r11
+#endif
 	push  r2
 	push  r3
 	push  r4
@@ -452,7 +512,6 @@ M74_BlitSprite:
 	push  r13
 	push  r14
 	push  r15
-	push  r16
 	push  r17
 	push  YL
 	push  YH
@@ -460,6 +519,9 @@ M74_BlitSprite:
 	; Load tile descriptor first row which will determine what to use as
 	; tile sources.
 
+#if ((M74_RECTB_OFF >> 8) != 0)
+	mov   r11,     r16     ; Recolor index will stay in r11
+#endif
 	mov   r16,     r18     ; Flags will stay in r16
 	lds   ZL,      m74_tdesc_lo
 	lds   ZH,      m74_tdesc_hi
@@ -609,7 +671,6 @@ bspure:
 	pop   YH
 	pop   YL
 	pop   r17
-	pop   r16
 	pop   r15
 	pop   r14
 	pop   r13
@@ -623,6 +684,10 @@ bspure:
 	pop   r4
 	pop   r3
 	pop   r2
+#if ((M74_RECTB_OFF >> 8) != 0)
+	pop   r11
+#endif
+	pop   r16
 	ret
 
 

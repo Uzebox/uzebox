@@ -51,6 +51,7 @@
 ;          bit2: If set, flip vertically
 ;          bit4: If set, mask is used
 ;          bit5: If set, mask source is RAM
+;     r11: Recolor table select (used only if there is any)
 ;     r1:  Zero
 ; r15:r14: Mask source offset (8 bytes). Only used if r16 bit4 is set
 ; Clobbered registers:
@@ -276,6 +277,10 @@ splr7f:
 	rjmp  .+2
 	lpm   r20,     Z+      ; ROM source
 	andi  r20,     0xF0
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrs  r11,     7       ; Recoloring enabled?
+	rjmp  splr7rc
+#endif
 	rjmp  splpxe8
 splr7:
 	sbrc  r17,     7
@@ -288,6 +293,15 @@ splr7:
 	lpm   r20,     Z+      ; ROM source
 	swap  r20              ; Align since low nybble contains pixel
 	andi  r20,     0xF0
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splpxe8
+splr7rc:
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+#endif
 	rjmp  splpxe8
 
 	; SS000000
@@ -300,6 +314,15 @@ splr6f:
 	lpm   r20,     Z+      ; ROM source
 	swap  r20
 splr6m:
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr6re
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+splr6re:
+#endif
 	sbrc  r17,     7       ; Process mask
 	andi  r20,     0x0F
 	sbrc  r17,     6
@@ -329,9 +352,15 @@ splr5f:
 	andi  r20,     0xF0
 	andi  ZH,      0x0F
 	or    r20,     ZH
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr5re
+	rjmp  splr5rc
+#else
 	andi  r17,     0xE0    ; Process mask
 	brne  splr5me
 	rjmp  splpxe8
+#endif
 splr5:
 	movw  ZL,      r24     ; ZH:ZL, r25:r24
 	adiw  ZL,      2
@@ -349,6 +378,18 @@ splr5:
 	rol   r20
 	lsl   r21
 	rol   r20
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr5re
+splr5rc:
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+	mov   ZL,      r21
+	lpm   r21,     Z
+splr5re:
+#endif
 	andi  r17,     0xE0    ; Process mask
 	brne  splr5me
 	rjmp  splpxe8
@@ -366,6 +407,17 @@ splr4f:
 	swap  r20
 	swap  r21
 splr4m:
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr4re
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+	mov   ZL,      r21
+	lpm   r21,     Z
+splr4re:
+#endif
 	andi  r17,     0xF0    ; Process mask
 	brne  splr4me
 	rjmp  splpxe8
@@ -418,6 +470,20 @@ splr3f:
 	andi  ZH,      0x0F
 	or    r21,     r18
 	or    r20,     ZH
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr3re
+splr3rc:
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+	mov   ZL,      r21
+	lpm   r21,     Z
+	mov   ZL,      r22
+	lpm   r22,     Z
+splr3re:
+#endif
 	andi  r17,     0xF8    ; Process mask
 	brne  splr3me
 	rjmp  splpxe8
@@ -444,9 +510,15 @@ splr3:
 	lsl   r22
 	rol   r21
 	rol   r20
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr3re
+	rjmp  splr3rc
+#else
 	andi  r17,     0xF8    ; Process mask
 	brne  splr3me
 	rjmp  splpxe8
+#endif
 
 	; SSSSSS00
 
@@ -464,6 +536,19 @@ splr2f:
 	swap  r21
 	swap  r22
 splr2m:
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr2re
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+	mov   ZL,      r21
+	lpm   r21,     Z
+	mov   ZL,      r22
+	lpm   r22,     Z
+splr2re:
+#endif
 	andi  r17,     0xFC    ; Process mask
 	brne  splr2me
 	rjmp  splpxe8
@@ -474,11 +559,11 @@ splr2:
 	lpm   r20,     Z+      ; ROM source
 	lpm   r21,     Z+      ; ROM source
 	lpm   r22,     Z+      ; ROM source
-	rjmp  splr2me
+	rjmp  splr2m
 	ld    r20,     Z+      ; RAM source
 	ld    r21,     Z+      ; RAM source
 	ld    r22,     Z+      ; RAM source
-	rjmp  splr2me
+	rjmp  splr2m
 
 	; Masking block
 
@@ -523,9 +608,15 @@ splr1f:
 	or    r22,     r19
 	or    r21,     r18
 	or    r20,     ZH
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr1re
+	rjmp  splr1rc
+#else
 	andi  r17,     0xFE    ; Process mask
 	brne  splr1me
 	rjmp  splpxe8
+#endif
 splr1:
 	movw  ZL,      r24     ; ZH:ZL, r25:r24
 	brtc  .+10
@@ -554,6 +645,22 @@ splr1:
 	rol   r22
 	rol   r21
 	rol   r20
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splr1re
+splr1rc:
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+	mov   ZL,      r21
+	lpm   r21,     Z
+	mov   ZL,      r22
+	lpm   r22,     Z
+	mov   ZL,      r23
+	lpm   r23,     Z
+splr1re:
+#endif
 	andi  r17,     0xFE    ; Process mask
 	brne  splr1me
 	rjmp  splpxe8
@@ -599,6 +706,21 @@ spla0f:
 	swap  r22
 	swap  r23
 spla0m:
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spla0re
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+	mov   ZL,      r21
+	lpm   r21,     Z
+	mov   ZL,      r22
+	lpm   r22,     Z
+	mov   ZL,      r23
+	lpm   r23,     Z
+spla0re:
+#endif
 	andi  r17,     0xFF    ; Process mask
 	brne  spla0me
 	rjmp  splpxe8
@@ -642,9 +764,15 @@ spll1f:
 	or    r23,     r18
 	or    r22,     ZH
 	or    r21,     ZL
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll1re
+	rjmp  spll1rc
+#else
 	andi  r17,     0x7F    ; Process mask
 	brne  spll1me
 	rjmp  splpxe8
+#endif
 spll1:
 	movw  ZL,      r24     ; ZH:ZL, r25:r24
 	brtc  .+10
@@ -673,6 +801,22 @@ spll1:
 	ror   r21
 	ror   r22
 	ror   r23
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll1re
+spll1rc:
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r20
+	lpm   r20,     Z
+	mov   ZL,      r21
+	lpm   r21,     Z
+	mov   ZL,      r22
+	lpm   r22,     Z
+	mov   ZL,      r23
+	lpm   r23,     Z
+spll1re:
+#endif
 	andi  r17,     0x7F    ; Process mask
 	brne  spll1me
 	rjmp  splpxe8
@@ -714,6 +858,19 @@ spll2f:
 	swap  r22
 	swap  r23
 spll2m:
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll2re
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r21
+	lpm   r21,     Z
+	mov   ZL,      r22
+	lpm   r22,     Z
+	mov   ZL,      r23
+	lpm   r23,     Z
+spll2re:
+#endif
 	andi  r17,     0x3F    ; Process mask
 	brne  spll2me
 	rjmp  splpxe6
@@ -751,9 +908,15 @@ spll3f:
 	andi  ZH,      0xF0
 	or    r23,     r18
 	or    r22,     ZH
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll3re
+	rjmp  spll3rc
+#else
 	andi  r17,     0x1F    ; Process mask
 	brne  spll3me
 	rjmp  splpxe6
+#endif
 spll3:
 	movw  ZL,      r24     ; ZH:ZL, r25:r24
 	brtc  .+8
@@ -776,6 +939,20 @@ spll3:
 	lsr   r21
 	ror   r22
 	ror   r23
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll3re
+spll3rc:
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r21
+	lpm   r21,     Z
+	mov   ZL,      r22
+	lpm   r22,     Z
+	mov   ZL,      r23
+	lpm   r23,     Z
+spll3re:
+#endif
 	andi  r17,     0x1F    ; Process mask
 	brne  spll3me
 	rjmp  splpxe6
@@ -794,6 +971,17 @@ spll4f:
 	swap  r22
 	swap  r23
 spll4m:
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll4re
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r22
+	lpm   r22,     Z
+	mov   ZL,      r23
+	lpm   r23,     Z
+spll4re:
+#endif
 	andi  r17,     0x0F    ; Process mask
 	brne  spll4me
 	rjmp  splpxe4
@@ -840,6 +1028,18 @@ spll5f:
 	andi  r22,     0x0F
 	andi  r18,     0xF0
 	or    r23,     r18
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll5re
+spll5rc:
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r22
+	lpm   r22,     Z
+	mov   ZL,      r23
+	lpm   r23,     Z
+spll5re:
+#endif
 	andi  r17,     0x07    ; Process mask
 	brne  spll5me
 	rjmp  splpxe4
@@ -859,9 +1059,15 @@ spll5:
 	ror   r23
 	lsr   r22
 	ror   r23
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll5re
+	rjmp  spll5rc
+#else
 	andi  r17,     0x07    ; Process mask
 	brne  spll5me
 	rjmp  splpxe4
+#endif
 
 	; 000000SS
 
@@ -874,6 +1080,15 @@ spll6f:
 	lpm   r23,     Z+      ; ROM source
 	swap  r23
 spll6m:
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  spll6re
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r23
+	lpm   r23,     Z
+spll6re:
+#endif
 	sbrc  r17,     1       ; Process mask
 	andi  r23,     0x0F
 	sbrc  r17,     0
@@ -899,6 +1114,15 @@ spll7f:
 	rjmp  .+2
 	lpm   r23,     Z+      ; ROM source
 	andi  r23,     0x0F
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrc  r11,     7       ; Recoloring enabled?
+	rjmp  splpxe2
+spll7rc:
+	ldi   ZH,      (M74_RECTB_OFF >> 8)
+	add   ZH,      r11
+	mov   ZL,      r23
+	lpm   r23,     Z
+#endif
 	rjmp  splpxe2
 spll7:
 	sbrc  r17,     0
@@ -910,6 +1134,10 @@ spll7:
 	lpm   r23,     Z+      ; ROM source
 	swap  r23
 	andi  r23,     0x0F
+#if ((M74_RECTB_OFF >> 8) != 0)
+	sbrs  r11,     7       ; Recoloring enabled?
+	rjmp  spll7rc
+#endif
 	rjmp  splpxe2
 
 	; Pixel blitting

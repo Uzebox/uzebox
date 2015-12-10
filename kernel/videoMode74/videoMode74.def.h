@@ -353,3 +353,13 @@
 #ifndef M74_RTLIST_PTRE
 	#define M74_RTLIST_PTRE   0
 #endif
+
+/* Sprite recolor table set start offset. Only the high byte is used. If it is
+** set zero, then the recoloring support is not compiled in (saving some flash
+** space and making sprite blitting even without recoloring a bit faster). One
+** recolor table is 256 bytes, containing remap values for input bytes (pixel
+** pairs). */
+
+#ifndef M74_RECTB_OFF
+	#define M74_RECTB_OFF     0x0000
+#endif
