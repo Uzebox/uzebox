@@ -125,11 +125,6 @@
 ;         bit     3: If set, full logical row is used to generate base offset
 ;         bit 4 - 7: Foreground color index for 1bpp modes
 ;
-; ROM 4bpp tiles don't use the low byte of their base offset (it is always
-; zero). Their row increment should always be set up to 512 bytes (128 for the
-; M74_TBANK01_x_INC defines) so their layout is compatible with that of the
-; ROM 4bpp tiles at 0x80 - 0xBF.
-;
 ; In all modes, the high bits of bytes refer to pixels on the left.
 ;
 ; Modes 5 and 6 (6px wide 1bpp tiles):
@@ -236,6 +231,15 @@
 #endif
 
 #if (M74_SD_ENABLE != 0)
+;
+; volatile unsigned long m74_sdsec;
+;
+; SD card loading: Base sector address. The byte offset specified is relative
+; to this. Initially it is zero, it should be set up to the start of the
+; game's data to make it useful.
+;
+.global m74_sdsec
+
 ;
 ; volatile unsigned long m74_sdoff;
 ;
@@ -370,6 +374,11 @@
 	m74_mcadd_hi:  .byte 1 ; 2bpp Multicolor framebuffer start, high
 #endif
 #if (M74_SD_ENABLE != 0)
+	m74_sdsec:             ; SD load base sector address (4 bytes)
+	m74_sdsec_0:   .byte 1
+	m74_sdsec_1:   .byte 1
+	m74_sdsec_2:   .byte 1
+	m74_sdsec_3:   .byte 1
 	m74_sdoff:             ; SD load byte offset to load from (4 bytes, even)
 	m74_sdoff_0:
 	v_sstat:       .byte 1 ; SD load status

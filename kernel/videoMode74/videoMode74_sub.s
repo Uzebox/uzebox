@@ -38,97 +38,104 @@ sub_video_mode74:
 
 	; Check for display enable
 
-	lds   r24,     m74_enable   ; ( 469)
-	sbrs  r24,     0       ; ( 470 /  471)
+	lds   r19,     m74_enable   ; ( 469)
+	sbrs  r19,     0       ; ( 470 /  471)
 	rjmp  ddis             ; ( 472) Display disabled
 
 	; Initialize SD loading (as needed)
 
 #if (M74_SD_ENABLE != 0)
-	sbrs  r24,     1       ; ( 472 /  473)
+	sbrs  r19,     1       ; ( 472 /  473)
 	rjmp  sdldis           ; ( 474) SD loading disabled
 	cbi   _SFR_IO_ADDR(PORTD), 6  ; ( 475) Assert Chip Select for the SD card
 	ldi   r22,     0x51           ; ( 476) CMD 17 (decimal 17 OR 0x40)
 	out   _SFR_IO_ADDR(SPDR), r22 ; ( 477) Command
-	andi  r24,     0xFD    ; ( 478) Disable SD loading for next frame
-	sts   m74_enable, r24  ; ( 480)
-	lds   r25,     m74_sdoff_3  ; ( 482)
-	lds   r24,     m74_sdoff_2  ; ( 484)
-	lds   r23,     m74_sdoff_1  ; ( 486)
+	lds   r16,     m74_sdsec_0  ; ( 479)
+	lds   r17,     m74_sdsec_1  ; ( 481)
+	lds   r18,     m74_sdsec_2  ; ( 483)
+	lsl   r16              ; ( 484)
+	rol   r17              ; ( 485)
+	rol   r18              ; ( 486) Loaded multiplied with 512
 	lds   r22,     m74_sdoff_0  ; ( 488)
-	lds   r15,     m74_sddst_hi ; ( 490)
-	lds   r14,     m74_sddst_lo ; ( 492)
-	lds   r21,     m74_sdcnt    ; ( 494)
-	out   _SFR_IO_ADDR(SPDR), r25 ; ( 495) Address byte 3
-	movw  r16,     r22     ; ( 496)
-	lsr   r17              ; ( 497)
-	ror   r16              ; ( 498) Skip count in r16
-	sts   v_srems, r16     ; ( 500)
-	neg   r16              ; ( 501) Byte pairs remaining after the initial skip (0: 256)
-	brne  sdl0             ; ( 502 /  503)
-	rjmp  .                ; ( 504) Any count of byte pairs may be loaded (full sector available)
-	lpm   r0,      Z       ; ( 507) Dummy load (nop)
-	rjmp  sdl1             ; ( 509)
+	lds   r23,     m74_sdoff_1  ; ( 490)
+	lds   r24,     m74_sdoff_2  ; ( 492)
+	lds   r25,     m74_sdoff_3  ; ( 494)
+	add   r23,     r16     ; ( 495)
+	adc   r24,     r17     ; ( 496)
+	adc   r25,     r18     ; ( 497)
+	out   _SFR_IO_ADDR(SPDR), r25 ; ( 498) Address byte 3
+	andi  r19,     0xFD    ; ( 499) Disable SD loading for next frame
+	sts   m74_enable, r19  ; ( 501)
+	lds   r15,     m74_sddst_hi ; ( 503)
+	lds   r14,     m74_sddst_lo ; ( 505)
+	lds   r21,     m74_sdcnt    ; ( 507)
+	movw  r16,     r22     ; ( 508)
+	lsr   r17              ; ( 509)
+	ror   r16              ; ( 510) Skip count in r16
+	sts   v_srems, r16     ; ( 512)
+	neg   r16              ; ( 513) Byte pairs remaining after the initial skip (0: 256)
+	rjmp  .                ; ( 515)
+	out   _SFR_IO_ADDR(SPDR), r24 ; ( 516) Address byte 2
+	brne  sdl0             ; ( 517 /  518)
+	rjmp  .                ; ( 519) Any count of byte pairs may be loaded (full sector available)
+	lpm   r0,      Z       ; ( 522) Dummy load (nop)
+	rjmp  sdl1             ; ( 524)
 sdldis:
 	ldi   r24,     0xFF    ; ( 475)
 	sts   v_sstat, r24     ; ( 477) Disable loading in HSync by marking it completed
-	WAIT  r24,     106     ; ( 583)
-	rjmp  sdle             ; ( 585)
+	WAIT  r24,     109     ; ( 586)
+	rjmp  sdle             ; ( 588)
 sdl0:
-	cp    r16,     r21     ; ( 504)
-	brcc  .+2              ; ( 505 /  506)
-	mov   r21,     r16     ; ( 506) Limit loading to sector boundary
-	cpi   r21,     0       ; ( 507)
-	brne  .+2              ; ( 508 /  509)
-	mov   r21,     r16     ; ( 509) Special: Full sector load request with no full sector
+	cp    r16,     r21     ; ( 519)
+	brcc  .+2              ; ( 520 /  521)
+	mov   r21,     r16     ; ( 521) Limit loading to sector boundary
+	cpi   r21,     0       ; ( 522)
+	brne  .+2              ; ( 523 /  524)
+	mov   r21,     r16     ; ( 524) Special: Full sector load request with no full sector
 sdl1:
-	sts   v_sremc, r21     ; ( 511) Remaining byte pair to load count
-	sub   r16,     r21     ; ( 512) Byte pairs remaining after the skip + load (0: zero)
-	out   _SFR_IO_ADDR(SPDR), r24 ; ( 513) Address byte 2
-	inc   r16              ; ( 514) Add the CRC byte pair
-	sts   v_sreme, r16     ; ( 516)
-	clr   r16              ; ( 517)
-	sts   v_sstat, r16     ; ( 519) Nothing loaded yet
-	lpm   r0,      Z       ; ( 522) Dummy load (nop)
-	lpm   r0,      Z       ; ( 525) Dummy load (nop)
-	rjmp  .                ; ( 527)
-	rjmp  .                ; ( 529)
-	andi  r23,     0xFE    ; ( 530)
-	out   _SFR_IO_ADDR(SPDR), r23 ; ( 531) Address byte 1
-	ldi   r22,     5       ; ()
+	sts   v_sremc, r21     ; ( 526) Remaining byte pair to load count
+	sub   r16,     r21     ; ( 527) Byte pairs remaining after the skip + load (0: zero)
+	inc   r16              ; ( 528) Add the CRC byte pair
+	sts   v_sreme, r16     ; ( 530)
+	rjmp  .                ; ( 532)
+	andi  r23,     0xFE    ; ( 533)
+	out   _SFR_IO_ADDR(SPDR), r23 ; ( 534) Address byte 1
+	clr   r16              ; ( 535)
+	sts   v_sstat, r16     ; ( 537) Nothing loaded yet
+	ldi   r22,     4       ; ()
 	dec   r22              ; ()
 	brne  .-4              ; ()
 	rjmp  .                ; ()
-	out   _SFR_IO_ADDR(SPDR), r22 ; ( 549) Address byte 0 (zero)
+	out   _SFR_IO_ADDR(SPDR), r22 ; ( 552) Address byte 0 (zero)
 	ldi   r22,     5       ; ()
 	dec   r22              ; ()
 	brne  .-4              ; ()
 	ldi   r22,     0x95    ; () Use the default init CRC (lowest bit set, bit unsure if that's necessary)
 	ldi   r24,     0xFF    ; () Send an extra byte, discarding last byte before command completion.
-	out   _SFR_IO_ADDR(SPDR), r22 ; ( 567) Empty CRC
+	out   _SFR_IO_ADDR(SPDR), r22 ; ( 570) Empty CRC
 	ldi   r22,     5       ; ()
 	dec   r22              ; ()
 	brne  .-4              ; ()
 	rjmp  .                ; ()
-	out   _SFR_IO_ADDR(SPDR), r24 ; ( 585)
+	out   _SFR_IO_ADDR(SPDR), r24 ; ( 588)
 sdle:
 #else
-	WAIT  r24,     114     ; ( 585)
+	WAIT  r24,     117     ; ( 588)
 #endif
 
 	; Load palette
 
-	lds   r23,     m74_config   ; ( 587)
-	ldi   YH,      M74_PALBUF_H ; ( 588)
+	lds   r23,     m74_config   ; ( 590)
+	ldi   YH,      M74_PALBUF_H ; ( 591)
 #if (M74_PAL_PTRE != 0)
-	lds   ZL,      m74_pal_lo   ; ( 590)
-	lds   ZH,      m74_pal_hi   ; ( 592)
+	lds   ZL,      m74_pal_lo   ; ( 593)
+	lds   ZH,      m74_pal_hi   ; ( 595)
 #else
-	ldi   ZL,      lo8(M74_PAL_OFF) ; ( 589)
-	ldi   ZH,      hi8(M74_PAL_OFF) ; ( 590)
-	rjmp  .                ; ( 592)
+	ldi   ZL,      lo8(M74_PAL_OFF) ; ( 592)
+	ldi   ZH,      hi8(M74_PAL_OFF) ; ( 593)
+	rjmp  .                ; ( 595)
 #endif
-	clr   YL               ; ( 593)
+	clr   YL               ; ( 596)
 lcloop:
 	sbrs  r23,     3       ; ( 1)
 	rjmp  .+4              ; ( 3)
@@ -153,7 +160,7 @@ lcloop:
 	lpm   r24,     Z+      ; ( 6)
 	rcall m74_setpalcol    ; (45) (3 + 36 cycles)
 	inc   YL               ; (46)
-	brne  lcloop           ; (47 / 48) (1063 cy total; at 1656 here)
+	brne  lcloop           ; (47 / 48) (1063 cy total; at 1659 here)
 
 	; Initializing for the scanline loop
 
@@ -198,13 +205,13 @@ lrese:
 	sts   v_m3ptr_lo, r18  ; (26)
 	sts   v_m3ptr_hi, r19  ; (28)
 #else
-	WAIT  r18,     10      ; (28) (At 1684 here)
+	WAIT  r18,     10      ; (28) (At 1687 here)
 #endif
 
 	; Sandwiched between waits so it is simpler to shift it a bit around
 	; when tweaking the scanline loop.
 
-	WAIT  r18,     12      ; (1696)
+	WAIT  r18,     9       ; (1696)
 	call  m74_scloop       ; (1709)
 	WAIT  r18,     30      ; (1739)
 

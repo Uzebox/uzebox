@@ -66,6 +66,9 @@
 #if (M74_RTLIST_PTRE != 0)
 		m74_rtlist = M74_RTLIST_OFF;  /* RAM tile allocation workspace address */
 #endif
+#if (M74_SD_ENABLE != 0)
+		m74_sdsec  = 0U;              /* Sector part of SD offset initially zero */
+#endif
 	}
 
 	/* Callback invoked during hsync */
