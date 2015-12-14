@@ -80,8 +80,8 @@
 ; YL:  Byte 1 of tile descriptor
 ; X:   Offset from tile index list
 ; r9:  Global configuration (m74_config)
-; r14: RAM clear / SPI load address, low
-; r15: RAM clear / SPI load address, high
+; r14: SD load address, low
+; r15: SD load address, high
 ; r23: Zero
 ; YH:  Palette buffer, high
 ;
@@ -116,7 +116,7 @@ m74_m3_2bppmc:
 	;
 	; Do Color 0 reload here since it fits, and makes life easier further
 	; down. It also enables doing Color 0 reload even at 24 tiles width or
-	; without taking away RAM clears / SPI reloads at reduced widths.
+	; without taking away SD loads at reduced widths.
 	;
 
 #if (M74_COL0_RELOAD != 0)
@@ -185,7 +185,7 @@ m3dfrl1:
 	WAIT  ZL,      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 
 	;
-	; Do horizontal size reduction along with RAM clear / SPI loads.
+	; Do horizontal size reduction along with SD loads.
 	; Also calculate number of tiles to generate into r20 for now.
 	;
 
@@ -198,55 +198,21 @@ m3dfrl1:
 m3dfloop:
 	subi  r22,     8       ; ( 1) (237)
 	brcs  m3dfend          ; ( 2 /  3) (239)
-	lpm   r24,     Z       ; ( 5) Dummy load (nop)
-	nop                    ; ( 6)
-	lds   r8,      m74_ldsl     ; ( 8) Load start scanline for RAM clear
-	lds   r6,      v_remc       ; (10) Remaining blocks
-	lds   r7,      v_rems       ; (12) Remaining skips
-	cp    r8,      r16     ; (13) Compare start with current line
-	brcc  m3dfnfn0         ; (14 / 15) Function may run only if reached
-	movw  ZL,      r14     ; (15) ZH:ZL, r15:r14 Target pointer
-	inc   r7               ; (16)
-	brne  m3dfspil         ; (17 / 18) SPI load if v_rems is not 0xFF
-	cp    r6,      r23     ; (18)
-	breq  m3dfnfn1         ; (19 / 20) v_remc drained, nothing to process
-	st    Z+,      r23     ; (21)
-	st    Z+,      r23     ; (23)
-	st    Z+,      r23     ; (25)
-	st    Z+,      r23     ; (27)
-	st    Z+,      r23     ; (29)
-	st    Z+,      r23     ; (31)
-	st    Z+,      r23     ; (33)
-	st    Z+,      r23     ; (35)
-	st    Z+,      r23     ; (37)
-	st    Z+,      r23     ; (39)
-	st    Z+,      r23     ; (41)
-	st    Z+,      r23     ; (43)
-	st    Z+,      r23     ; (45)
-	st    Z+,      r23     ; (47)
-	st    Z+,      r23     ; (49)
-	st    Z+,      r23     ; (51)
-	dec   r6               ; (52)
-m3dfspie:
-	sts   v_remc,  r6      ; (54)
-	rjmp  m3dfloop         ; (56 = 0)
-m3dfspil:
-	nop                    ; (19)
-	rcall m74_spiload_core_nc   ; (48) 3 + 26
-	sts   v_rems,  r7      ; (50)
-	rjmp  m3dfspie         ; (52)
-m3dfnfn0:
-	lpm   r24,     Z       ; (18) Dummy load (nop)
-	rjmp  .                ; (20)
-m3dfnfn1:
-	WAIT  r24,     34      ; (54)
+#if (M74_SD_ENABLE != 0)
+	WAIT  r24,     15      ; (17)
+	movw  ZL,      r14     ; (18) ZH:ZL, r15:r14 Target pointer
+	rcall m74_spiload_core ; (53) 35 cycles
+	movw  r14,     ZL      ; (54) r15:r14, ZH:ZL Target pointer
+#else
+	WAIT  r24,     52      ; (54)
+#endif
 	rjmp  m3dfloop         ; (56 = 0)
 m3dfend:
 
 	;
 	; Preparations for the main tile loop
 	;
-	; 35 cycles
+	; 42 cycles
 	;
 
 	inc   r16              ; ( 1) Physical scanline counter increment
@@ -273,36 +239,53 @@ m3cfge:
 
 	add   r17,     r21     ; (14)
 
-	; Hack the stack making it the multicolor framebuffer pointer
+	; Hack the stack making it the multicolor framebuffer pointer. Also
+	; apply subtract here if the conditions for it are met.
 
 	in    r6,      STACKL  ; (15)
 	in    r7,      STACKH  ; (16) Save stack pointer
-	lds   r2,      v_m3ptr_lo   ; (18)
-	lds   r3,      v_m3ptr_hi   ; (20)
-	out   STACKL,  r2      ; (21)
-	out   STACKH,  r3      ; (22) From now stack is used as fb. pointer
+	lds   r24,     v_m3ptr_lo   ; (18)
+	lds   r25,     v_m3ptr_hi   ; (20)
+	lds   r2,      m74_enable   ; (22)
+	subi  r16,     (M74_M3_SUBSL + 1) ; (23)
+	brcs  m3cfgd0          ; (24 / 25)
+	lsl   r16              ; (25)
+	lsl   r16              ; (26) Physical row counter bit 0 aligned with m74_enable bit
+	and   r16,     r2      ; (27)
+	sbrc  r16,     2       ; (28 / 29)
+	subi  r24,     lo8(M74_M3_SUB) ; (29)
+	sbrc  r16,     2       ; (30 / 31)
+	sbci  r25,     hi8(M74_M3_SUB) ; (31)
+	rjmp  m3cfgd1          ; (33)
+m3cfgd0:
+	lpm   r2,      Z       ; (28) Dummy load (nop)
+	lpm   r2,      Z       ; (31) Dummy load (nop)
+	rjmp  .                ; (33)
+m3cfgd1:
+	out   STACKL,  r24     ; (34)
+	out   STACKH,  r25     ; (35) From now stack is used as fb. pointer
 
 	; Pick colors from palette for 1bpp output
 
-	ld    r16,     Y       ; (24) Foreground (1) color
-	lds   YL,      m74_bgcol    ; (26)
-	ld    r24,     Y       ; (28)
-	mov   r25,     r24     ; (29) Background (0) color
+	ld    r16,     Y       ; (37) Foreground (1) color
+	lds   YL,      m74_bgcol    ; (39)
+	ld    r24,     Y       ; (41)
+	mov   r25,     r24     ; (42) Background (0) color
 
 	; Pre-load registers for the tile loop
 
-	ldi   r18,     0x05    ; (30)
-	ldi   r19,     0xFF    ; (31)
-	movw  r10,     r18     ; (32) r11:r10, r19:r18 Load constants
-	ldi   r18,     lo8(pm(m3pxblk)) ; (33)
-	ldi   r19,     hi8(pm(m3pxblk)) ; (34)
-	movw  r12,     r18     ; (35) r13:r12, r19:r18 Load base offset for code tiling
+	ldi   r18,     0x05    ; (43)
+	ldi   r19,     0xFF    ; (44)
+	movw  r10,     r18     ; (45) r11:r10, r19:r18 Load constants
+	ldi   r18,     lo8(pm(m3pxblk)) ; (46)
+	ldi   r19,     hi8(pm(m3pxblk)) ; (47)
+	movw  r12,     r18     ; (48) r13:r12, r19:r18 Load base offset for code tiling
 
 	;
 	; Padding wait
 	;
 
-	WAIT  r18,     55
+	WAIT  r18,     42
 
 	;
 	; Tile output lead-in. The first pixel must be produced at 350 (so the

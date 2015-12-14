@@ -561,48 +561,14 @@ m74_scloop_sr:
 drloop:
 	subi  r20,     8       ; ( 1)
 	brcs  drend            ; ( 2 /  3) (1700)
-	rjmp  .                ; ( 4)
-	rjmp  .                ; ( 6)
-	lds   r8,      m74_ldsl     ; ( 8) Load start scanline for RAM clear
-	lds   r6,      v_remc       ; (10) Remaining blocks
-	lds   r7,      v_rems       ; (12) Remaining skips
-	cp    r8,      r16     ; (13) Compare start with current line
-	brcc  drnfn0           ; (14 / 15) Function may run only if reached
-	movw  ZL,      r14     ; (15) ZH:ZL, r15:r14 Target pointer
-	inc   r7               ; (16)
-	brne  drspil           ; (17 / 18) SPI load if v_rems is not 0xFF
-	cp    r6,      r23     ; (18)
-	breq  drnfn1           ; (19 / 20) v_remc drained, nothing to process
-	st    Z+,      r23     ; (21)
-	st    Z+,      r23     ; (23)
-	st    Z+,      r23     ; (25)
-	st    Z+,      r23     ; (27)
-	st    Z+,      r23     ; (29)
-	st    Z+,      r23     ; (31)
-	st    Z+,      r23     ; (33)
-	st    Z+,      r23     ; (35)
-	st    Z+,      r23     ; (37)
-	st    Z+,      r23     ; (39)
-	st    Z+,      r23     ; (41)
-	st    Z+,      r23     ; (43)
-	st    Z+,      r23     ; (45)
-	st    Z+,      r23     ; (47)
-	st    Z+,      r23     ; (49)
-	st    Z+,      r23     ; (51)
-	dec   r6               ; (52)
-drspie:
-	sts   v_remc,  r6      ; (54)
-	rjmp  drloop           ; (56 = 0)
-drspil:
-	nop                    ; (19)
-	rcall m74_spiload_core_nc   ; (48) 3 + 26
-	sts   v_rems,  r7      ; (50)
-	rjmp  drspie           ; (52)
-drnfn0:
-	lpm   r24,     Z       ; (18) Dummy load (nop)
-	rjmp  .                ; (20)
-drnfn1:
-	WAIT  r24,     34      ; (54)
+#if (M74_SD_ENABLE != 0)
+	WAIT  r24,     15      ; (17)
+	movw  ZL,      r14     ; (18) ZH:ZL, r15:r14 Target pointer
+	rcall m74_spiload_core ; (53) 35 cycles
+	movw  r14,     ZL      ; (54) r15:r14, ZH:ZL Target pointer
+#else
+	WAIT  r24,     52      ; (54)
+#endif
 	rjmp  drloop           ; (56 = 0)
 	; Return for exiting the scanline loop
 sclpret:
@@ -932,48 +898,15 @@ dfloop:
 	brcs  dfend1           ; ( 2 /  3)
 	lpm   r24,     Z       ; ( 5) Dummy load (nop)
 dfrl0:
-	nop                    ; ( 6)
-	lds   r8,      m74_ldsl     ; ( 8) Load start scanline for RAM clear
-	lds   r6,      v_remc       ; (10) Remaining blocks
-	lds   r7,      v_rems       ; (12) Remaining skips
-	cp    r8,      r16     ; (13) Compare start with current line
-	brcc  dfnfn0           ; (14 / 15) Function may run only if reached
-	movw  ZL,      r14     ; (15) ZH:ZL, r15:r14 Target pointer
-	inc   r7               ; (16)
-	brne  dfspil           ; (17 / 18) SPI load if v_rems is not 0xFF
-	cp    r6,      r23     ; (18)
-	breq  dfnfn1           ; (19 / 20) v_remc drained, nothing to process
-	st    Z+,      r23     ; (21)
-	st    Z+,      r23     ; (23)
-	st    Z+,      r23     ; (25)
-	st    Z+,      r23     ; (27)
-	st    Z+,      r23     ; (29)
-	st    Z+,      r23     ; (31)
-	st    Z+,      r23     ; (33)
-	st    Z+,      r23     ; (35)
-	st    Z+,      r23     ; (37)
-	st    Z+,      r23     ; (39)
-	st    Z+,      r23     ; (41)
-	st    Z+,      r23     ; (43)
-	st    Z+,      r23     ; (45)
-	st    Z+,      r23     ; (47)
-	st    Z+,      r23     ; (49)
-	st    Z+,      r23     ; (51)
-	dec   r6               ; (52)
-dfspie:
-	sts   v_remc,  r6      ; (54)
-	rjmp  dfloop           ; (56 = 0)
-dfspil:
-	nop                    ; (19)
-	rcall m74_spiload_core_nc   ; (48) 3 + 26
-	sts   v_rems,  r7      ; (50)
-	rjmp  dfspie           ; (52)
-dfnfn0:
-	lpm   r24,     Z       ; (18) Dummy load (nop)
-	rjmp  .                ; (20)
-dfnfn1:
-	WAIT  r24,     34      ; (54)
-	rjmp  dfloop           ; (56 = 0)
+#if (M74_SD_ENABLE != 0)
+	WAIT  r24,     12      ; (17)
+	movw  ZL,      r14     ; (18) ZH:ZL, r15:r14 Target pointer
+	rcall m74_spiload_core ; (53) 35 cycles
+	movw  r14,     ZL      ; (54) r15:r14, ZH:ZL Target pointer
+#else
+	WAIT  r24,     49      ; (54)
+#endif
+	rjmp  dfloop           ; (56)
 dfend1:
 	rjmp  dfend            ; ( 5)
 dfend:

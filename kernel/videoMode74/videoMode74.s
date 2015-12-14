@@ -79,11 +79,24 @@
 .global m74_config
 
 ;
+; volatile unsigned char m74_enable;
+;
+; Display enable flag & SD load enable flag
+;
+; bit 0: Display enabled if set. Otherwise screen is black.
+; bit 1: SD load enabled if set. This is cleared in every frame.
+; bit 2: Row mode 3 double scanning enabled.
+;
+.global m74_enable
+
+#if (M74_ROWS_PTRE != 0)
+;
 ; volatile unsigned int m74_rows;
 ;
 ; Row selector address. The area is used according to bit 0 of m74_config.
 ;
 .global m74_rows
+#endif
 
 ;
 ; volatile unsigned int m74_tdesc;
@@ -192,61 +205,6 @@
 .global m74_col0
 #endif
 
-;
-; volatile unsigned char m74_ldsl;
-;
-; Scanline to start RAM clear or SPI load at. This is the last scanline which
-; is unaffected by the function. These functions work in the spare cycles
-; within graphics output, when the display is narrower than 24 tiles, a
-; separator is displayed, and some other cases. RAM clear is performed in 16
-; byte blocks, SPI load is performed in 2 byte blocks. For a racing with the
-; beam style setup, one tile may be utilized for one block (for narrower than
-; 24 tile row configurations).
-;
-.global m74_ldsl
-
-;
-; volatile unsigned char m74_totc;
-;
-; Total blocks of data to cover by the RAM clear or SPI load function. A
-; value of zero requests 256 blocks for SPI load, but turns off clearing for
-; RAM clear. One block is 2 bytes for SPI load, 16 bytes for RAM clear.
-;
-.global m74_totc
-
-;
-; volatile unsigned char m74_skip;
-;
-; Blocks (2 bytes) to skip in SPI load before writing to the target area. This
-; is useful for loading from an SD card sector to retrieve an arbitrary small
-; region. If this is 0xFF, then RAM clear is performed instead. To turn off
-; both functions, set this to 0xFF, and m74_totc to 0x00.
-;
-.global m74_skip
-
-;
-; volatile unsigned int m74_fadd;
-;
-; Target start address in RAM for SPI load or RAM clear function.
-;
-.global m74_fadd
-
-;
-; volatile unsigned int m74_umod;
-;
-; User video mode entry point as a byte address in the flash. The supplied
-; mode replaces Mode 74 entirely if enabled. The design of the user mode
-; should follow the general principles of Uzebox video mode design.
-;
-; 0: All output disabled (blank screen).
-; 1: Disabled, Mode 74 is active as normal.
-; Lowest bit clear: Entry before palette load. Entry happens in cycle 482.
-; Lowest bit set: Entry after palette load. Entry happens in cycle 1261.
-;
-; Only the high 15 bits are used as actual address.
-;
-.global m74_umod
-
 #if ((M74_M3_PTRE != 0) && (M74_M3_ENABLE != 0))
 ;
 ; volatile unsigned int m74_mcadd;
@@ -277,6 +235,33 @@
 .global m74_ramma
 #endif
 
+#if (M74_SD_ENABLE != 0)
+;
+; volatile unsigned long m74_sdoff;
+;
+; SD card loading: Offset (32 bits; in bytes) to load data from. Lowest bit is
+; ignored (only even offsets). Loading can not pass 512 byte sector boundary.
+; It is overwritten during the load.
+;
+.global m74_sdoff
+
+;
+; volatile unsigned char m74_sdcnt;
+;
+; SD card loading: Count of 2 byte blocks to load from the SD card. A value of
+; zero requests 512 bytes (a full sector). Loading is truncated to next sector
+; boundary.
+;
+.global m74_sdcnt
+
+;
+; volatile unsigned int m74_sddst;
+;
+; SD card loading: Destination offset in RAM for the loaded data.
+;
+.global m74_sddst
+#endif
+
 #if (M74_VRAM_CONST == 0)
 ;
 ; void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt);
@@ -303,9 +288,10 @@
 #endif
 
 ;
-; void M74_Finish(void);
+; unsigned char M74_Finish(void);
 ;
-; Finishes the RAM clear or SPI load started within the video display.
+; Finishes the SD load started within the video display. Returns nonzero if
+; the load failed.
 ;
 .global M74_Finish
 
@@ -345,11 +331,13 @@
 	; Globals
 
 	m74_config:    .byte 1 ; Global configuration
+	m74_enable:    .byte 1 ; Enable flags
 	m74_bgcol:     .byte 1 ; Background color for 1bpp modes (high nybble)
-	m74_ldsl:      .byte 1 ; Load start scanline (RAM clear / SPI load)
+#if (M74_ROWS_PTRE != 0)
 	m74_rows:
 	m74_rows_lo:   .byte 1 ; Row selector address, low
 	m74_rows_hi:   .byte 1 ; Row selector address, high
+#endif
 	m74_tdesc:
 	m74_tdesc_lo:  .byte 1 ; Tile row descriptor address, low
 	m74_tdesc_hi:  .byte 1 ; Tile row descriptor address, high
@@ -376,23 +364,28 @@
 	m74_ramma_lo:  .byte 1 ; RAM mask pool address, low
 	m74_ramma_hi:  .byte 1 ; RAM mask pool address, high
 #endif
-	m74_totc:      .byte 1 ; Total block count for RAM clear / SPI load
-	m74_skip:      .byte 1 ; Blocks to skip count for SPI load
-	m74_fadd:
-	m74_fadd_lo:   .byte 1 ; RAM clear / SPI load target address, low
-	m74_fadd_hi:   .byte 1 ; RAM clear / SPI load target address, high
-	m74_umod:
-	m74_umod_lo:   .byte 1 ; User video mode entry, low
-	m74_umod_hi:   .byte 1 ; User video mode entry, high
 #if ((M74_M3_PTRE != 0) && (M74_M3_ENABLE != 0))
 	m74_mcadd:
 	m74_mcadd_lo:  .byte 1 ; 2bpp Multicolor framebuffer start, low
 	m74_mcadd_hi:  .byte 1 ; 2bpp Multicolor framebuffer start, high
 #endif
+#if (M74_SD_ENABLE != 0)
+	m74_sdoff:             ; SD load byte offset to load from (4 bytes, even)
+	m74_sdoff_0:
+	v_sstat:       .byte 1 ; SD load status
+	m74_sdoff_1:
+	v_sreme:       .byte 1 ; SD load remaining 2 byte blocks until sector end
+	m74_sdoff_2:
+	v_srems:       .byte 1 ; SD load remaining 2 byte blocks to skip
+	m74_sdoff_3:   .byte 1
+	m74_sdcnt:             ; SD load count of 2 byte blocks to load (0: 256)
+	v_sremc:       .byte 1 ; SD load remaining 2 byte blocks to load
+	m74_sddst:             ; SD load destination address (2 bytes)
+	m74_sddst_lo:  .byte 1
+	m74_sddst_hi:  .byte 1
+#endif
 
-	; Locals. Note that m3ptr and cadd share RAM locations: This can be
-	; done since the latter is only set up after exiting the scanline
-	; loop.
+	; Locals
 
 #if (M74_VRAM_CONST == 0)
 	v_vram_lo:     .byte 1 ; VRAM location for rectangular VRAM functions, low
@@ -401,15 +394,21 @@
 	v_vram_h:      .byte 1 ; Height of VRAM for rectangular VRAM functions
 	v_vram_p:      .byte 1 ; Pitch of VRAM for rectangular VRAM functions
 #endif
-	v_remc:        .byte 1 ; Remaining block count for RAM clear / SPI load
-	v_rems:        .byte 1 ; Remaining skip count for SPI load
-	v_m3ptr_lo:            ; Current location in multicolor framebuffer, low
-	v_cadd_lo:     .byte 1 ; RAM clear / SPI target addr. after scanline loop, low
-	v_m3ptr_hi:            ; Current location in multicolor framebuffer, high
-	v_cadd_hi:     .byte 1 ; RAM clear / SPI target addr. after scanline loop, high
 	v_hsize:       .byte 1 ; Horizontal size on bits 3 and 4
+#if (M74_M3_ENABLE != 0)
+	v_m3ptr_lo:    .byte 1 ; Current location in multicolor framebuffer, low
+	v_m3ptr_hi:    .byte 1 ; Current location in multicolor framebuffer, high
+#endif
 
 .section .text
+
+
+
+;
+; Sprite library. Included here to avoid it interfering with relative jumps &
+; calls within the Mode 74 core.
+;
+#include "videoMode74/videoMode74_sprite.s"
 
 
 
@@ -461,59 +460,6 @@ M74_SetVramEx:
 	sts   v_vram_p, r18
 	ret
 #endif
-
-
-
-;
-; unsigned char M74_Finish(void);
-;
-; Finishes the RAM clear or SPI load started within the video display.
-;
-.section .text.M74_Finish
-M74_Finish:
-	movw  r18,     r6      ; Save r7:r6 into r19:r18 (Calling convention!)
-	clr   r22
-	lds   ZL,      v_cadd_lo
-	lds   ZH,      v_cadd_hi
-	lds   r6,      v_remc
-	lds   r7,      v_rems
-	inc   r7
-	brne  lfispi           ; SPI load is v_rems is not 0xFF
-	cp    r6,      r22
-	breq  lfise            ; No more blocks to clear
-lfiral:
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	st    Z+,      r22
-	dec   r6
-	brne  lfiral
-	rjmp  lfise6
-lfispi:
-	rcall m74_spiload_core_nc
-	brcs  lfise7           ; Carry set: load ended
-	rjmp  .                ; Pad to 36 cycles for proper SPI operation
-	rjmp  .
-	rjmp  lfispi
-lfise7:
-	sts   v_rems,  r7      ; Just store so a new call will do nothing
-lfise6:
-	sts   v_remc,  r6      ; Just store so a new call will do nothing
-lfise:
-	movw  r6,      r18
-	ret
 
 
 
@@ -625,7 +571,6 @@ sttl0:
 ; some hsync_pulse rcalls which the kernel adds after the video mode), to
 ; ensure that all relative jumps are within range.
 ;
-#include "videoMode74/videoMode74_sprite.s"
 #include "videoMode74/videoMode74_scloop.s"
 #if (M74_M7_ENABLE != 0)
 #include "videoMode74/videoMode74_m7.s"

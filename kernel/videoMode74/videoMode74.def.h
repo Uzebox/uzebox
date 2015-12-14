@@ -131,13 +131,32 @@
 ** two bytes of RAM. You may also limit it to a single offset. */
 
 #ifndef M74_COL0_RELOAD
-	#define M74_COL0_RELOAD    1
-#endif
-#ifndef M74_COL0_OFF
-	#define M74_COL0_OFF       0
+	#define M74_COL0_RELOAD    0
 #endif
 #ifndef M74_COL0_PTRE
 	#define M74_COL0_PTRE      0
+#endif
+#ifndef M74_COL0_OFF
+	#if ((M74_COL0_RELOAD != 0) && (M74_COL0_PTRE == 0))
+		#error "To use Color 0 reload without pointer, a valid address is needed! (M74_COL0_OFF)"
+	#else
+		#define M74_COL0_OFF       0
+	#endif
+#endif
+
+
+/* This can be used to constrain row selector address to a compile time
+** offset, saving 2 bytes of RAM. */
+
+#ifndef M74_ROWS_PTRE
+	#define M74_ROWS_PTRE      1
+#endif
+#ifndef M74_ROWS_OFF
+	#if (M74_ROWS_PTRE == 0)
+		#error "Row selector pointer disabled, but no address is given! (M74_ROWS_OFF)"
+	#else
+		#define M74_ROWS_OFF       0
+	#endif
 #endif
 
 
@@ -155,11 +174,39 @@
 #ifndef M74_M3_ENABLE
 	#define M74_M3_ENABLE      0
 #endif
-#ifndef M74_M3_OFF
-	#define M74_M3_OFF         0
-#endif
 #ifndef M74_M3_PTRE
 	#define M74_M3_PTRE        0
+#endif
+#ifndef M74_M3_OFF
+	#if ((M74_M3_ENABLE != 0) && (M74_M3_PTRE == 0))
+		#error "To use Row Mode 3 without pointer, a valid address is needed! (M74_M3_OFF)"
+	#else
+		#define M74_M3_OFF         0
+	#endif
+#endif
+
+
+/* Setting this subtract value enables double scanning for row mode 3 by
+** applying it in odd rows if the corresponding m74_enable bit is set. It
+** encodes the bytes to subtract from the pointer in such case (one multicolor
+** tile takes 2 bytes). The first line of double-scanned content can also be
+** set, odd lines are relative to this (so the given line becomes the first
+** doubly scanned line by an appropriately placed first pointer subtract). */
+
+#ifndef M74_M3_SUB
+	#define M74_M3_SUB         0
+#endif
+#ifndef M74_M3_SUBSL
+	#define M74_M3_SUBSL       0
+#endif
+
+
+/* Enable SD load function. If enabled, on 22 tiles or narrower modes it
+** becomes possible to load an arbitrary 2 byte aligned part of an SD card
+** sector in every frame. It costs some flash and RAM. */
+
+#ifndef M74_SD_ENABLE
+	#define M74_SD_ENABLE      0
 #endif
 
 
@@ -326,20 +373,20 @@
 
 /* ROM mask pool's address. At most 224 x 8 bytes (depends on used masks). */
 
-#ifndef M74_ROMMASK_OFF
-	#define M74_ROMMASK_OFF   0
-#endif
 #ifndef M74_ROMMASK_PTRE
 	#define M74_ROMMASK_PTRE  0
+#endif
+#ifndef M74_ROMMASK_OFF
+	#define M74_ROMMASK_OFF   0
 #endif
 
 /* RAM mask pool's address. At most 14 x 8 bytes (depends on used masks). */
 
-#ifndef M74_RAMMASK_OFF
-	#define M74_RAMMASK_OFF   0
-#endif
 #ifndef M74_RAMMASK_PTRE
 	#define M74_RAMMASK_PTRE  0
+#endif
+#ifndef M74_RAMMASK_OFF
+	#define M74_RAMMASK_OFF   0
 #endif
 
 /* RAM tile allocation workspace pointer for sprites. Up to 192 bytes (depends
@@ -347,11 +394,11 @@
 ** is dropped below the stack which may be suitable if not too many RAM tiles
 ** are used, and the program doesn't use much of stack. */
 
-#ifndef M74_RTLIST_OFF
-	#define M74_RTLIST_OFF    0x1010
-#endif
 #ifndef M74_RTLIST_PTRE
 	#define M74_RTLIST_PTRE   0
+#endif
+#ifndef M74_RTLIST_OFF
+	#define M74_RTLIST_OFF    0x1010
 #endif
 
 /* Sprite recolor table set start offset. Only the high byte is used. If it is

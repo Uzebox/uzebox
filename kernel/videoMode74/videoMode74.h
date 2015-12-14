@@ -30,8 +30,13 @@
 #pragma once
 
 extern volatile unsigned char m74_config;
+extern volatile unsigned char m74_enable;
 extern volatile unsigned char m74_bgcol;
+#if (M74_ROWS_PTRE != 0)
 extern volatile unsigned int  m74_rows;
+#else
+#define m74_rows   (M74_ROWS_OFF)
+#endif
 extern volatile unsigned int  m74_tdesc;
 extern volatile unsigned int  m74_tidx;
 #if (M74_PAL_PTRE != 0)
@@ -56,11 +61,11 @@ extern volatile unsigned int  m74_ramma;
 #else
 #define m74_ramma  (M74_RAMMASK_OFF)
 #endif
-extern volatile unsigned char m74_ldsl;
-extern volatile unsigned char m74_totc;
-extern volatile unsigned char m74_skip;
-extern volatile unsigned int  m74_fadd;
-extern volatile unsigned int  m74_umod;
+#if (M74_SD_ENABLE != 0)
+extern volatile unsigned long m74_sdoff;
+extern volatile unsigned char m74_sdcnt;
+extern volatile unsigned int  m74_sddst;
+#endif
 #if (M74_M3_ENABLE != 0)
 #if (M74_M3_PTRE != 0)
 extern volatile unsigned int  m74_mcadd;
@@ -80,7 +85,7 @@ extern volatile unsigned char m74_rtno;
 extern void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt);
 extern void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hgt, unsigned char pt);
 #endif
-extern void M74_Finish(void);
+extern unsigned char M74_Finish(void);
 extern void M74_VramRestore(void);
 extern void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl, unsigned char flg);
 #if ((M74_RECTB_OFF >> 8) != 0)
@@ -106,3 +111,25 @@ extern void M74_VramFill(unsigned int src, unsigned char pitch);
 #define M74_SPR_I2    0x80U
 #define M74_SPR_I1    0x40U
 #define M74_SPR_I0    0x00U
+
+
+/*
+** Configuration (m74_config) flags
+*/
+#define M74_CFG_ROWSEL_SECTIONS  0x00U
+#define M74_CFG_ROWSEL_LINEMAP   0x01U
+#define M74_CFG_RAM_TDESC        0x02U
+#define M74_CFG_RAM_TIDX         0x04U
+#define M74_CFG_RAM_PALETTE      0x08U
+#define M74_CFG_COL0_RELOAD      0x10U
+#define M74_CFG_RAM_COL0         0x20U
+#define M74_CFG_RAM_XSCROLL      0x40U
+#define M74_CFG_RAM_LINEMAP      0x80U
+
+
+/*
+** Enable (m74_enable) flags
+*/
+#define M74_ENA                  0x01U
+#define M74_ENA_SD               0x02U
+#define M74_ENA_M3DOUBLE         0x04U

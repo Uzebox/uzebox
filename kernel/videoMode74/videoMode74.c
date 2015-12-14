@@ -41,13 +41,13 @@
 	/* Callback invoked by UzeboxCore.Initialize() */
 	void InitializeVideoMode()
 	{
-		m74_ldsl   = 0xFFU; /* Turn off RAM clear or SPI load (never reached line) */
-		m74_totc   = 0x00U; /* Same, just have everything right */
-		m74_skip   = 0xFFU; /* Same, just have everything right */
-		m74_umod   = 0U;    /* No user video mode, display disabled */
+		m74_enable = 0U;    /* Display disabled, SD load if compiled in, disabled */
 		m74_bgcol  = 0U;    /* Background color: index zero */
 		m74_rtmax  = 32U;   /* Allow 32 RAM tiles by default (should leave enough stack with default config) */
 		m74_rtno   = 0U;    /* Currently allocated RAM tiles */
+#if (M74_ROWS_PTRE != 0)
+		m74_rows   = M74_ROWS_OFF;    /* Row selector address */
+#endif
 #if (M74_PAL_PTRE != 0)
 		m74_pal    = M74_PAL_OFF;     /* 16 color palette address */
 #endif

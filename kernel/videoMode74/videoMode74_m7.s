@@ -38,8 +38,8 @@
 ; YL:  Byte 1 of tile descriptor
 ; X:   Offset from tile index list
 ; r9:  Global configuration (m74_config)
-; r14: RAM clear / SPI load address, low
-; r15: RAM clear / SPI load address, high
+; r14: SD load address, low
+; r15: SD load address, high
 ; r23: Zero
 ; YH:  Palette buffer, high
 ;
@@ -47,9 +47,8 @@
 ;
 m74_m7_separator:
 
-	lds   r18,     m74_ldsl    ; (1772)
-	lds   r6,      v_remc      ; (1774)
-	lds   r7,      v_rems      ; (1776)
+	lpm   r24,     Z       ; (1773) Dummy load (nop)
+	lpm   r24,     Z       ; (1776) Dummy load (nop)
 
 	; Prepare palette offset
 
@@ -411,8 +410,25 @@ m7lend:
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
 	st    Y,       XH      ; ()
-	sts   v_remc,  r6      ; () Restore stuff after RAM clear / SPI load
+	rjmp  .                ; ()
 	out   PIXOUT,  r23     ; (1695) Termination
-	sts   v_rems,  r7      ; ()
+	rjmp  .                ; ()
 	movw  r14,     ZL      ; () r15:r14, ZH:ZL
 	rjmp  m74_scloop       ; (1700)
+
+
+
+;
+; SD load or other function
+;
+; May use r6, r7 and r24, can assume r23 being zero, and target pointer being
+; in Z. 44 cycles.
+;
+m74_sl_func:
+#if (M74_SD_ENABLE != 0)
+	WAIT  r24,     10      ; (10)
+	rjmp  m74_spiload_core ; (44) 32 + 2
+#else
+	WAIT  r24,     40      ; (40)
+	ret                    ; (44)
+#endif
