@@ -20,14 +20,6 @@
 
 
 
-.section .bss
-
-	; Locals
-
-	v_rows_lo:     .byte 1 ; Row selector current address, low
-	v_rows_hi:     .byte 1 ; Row selector current address, high
-	v_shifto:      .byte 1 ; X shift override
-
 .section .text
 
 
@@ -38,14 +30,14 @@ sub_video_mode74:
 
 	; Check for display enable
 
-	lds   r19,     m74_enable   ; ( 469)
-	sbrs  r19,     0       ; ( 470 /  471)
+	lds   r19,     m74_config   ; ( 469)
+	sbrs  r19,     7       ; ( 470 /  471)
 	rjmp  ddis             ; ( 472) Display disabled
 
 	; Initialize SD loading (as needed)
 
 #if (M74_SD_ENABLE != 0)
-	sbrs  r19,     1       ; ( 472 /  473)
+	sbrs  r19,     6       ; ( 472 /  473)
 	rjmp  sdldis           ; ( 474) SD loading disabled
 	cbi   _SFR_IO_ADDR(PORTD), 6  ; ( 475) Assert Chip Select for the SD card
 	ldi   r22,     0x51           ; ( 476) CMD 17 (decimal 17 OR 0x40)
@@ -64,8 +56,8 @@ sub_video_mode74:
 	adc   r24,     r17     ; ( 496)
 	adc   r25,     r18     ; ( 497)
 	out   _SFR_IO_ADDR(SPDR), r25 ; ( 498) Address byte 3
-	andi  r19,     0xFD    ; ( 499) Disable SD loading for next frame
-	sts   m74_enable, r19  ; ( 501)
+	andi  r19,     0xBF    ; ( 499) Disable SD loading for next frame
+	sts   m74_config, r19  ; ( 501)
 	lds   r15,     m74_sddst_hi ; ( 503)
 	lds   r14,     m74_sddst_lo ; ( 505)
 	lds   r21,     m74_sdcnt    ; ( 507)
@@ -83,7 +75,7 @@ sub_video_mode74:
 sdldis:
 	ldi   r24,     0xFF    ; ( 475)
 	sts   v_sstat, r24     ; ( 477) Disable loading in HSync by marking it completed
-	WAIT  r24,     109     ; ( 586)
+	M74WT_R24      109     ; ( 586)
 	rjmp  sdle             ; ( 588)
 sdl0:
 	cp    r16,     r21     ; ( 519)
@@ -102,42 +94,33 @@ sdl1:
 	out   _SFR_IO_ADDR(SPDR), r23 ; ( 534) Address byte 1
 	clr   r16              ; ( 535)
 	sts   v_sstat, r16     ; ( 537) Nothing loaded yet
-	ldi   r22,     4       ; ()
-	dec   r22              ; ()
-	brne  .-4              ; ()
-	rjmp  .                ; ()
+	M74WT_R24      14      ; ()
 	out   _SFR_IO_ADDR(SPDR), r22 ; ( 552) Address byte 0 (zero)
-	ldi   r22,     5       ; ()
-	dec   r22              ; ()
-	brne  .-4              ; ()
+	M74WT_R24      15      ; ()
 	ldi   r22,     0x95    ; () Use the default init CRC (lowest bit set, bit unsure if that's necessary)
-	ldi   r24,     0xFF    ; () Send an extra byte, discarding last byte before command completion.
+	ldi   r21,     0xFF    ; () Send an extra byte, discarding last byte before command completion.
 	out   _SFR_IO_ADDR(SPDR), r22 ; ( 570) Empty CRC
-	ldi   r22,     5       ; ()
-	dec   r22              ; ()
-	brne  .-4              ; ()
-	rjmp  .                ; ()
-	out   _SFR_IO_ADDR(SPDR), r24 ; ( 588)
+	M74WT_R24      17      ; ()
+	out   _SFR_IO_ADDR(SPDR), r21 ; ( 588)
 sdle:
 #else
-	WAIT  r24,     117     ; ( 588)
+	M74WT_R24      117     ; ( 588)
 #endif
 
 	; Load palette
 
-	lds   r23,     m74_config   ; ( 590)
-	ldi   YH,      M74_PALBUF_H ; ( 591)
+	ldi   YH,      M74_PALBUF_H ; ( 589)
 #if (M74_PAL_PTRE != 0)
-	lds   ZL,      m74_pal_lo   ; ( 593)
-	lds   ZH,      m74_pal_hi   ; ( 595)
+	lds   ZL,      m74_pal_lo   ; ( 591)
+	lds   ZH,      m74_pal_hi   ; ( 593)
 #else
-	ldi   ZL,      lo8(M74_PAL_OFF) ; ( 592)
-	ldi   ZH,      hi8(M74_PAL_OFF) ; ( 593)
-	rjmp  .                ; ( 595)
+	ldi   ZL,      lo8(M74_PAL_OFF) ; ( 590)
+	ldi   ZH,      hi8(M74_PAL_OFF) ; ( 591)
+	rjmp  .                ; ( 593)
 #endif
-	clr   YL               ; ( 596)
+	clr   YL               ; ( 594)
 lcloop:
-	sbrs  r23,     3       ; ( 1)
+	sbrs  r19,     3       ; ( 1)
 	rjmp  .+4              ; ( 3)
 	ld    r24,     Z+      ; ( 4)
 	rjmp  .+2              ; ( 6)
@@ -151,16 +134,16 @@ lcloop:
 	movw  r14,     ZL      ; (38)
 	movw  ZL,      r16     ; (39)
 #else
-	WAIT  r24,     39      ; (39)
+	M74WT_R24      39      ; (39)
 #endif
-	sbrs  r23,     3       ; ( 1)
+	sbrs  r19,     3       ; ( 1)
 	rjmp  .+4              ; ( 3)
 	ld    r24,     Z+      ; ( 4)
 	rjmp  .+2              ; ( 6)
 	lpm   r24,     Z+      ; ( 6)
 	rcall m74_setpalcol    ; (45) (3 + 36 cycles)
 	inc   YL               ; (46)
-	brne  lcloop           ; (47 / 48) (1063 cy total; at 1659 here)
+	brne  lcloop           ; (47 / 48) (1063 cy total; at 1657 here)
 
 	; Initializing for the scanline loop
 
@@ -173,47 +156,37 @@ lcloop:
 	ldi   ZH,      hi8(M74_ROWS_OFF) ; ( 3)
 	rjmp  .                ; ( 5)
 #endif
-	sbrs  r23,     0       ; ( 6 /  7)
-	rjmp  lresp            ; ( 8)
-	; RAM scanline map: nothing to do here
-	lpm   r0,      Z       ; (10) dummy load (nop)
-	rjmp  .                ; (12)
-	rjmp  lrese            ; (14)
-lresp:
-	; RAM scanline + restart pairs: load the first two values to get the
-	; initial scanline.
-	ld    r17,     Z+      ; (10) Load new physical row counter
-	ld    r2,      Z+      ; (12) Load new X scroll
-	sts   v_shifto,  r2    ; (14)
-lrese:
-	sts   v_rows_lo, ZL    ; (16)
-	sts   v_rows_hi, ZH    ; (18)
+	; Load the first two values to get the initial scanline.
+	ld    r17,     Z+      ; ( 7) Load first logical row counter
+	adiw  ZL,      1       ; ( 9)
+	sts   v_rows_lo, ZL    ; (11)
+	sts   v_rows_hi, ZH    ; (13)
 
 #if (M74_M3_ENABLE != 0)
 	; Initialize 2bpp Multicolor mode
 
 #if (M74_M3_PTRE != 0)
-	lds   r18,     m74_mcadd_lo ; (20)
-	lds   r19,     m74_mcadd_hi ; (22)
+	lds   r18,     m74_mcadd_lo ; (15)
+	lds   r19,     m74_mcadd_hi ; (17)
 #else
-	ldi   r18,     lo8(M74_M3_OFF)   ; (19)
-	ldi   r19,     hi8(M74_M3_OFF)   ; (20)
-	rjmp  .                ; (22)
+	ldi   r18,     lo8(M74_M3_OFF)   ; (14)
+	ldi   r19,     hi8(M74_M3_OFF)   ; (15)
+	rjmp  .                ; (17)
 #endif
-	subi  r18,     1       ; (23) Stack is pre-incrementing, so correct
-	sbci  r19,     0       ; (24)
-	sts   v_m3ptr_lo, r18  ; (26)
-	sts   v_m3ptr_hi, r19  ; (28)
+	subi  r18,     1       ; (18) Stack is pre-incrementing, so correct
+	sbci  r19,     0       ; (19)
+	sts   v_m3ptr_lo, r18  ; (21)
+	sts   v_m3ptr_hi, r19  ; (23)
 #else
-	WAIT  r18,     10      ; (28) (At 1687 here)
+	M74WT_R24      10      ; (23) (At 1680 here)
 #endif
 
 	; Sandwiched between waits so it is simpler to shift it a bit around
 	; when tweaking the scanline loop.
 
-	WAIT  r18,     9       ; (1696)
-	call  m74_scloop       ; (1709)
-	WAIT  r18,     30      ; (1739)
+	M74WT_R24      19      ; (1699)
+	call  m74_scloop       ; (1712)
+	M74WT_R24      27      ; (1739)
 
 	; Do some SD loads, then complete it by writing out address, used to
 	; finish the function if necessary.
@@ -226,7 +199,7 @@ lrese:
 	sts   m74_sddst_lo, ZL ; (74)
 	sts   m74_sddst_hi, ZH ; (76)
 #else
-	WAIT  r24,     76      ; (76)
+	M74WT_R24      76      ; (76)
 #endif
 
 	; Update the sync_pulse variable which was neglected during the loop
@@ -256,9 +229,9 @@ ddis:
 #if (M74_SD_ENABLE != 0)
 	ldi   r24,     0xFF    ; ( 473)
 	sts   v_sstat, r24     ; ( 475) Set it so M74_Finish will operate correctly without display enable
-	WAIT  r23,     1814 - 475
+	M74WT_R24      1814 - 475
 #else
-	WAIT  r23,     1814 - 472
+	M74WT_R24      1814 - 472
 #endif
 	clr   r16              ; (1815) Scanline counter
 ddisl:
@@ -267,8 +240,7 @@ ddisl:
 	breq  laend            ; (1819 / 1820)
 	inc   r16              ; (1820)
 	rcall hsync_pulse      ; (21 + AUDIO)
-	WAIT  r23,     1000 - 21 - AUDIO_OUT_HSYNC_CYCLES
-	WAIT  r23,     813     ; () Needed to split it up
+	M74WT_R24      1813 - 21 - AUDIO_OUT_HSYNC_CYCLES
 	rjmp  ddisl            ; (1815)
 
 
@@ -298,6 +270,48 @@ m74_setpalcol:
 	st    Y+,      r24     ; (30)
 	st    Y,       r24     ; (32)
 	ret                    ; (36)
+
+
+
+;
+; Waits the given amount of cycles, assuming calling with "rcall".
+;
+; This routine is used to reduce the size of the video mode, these waits
+; taking only two words (ldi + rcall), yet having the same effect like the
+; WAIT macro.
+;
+; r24: Number of cycles to wait - 11 (not including the "ldi r24, ...").
+;      Must be at least 4.
+;
+m74_wait:
+	lsr   r24
+	brcs  .                ; +1 if bit0 was set
+	lsr   r24
+	brcs  .                ; +1 if bit1 was set
+	brcs  .                ; +1 if bit1 was set
+	dec   r24
+	nop
+	brne  .-6              ; 4 cycle loop
+	ret
+
+m74_wait_15:
+	nop
+m74_wait_14:
+	nop
+m74_wait_13:
+	nop
+m74_wait_12:
+	nop
+m74_wait_11:
+	nop
+m74_wait_10:
+	nop
+m74_wait_9:
+	nop
+m74_wait_8:
+	nop
+m74_wait_7:
+	ret
 
 
 
@@ -418,7 +432,7 @@ spil_s3:
 	; State 4: Completed
 
 spil_s4:
-	WAIT  r24,     22      ; (27)
+	M74WT_R24      22      ; (27)
 	sec                    ; (28) Carry set indicating end of data
 	ret                    ; (32)
 #endif

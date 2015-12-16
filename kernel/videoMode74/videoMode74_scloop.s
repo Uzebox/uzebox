@@ -313,12 +313,10 @@ c1bp8:
 	adc   ZH,      r23     ; (14) (Just carry, r23 is zero)
 	out   PIXOUT,  r4      ; (15) Pixel 2
 	cpi   r19,     0x40    ; (16)
-	brpl  c1bp8r           ; (17 / 18)
+	brpl  .+4              ; (17 / 18)
 	ld    r22,     Z+      ; (19) RAM tile
-	rjmp  c1bp8c           ; (21)
-c1bp8r:
+	rjmp  .+2              ; (21)
 	lpm   r22,     Z+      ; (21) ROM tile
-c1bp8c:
 	out   PIXOUT,  r5      ; (22) Pixel 3
 	movw  r2,      r24     ; () r3:r2, r25:r24
 	movw  r4,      r24     ; () r5:r4, r25:r24
@@ -539,40 +537,39 @@ cend:
 	;
 	; At this point 25 tiles worth of cycles were consumed, the cycle
 	; counter should be at:
-	;  231 (HSync)
-	;    5 (Horiz. size reduction)
+	;  235 (HSync)
+	;    3 (Horiz. size reduction)
 	;    2 (Line counter increments)
-	;    6 (Attributes)
-	;   49 (Prolog)
+	;   56 (Prolog)
 	;    1 (Cycles after entry before Pixel 0)
 	; 1400 (25 tiles including the trailing part)
 	; ----
-	; 1694
+	; 1697
 	;
 m74_scloop_sr:
-	out   PIXOUT,  r23     ; (1695) Right border (blanking) starts
+	out   PIXOUT,  r23     ; (1698) Right border (blanking) starts
 
 
 
 ;
 ; Horizontal size reduction, trailing part.
 ;
-	lds   r20,     v_hsize ; (1697)
+	lds   r20,     v_hsize ; (1700)
 drloop:
 	subi  r20,     8       ; ( 1)
-	brcs  drend            ; ( 2 /  3) (1700)
+	brcs  drend            ; ( 2 /  3) (1703)
 #if (M74_SD_ENABLE != 0)
-	WAIT  r24,     15      ; (17)
+	M74WT_R24      15      ; (17)
 	movw  ZL,      r14     ; (18) ZH:ZL, r15:r14 Target pointer
 	rcall m74_spiload_core ; (53) 35 cycles
 	movw  r14,     ZL      ; (54) r15:r14, ZH:ZL Target pointer
 #else
-	WAIT  r24,     52      ; (54)
+	M74WT_R24      52      ; (54)
 #endif
 	rjmp  drloop           ; (56 = 0)
 	; Return for exiting the scanline loop
 sclpret:
-	ret                    ; (1709)
+	ret                    ; (1712)
 drend:
 
 
@@ -581,14 +578,14 @@ drend:
 ; Loop test condition: If the scanline counter reached the count of lines to
 ; render, return. It is possible to request zero lines.
 ;
-; Entry is at cycle 1700. (the call must be issued at 1696)
-; Exit is at 1709.
+; Entry is at cycle 1703. (the call must be issued at 1699)
+; Exit is at 1712.
 ;
 m74_scloop:
-	lds   r22,     render_lines_count ; (1702)
-	cp    r22,     r16     ; (1703)
-	breq  sclpret          ; (1704 / 1705)
-	clr   r23              ; (1705) r23 is used as a permanent zero register.
+	lds   r22,     render_lines_count ; (1705)
+	cp    r22,     r16     ; (1706)
+	breq  sclpret          ; (1707 / 1708)
+	clr   r23              ; (1708) r23 is used as a permanent zero register.
 
 
 
@@ -600,51 +597,22 @@ m74_scloop:
 ; r17: Logical row counter
 ;
 ; Cycles:
-;  23 (Row select)
+;  18 (Row select)
 ;  34 (Tile descriptor load)
-;  61 (Precalc for row)
+;  27 (Precalc for row, first part)
 ; ---
-; 116
+;  79
 ;
 	lds   r9,      m74_config   ; ( 2)
 	lds   ZL,      v_rows_lo    ; ( 4)
 	lds   ZH,      v_rows_hi    ; ( 6)
-	sbrs  r9,      0       ; ( 7 /  8)
-	rjmp  mresp            ; ( 9)
-	; RAM / ROM scanline map + optional RAM X scroll map
-	add   ZL,      r16     ; ( 9)
-	adc   ZH,      r23     ; (10)
-	sbrs  r9,      7       ; (11 / 12)
-	rjmp  mresro           ; (13)
-	ld    r17,     Z       ; (14) RAM scanline map
-	rjmp  mresre           ; (16)
-mresro:
-	lpm   r17,     Z       ; (16) ROM scanline map
-mresre:
-	sbrs  r9,      6       ; (17 / 18)
-	rjmp  mresnx           ; (19) No X scroll map
-	subi  ZH,      0xFF    ; (19) At +256 bytes
-	ld    r2,      Z       ; (21) r2: X scroll
-	rjmp  mrese            ; (23)
-mrespl:
-	lds   r2,      v_shifto     ; (16) No new line: just load X scroll
-	lpm   r0,      Z       ; (19) Dummy load (nop)
-	rjmp  mrese0           ; (21)
-mresnx:
-	clr   r2               ; (20) No X scroll
-	nop                    ; (21)
-mrese0:
-	rjmp  mrese            ; (23)
-mresp:
-	; RAM scanline + restart pairs
-	ld    r2,      Z+      ; (11)
-	cp    r2,      r16     ; (12)
-	brne  mrespl           ; (13 / 14)
-	ld    r17,     Z+      ; (15) Load new logical row counter
-	ld    r2,      Z+      ; (17) Load new X scroll
-	sts   v_shifto,  r2    ; (19)
-	sts   v_rows_lo, ZL    ; (21)
-	sts   v_rows_hi, ZH    ; (23)
+	ld    r25,     Z+      ; ( 8)
+	cp    r25,     r16     ; ( 9)
+	brne  mrespl           ; (10 / 11) Did not reach new split point yet
+	ld    r17,     Z+      ; (12) Load new logical row counter
+	ld    r25,     Z+      ; (14) Load new X shift
+	sts   v_rows_lo, ZL    ; (16)
+	sts   v_rows_hi, ZH    ; (18)
 mrese:
 	;
 	; Load tile descriptors
@@ -664,6 +632,12 @@ mrese:
 	ld    YL,      Z+      ; (16)
 	nop                    ; (17)
 	rjmp  mtdre            ; (19)
+mrespl:
+	; Row select - no reload path
+	sbiw  ZL,      2       ; (13) No new line: just load prev. X shift
+	ld    r25,     Z       ; (15)
+	nop                    ; (16)
+	rjmp  mrese            ; (18)
 mtdro:
 	; ROM tile descriptors
 	lpm   r22,     Z+      ; (16)
@@ -693,126 +667,159 @@ mtdrie:
 	mov   r19,     r22     ; ( 1)
 	andi  r19,     0xE0    ; ( 2) Mode selector's final resting place is r19
 	breq  mtnm0            ; ( 3 /  4) Is it mode 0 (ROM 4bpp)?
-#if (M74_M7_ENABLE != 0U)
-	cpi   r19,     0xE0    ; ( 4)
-	breq  mtnm7            ; ( 5 /  6) Is it mode 7 (Separator line)?
+	sbrc  r19,     6       ; ( 4 /  5)
+	sbrs  r19,     5       ; ( 5 /  6)
+	rjmp  mtm12456         ; ( 7) Modes 1, 2, 4, 5, 6
+#if   ((M74_M7_ENABLE == 0U) && (M74_M3_ENABLE == 0U))
+	nop                    ; ( 7)
+#elif ((M74_M7_ENABLE != 0U) && (M74_M3_ENABLE != 0U))
+	sbrc  r19,     7       ; ( 7 /  8)
+	rjmp  m74_m7_separator ; ( 9) Jump off to separator line
+	rjmp  m74_m3_2bppmc    ; (10) Jump off to 2bpp Multicolor
+#elif ((M74_M7_ENABLE != 0U))
+	nop                    ; ( 7)
+	rjmp  m74_m7_separator ; ( 9) Jump off to separator line
 #else
-	rjmp  .                ; ( 5)
+	rjmp  .                ; ( 8)
+	rjmp  m74_m3_2bppmc    ; (10) Jump off to 2bpp Multicolor
 #endif
-#if (M74_M3_ENABLE != 0U)
-	cpi   r19,     0x60    ; ( 6)
-	breq  mtnm3            ; ( 7 /  8) Is it mode 3 (2bpp Multicolor)?
-#else
-	rjmp  .                ; ( 7)
-#endif
-	; Load 0x00 - 0x7F configuration for modes 1 - 6
+mtm12456:
+	; Load 0x00 - 0x7F configuration for modes 1, 2, 4, 5, 6 & apply increment
 	sbrs  YL,      1       ; ( 8 /  9)
 	rjmp  mtst0x           ; (10)
 	sbrs  YL,      0       ; (10 / 11)
 	rjmp  mtst10           ; (12)
 	ldi   ZL,      lo8(M74_TBANK01_3_OFF) ; (12)
 	ldi   ZH,      hi8(M74_TBANK01_3_OFF) ; (13)
-	ldi   r18,     M74_TBANK01_3_INC  ; (14)
-	nop                    ; (15)
-	rjmp  mtste            ; (17)
-#if (M74_M7_ENABLE != 0U)
-mtnm7:
-	rjmp  m74_m7_separator ; ( 8) Jump off to separator line
-#endif
-#if (M74_M3_ENABLE != 0U)
-mtnm3:
-	rjmp  m74_m3_2bppmc    ; (10) Jump off to 2bpp Multicolor
-#endif
+	movw  r10,     ZL                     ; (14)
+	ldi   ZL,      M74_TBANK01_3_INC      ; (15)
+	nop                    ; (16)
+	rjmp  mtste            ; (18)
 mtnm0:
-	; Load 0x00 - 0x7F configuration for mode 0
+	; Load 0x00 - 0x7F configuration for mode 0 & apply increment
 	ldi   ZL,      0       ; ( 5) Offset low is not used
-	ldi   r18,     128     ; ( 6) Row increment is always 512 bytes
-	sbrs  YL,      1       ; ( 7 /  8)
-	rjmp  mtm0t0x          ; ( 9)
-	ldi   ZH,      hi8(M74_TBANKM0_3_OFF) ; ( 9)
-	sbrs  YL,      0       ; (10 / 11)
-	ldi   ZH,      hi8(M74_TBANKM0_2_OFF) ; (11)
-	rjmp  mtm0te           ; (13)
+	sbrs  YL,      1       ; ( 6 /  7)
+	rjmp  mtm0t0x          ; ( 8)
+	ldi   ZH,      hi8(M74_TBANKM0_3_OFF) ; ( 8)
+	sbrs  YL,      0       ; ( 9 / 10)
+	ldi   ZH,      hi8(M74_TBANKM0_2_OFF) ; (10)
+	rjmp  mtm0te           ; (12)
 mtm0t0x:
-	ldi   ZH,      hi8(M74_TBANKM0_1_OFF) ; (10)
-	sbrs  YL,      0       ; (11 / 12)
-	ldi   ZH,      hi8(M74_TBANKM0_0_OFF) ; (12)
-	nop                    ; (13)
+	ldi   ZH,      hi8(M74_TBANKM0_1_OFF) ; ( 9)
+	sbrs  YL,      0       ; (10 / 11)
+	ldi   ZH,      hi8(M74_TBANKM0_0_OFF) ; (11)
+	nop                    ; (12)
 mtm0te:
-	rjmp  .                ; (15)
-	rjmp  mtste            ; (17)
+	movw  r10,     ZL      ; (13)
+	mov   r18,     r17     ; (14) Logical row counter
+	sbrs  YL,      3       ; (15 / 16)
+	andi  r18,     0x7     ; (16) Only within tile row
+	lsl   r18              ; (17)
+	add   r11,     r18     ; (18) Apply row increment (512 bytes / row)
+	andi  r18,     0xE     ; (19) Only within tile row (now always)
+	lpm   ZL,      Z       ; (22) Dummy load (nop)
+	lpm   ZL,      Z       ; (25) Dummy load (nop)
+	rjmp  mtste0           ; (27)
 mtst10:
 	ldi   ZL,      lo8(M74_TBANK01_2_OFF) ; (13)
 	ldi   ZH,      hi8(M74_TBANK01_2_OFF) ; (14)
-	ldi   r18,     M74_TBANK01_2_INC  ; (15)
-	rjmp  mtste            ; (17)
+	movw  r10,     ZL                     ; (15)
+	ldi   ZL,      M74_TBANK01_2_INC      ; (16)
+	rjmp  mtste            ; (18)
 mtst0x:
 	sbrs  YL,      0       ; (11 / 12)
 	rjmp  mtst00           ; (13)
 	ldi   ZL,      lo8(M74_TBANK01_1_OFF) ; (13)
 	ldi   ZH,      hi8(M74_TBANK01_1_OFF) ; (14)
-	ldi   r18,     M74_TBANK01_1_INC  ; (15)
-	rjmp  mtste            ; (17)
+	movw  r10,     ZL                     ; (15)
+	ldi   ZL,      M74_TBANK01_1_INC      ; (16)
+	rjmp  mtste            ; (18)
 mtst00:
 	ldi   ZL,      lo8(M74_TBANK01_0_OFF) ; (14)
 	ldi   ZH,      hi8(M74_TBANK01_0_OFF) ; (15)
-	ldi   r18,     M74_TBANK01_0_INC  ; (16)
-	nop                    ; (17)
+	movw  r10,     ZL                     ; (16)
+	ldi   ZL,      M74_TBANK01_0_INC      ; (17)
+	nop                    ; (18)
 mtste:
-	movw  r10,     ZL      ; (18) r11:r10, ZH:ZL
+	mov   r18,     r17     ; (19) Logical row counter
+	sbrs  YL,      3       ; (20 / 21)
+	andi  r18,     0x7     ; (21) Only within tile row
+	mul   ZL,      r18     ; (23)
+	add   r10,     r0      ; (24)
+	adc   r11,     r1      ; (25)
+	andi  r18,     0x7     ; (26) Only within tile row (now always)
+	lsl   r18              ; (27) Prepare for tileset offsetting
+mtste0:
+
+
+
+
+#if ((M74_SD_ENABLE != 0U) && (M74_SD_EXT != 0U))
+;
+; Do an SD load, then the HSync. If M74_SD_EXT is set, HSYNC_USABLE_CYCLES is
+; 196, fitting the second part of the row address calculation after the Hsync.
+; At the end of that, the cycle count is 235.
+;
+	movw  ZL,      r14     ; ( 1)
+	rcall m74_spiload_core ; (36) 35 cycles
+
+	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
+	movw  r14,     ZL      ; (   6)
+	clr   r2               ; (   7) First output pixel is always zero (scroll)
+	ldi   ZL,      2       ; (   8)
+	call  update_sound     ; (  12) (+ AUDIO)
+	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
+#endif
+
+
+
+;
+; Second part of row address calculations
+;
 	; Load 0xC0 - 0xFF configuration
-	sbrs  YL,      2       ; (19 / 20)
-	rjmp  mtsr0            ; (21)
-	ldi   r20,     lo8(M74_TBANK3_1_OFF)  ; (21)
-	ldi   r21,     hi8(M74_TBANK3_1_OFF)  ; (22)
-	ldi   r24,     M74_TBANK3_1_INC  ; (23)
-	rjmp  mtsre            ; (25)
+	sbrs  YL,      2       ; ( 1 / 2)
+	rjmp  mtsr0            ; ( 3)
+	ldi   r20,     lo8(M74_TBANK3_1_OFF)  ; ( 3)
+	ldi   r21,     hi8(M74_TBANK3_1_OFF)  ; ( 4)
+	ldi   r24,     M74_TBANK3_1_INC       ; ( 5)
+	rjmp  mtsre            ; ( 7)
 mtsr0:
-	ldi   r20,     lo8(M74_TBANK3_0_OFF)  ; (22)
-	ldi   r21,     hi8(M74_TBANK3_0_OFF)  ; (23)
-	ldi   r24,     M74_TBANK3_0_INC  ; (24)
-	nop                    ; (25)
+	ldi   r20,     lo8(M74_TBANK3_0_OFF)  ; ( 4)
+	ldi   r21,     hi8(M74_TBANK3_0_OFF)  ; ( 5)
+	ldi   r24,     M74_TBANK3_0_INC       ; ( 6)
+	nop                    ; ( 7)
 mtsre:
 	; Load 0x80 - 0xBF configuration
-	movw  ZL,      r22     ; (26) ZH:ZL, r23:r22 (r23 is zero)
-	andi  ZL,      0x7     ; (27) 2Kb ROM half tile map selector
-	subi  ZL,      lo8(-(d_tbank2)) ; (28)
-	sbci  ZH,      hi8(-(d_tbank2)) ; (29)
-	lpm   r12,     Z       ; (32)
+	movw  ZL,      r22     ; ( 8) ZH:ZL, r23:r22 (r23 is zero)
+	andi  ZL,      0x7     ; ( 9) 2Kb ROM half tile map selector
+	subi  ZL,      lo8(-(d_tbank2)) ; (10)
+	sbci  ZH,      hi8(-(d_tbank2)) ; (11)
+	lpm   r12,     Z       ; (14)
 	; Prepare horizontal size
-	andi  r22,     0x18    ; (33) Mask off size bits
-	sts   v_hsize, r22     ; (35) Save them
-	; Apply X scroll
-	mov   r25,     r2      ; (36) X scroll in r2
-	lsr   r2               ; (37)
-	lsr   r2               ; (38)
-	lsr   r2               ; (39)
-	add   XL,      r2      ; (40) Apply high 5 bits as offset
-	adc   XH,      r23     ; (41)
-	andi  r25,     0x7     ; (42)
-	; Apply row increment on tiles 0x00 - 0x7F
-	mov   ZL,      r17     ; (43) Logical row counter
-	sbrs  YL,      3       ; (44 / 45)
-	andi  ZL,      0x7     ; (45) Only within tile row
-	mul   ZL,      r18     ; (47)
-	lsl   r0               ; (48)
-	rol   r1               ; (49)
-	lsl   r0               ; (50)
-	rol   r1               ; (51) Row counter was in 4 byte units
-	add   r10,     r0      ; (52)
-	adc   r11,     r1      ; (53)
-	; Apply row increment on tiles 0x80 - 0xBF
-	andi  ZL,      0x7     ; (54) Only within tile row
-	lsl   ZL               ; (55) By 512
-	add   r12,     ZL      ; (56)
+	andi  r22,     0x18    ; (15) Mask off size bits
+	sts   v_hsize, r22     ; (17) Save them
+	; Mask X shift
+	andi  r25,     0x7     ; (18)
+	; Apply row increment on tiles 0x80 - 0xBF (r18 already contains row << 1)
+	add   r12,     r18     ; (19)
 	; Apply row increment on tiles 0xC0 - 0xFF
-	lsl   ZL               ; (57) Row counter was in 4 byte units
-	mul   ZL,      r24     ; (59)
-	add   r20,     r0      ; (60)
-	adc   r21,     r1      ; (61)
+	lsl   r18              ; (20) Row counter was in 4 byte units
+	mul   r18,     r24     ; (22)
+	add   r20,     r0      ; (23)
+	adc   r21,     r1      ; (24)
+	; Calculate output width
+	ldi   r18,     192     ; (25) No. of pixels to output
+	sub   r18,     r22     ; (26) Reduced by output tile count
+	sub   r18,     r22     ; (27)
 
 
 
+#if ((M74_SD_ENABLE == 0U) || (M74_SD_EXT == 0U))
+;
+; Padding wait. This can not be added to audio time since it will push the
+; display to the right. Nothing can be shuffled back to offset that.
+;
+	M74WT_R24      9       ; ( 9)
 ;
 ; The hsync_pulse part for the new scanline.
 ;
@@ -829,32 +836,32 @@ mtsre:
 ; The "update_sound" function destroys r0, r1, Z and the T flag in SREG.
 ;
 ; HSYNC_USABLE_CYCLES:
-; 217 (Allowing 4CH audio + UART or 5CH audio)
+; 223 (Allowing 4CH audio + UART or 5CH audio)
 ;
 ; From the prolog some calculations are moved here so to make it possible
 ; to shift the display a bit around for proper centering.
 ;
+; Cycle counter is at 235 on its end
+;
 	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
-	ldi   r18,     192     ; (   6) No. of pixels to output
+	nop                    ; (   6)
 	clr   r2               ; (   7) First output pixel is always zero (scroll)
 	ldi   ZL,      2       ; (   8)
 	call  update_sound     ; (  12) (+ AUDIO)
-	WAIT  ZL,      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
-	sub   r18,     r22     ; ( 230)
-	sub   r18,     r22     ; ( 231) Reduced by output tile count
+	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
+#endif
 
 
 
 ;
-; Horizontal size reduction as requested, in r20. 0, 1, 2 or 3 tiles worth of
-; cycles are spent here without graphics output, and accordingly r25 is set
-; up to reflect the number of pixels to generate (initialized above the hsync)
-; r9 still contains the global config at this point
+; Horizontal size reduction as requested, in r22. 0, 1, 2 or 3 tiles worth of
+; cycles are spent here without graphics output, r9 still contains the global
+; config at this point.
 ;
 #if (M74_COL0_RELOAD != 0)
 dfloop0:
 	subi  r22,     8       ; ( 1)
-	brcs  dfend0           ; ( 2 /  3)
+	brcs  dfend            ; ( 2 /  3)
 	; Perform Color 0 reload under leftmost omitted tile if it was
 	; enabled.
 	sbrs  r9,      4       ; ( 3 /  4)
@@ -871,14 +878,10 @@ dfloop0:
 	add   ZL,      r17     ; (10)
 	adc   ZH,      r23     ; (11) (Just carry, r23 is zero)
 	sbrs  r9,      5       ; (12 / 13)
-	rjmp  dfrl00           ; (14)
+	rjmp  .+4              ; (14)
 	ld    r8,      Z       ; (15) Color0 table in RAM
-	rjmp  dfrl01           ; (17)
-dfend0:
-	rjmp  dfend            ; ( 5)
-dfrl00:
+	rjmp  .+2              ; (17)
 	lpm   r8,      Z       ; (17) Color0 table in ROM
-dfrl01:
 	clr   YL               ; (18)
 dfrl02:
 	st    Y+,      r8      ; (20 / 39)
@@ -895,20 +898,18 @@ dfrl02:
 #endif
 dfloop:
 	subi  r22,     8       ; ( 1)
-	brcs  dfend1           ; ( 2 /  3)
+	brcs  dfend            ; ( 2 /  3)
 	lpm   r24,     Z       ; ( 5) Dummy load (nop)
 dfrl0:
 #if (M74_SD_ENABLE != 0)
-	WAIT  r24,     12      ; (17)
+	M74WT_R24      12      ; (17)
 	movw  ZL,      r14     ; (18) ZH:ZL, r15:r14 Target pointer
 	rcall m74_spiload_core ; (53) 35 cycles
 	movw  r14,     ZL      ; (54) r15:r14, ZH:ZL Target pointer
 #else
-	WAIT  r24,     49      ; (54)
+	M74WT_R24      49      ; (54)
 #endif
 	rjmp  dfloop           ; (56)
-dfend1:
-	rjmp  dfend            ; ( 5)
 dfend:
 
 
@@ -918,17 +919,6 @@ dfend:
 ;
 	inc   r16              ; (   1) Increment the physical line counter
 	inc   r17              ; (   2) Increment the logical line counter
-
-
-
-;
-; Attribute mode color picking. This must happen after color 0 reload, so the
-; proper color is picked. Register r25 is still used for the shift count, so
-; will only fill it in before jumping in the tile output loop.
-;
-	ld    r13,     Y       ; ( 2) Foreground (1) color (YL already set up)
-	lds   YL,      m74_bgcol    ; ( 4)
-	ld    r24,     Y       ; ( 6)
 
 
 
@@ -954,18 +944,44 @@ dfend:
 ;
 ; Timing notes:
 ;
-; The first five cycles of this was removed to shift the mode a bit to the
-; left. So now it totals 49 cycles instead of 54.
+; Things were shifted around several times to center the display and to meet
+; various other requirements. Now it takes 2 extra cycles to the original
+; calculation (so 56 instead of 54).
 ;
-	ld    ZL,      X+      ; ( 7) Load first tile index from RAM
-	cp    r25,     r23     ; ( 8)
-	breq  pnscrl0          ; ( 9 /10) No scrolling: No first partial tile load
+	ld    r13,     Y       ; ( 0) Foreground (1) color (YL already set up)
+	lds   YL,      m74_bgcol    ; ( 2)
+	cpi   r25,     0       ; ( 3)
+	brne  pscrl            ; ( 4 /  5) If scrolling, then first partial tile load
+	;
+	; No scroll: Clean up all on the left (so omitting the use of a
+	; partial tile
+	;
+#if (M74_SD_ENABLE != 0)
+	movw  ZL,      r14     ; ( 5) ZH:ZL, r15:r14 Target pointer
+	rcall m74_spiload_core ; (40) 35 cycles
+	movw  r14,     ZL      ; (41) r15:r14, ZH:ZL Target pointer
+	nop                    ; (42)
+#else
+	M74WT_R24      38      ; (42)
+#endif
+	ld    r24,     Y       ; (44) Finish attribute mode color picking: Bg. color
+	ld    ZL,      X+      ; (46) Load first tile index from RAM
+	clr   r3               ; (47)
+	movw  r4,      r2      ; (48) r5:r4, r3:r2
+	movw  r6,      r2      ; (49) r7:r6, r3:r2
+	movw  r8,      r2      ; (50) r9:r8, r3:r2
+	subi  r18,     8       ; (51)
+	mov   r25,     r24     ; (52)
+	rjmp  centry           ; (54) Go for the scanline output!
+pscrl:
 	;
 	; Partial tile load code
 	;
 	; Supports only 8px wide tiles, either 1bpp or 4bpp. The rest can not
 	; be scrolled by X (at least not past the left edge).
 	;
+	ld    r24,     Y       ; ( 7) Finish attribute mode color picking: Bg. color
+	ld    ZL,      X+      ; ( 9) Load first tile index from RAM
 	lsl   ZL               ; (10)
 	brcs  pb80ff           ; (11 / 12)
 	mov   ZH,      r11     ; (12)
@@ -995,13 +1011,11 @@ p1bcom:
 	ld    ZL,      X+      ; (49) Load next tile index from RAM
 	rjmp  ptend            ; (51)
 pb80ff:
-	mov   ZH,      r11     ; (13)
+	mov   ZH,      r12     ; (13)
 	lsl   ZL               ; (14)
 	brcc  pcom             ; (15 / 16)
 	mov   ZH,      r21     ; (16)
 	rjmp  pramt            ; (18)
-pnscrl0:
-	rjmp  pnscrl           ; (12)
 pramt:
 	; 4bpp RAM tile output
 	add   ZL,      r20     ; (19)
@@ -1031,12 +1045,10 @@ psp00:
 	add   ZL,      r10     ; (17)
 	adc   ZH,      r23     ; (18) (Just carry, r23 is zero)
 	cpi   r19,     0x40    ; (19)
-	brpl  p1bp8r           ; (20 / 21)
+	brpl  .+4              ; (20 / 21)
 	ld    r22,     Z+      ; (22) RAM tile
-	rjmp  p1bp8c           ; (24)
-p1bp8r:
+	rjmp  .+2              ; (24)
 	lpm   r22,     Z+      ; (24) ROM tile
-p1bp8c:
 	mov   r3,      r24     ; (25)
 	mov   r4,      r24     ; (26)
 	mov   r5,      r24     ; (27)
@@ -1058,19 +1070,6 @@ p1bp8c:
 	mov   r9,      r13     ; (43)
 	rjmp  .                ; (45)
 	rjmp  p1bcom           ; (47)
-pnscrl:
-	;
-	; No scroll: Clean up all on the left (so omitting the use of a
-	; partial tile
-	;
-	clr   r3               ; (13)
-	movw  r4,      r2      ; (14) r5:r4, r3:r2
-	movw  r6,      r2      ; (15) r7:r6, r3:r2
-	movw  r8,      r2      ; (16) r9:r8, r3:r2
-	WAIT  r25,     34      ; (50)
-	subi  r18,     8       ; (51)
-	mov   r25,     r24     ; (52)
-	rjmp  centry           ; (54) Go for the scanline output!
 ptend:
 	;
 	; Left side cleanup code. If r18 is 1, then 7 pixels are visible from

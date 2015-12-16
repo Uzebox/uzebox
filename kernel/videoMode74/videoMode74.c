@@ -41,7 +41,7 @@
 	/* Callback invoked by UzeboxCore.Initialize() */
 	void InitializeVideoMode()
 	{
-		m74_enable = 0U;    /* Display disabled, SD load if compiled in, disabled */
+		m74_config = 0U;    /* Display disabled */
 		m74_bgcol  = 0U;    /* Background color: index zero */
 		m74_rtmax  = 32U;   /* Allow 32 RAM tiles by default (should leave enough stack with default config) */
 		m74_rtno   = 0U;    /* Currently allocated RAM tiles */

@@ -25,12 +25,12 @@
 ;
 ; Separator line with palette reload and stuff.
 ;
-; Enters in cycle 1770. After doing its work, it returns to m74_scloop, cycle
-; 1700 of the next line. For the documentation of what it displays, see the
+; Enters in cycle 1769. After doing its work, it returns to m74_scloop, cycle
+; 1703 of the next line. For the documentation of what it displays, see the
 ; comments for m74_tdesc in videoMode74.s
 ;
-; First pixel output in 24 tile wide mode has to be performed at cycle 350 (so
-; OUT finishing in 351).
+; First pixel output in 24 tile wide mode has to be performed at cycle 353 (so
+; OUT finishing in 354).
 ;
 ; r16: Scanline counter (increments it by one)
 ; r17: Logical row counter (increments it by one)
@@ -47,110 +47,93 @@
 ;
 m74_m7_separator:
 
-	lpm   r24,     Z       ; (1773) Dummy load (nop)
-	lpm   r24,     Z       ; (1776) Dummy load (nop)
-
 	; Prepare palette offset
 
-	mov   r24,     r17     ; (1777)
-	andi  r24,     0x7     ; (1778)
-	swap  r24              ; (1779)
-	add   XL,      r24     ; (1780)
-	adc   XH,      r23     ; (1781)
+	mov   r24,     r17     ; (1770)
+	andi  r24,     0x7     ; (1771)
+	swap  r24              ; (1772)
+	add   XL,      r24     ; (1773)
+	adc   XH,      r23     ; (1774)
 
 	; Branch off for new / old palette load
 
-	sbrs  r22,     1       ; (1782 / 1783)
-	rjmp  m7oldp           ; (1784) Color the separator line by old palette
+	sbrs  r22,     1       ; (1775 / 1776)
+	rjmp  m7oldp           ; (1777) Color the separator line by old palette
 
 	; Color the separator by new palette
 
-	mov   r20,     YL      ; (1784)
-	mov   r21,     YL      ; (1785)
-	swap  r20              ; (1786)
-	andi  r20,     0x0F    ; (1787) Color 0 index
-	andi  r21,     0x0F    ; (1788) Color 1 index
+	mov   r20,     YL      ; (1777)
+	mov   r21,     YL      ; (1778)
+	swap  r20              ; (1779)
+	andi  r20,     0x0F    ; (1780) Color 0 index
+	andi  r21,     0x0F    ; (1781) Color 1 index
 
 	; Fetch colors from new palette
 
+	movw  ZL,      XL      ; (1782) ZH:ZL, XH:XL
+	add   ZL,      r20     ; (1783)
+	adc   ZH,      r23     ; (1784)
+	sbrs  r22,     2       ; (1785 / 1786) RAM / ROM source select
+	rjmp  m7nrom           ; (1787) ROM source
+	ld    r20,     Z       ; (1788) Color 0 value
 	movw  ZL,      XL      ; (1789) ZH:ZL, XH:XL
-	add   ZL,      r20     ; (1790)
+	add   ZL,      r21     ; (1790)
 	adc   ZH,      r23     ; (1791)
-	sbrs  r22,     2       ; (1792 / 1793) RAM / ROM source select
-	rjmp  m7nrom           ; (1794) ROM source
-	ld    r20,     Z       ; (1795) Color 0 value
-	movw  ZL,      XL      ; (1796) ZH:ZL, XH:XL
-	add   ZL,      r21     ; (1797)
-	adc   ZH,      r23     ; (1798)
-	ld    r21,     Z       ; (1800) Color 1 value
-	nop                    ; (1801)
-	rjmp  m7pend           ; (1803)
+	ld    r21,     Z       ; (1793) Color 1 value
+	nop                    ; (1794)
+	rjmp  m7pend           ; (1796)
 
 m7oldp:
 	; Color the separator by old palette
 
-	ld    r2,      Y       ; (1786) Color 0 value
-	swap  YL               ; (1787)
-	ld    r3,      Y       ; (1788) Color 1 value
-	lpm   r24,     Z       ; (1791) Dummy load (nop)
-	lpm   r24,     Z       ; (1794) Dummy load (nop)
-	lpm   r24,     Z       ; (1797) Dummy load (nop)
-	rjmp  .                ; (1799)
-	rjmp  .                ; (1801)
-	rjmp  m7pend           ; (1803)
+	ld    r20,     Y       ; (1779) Color 0 value
+	swap  YL               ; (1780)
+	ld    r21,     Y       ; (1782) Color 1 value
+	M74WT_R24      12      ; (1794)
+	rjmp  m7pend           ; (1796)
 
 m7nrom:
-	lpm   r20,     Z       ; (1797) Color 0 value
-	movw  ZL,      XL      ; (1798) ZH:ZL, XH:XL
-	add   ZL,      r21     ; (1799)
-	adc   ZH,      r23     ; (1800)
-	lpm   r21,     Z       ; (1803) Color 1 value
+	lpm   r20,     Z       ; (1790) Color 0 value
+	movw  ZL,      XL      ; (1791) ZH:ZL, XH:XL
+	add   ZL,      r21     ; (1792)
+	adc   ZH,      r23     ; (1793)
+	lpm   r21,     Z       ; (1796) Color 1 value
 m7pend:
 
 	; Load colors for edge tiles. The 24 tiles will use regs as follows:
 	; 2 3 4 21 20 21 20 21 20 21 20 21 21 20 21 20 21 20 21 20 21 4 3 2
 
-	movw  r2,      r20     ; (1804) r3:r2, r21:r20
-	mov   r4,      r20     ; (1805)
+	movw  r2,      r20     ; (1797) r3:r2, r21:r20
+	mov   r4,      r20     ; (1798)
 
 	; Cut edge tiles depending on selected display width
 
-	sbrc  r22,     4       ; (1806)
-	mov   r2,      r23     ; (1807) 20 or 18 tiles width: r2 black
-	sbrc  r22,     4       ; (1808)
-	mov   r3,      r23     ; (1809) 20 or 18 tiles width: r3 black
-	sbrc  r22,     3       ; (1810)
-	mov   r2,      r23     ; (1811) 22 or 18 tiles width: r2 black
-	andi  r22,     0x18    ; (1812)
-	cpi   r22,     0x18    ; (1813)
-	brne  m7nwd18          ; (1814 / 1815)
-	mov   r4,      r23     ; (1815) 18 tiles width: r4 black
-m7nwd18:
+	sbrs  r22,     4       ; (1799 / 1800)
+	rjmp  m7wd2224         ; (1801)
+	sbrc  r22,     3       ; (1801 / 1802)
+	rjmp  m7wd18           ; (1803)
+	rjmp  m7wd20           ; (1804)
+m7wd2224:
+	nop                    ; (1802)
+	sbrc  r22,     3       ; (1803 / 1804)
+	rjmp  m7wd22           ; (1805)
+	rjmp  m7wd24           ; (1806)
+m7wd18:
+	mov   r4,      r23     ; (1804) 18 tiles width: r4 black
+m7wd20:
+	mov   r3,      r23     ; (1805) 20 or 18 tiles width: r3 black
+m7wd22:
+	mov   r2,      r23     ; (1806) 22, 20 or 18 tiles width: r2 black
+m7wd24:
+	rjmp  .                ; (1808)
 
-	; Wait the remaining few cycles until hsync
+	; Row counter increments
 
-	lpm   r24,     Z       ; (1818) Dummy load (nop)
-	lpm   r24,     Z       ; (   1) Dummy load (nop)
-	rjmp  .                ; (   3)
-
-	;
-	; The hsync_pulse part for the new scanline.
-	;
-	; The "update_sound" function destroys r0, r1, Z and the T flag in
-	; SREG.
-	;
-	; HSYNC_USABLE_CYCLES:
-	; 217 (Allowing 4CH audio + UART or 5CH audio)
-	;
-	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
-	inc   r16              ; (   6) Physical scanline counter increment
-	inc   r17              ; (   7) Logical row counter increment
-	ldi   ZL,      2       ; (   8)
-	call  update_sound     ; (  12) (+ AUDIO)
-	WAIT  ZL,      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
+	inc   r16              ; (1809) Physical scanline counter increment
+	inc   r17              ; (1810) Logical row counter increment
 
 	;
-	; Load palette (cycle ctr. is at 229)
+	; Load palette
 	; Register usage:
 	; r24, r23, r0,  r1,  r5,  r8,  r9,  r10,
 	; r11, r12, r13, r19, r22, r25, XL,  XH
@@ -159,89 +142,169 @@ m7nwd18:
 	; processed before doing anything else.
 	;
 
-	movw  ZL,      XL      ; ( 230) ZH:ZL, XH:XL
-	sbrs  r22,     2       ; ( 231 /  232) RAM / ROM source select
-	rjmp  m7lrom           ; ( 233) ROM source
-
-	; RAM palette source
-
-	ld    r24,     Z+      ; ( 234)
-	ld    r23,     Z+      ; ( 236)
-	ld    r0,      Z+      ; ( 238)
-	ld    r1,      Z+      ; ( 240)
-	ld    r5,      Z+      ; ( 242)
-	ld    r8,      Z+      ; ( 244)
-	ld    r9,      Z+      ; ( 246)
-	ld    r10,     Z+      ; ( 248)
-	ld    r11,     Z+      ; ( 250)
-	ld    r12,     Z+      ; ( 252)
-	ld    r13,     Z+      ; ( 254)
-	ld    r19,     Z+      ; ( 256)
-	ld    r22,     Z+      ; ( 258)
-	ld    r25,     Z+      ; ( 260)
-	ld    XL,      Z+      ; ( 262)
-	ld    XH,      Z+      ; ( 264)
-	lpm   YL,      Z       ; ( 267) Dummy load (nop)
-	lpm   YL,      Z       ; ( 270) Dummy load (nop)
-	lpm   YL,      Z       ; ( 273) Dummy load (nop)
-	lpm   YL,      Z       ; ( 276) Dummy load (nop)
-	lpm   YL,      Z       ; ( 279) Dummy load (nop)
-	rjmp  m7lend           ; ( 281)
+	movw  ZL,      XL      ; (1811) ZH:ZL, XH:XL
+	sbrs  r22,     2       ; (1812 / 1813) RAM / ROM source select
+	rjmp  m7lrom           ; (1814) ROM source
+	ld    r8,      Z+      ; (1815)
+	ld    r9,      Z+      ; (1817)
+	ld    r10,     Z+      ; (1819)
+	ld    r11,     Z+      ; (   1)
+	ld    r5,      Z+      ; (   3)
+	;
+	; The hsync_pulse part for the new scanline.
+	;
+	; The "update_sound" function destroys r0, r1, Z and the T flag in
+	; SREG.
+	;
+	; HSYNC_USABLE_CYCLES:
+	; 223 (Allowing 4CH audio + UART or 5CH audio)
+	; 196 (If extra SD load enabled)
+	;
+	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
+	movw  r12,     ZL      ; (   6)
+	nop                    ; (   7)
+	ldi   ZL,      2       ; (   8)
+	call  update_sound     ; (  12) (+ AUDIO)
+	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
+	;
+	; Extra SD load if it was configured to happen
+	;
+#if ((M74_SD_ENABLE == 0U) || (M74_SD_EXT == 0U))
+	; HSYNC_USABLE_CYCLES: 223
+	M74WT_R24      10      ; (10) (245)
+#else
+	; HSYNC_USABLE_CYCLES: 196
+	movw  ZL,      r14     ; ( 1)
+	rcall m74_spiload_core ; (36) 35 cycles
+	movw  r14,     ZL      ; (37) (245)
+#endif
+	movw  ZL,      r12     ; ( 246) Restore saved palette pointer
+	mov   r24,     r8      ; ( 247) Load color 0 to its proper place
+	mov   r23,     r9      ; ( 248) Load color 1 to its proper place
+	movw  r0,      r10     ; ( 249) Load color 2 & 3 to their proper places
+	ld    r8,      Z+      ; ( 251)
+	ld    r9,      Z+      ; ( 253)
+	ld    r10,     Z+      ; ( 255)
+	ld    r11,     Z+      ; ( 257)
+	ld    r12,     Z+      ; ( 259)
+	ld    r13,     Z+      ; ( 261)
+	ld    r19,     Z+      ; ( 263)
+	ld    r22,     Z+      ; ( 265)
+	ld    r25,     Z+      ; ( 267)
+	ld    XL,      Z+      ; ( 269)
+	ld    XH,      Z+      ; ( 271)
+	rcall m74_wait_15      ; ( 286) (r24 is not available)
+	rjmp  m7lend           ; ( 288)
 
 m7lrom:
 	; ROM palette source
 
-	lpm   r24,     Z+      ; ( 236)
-	lpm   r23,     Z+      ; ( 239)
-	lpm   r0,      Z+      ; ( 242)
-	lpm   r1,      Z+      ; ( 245)
-	lpm   r5,      Z+      ; ( 248)
-	lpm   r8,      Z+      ; ( 251)
-	lpm   r9,      Z+      ; ( 254)
-	lpm   r10,     Z+      ; ( 257)
-	lpm   r11,     Z+      ; ( 260)
-	lpm   r12,     Z+      ; ( 263)
-	lpm   r13,     Z+      ; ( 266)
-	lpm   r19,     Z+      ; ( 269)
-	lpm   r22,     Z+      ; ( 272)
-	lpm   r25,     Z+      ; ( 275)
-	lpm   XL,      Z+      ; ( 278)
-	lpm   XH,      Z+      ; ( 281)
+	lpm   r8,      Z+      ; (1817)
+	lpm   r9,      Z+      ; (1820 => 0)
+	lpm   r10,     Z+      ; (   3)
+	;
+	; The hsync_pulse part for the new scanline.
+	;
+	; The "update_sound" function destroys r0, r1, Z and the T flag in
+	; SREG.
+	;
+	; HSYNC_USABLE_CYCLES:
+	; 223 (Allowing 4CH audio + UART or 5CH audio)
+	; 196 (If extra SD load enabled)
+	;
+	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
+	movw  r12,     ZL      ; (   6)
+	nop                    ; (   7)
+	ldi   ZL,      2       ; (   8)
+	call  update_sound     ; (  12) (+ AUDIO)
+	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
+	;
+	; Extra SD load if it was configured to happen
+	;
+#if ((M74_SD_ENABLE == 0U) || (M74_SD_EXT == 0U))
+	; HSYNC_USABLE_CYCLES: 223
+	M74WT_R24      10      ; (10) (245)
+#else
+	; HSYNC_USABLE_CYCLES: 196
+	movw  ZL,      r14     ; ( 1)
+	rcall m74_spiload_core ; (36) 35 cycles
+	movw  r14,     ZL      ; (37) (245)
+#endif
+	movw  ZL,      r12     ; ( 246) Restore saved palette pointer
+	mov   r24,     r8      ; ( 247) Load color 0 to its proper place
+	mov   r23,     r9      ; ( 248) Load color 1 to its proper place
+	mov   r0,      r10     ; ( 249) Load color 2 to its proper place
+	lpm   r1,      Z+      ; ( 252)
+	lpm   r5,      Z+      ; ( 255)
+	lpm   r8,      Z+      ; ( 258)
+	lpm   r9,      Z+      ; ( 261)
+	lpm   r10,     Z+      ; ( 264)
+	lpm   r11,     Z+      ; ( 267)
+	lpm   r12,     Z+      ; ( 270)
+	lpm   r13,     Z+      ; ( 273)
+	lpm   r19,     Z+      ; ( 276)
+	lpm   r22,     Z+      ; ( 279)
+	lpm   r25,     Z+      ; ( 282)
+	lpm   XL,      Z+      ; ( 285)
+	lpm   XH,      Z+      ; ( 288)
 m7lend:
 
 	; Load first two colors
 
-	clr   YL               ; ( 282)
-	rcall m74_setpalcol    ; ( 321) 3 + 36
-	inc   YL               ; ( 322)
-	st    Y+,      r23     ; ( 324)
-	st    Y+,      r23     ; ( 326)
-	st    Y+,      r23     ; ( 328)
-	st    Y+,      r23     ; ( 330)
-	st    Y+,      r23     ; ( 332)
-	st    Y+,      r23     ; ( 334)
-	st    Y+,      r23     ; ( 336)
-	st    Y+,      r23     ; ( 338)
-	st    Y+,      r23     ; ( 340)
-	st    Y+,      r23     ; ( 342)
-	st    Y+,      r23     ; ( 344)
-	st    Y+,      r23     ; ( 346)
-	st    Y+,      r23     ; ( 348)
-	st    Y+,      r23     ; ( 350)
-	out   PIXOUT,  r2      ; ( 351) Tile 0, Color r2
+	clr   YL               ; ( 289)
+	rcall m74_setpalcol    ; ( 328) 3 + 36
+	inc   YL               ; ( 329)
+	st    Y+,      r23     ; ( 331)
+	st    Y+,      r23     ; ( 333)
+	st    Y+,      r23     ; ( 335)
+	st    Y+,      r23     ; ( 337)
+	st    Y+,      r23     ; ( 339)
+	st    Y+,      r23     ; ( 341)
+	st    Y+,      r23     ; ( 343)
+	st    Y+,      r23     ; ( 345)
+	st    Y+,      r23     ; ( 347)
+	st    Y+,      r23     ; ( 349)
+	st    Y+,      r23     ; ( 351)
 	st    Y+,      r23     ; ( 353)
-	st    Y+,      r23     ; ( 355)
-	clr   r23              ; ( 356) Restore zero
-	movw  ZL,      r14     ; ( 357) ZH:ZL, r15:r14, preparing for RAM clear / SPI load
+	out   PIXOUT,  r2      ; ( 354) Tile 0, Color r2
+	st    Y+,      r23     ; ( 356)
+	st    Y+,      r23     ; ( 358)
+	st    Y+,      r23     ; ( 360)
+	st    Y+,      r23     ; ( 362)
+	clr   r23              ; ( 363) Restore zero
 
-	; From here things are right for working with color or RAM clear / SPI load.
+	; From here things are right for working with color or SD load.
 
-	rcall m74_sl_func      ; () 3 + 44
-	rjmp  .                ; ()
-	out   PIXOUT,  r3      ; ( 407) Tile 1, Color r3
-	mov   r24,     r0      ; ()
-	rcall m74_setpalcol    ; () 3 + 36
-	inc   YL               ; ()
+#if (M74_SD_ENABLE != 0)
+	;
+	; SD loading, fitting 24 loads in
+	;
+	movw  ZL,      r14     ; ( 364) ZH:ZL, r15:r14, preparing for SD load
+	rcall m74_spiload_core ; () 3 + 32
+	M74WT_R24      10      ; ()
+	out   PIXOUT,  r3      ; ( 410) Tile 1, Color r3
+	rcall m74_spiload_core ; () 3 + 32
+	M74WT_R24      12      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	out   PIXOUT,  r4      ; ( 466) Tile 2, Color r4
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
+	out   PIXOUT,  r21     ; ( 522) Tile 3, Color 1
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r0      ; ()
+	st    Y+,      r0      ; ()
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
@@ -249,97 +312,153 @@ m7lend:
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
-	out   PIXOUT,  r4      ; ( 463) Tile 2, Color r4
-	rcall m74_sl_func      ; () 3 + 44
+	st    Y+,      r1      ; ()
+	out   PIXOUT,  r20     ; ( 578) Tile 4, Color 0
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
-	out   PIXOUT,  r21     ; ( 519) Tile 3, Color 1
-	rcall m74_sl_func      ; () 3 + 44
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
 	st    Y+,      r1      ; ()
-	out   PIXOUT,  r20     ; ( 575) Tile 4, Color 0
-	st    Y+,      r1      ; ()
-	mov   r24,     r5      ; ()
-	rcall m74_setpalcol    ; () 3 + 36
-	inc   YL               ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	out   PIXOUT,  r21     ; ( 634) Tile 5, Color 1
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	out   PIXOUT,  r20     ; ( 690) Tile 6, Color 0
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
+	st    Y+,      r5      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
-	out   PIXOUT,  r21     ; ( 631) Tile 5, Color 1
-	rcall m74_sl_func      ; () 3 + 44
+	out   PIXOUT,  r21     ; ( 746) Tile 7, Color 1
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
-	out   PIXOUT,  r20     ; ( 687) Tile 6, Color 0
-	rcall m74_sl_func      ; () 3 + 44
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
-	out   PIXOUT,  r21     ; ( 743) Tile 7, Color 1
 	st    Y+,      r8      ; ()
 	st    Y+,      r8      ; ()
-	mov   r24,     r9      ; ()
-	rcall m74_setpalcol    ; () 3 + 36
-	inc   YL               ; ()
+	out   PIXOUT,  r20     ; ( 802) Tile 8, Color 0
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	out   PIXOUT,  r21     ; ( 858) Tile 9, Color 1
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r9      ; ()
+	st    Y+,      r10     ; ()
+	st    Y+,      r10     ; ()
+	st    Y+,      r10     ; ()
+	st    Y+,      r10     ; ()
+	out   PIXOUT,  r20     ; ( 914) Tile 10, Color 0
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r10     ; ()
 	st    Y+,      r10     ; ()
 	st    Y+,      r10     ; ()
 	st    Y+,      r10     ; ()
 	st    Y+,      r10     ; ()
-	out   PIXOUT,  r20     ; ( 799) Tile 8, Color 0
-	rcall m74_sl_func      ; () 3 + 44
 	st    Y+,      r10     ; ()
 	st    Y+,      r10     ; ()
 	st    Y+,      r10     ; ()
 	st    Y+,      r10     ; ()
-	out   PIXOUT,  r21     ; ( 855) Tile 9, Color 1
-	rcall m74_sl_func      ; () 3 + 44
+	st    Y+,      r10     ; ()
+	out   PIXOUT,  r21     ; ( 970) Tile 11, Color 1
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r10     ; ()
 	st    Y+,      r10     ; ()
-	st    Y+,      r10     ; ()
-	st    Y+,      r10     ; ()
-	out   PIXOUT,  r20     ; ( 911) Tile 10, Color 0
-	st    Y+,      r10     ; ()
-	st    Y+,      r10     ; ()
-	st    Y+,      r10     ; ()
-	mov   r24,     r11     ; ()
-	rcall m74_setpalcol    ; () 3 + 36
-	inc   YL               ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	out   PIXOUT,  r21     ; (1026) Tile 12, Color 1
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r11     ; ()
+	st    Y+,      r12     ; ()
+	st    Y+,      r12     ; ()
+	out   PIXOUT,  r20     ; (1082) Tile 13, Color 0
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
-	out   PIXOUT,  r21     ; ( 967) Tile 11, Color 1
-	rcall m74_sl_func      ; () 3 + 44
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
-	out   PIXOUT,  r21     ; (1023) Tile 12, Color 1
-	rcall m74_sl_func      ; () 3 + 44
+	st    Y+,      r12     ; ()
+	st    Y+,      r12     ; ()
+	out   PIXOUT,  r21     ; (1138) Tile 14, Color 1
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
 	st    Y+,      r12     ; ()
-	out   PIXOUT,  r20     ; (1079) Tile 13, Color 0
-	rcall m74_sl_func      ; () 3 + 44
-	st    Y+,      r12     ; ()
-	st    Y+,      r12     ; ()
-	st    Y+,      r12     ; ()
-	st    Y+,      r12     ; ()
-	out   PIXOUT,  r21     ; (1135) Tile 14, Color 1
-	mov   r24,     r13     ; ()
-	rcall m74_setpalcol    ; () 3 + 36
-	inc   YL               ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	out   PIXOUT,  r20     ; (1194) Tile 15, Color 0
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	st    Y+,      r13     ; ()
+	out   PIXOUT,  r21     ; (1250) Tile 16, Color 1
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r19     ; ()
 	st    Y+,      r19     ; ()
 	st    Y+,      r19     ; ()
@@ -347,88 +466,191 @@ m7lend:
 	st    Y+,      r19     ; ()
 	st    Y+,      r19     ; ()
 	st    Y+,      r19     ; ()
-	out   PIXOUT,  r20     ; (1191) Tile 15, Color 0
-	rcall m74_sl_func      ; () 3 + 44
+	st    Y+,      r19     ; ()
+	st    Y+,      r19     ; ()
+	st    Y+,      r19     ; ()
+	out   PIXOUT,  r20     ; (1306) Tile 17, Color 0
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r19     ; ()
 	st    Y+,      r19     ; ()
 	st    Y+,      r19     ; ()
 	st    Y+,      r19     ; ()
-	out   PIXOUT,  r21     ; (1247) Tile 16, Color 1
-	rcall m74_sl_func      ; () 3 + 44
 	st    Y+,      r19     ; ()
 	st    Y+,      r19     ; ()
-	st    Y+,      r19     ; ()
-	st    Y+,      r19     ; ()
-	out   PIXOUT,  r20     ; (1303) Tile 17, Color 0
-	st    Y+,      r19     ; ()
-	mov   r24,     r22     ; ()
-	rcall m74_setpalcol    ; () 3 + 36
-	inc   YL               ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	out   PIXOUT,  r21     ; (1362) Tile 18, Color 1
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
+	out   PIXOUT,  r20     ; (1418) Tile 19, Color 0
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      r22     ; ()
+	st    Y+,      r22     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
-	out   PIXOUT,  r21     ; (1359) Tile 18, Color 1
-	rcall m74_sl_func      ; () 3 + 44
+	st    Y+,      r25     ; ()
+	st    Y+,      r25     ; ()
+	out   PIXOUT,  r21     ; (1474) Tile 20, Color 1
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
-	out   PIXOUT,  r20     ; (1415) Tile 19, Color 0
-	rcall m74_sl_func      ; () 3 + 44
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
 	st    Y+,      r25     ; ()
-	out   PIXOUT,  r21     ; (1471) Tile 20, Color 1
-	st    Y+,      r25     ; ()
-	st    Y+,      r25     ; ()
-	mov   r24,     XL      ; ()
-	rcall m74_setpalcol    ; () 3 + 36
-	inc   YL               ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	out   PIXOUT,  r4      ; (1530) Tile 21, Color r4
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	out   PIXOUT,  r3      ; (1586) Tile 22, Color r3
+	rcall m74_spiload_core ; () 3 + 32
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
+	st    Y+,      XL      ; ()
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
-	out   PIXOUT,  r4      ; (1527) Tile 21, Color r4
-	rcall m74_sl_func      ; () 3 + 44
+	st    Y+,      XH      ; ()
+	out   PIXOUT,  r2      ; (1642) Tile 23, Color r2
+	rcall m74_spiload_core ; () 3 + 32
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
-	out   PIXOUT,  r3      ; (1583) Tile 22, Color r3
-	rcall m74_sl_func      ; () 3 + 44
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
-	st    Y+,      XH      ; ()
-	out   PIXOUT,  r2      ; (1639) Tile 23, Color r2
-	rcall m74_sl_func      ; () 3 + 44
 	st    Y+,      XH      ; ()
 	st    Y+,      XH      ; ()
 	st    Y,       XH      ; ()
-	rjmp  .                ; ()
-	out   PIXOUT,  r23     ; (1695) Termination
+	out   PIXOUT,  r23     ; (1698) Termination
 	rjmp  .                ; ()
 	movw  r14,     ZL      ; () r15:r14, ZH:ZL
-	rjmp  m74_scloop       ; (1700)
-
-
-
-;
-; SD load or other function
-;
-; May use r6, r7 and r24, can assume r23 being zero, and target pointer being
-; in Z. 44 cycles.
-;
-m74_sl_func:
-#if (M74_SD_ENABLE != 0)
-	WAIT  r24,     10      ; (10)
-	rjmp  m74_spiload_core ; (44) 32 + 2
+	rjmp  m74_scloop       ; (1703)
 #else
-	WAIT  r24,     40      ; (40)
-	ret                    ; (44)
+	;
+	; No SD access, aim for small size
+	;
+	M74WT_R24      46      ; ()
+	out   PIXOUT,  r3      ; ( 410) Tile 1, Color r3
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r4      ; ( 466) Tile 2, Color r4
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r21     ; ( 522) Tile 3, Color 1
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r20     ; ( 578) Tile 4, Color 0
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r21     ; ( 634) Tile 5, Color 1
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r20     ; ( 690) Tile 6, Color 0
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r21     ; ( 746) Tile 7, Color 1
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r20     ; ( 802) Tile 8, Color 0
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r21     ; ( 858) Tile 9, Color 1
+	M74WT_R24      55      ; ()
+	out   PIXOUT,  r20     ; ( 914) Tile 10, Color 0
+	mov   r24,     r0      ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r21     ; ( 970) Tile 11, Color 1
+	mov   r24,     r1      ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r21     ; (1026) Tile 12, Color 1
+	mov   r24,     r5      ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r20     ; (1082) Tile 13, Color 0
+	mov   r24,     r8      ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r21     ; (1138) Tile 14, Color 1
+	mov   r24,     r9      ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r20     ; (1194) Tile 15, Color 0
+	mov   r24,     r10     ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r21     ; (1250) Tile 16, Color 1
+	mov   r24,     r11     ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r20     ; (1306) Tile 17, Color 0
+	mov   r24,     r12     ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r21     ; (1362) Tile 18, Color 1
+	mov   r24,     r13     ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r20     ; (1418) Tile 19, Color 0
+	mov   r24,     r19     ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r21     ; (1474) Tile 20, Color 1
+	mov   r24,     r22     ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r4      ; (1530) Tile 21, Color r4
+	mov   r24,     r25     ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r3      ; (1586) Tile 22, Color r3
+	mov   r24,     XL      ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	inc   YL               ; ()
+	M74WT_R24      14      ; ()
+	out   PIXOUT,  r2      ; (1642) Tile 23, Color r2
+	mov   r24,     XH      ; ()
+	rcall m74_setpalcol    ; () 3 + 36
+	M74WT_R24      15      ; ()
+	out   PIXOUT,  r23     ; (1698) Termination
+	rjmp  .                ; ()
+	movw  r14,     ZL      ; () r15:r14, ZH:ZL
+	rjmp  m74_scloop       ; (1703)
 #endif

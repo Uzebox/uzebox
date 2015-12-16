@@ -30,11 +30,11 @@
 ;
 ; 2bpp Multicolor mode
 ;
-; Enters in cycle 1772. After doing its work, it returns to m74_scloop, cycle
-; 1700 of the next line.
+; Enters in cycle 1770. After doing its work, it returns to m74_scloop_sr,
+; cycle 1697 of the next line.
 ;
-; First pixel output in 24 tile wide mode has to be performed at cycle 350 (so
-; OUT finishing in 351).
+; First pixel output in 24 tile wide mode has to be performed at cycle 353 (so
+; OUT finishing in 354).
 ;
 ; VRAM layout:
 ;
@@ -120,27 +120,26 @@ m74_m3_2bppmc:
 	;
 
 #if (M74_COL0_RELOAD != 0)
-	sbrs  r9,      4       ; (1773 / 1774)
-	rjmp  m3dfrl0          ; (1775)
-	mov   r0,      YL      ; (1775) Put aside byte 1 of tile descriptor
+	sbrs  r9,      4       ; (1771 / 1772)
+	rjmp  m3dfrl0          ; (1773)
+	mov   r0,      YL      ; (1773) Put aside byte 1 of tile descriptor
 #if (M74_COL0_PTRE != 0)
-	lds   ZL,      m74_col0_lo  ; (1777)
-	lds   ZH,      m74_col0_hi  ; (1779)
+	lds   ZL,      m74_col0_lo  ; (1775)
+	lds   ZH,      m74_col0_hi  ; (1777)
 #else
-	ldi   ZL,      lo8(M74_COL0_OFF) ; (1776)
-	ldi   ZH,      hi8(M74_COL0_OFF) ; (1777)
-	rjmp  .                ; (1779)
+	ldi   ZL,      lo8(M74_COL0_OFF) ; (1774)
+	ldi   ZH,      hi8(M74_COL0_OFF) ; (1775)
+	rjmp  .                ; (1777)
 #endif
-	add   ZL,      r17     ; (1780)
-	adc   ZH,      r23     ; (1781) (Just carry, r23 is zero)
-	sbrs  r9,      5       ; (1782 / 1783)
-	rjmp  m3dfrl00         ; (1784)
-	ld    r8,      Z       ; (1785) Color0 table in RAM
-	rjmp  m3dfrl01         ; (1787)
-m3dfrl00:
-	lpm   r8,      Z       ; (1787) Color0 table in ROM
-m3dfrl01:
-	clr   YL               ; (1788)
+	add   ZL,      r17     ; (1778)
+	adc   ZH,      r23     ; (1779) (Just carry, r23 is zero)
+	sbrs  r9,      5       ; (1780 / 1781)
+	rjmp  .+4              ; (1782)
+	ld    r8,      Z       ; (1783) Color0 table in RAM
+	rjmp  .+2              ; (1785)
+	lpm   r8,      Z       ; (1785) Color0 table in ROM
+	clr   YL               ; (1786)
+	st    Y+,      r8      ; (1788)
 	st    Y+,      r8      ; (1790)
 	st    Y+,      r8      ; (1792)
 	st    Y+,      r8      ; (1794)
@@ -156,14 +155,28 @@ m3dfrl01:
 	st    Y+,      r8      ; (1814)
 	st    Y+,      r8      ; (1816)
 	st    Y+,      r8      ; (1818)
-	st    Y+,      r8      ; (1820 = 0)
-	mov   YL,      r0      ; (   1) Restore YL (Fg. palette index)
+	mov   YL,      r0      ; (1819) Restore YL (Fg. palette index)
+	rjmp  .                ; (   1)
 	rjmp  m3dfrl1          ; (   3)
 m3dfrl0:
-	WAIT  r24,     48      ; (   3)
+#if (M74_SD_ENABLE != 0)
+	M74WT_R24,     13      ; (1786)
+	movw  ZL,      r14     ; (1787)
+	rcall m74_spiload_core ; (   2) 35 cycles
+	movw  r14,     ZL      ; (   3)
+#else
+	M74WT_R24      50      ; (   3)
+#endif
 m3dfrl1:
 #else
-	WAIT  r24,     51      ; (   3)
+#if (M74_SD_ENABLE != 0)
+	M74WT_R24      16      ; (1786)
+	movw  ZL,      r14     ; (1787)
+	rcall m74_spiload_core ; (   2) 35 cycles
+	movw  r14,     ZL      ; (   3)
+#else
+	M74WT_R24      53      ; (   3)
+#endif
 #endif
 
 	;
@@ -173,38 +186,65 @@ m3dfrl1:
 	; SREG.
 	;
 	; HSYNC_USABLE_CYCLES:
-	; 217 (Allowing 4CH audio + UART or 5CH audio)
+	; 223 (Allowing 4CH audio + UART or 5CH audio)
 	;
-	; Cycle counter is at 229 on termination
+	; Cycle counter is at 228 on termination
 	;
 	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
 	mov   r21,     r17     ; (   6)
 	andi  r21,     0x7     ; (   7) Prepare tile row count in r21
 	ldi   ZL,      2       ; (   8)
 	call  update_sound     ; (  12) (+ AUDIO)
-	WAIT  ZL,      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
+	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
+
+
+
+	;
+	; Extra SD load if it was configured to happen
+	;
+#if ((M74_SD_ENABLE == 0U) || (M74_SD_EXT == 0U))
+	; HSYNC_USABLE_CYCLES: 223
+	M74WT_R24      9       ; ( 9)
+	movw  ZL,      r14     ; (10) (245)
+#else
+	; HSYNC_USABLE_CYCLES: 196
+	movw  ZL,      r14     ; ( 1)
+	rcall m74_spiload_core ; (36) 35 cycles
+	movw  r14,     ZL      ; (37) (245) Also serves as SPI gap for next load
+#endif
+	;
+	; A further extra SD load just fits in this mode
+	;
+#if (M74_SD_ENABLE != 0)
+	rcall m74_spiload_core ; ( 280) 35 cycles
+	movw  r14,     ZL      ; ( 281)
+#else
+	M74WT_R24      36      ; ( 281)
+#endif
+
+
 
 	;
 	; Do horizontal size reduction along with SD loads.
 	; Also calculate number of tiles to generate into r20 for now.
 	;
 
-	andi  r22,     0x18    ; ( 230)
-	sts   v_hsize, r22     ; ( 232)
-	ldi   r20,      96     ; ( 233) 4 * 24
-	sub   r20,     r22     ; ( 234) 4 * 18; 4 * 20; 4 * 22; 4 * 24 depending on tile count
-	lsr   r20              ; ( 235)
-	lsr   r20              ; ( 236)
+	andi  r22,     0x18    ; ( 282)
+	sts   v_hsize, r22     ; ( 284)
+	ldi   r20,      96     ; ( 285) 4 * 24
+	sub   r20,     r22     ; ( 286) 4 * 18; 4 * 20; 4 * 22; 4 * 24 depending on tile count
+	lsr   r20              ; ( 287)
+	lsr   r20              ; ( 288)
 m3dfloop:
-	subi  r22,     8       ; ( 1) (237)
-	brcs  m3dfend          ; ( 2 /  3) (239)
+	subi  r22,     8       ; ( 1) (289)
+	brcs  m3dfend          ; ( 2 /  3) (291)
 #if (M74_SD_ENABLE != 0)
-	WAIT  r24,     15      ; (17)
+	M74WT_R24      15      ; (17)
 	movw  ZL,      r14     ; (18) ZH:ZL, r15:r14 Target pointer
 	rcall m74_spiload_core ; (53) 35 cycles
 	movw  r14,     ZL      ; (54) r15:r14, ZH:ZL Target pointer
 #else
-	WAIT  r24,     52      ; (54)
+	M74WT_R24      52      ; (54)
 #endif
 	rjmp  m3dfloop         ; (56 = 0)
 m3dfend:
@@ -212,7 +252,7 @@ m3dfend:
 	;
 	; Preparations for the main tile loop
 	;
-	; 42 cycles
+	; 41 cycles
 	;
 
 	inc   r16              ; ( 1) Physical scanline counter increment
@@ -228,6 +268,9 @@ m3dfend:
 	sbrs  YL,      0       ; (10)
 	ldi   r17,     hi8(M74_TBANK01_2_OFF) ; (11)
 	rjmp  m3cfge           ; (13)
+m3cfgd0:
+	nop                    ; (24) No double-scan subtract path
+	rjmp  m3cfgd1          ; (26)
 m3cfg0x:
 	ldi   r17,     hi8(M74_TBANK01_1_OFF) ; (10)
 	sbrs  YL,      0       ; (11)
@@ -240,63 +283,48 @@ m3cfge:
 	add   r17,     r21     ; (14)
 
 	; Hack the stack making it the multicolor framebuffer pointer. Also
-	; apply subtract here if the conditions for it are met.
+	; apply double-scan subtract here if the conditions for it are met.
 
 	in    r6,      STACKL  ; (15)
 	in    r7,      STACKH  ; (16) Save stack pointer
 	lds   r24,     v_m3ptr_lo   ; (18)
 	lds   r25,     v_m3ptr_hi   ; (20)
-	lds   r2,      m74_enable   ; (22)
-	subi  r16,     (M74_M3_SUBSL + 1) ; (23)
-	brcs  m3cfgd0          ; (24 / 25)
-	lsl   r16              ; (25)
-	lsl   r16              ; (26) Physical row counter bit 0 aligned with m74_enable bit
-	and   r16,     r2      ; (27)
-	sbrc  r16,     2       ; (28 / 29)
-	subi  r24,     lo8(M74_M3_SUB) ; (29)
-	sbrc  r16,     2       ; (30 / 31)
-	sbci  r25,     hi8(M74_M3_SUB) ; (31)
-	rjmp  m3cfgd1          ; (33)
-m3cfgd0:
-	lpm   r2,      Z       ; (28) Dummy load (nop)
-	lpm   r2,      Z       ; (31) Dummy load (nop)
-	rjmp  .                ; (33)
+	subi  r16,     (M74_M3_SUBSL + 1) ; (21)
+	brcs  m3cfgd0          ; (22 / 23)
+	and   r16,     r9      ; (23) Physical row counter bit 0 aligned with m74_config bit
+	sbrc  r16,     0       ; (24 / 25)
+	subi  r24,     M74_M3_SUB   ; (25) If this does not execute, carry is clear
+	sbci  r25,     0       ; (26)
 m3cfgd1:
-	out   STACKL,  r24     ; (34)
-	out   STACKH,  r25     ; (35) From now stack is used as fb. pointer
+	out   STACKL,  r24     ; (27)
+	out   STACKH,  r25     ; (28) From now stack is used as fb. pointer
 
 	; Pick colors from palette for 1bpp output
 
-	ld    r16,     Y       ; (37) Foreground (1) color
-	lds   YL,      m74_bgcol    ; (39)
-	ld    r24,     Y       ; (41)
-	mov   r25,     r24     ; (42) Background (0) color
+	ld    r16,     Y       ; (30) Foreground (1) color
+	lds   YL,      m74_bgcol    ; (32)
+	ld    r24,     Y       ; (34)
+	mov   r25,     r24     ; (35) Background (0) color
 
 	; Pre-load registers for the tile loop
 
-	ldi   r18,     0x05    ; (43)
-	ldi   r19,     0xFF    ; (44)
-	movw  r10,     r18     ; (45) r11:r10, r19:r18 Load constants
-	ldi   r18,     lo8(pm(m3pxblk)) ; (46)
-	ldi   r19,     hi8(pm(m3pxblk)) ; (47)
-	movw  r12,     r18     ; (48) r13:r12, r19:r18 Load base offset for code tiling
+	ldi   r18,     0x05    ; (36)
+	ldi   r19,     0xFF    ; (37)
+	movw  r10,     r18     ; (38) r11:r10, r19:r18 Load constants
+	ldi   r18,     lo8(pm(m3pxblk)) ; (39)
+	ldi   r19,     hi8(pm(m3pxblk)) ; (40)
+	movw  r12,     r18     ; (41) r13:r12, r19:r18 Load base offset for code tiling
 
 	;
-	; Padding wait
-	;
-
-	WAIT  r18,     42
-
-	;
-	; Tile output lead-in. The first pixel must be produced at 350 (so the
-	; out ending at 351). The number of tiles to generate is still in r19,
+	; Tile output lead-in. The first pixel must be produced at 353 (so the
+	; out ending at 354). The number of tiles to generate is still in r19,
 	; otherwise everything is in the green at this point.
 	;
 
-	mov   r4,      r23     ; ( 330)
-	mov   r5,      r23     ; ( 331) Zero partial -1th tile
-	mov   r23,     r20     ; ( 332)
-	rjmp  m3tlcom          ; ( 334) (12 of half-tile)
+	mov   r4,      r23     ; ( 333)
+	mov   r5,      r23     ; ( 334) Zero partial -1th tile
+	mov   r23,     r20     ; ( 335)
+	rjmp  m3tlcom          ; ( 337) (12 of half-tile)
 
 
 
@@ -315,7 +343,7 @@ m3tlend:
 	out   PIXOUT,  r5      ; (22) Pixel 7 of prev. tile
 	pop   r16              ; (24) Restore physical line counter (used for FG color)
 	pop   r17              ; (26) Restore logical line counter (used for 1bpp offset)
-	rjmp  m74_scloop_sr    ; (28 / 1694)
+	rjmp  m74_scloop_sr    ; (28 / 1697)
 
 
 

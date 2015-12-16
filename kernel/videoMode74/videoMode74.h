@@ -30,7 +30,6 @@
 #pragma once
 
 extern volatile unsigned char m74_config;
-extern volatile unsigned char m74_enable;
 extern volatile unsigned char m74_bgcol;
 #if (M74_ROWS_PTRE != 0)
 extern volatile unsigned int  m74_rows;
@@ -117,20 +116,11 @@ extern void M74_VramFill(unsigned int src, unsigned char pitch);
 /*
 ** Configuration (m74_config) flags
 */
-#define M74_CFG_ROWSEL_SECTIONS  0x00U
-#define M74_CFG_ROWSEL_LINEMAP   0x01U
+#define M74_CFG_M3DOUBLE         0x01U
 #define M74_CFG_RAM_TDESC        0x02U
 #define M74_CFG_RAM_TIDX         0x04U
 #define M74_CFG_RAM_PALETTE      0x08U
 #define M74_CFG_COL0_RELOAD      0x10U
 #define M74_CFG_RAM_COL0         0x20U
-#define M74_CFG_RAM_XSCROLL      0x40U
-#define M74_CFG_RAM_LINEMAP      0x80U
-
-
-/*
-** Enable (m74_enable) flags
-*/
-#define M74_ENA                  0x01U
-#define M74_ENA_SD               0x02U
-#define M74_ENA_M3DOUBLE         0x04U
+#define M74_CFG_LOAD_SD          0x40U
+#define M74_CFG_ENABLE           0x80U

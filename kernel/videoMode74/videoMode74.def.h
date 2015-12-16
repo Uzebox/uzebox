@@ -82,10 +82,6 @@
 	#define FRAME_LINES (SCREEN_TILES_V * TILE_HEIGHT)
 #endif
 
-/* Maximum free cycles usable by the hysnc and audio */
-#define HSYNC_USABLE_CYCLES 217
-
-
 /* Notes: Don't use 'U' suffixes for the defines since they are used in
 ** assembler sources where the assembler doesn't understand them. */
 
@@ -187,7 +183,7 @@
 
 
 /* Setting this subtract value enables double scanning for row mode 3 by
-** applying it in odd rows if the corresponding m74_enable bit is set. It
+** applying it in odd rows if the corresponding m74_config bit is set. It
 ** encodes the bytes to subtract from the pointer in such case (one multicolor
 ** tile takes 2 bytes). The first line of double-scanned content can also be
 ** set, odd lines are relative to this (so the given line becomes the first
@@ -201,13 +197,30 @@
 #endif
 
 
-/* Enable SD load function. If enabled, on 22 tiles or narrower modes it
-** becomes possible to load an arbitrary 2 byte aligned part of an SD card
-** sector in every frame. It costs some flash and RAM. */
+/* Enable SD load function. If enabled it becomes possible to load an
+** arbitrary 2 byte aligned part of an SD card sector in every frame. It costs
+** some flash and RAM. At up to 22 tiles width it works perfectly, at 24 tiles
+** width it might not be able to finish the load during display, so
+** M74_Finish() will take more time. Using M74_SD_EXT (adds an SD load at the
+** cost of audio cycles to every line) along with some non-scrolling sections
+** and-or separator lines may allow it reliably finishing. */
 
 #ifndef M74_SD_ENABLE
 	#define M74_SD_ENABLE      0
 #endif
+#if     (M74_SD_ENABLE != 0)
+	#ifndef M74_SD_EXT
+		#define M74_SD_EXT         0
+	#endif
+	#if     (M74_SD_EXT == 0)
+		#define HSYNC_USABLE_CYCLES 223
+	#else
+		#define HSYNC_USABLE_CYCLES 196
+	#endif
+#else
+	#define HSYNC_USABLE_CYCLES 223
+#endif
+
 
 
 /* The VRAM used for the kernel and sprite output. Setting it compile time
@@ -231,17 +244,18 @@
 #endif
 
 
-/* Resource locations. At least one for each of the three resources must
-** be provided. */
+/* Resource locations. At least one for each of the three 4bpp ranges
+** (0x00 - 0x7F, 0x80 - 0xBF, 0xC0 - 0xFF) must be provided. */
 
-/* 0x00 - 0x7F: Mode dependent tiles for modes 1 - 6. 'OFF' is the offset,
-** 'INC' is the increment per row in 4 byte units. */
+/* 0x00 - 0x7F: Mode dependent tiles for modes 1, 2, 4, 5 and 6. 'OFF' is the
+** offset, 'INC' is the increment per row in byte units (or tiles for the 1bpp
+** modes). Not required (maybe not using any of these modes). */
 
 #ifndef M74_TBANK01_0_OFF
 	#define M74_TBANK01_0_OFF  0
 #endif
 #ifndef M74_TBANK01_0_INC
-	#define M74_TBANK01_0_INC  32
+	#define M74_TBANK01_0_INC  128
 #endif
 #ifndef M74_TBANK01_1_OFF
 	#define M74_TBANK01_1_OFF  M74_TBANK01_0_OFF

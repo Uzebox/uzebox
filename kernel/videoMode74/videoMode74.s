@@ -30,7 +30,7 @@
 ; Tile Width:   8 (for most modes)
 ; Tile Height:  8
 ; Resolution:   192x224 pixels (variable)
-; Sprites:      Possible by RAM tiles
+; Sprites:      Possible by RAM tiles (32 bytes / tile, up to 64)
 ; Scrolling:    X and Y scrolling possible
 ;
 ; Description
@@ -50,50 +50,37 @@
 ;
 ; Global configuration flags
 ;
-; bit 0: Row select mode
-;        0: RAM line + restart pairs with X scroll
-;        1: RAM / ROM scanline map (up to 224b)
+; bit 0: Row mode 3 double scanning enabled if set.
 ; bit 1: If set, Tile row descriptors are located in RAM, otherwise ROM (64b)
 ; bit 2: If set, Tile index source list is in RAM, otherwise ROM (64b)
 ; bit 3: If set, RAM palette source, otherwise ROM (16b)
 ; bit 4: Color 0 reload enabled if set
 ; bit 5: If set, RAM color 0 reload source, otherwise ROM (256b)
-; bit 6: If set, RAM X scroll map is used after the scanline map (+ 256b)
-; bit 7: If set, RAM scanline map is used, otherwise ROM
-;
-; Row select mode 0:
-; In the RAM triplets of the following format exist:
-; - byte 0: Scanline to act on (0 - 223)
-; - byte 1: New logical scanline position
-; - byte 2: New X shift (high 5 bits add to tile index source address)
-; The first record misses its byte 0 (starting with byte 1). The list ends
-; when the scanline can not match any more (either already passed or can never
-; be reached).
+; bit 6: SD load enabled if set. This is cleared in every frame.
+; bit 7: Display enabled if set. Otherwise screen is black.
 ;
 ; Color 0 reload:
 ; If enabled, on every scanline, Color 0 of the palette will be reloaded. This
 ; overrides the color 0 of palette reloads in a separator (except within the
 ; separator if it request itself being colored by the new palette). The
 ; reloads are performed by logical scanline position (as set by Row select).
+; Color 0 reload only works at 22 tiles or less width.
 ;
 .global m74_config
-
-;
-; volatile unsigned char m74_enable;
-;
-; Display enable flag & SD load enable flag
-;
-; bit 0: Display enabled if set. Otherwise screen is black.
-; bit 1: SD load enabled if set. This is cleared in every frame.
-; bit 2: Row mode 3 double scanning enabled.
-;
-.global m74_enable
 
 #if (M74_ROWS_PTRE != 0)
 ;
 ; volatile unsigned int m74_rows;
 ;
-; Row selector address. The area is used according to bit 0 of m74_config.
+; Row selector address. Records are of 3 bytes in the following layout except
+; for the first record which misses the first byte:
+;
+; - byte 0: Scanline to act on (0 - 223)
+; - byte 1: New logical scanline position
+; - byte 2: New X shift (high 5 bits ignored)
+;
+; The list ends when the scanline can not match any more (either already
+; passed or can never be reached).
 ;
 .global m74_rows
 #endif
@@ -134,8 +121,8 @@
 ;
 ; Mode 7 (Separator with Palette reload feature):
 ;
-; This mode displays a simple decorative separator while allowing a reload of
-; the palette (useful for split-screen effects).
+; This mode displays a simple separator while allowing a reload of the palette
+; (useful for split-screen effects).
 ;
 ; It uses byte 1 to color the individual tiles of the separator, also
 ; respecting bits 3 - 4 of byte 0 for its width. It can not be X scrolled.
@@ -325,8 +312,68 @@
 
 
 
+;
 ; Video output port, where the pixels go
+;
 #define PIXOUT VIDEO_PORT
+
+
+;
+; Replacement WAIT macro for the mode. The routines it calls are in
+; videoMode74_sub.s, within rcall range for all components. This macro makes
+; overall code size smaller.
+;
+.macro M74WT_SMR24 clocks
+	.if     (\clocks) >= 15
+		rcall m74_wait_15
+	.elseif (\clocks) == 14
+		rcall m74_wait_14
+	.elseif (\clocks) == 13
+		rcall m74_wait_13
+	.elseif (\clocks) == 12
+		rcall m74_wait_12
+	.elseif (\clocks) == 11
+		rcall m74_wait_11
+	.elseif (\clocks) == 10
+		rcall m74_wait_10
+	.elseif (\clocks) == 9
+		rcall m74_wait_9
+	.elseif (\clocks) == 8
+		rcall m74_wait_8
+	.elseif (\clocks) == 7
+		rcall m74_wait_7
+	.elseif (\clocks) == 6
+		lpm   r24,     Z
+		lpm   r24,     Z
+	.elseif (\clocks) == 5
+		lpm   r24,     Z
+		rjmp  .
+	.elseif (\clocks) == 4
+		rjmp  .
+		rjmp  .
+	.elseif (\clocks) == 3
+		lpm   r24,     Z
+	.elseif (\clocks) == 2
+		rjmp  .
+	.elseif (\clocks) == 1
+		nop
+	.else
+	.endif
+.endm
+.macro M74WT_R24   clocks
+	.if     (\clocks) > 267
+		ldi   r24,     ((\clocks) / 16)
+		rcall m74_wait_13
+		dec   r24
+		brne  .-6
+		M74WT_SMR24    ((\clocks) % 16)
+	.elseif (\clocks) > 15
+		ldi   r24,     ((\clocks) - 12)
+		rcall m74_wait
+	.else
+		M74WT_SMR24    (\clocks)
+	.endif
+.endm
 
 
 
@@ -335,7 +382,6 @@
 	; Globals
 
 	m74_config:    .byte 1 ; Global configuration
-	m74_enable:    .byte 1 ; Enable flags
 	m74_bgcol:     .byte 1 ; Background color for 1bpp modes (high nybble)
 #if (M74_ROWS_PTRE != 0)
 	m74_rows:
@@ -404,6 +450,8 @@
 	v_vram_p:      .byte 1 ; Pitch of VRAM for rectangular VRAM functions
 #endif
 	v_hsize:       .byte 1 ; Horizontal size on bits 3 and 4
+	v_rows_lo:     .byte 1 ; Row selector current address, low
+	v_rows_hi:     .byte 1 ; Row selector current address, high
 #if (M74_M3_ENABLE != 0)
 	v_m3ptr_lo:    .byte 1 ; Current location in multicolor framebuffer, low
 	v_m3ptr_hi:    .byte 1 ; Current location in multicolor framebuffer, high
