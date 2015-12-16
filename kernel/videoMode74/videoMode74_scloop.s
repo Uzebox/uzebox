@@ -692,9 +692,14 @@ mtm12456:
 	ldi   ZL,      lo8(M74_TBANK01_3_OFF) ; (12)
 	ldi   ZH,      hi8(M74_TBANK01_3_OFF) ; (13)
 	movw  r10,     ZL                     ; (14)
+#if (M74_TBANK01_3_INC != 0)
 	ldi   ZL,      M74_TBANK01_3_INC      ; (15)
 	nop                    ; (16)
 	rjmp  mtste            ; (18)
+#else
+	rjmp  .                ; (16)
+	rjmp  mtst256          ; (18)
+#endif
 mtnm0:
 	; Load 0x00 - 0x7F configuration for mode 0 & apply increment
 	ldi   ZL,      0       ; ( 5) Offset low is not used
@@ -720,26 +725,49 @@ mtm0te:
 	lpm   ZL,      Z       ; (22) Dummy load (nop)
 	lpm   ZL,      Z       ; (25) Dummy load (nop)
 	rjmp  mtste0           ; (27)
+mtst256:
+	; The tileset's row increment is zero, to be interpreted as 256
+	mov   r18,     r17     ; (19) Logical row counter
+	sbrs  YL,      3       ; (20 / 21)
+	andi  r18,     0x7     ; (21) Only within tile row
+	add   r11,     r18     ; (22) Apply row increment (256)
+	nop                    ; (23)
+	rjmp  mtst256e         ; (25)
 mtst10:
 	ldi   ZL,      lo8(M74_TBANK01_2_OFF) ; (13)
 	ldi   ZH,      hi8(M74_TBANK01_2_OFF) ; (14)
 	movw  r10,     ZL                     ; (15)
+#if (M74_TBANK01_2_INC != 0)
 	ldi   ZL,      M74_TBANK01_2_INC      ; (16)
 	rjmp  mtste            ; (18)
+#else
+	nop                    ; (16)
+	rjmp  mtst256          ; (18)
+#endif
 mtst0x:
+	; Continue row mode 1, 2, 4, 5, 6 configuration selects
 	sbrs  YL,      0       ; (11 / 12)
 	rjmp  mtst00           ; (13)
 	ldi   ZL,      lo8(M74_TBANK01_1_OFF) ; (13)
 	ldi   ZH,      hi8(M74_TBANK01_1_OFF) ; (14)
 	movw  r10,     ZL                     ; (15)
+#if (M74_TBANK01_1_INC != 0)
 	ldi   ZL,      M74_TBANK01_1_INC      ; (16)
 	rjmp  mtste            ; (18)
+#else
+	nop                    ; (16)
+	rjmp  mtst256          ; (18)
+#endif
 mtst00:
 	ldi   ZL,      lo8(M74_TBANK01_0_OFF) ; (14)
 	ldi   ZH,      hi8(M74_TBANK01_0_OFF) ; (15)
 	movw  r10,     ZL                     ; (16)
+#if (M74_TBANK01_0_INC != 0)
 	ldi   ZL,      M74_TBANK01_0_INC      ; (17)
 	nop                    ; (18)
+#else
+	rjmp  mtst256          ; (18)
+#endif
 mtste:
 	mov   r18,     r17     ; (19) Logical row counter
 	sbrs  YL,      3       ; (20 / 21)
@@ -747,6 +775,7 @@ mtste:
 	mul   ZL,      r18     ; (23)
 	add   r10,     r0      ; (24)
 	adc   r11,     r1      ; (25)
+mtst256e:
 	andi  r18,     0x7     ; (26) Only within tile row (now always)
 	lsl   r18              ; (27) Prepare for tileset offsetting
 mtste0:

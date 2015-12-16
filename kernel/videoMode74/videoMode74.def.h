@@ -249,7 +249,9 @@
 
 /* 0x00 - 0x7F: Mode dependent tiles for modes 1, 2, 4, 5 and 6. 'OFF' is the
 ** offset, 'INC' is the increment per row in byte units (or tiles for the 1bpp
-** modes). Not required (maybe not using any of these modes). */
+** modes). Not required (maybe not using any of these modes). An increment
+** value of 0 is interpreted as 256, this is required if you need a 1bpp
+** tileset shared between Row mode 3 (Multicolor) and these modes. */
 
 #ifndef M74_TBANK01_0_OFF
 	#define M74_TBANK01_0_OFF  0
