@@ -31,8 +31,7 @@ Overall key features are as follows:
 - Up to 128 6 px wide 1bpp ROM tiles with selectable fg & bg color / tile row
 - Up to 128 6 px wide 1bpp ROM tiles with individually selectable fg color
 - Uses the inline mixer (either 5 channels or 4 channels + UART available)
-- RAM clear function during spare time to assist rendering surfaces
-- SPI load function during spare time for streaming in data from SD card
+- SD load function during spare time for streaming in data from SD card
 
 Graphics output is primarily governed by tile rows of which 32 can be
 configured to cover 256 logical scanlines. Each logical scanline may end up
@@ -359,28 +358,20 @@ perform more demanding tasks.
 
 Each displayed line (physical scanline) can contain any logical scanline of
 the 256 from the 32 configurable tile rows. This selection may be directed by
-two methods:
+a split list.
 
-- RAM line + restart pairs with X scrolling.
-- RAM / ROM scanline map.
-
-The first uses byte triplets defining locations where the logical scanline
-counter has to be re-loaded, and the X scroll register has to be set.
+This list uses byte triplets defining locations where the logical scanline
+counter has to be re-loaded, and the X shift register has to be set.
 Afterwards the logical scanline counter increments by one on every line. The
 triplets are as follows:
 
 - byte 0: Physical scanline to act on (0 - 223)
 - byte 1: Logical scanline to set
-- byte 2: X scroll value
+- byte 2: X shift value (only the low 3 bits are used)
 
 The first triplet is partial, only having bytes 1 and 2 (that is, line 0 is
 implicit for that). The list can be terminated by a byte 0 value which can
 not be reached any more, such as zero or 255.
-
-The RAM / ROM scanline map is simply a list of logical scanlines to use on
-each physical scanline. This may be used for special effects or to achieve
-double scanning of regions. For X scrolling, an X scroll map can also be
-enabled.
 
 
 
@@ -402,37 +393,22 @@ Color 0 reload feature becomes inaccessible (whatever color 0 was before the
 first 24 tiles wide scanline will be preserved).
 
 
-Implementing Y scrolling
+Implementing scrolling
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Y scrolling can be implemented in the most economic manner by rotating tile
-rows as the position changes, so only necessitating the loading of tiles on
-the appropriate edge. An added benefit of this method is that it can support
-tile rows with different configurations (for example different tile source
-offsets).
+Since the sprite engine relies on VRAM copies, usually a simple scrolling
+method suitable for this is preferred.
 
+To have this, on both X and Y the VRAM has to be one tile wider or taller
+than what is displayed. For the latter a suitable amount of tile descriptors
+have to be reserved for the scrolling region (one tile more than displayed).
 
-Implementing X scrolling
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To scroll horizontally, the X shift has to be used, shifting between 0 and 7
+pixels, when wrapping, performing a VRAM copy.
 
-A problem when devising methods for X scrolling is that there is no
-wrap-around mechanism in the mode, so infinite scroll in X direction requires
-more complex algorithms.
-
-A larger display surface that the screen (up to some 400 pixels wide depending
-on tile row widths) may be panned easily using the X scroll values in the
-scanline selection logic. This method may also be used if the actual VRAM
-lines are set narrower for memory efficiency, but no more scrollable width is
-required.
-
-If more is necessary to be scrolled, one way to implement is to simply copy
-the entire VRAM when a tile of scroll happens in either direction.
-
-The faster way, needing an excess line of VRAM is to scroll a screenful, then
-copy one line of VRAM from the top to the bottom or vice-versa depending on
-the scroll direction (along with an appropriate Y adjustment) before
-continuing. If all involved tile row configurations are identical, this method
-may be utilized without necessitating VRAM start pointers in RAM.
+To scroll vertically, the region's (in the split list) logical scanline has
+to be altered similarly to X shifting, using the low 3 bits to scroll a tile
+worth of lines. When wrapping, an appropriate VRAM copy has to be done.
 
 
 
@@ -462,71 +438,40 @@ Extra features
 ------------------------------------------------------------------------------
 
 
-User video mode
+SD load function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This feature may be used to implement additional video modes to be selected
-as alternative to Mode 74. The "m74_umod" variable accepting the entry point
-of these modes is also used to enable or disable Mode 74's display.
-
-Note that upon initialization, display is disabled so Mode 74 can be set up
-proper (particularly the scanline logic and a tile row configuration). When
-preparations are completed, writing "1" to this variable will enable normal
-Mode 74 display.
-
-
-RAM clear function
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This function can be used to request the clearing of an arbitrary RAM region
-during display. The length can be set up in 16 byte block units (however the
-region doesn't need to start at a 16 byte boundary).
-
-The scanline to start the clear at can be set up by "m74_ldsl". The clear will
-begin after the render of the given line is completed.
-
-Different amounts of memory can be cleared depending on the configured row
-widths and whether color 0 reloading takes place:
-
-- 24 tiles: No clearing.
-- 22 tiles: 16 / 32 bytes / scanline.
-- 20 tiles: 48 / 64 bytes / scanline.
-- 18 tiles: 80 / 96 bytes / scanline.
-
-In addition, during a separator line, 272 additional bytes may be cleared.
-
-The M74_Finish() function may be called after the frame to ensure that the
-region is completely cleared.
-
-The RAM clear once set up by setting "m74_totc", and supplying a scanline
-what can be reached, will perform in every frame until it is turned off.
-
-This function may be used to assist certain rendering algorithms, such as
-wireframe renders (in 1bpp or 2bpp areas set up for this purpose).
-
-
-SPI load function
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This function may be used to stream in data from an SD card or SPI RAM
-during the display. It can load up to 512 bytes, but the more important
-featre is that it can skip to a specific byte (in 2 byte steps).
-
-It is controlled by the same variables like the RAM clear function, in the
-same manner, however its block size is 2 bytes.
+This function may be used to stream in data from an SD card during the
+display. It can load up to 512 bytes from a sector, but the more important
+feature is that it can skip to a specific range (in 2 byte steps).
 
 The following amount of bytes may be skipped or loaded depending on the
-configured row widths and whether color 0 reloading takes place:
+configured row widths and whether X scrolling or color 0 reloading takes
+place:
 
-- 24 tiles: No loading.
-- 22 tiles: 2 / 4 bytes / scanline.
-- 20 tiles: 6 / 8 bytes / scanline.
-- 18 tiles: 10 / 12 bytes / scanline.
++-------+----------------+-----------------+-------------+--------------+
+| Width | XSH = 0, No C0 | XSH != 0, No C0 | XSH = 0, C0 | XSH != 0, C0 |
++=======+================+=================+=============+==============+
+| 24    | 2 bytes        | 0 bytes         | \-          | \-           |
++-------+----------------+-----------------+-------------+--------------+
+| 22    | 6 bytes        | 4 bytes         | 4 bytes     | 2 bytes      |
++-------+----------------+-----------------+-------------+--------------+
+| 20    | 10 bytes       | 8 bytes         | 8 bytes     | 6 bytes      |
++-------+----------------+-----------------+-------------+--------------+
+| 18    | 14 bytes       | 12 bytes        | 12 bytes    | 10 bytes     |
++-------+----------------+-----------------+-------------+--------------+
 
-In addition, during a separator line, 34 additional bytes may be loaded or
-skipped.
+More loads are available in the following cases:
 
-The M74_Finish() function may be called after the frame to finish the load.
+- Row mode 3 (2bpp Multicolor): Add 2 bytes each to the above figure.
+- Row mode 7 (Separator line): 48 bytes, width irrelevant.
+
+For using SD loading more efficiently at 24 tiles width, a compile time switch
+(M74_SD_EXT) is provided which can add 2 bytes to all modes at the cost of
+audio cycles.
+
+The M74_Finish() function must be called after the frame to finish the load
+and to clock out the SD card properly.
 
 
 Color 0 reload
@@ -550,12 +495,14 @@ are implemented. Note however that they don't operate directly on the display
 as this is not possible by the configurability of Mode 74.
 
 To use these functions, first a target area has to be set up for them using
-M74_SetVram. After this the kernel functions will operate into that area like
-if it was VRAM. A proper tile row configuration and scanline logic has to be
-set up to actually display this region.
+M74_SetVram (only available unless using a constant VRAM area). After this the
+kernel functions will operate into that area like if it was VRAM. A proper
+tile row configuration and scanline logic has to be set up to actually display
+this region.
 
 Some functions within the kernel rely on compile time defined width and height
 parameters. These should be set up by planning how the kernel's output will be
 displayed with Mode 74 (for example if 6 pixels wide tiles are used at 24
 tiles width, 32 could be set up for VRAM_TILES_H and SCREEN_TILES_H).
 
+Note that the sprite engine also operates on this VRAM.
