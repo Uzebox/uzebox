@@ -86,17 +86,6 @@ void showHelp(char* programName){
     printerr("\t--loadcap -l        Load and replays controllers data from file.\n");
 }
 
-char *strlwr(char *str)
-{
-  size_t i;
-  size_t len = strlen(str);
-
-  for(i=0; i<len; i++)
-    str[i]=tolower((unsigned char)str[i]);
-
-  return str;
-}
-
 int ends_with(const char* name, const char* extension, size_t length)
 {
  const char* ldot = strrchr(name, '.');
@@ -104,7 +93,7 @@ int ends_with(const char* name, const char* extension, size_t length)
  {
    if (length == 0)
 	 length = strlen(extension);
-   return strncmp(ldot + 1, extension, length) == 0;
+   return strncasecmp(ldot + 1, extension, length) == 0;
  }
  return 0;
 }
@@ -238,7 +227,6 @@ int main(int argc,char **argv)
 
     	unsigned char* buffer = (unsigned char*)(uzebox.progmem);
 
-    	strlwr(heximage);
     	if(ends_with(heximage,"uze", 3)){
 
 
