@@ -22,7 +22,7 @@
 
 
 /* Where the tile & similar aligned data is placed (not Mode 74 specific) */
-#define TILES_SECT 0x3900
+#define TILES_SECT 0x4800
 
 /* Mode 74 specifics */
 #define M74_TBANKM0_0_OFF  (TILES_SECT + 0x0000)

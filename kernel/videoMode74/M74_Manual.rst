@@ -506,3 +506,19 @@ displayed with Mode 74 (for example if 6 pixels wide tiles are used at 24
 tiles width, 32 could be set up for VRAM_TILES_H and SCREEN_TILES_H).
 
 Note that the sprite engine also operates on this VRAM.
+
+
+Uzebox logo
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Uzebox logo display code is designed to interfere the least with the
+flexibility of the video mode. For normal use cases it should compile fine
+just enabling it (setting INTRO_LOGO to 1 or 2).
+
+It uses row mode 0, RAM tiles only, needing at least 19 RAM tiles in RAM tile
+configuration 0 (M74_TBANK3_0_OFF and M74_TBANK3_0_INC).
+
+For the palette it requires a RAM palette, so the logo doesn't work if the
+palette offset is disabled (M74_PAL_PTRE set zero) and a ROM palette is used.
+The initial palette offset (M74_PAL_OFF) must point to a RAM location (which
+is so by default).

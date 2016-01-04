@@ -16,7 +16,7 @@ DIRS    = $(OUTDIR) $(OBJDIR) $(DEPDIR)
 
 ## Kernel settings
 KERNEL_DIR = ../../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=74 -DINTRO_LOGO=0 -DSOUND_MIXER=MIXER_TYPE_INLINE
+KERNEL_OPTIONS  = -DVIDEO_MODE=74 -DINTRO_LOGO=1 -DSOUND_MIXER=MIXER_TYPE_INLINE
 
 ## Packrom (.uze)
 PACKROM_DIR = ../../../../tools/packrom
@@ -44,7 +44,7 @@ LDFLAGS += -Wl,-gc-sections
 
 ## Setup for Mode 74 stuff
 CFLAGS  += -include m74cfg.h
-LDFLAGS += -Wl,--section-start=.tiles=0x3900
+LDFLAGS += -Wl,--section-start=.tiles=0x4800
 
 ## Intel Hex file production flags
 HEX_FLASH_FLAGS = -R .eeprom

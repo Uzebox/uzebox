@@ -22,7 +22,7 @@
 
 
 /* Where the tile & similar aligned data is placed (not Mode 74 specific) */
-#define TILES_SECT 0x4A00
+#define TILES_SECT 0x5800
 
 /* Mode 74 specifics (Note: TBANKM0, TBANK2 and TBANKM3 are not filled, just
 ** added since required by Mode 74. The entire title screen uses
@@ -30,8 +30,8 @@
 
 #define M74_TBANKM0_0_OFF  0
 #define M74_TBANK2_0_OFF   0
-#define M74_TBANK3_0_OFF   0
-#define M74_TBANK3_0_INC   0
+#define M74_TBANK3_0_OFF   0x0800
+#define M74_TBANK3_0_INC   32
 
 #define M74_TBANK01_0_OFF  (TILES_SECT + 0x0000)
 #define M74_TBANK01_0_INC  0

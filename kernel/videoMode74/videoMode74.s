@@ -310,6 +310,30 @@
 ;
 .global SetFont
 
+;
+; void M74_RamTileFillRom(unsigned int src, unsigned char dst, unsigned char map);
+;
+; Fills a RAM tile from an arbitrarily located ROM 32 byte source. The 'map'
+; parameter specifies the RAM tile map configuration to use (0 or 1).
+;
+.global M74_RamTileFillRom
+
+;
+; void M74_RamTileFillRam(unsigned int src, unsigned char dst, unsigned char map);
+;
+; Fills a RAM tile from an arbitrarily located RAM 32 byte source. The 'map'
+; parameter specifies the RAM tile map configuration to use (0 or 1).
+;
+.global M74_RamTileFillRam
+
+;
+; void M74_RamTileClear(unsigned char dst, unsigned char map);
+;
+; Clears a RAM tile to color index zero. The 'map' parameter specifies the RAM
+; tile map configuration to use (0 or 1).
+;
+.global M74_RamTileClear
+
 
 
 ;
@@ -614,6 +638,138 @@ sttl0:
 	adc   ZH,      r1
 	st    Z,       r20
 	clr   r1
+	ret
+
+
+
+;
+; void M74_RamTileFillRom(unsigned int src, unsigned char dst, unsigned char map);
+;
+; Fills a RAM tile from an arbitrarily located ROM 32 byte source. The 'map'
+; parameter specifies the RAM tile map configuration to use (0 or 1).
+;
+; r1 must be zero (stands if called from C)
+;
+; r25:r24: src
+;     r22: dst
+;     r20: map
+;
+.section .text.M74_RamTileFillRom
+M74_RamTileFillRom:
+	ldi   XL,      lo8(M74_TBANK3_0_OFF)
+	sbrc  r20,     0
+	ldi   XL,      lo8(M74_TBANK3_1_OFF)
+	ldi   XH,      hi8(M74_TBANK3_0_OFF)
+	sbrc  r20,     0
+	ldi   XH,      hi8(M74_TBANK3_1_OFF)
+	ldi   r21,     ((M74_TBANK3_0_INC << 2) - 4)
+	sbrc  r20,     0
+	ldi   r21,     ((M74_TBANK3_1_INC << 2) - 4)
+	lsl   r22
+	lsl   r22
+	add   XL,      r22
+	adc   XH,      r1      ; r1 is zero
+	movw  ZL,      r24
+	ldi   r20,     8
+frtrol:
+	lpm   r0,      Z+
+	st    X+,      r0
+	lpm   r0,      Z+
+	st    X+,      r0
+	lpm   r0,      Z+
+	st    X+,      r0
+	lpm   r0,      Z+
+	st    X+,      r0
+	add   XL,      r21
+	adc   XH,      r1      ; r1 is zero
+	dec   r20
+	brne  frtrol
+	ret
+
+
+
+;
+; void M74_RamTileFillRam(unsigned int src, unsigned char dst, unsigned char map);
+;
+; Fills a RAM tile from an arbitrarily located RAM 32 byte source. The 'map'
+; parameter specifies the RAM tile map configuration to use (0 or 1).
+;
+; r1 must be zero (stands if called from C)
+;
+; r25:r24: src
+;     r22: dst
+;     r20: map
+;
+.section .text.M74_RamTileFillRam
+M74_RamTileFillRam:
+	ldi   XL,      lo8(M74_TBANK3_0_OFF)
+	sbrc  r20,     0
+	ldi   XL,      lo8(M74_TBANK3_1_OFF)
+	ldi   XH,      hi8(M74_TBANK3_0_OFF)
+	sbrc  r20,     0
+	ldi   XH,      hi8(M74_TBANK3_1_OFF)
+	ldi   r21,     ((M74_TBANK3_0_INC << 2) - 4)
+	sbrc  r20,     0
+	ldi   r21,     ((M74_TBANK3_1_INC << 2) - 4)
+	lsl   r22
+	lsl   r22
+	add   XL,      r22
+	adc   XH,      r1      ; r1 is zero
+	movw  ZL,      r24
+	ldi   r20,     8
+frtral:
+	ld    r0,      Z+
+	st    X+,      r0
+	ld    r0,      Z+
+	st    X+,      r0
+	ld    r0,      Z+
+	st    X+,      r0
+	ld    r0,      Z+
+	st    X+,      r0
+	add   XL,      r21
+	adc   XH,      r1      ; r1 is zero
+	dec   r20
+	brne  frtral
+	ret
+
+
+
+;
+; void M74_RamTileClear(unsigned char dst, unsigned char map);
+;
+; Clears a RAM tile to color index zero. The 'map' parameter specifies the RAM
+; tile map configuration to use (0 or 1).
+;
+; r1 must be zero (stands if called from C)
+;
+;     r24: dst
+;     r22: map
+;
+.section .text.M74_RamTileClear
+M74_RamTileClear:
+	ldi   XL,      lo8(M74_TBANK3_0_OFF)
+	sbrc  r22,     0
+	ldi   XL,      lo8(M74_TBANK3_1_OFF)
+	ldi   XH,      hi8(M74_TBANK3_0_OFF)
+	sbrc  r22,     0
+	ldi   XH,      hi8(M74_TBANK3_1_OFF)
+	ldi   r21,     ((M74_TBANK3_0_INC << 2) - 4)
+	sbrc  r22,     0
+	ldi   r21,     ((M74_TBANK3_1_INC << 2) - 4)
+	lsl   r24
+	lsl   r24
+	add   XL,      r24
+	adc   XH,      r1      ; r1 is zero
+	ldi   r20,     8
+frtcll:
+	st    X+,      r1
+	st    X+,      r1
+	st    X+,      r1
+	st    X+,      r1
+	add   XL,      r21
+	adc   XH,      r1      ; r1 is zero
+	dec   r20
+	brne  frtcll
 	ret
 
 

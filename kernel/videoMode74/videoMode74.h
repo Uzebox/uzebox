@@ -96,6 +96,9 @@ extern void M74_VramMove(signed char x, signed char y);
 extern void M74_VramFillCol(unsigned char y, unsigned int src, unsigned char incr);
 extern void M74_VramFillRow(unsigned char x, unsigned int src, unsigned char incr);
 extern void M74_VramFill(unsigned int src, unsigned char pitch);
+extern void M74_RamTileFillRom(unsigned int src, unsigned char dst, unsigned char map);
+extern void M74_RamTileFillRam(unsigned int src, unsigned char dst, unsigned char map);
+extern void M74_RamTileClear(unsigned char dst, unsigned char map);
 
 
 /*
