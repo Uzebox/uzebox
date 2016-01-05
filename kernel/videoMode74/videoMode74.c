@@ -30,13 +30,54 @@
 
 
 
+	#if (INTRO_LOGO != 0)
+
+		/* For logo: Fill in normal image & palette */
+
+		static void uzeboxlogo_1_load(){
+
+			unsigned char  i;
+			unsigned char* pal = (unsigned char*)(M74_PAL_OFF);
+
+			for (i = 0U; i < 13U; i++)
+			{
+				M74_RamTileFillRom((unsigned int)(&uzeboxlogo_tiles_1[0]) + ((unsigned int)(i) * 32U), 0xC1U + i, 0U);
+			}
+			for (i = 0U; i < 16U; i++)
+			{
+				pal[i] = pgm_read_byte(&(uzeboxlogo_pal_1[i]));
+			}
+
+		}
+
+		/* For logo: Fill in flash image & palette */
+
+		static void uzeboxlogo_2_load(){
+
+			unsigned char  i;
+			unsigned char* pal = (unsigned char*)(M74_PAL_OFF);
+
+			for (i = 0U; i < 13U; i++)
+			{
+				M74_RamTileFillRom((unsigned int)(&uzeboxlogo_tiles_2[0]) + ((unsigned int)(i) * 32U), 0xC1U + i, 0U);
+			}
+			for (i = 0U; i < 16U; i++)
+			{
+				pal[i] = pgm_read_byte(&(uzeboxlogo_pal_2[i]));
+			}
+
+		}
+
+	#endif
+
+
+
 	/* Callback invoked by UzeboxCore.Initialize() */
 	void DisplayLogo(){
 
 		#if (INTRO_LOGO != 0)
 
 			unsigned char* wrk = (unsigned char*)(M74_LOGO_WORK);
-			unsigned char* pal = (unsigned char*)(M74_PAL_OFF);
 			unsigned char* rsl;
 			unsigned char  i;
 
@@ -51,27 +92,14 @@
 				m74_rows = (unsigned int)(&(wrk[70]));
 				rsl = (unsigned char*)(m74_rows);
 			#endif
-			rsl[0]  = 0U;
-			rsl[1]  = 0U;
-			rsl[2]  = 255U;   /* Row selector setup to simply use the logo rows */
-			for (i = 0U; i < 4U; i++)
-			{
-				wrk[(i << 1) + 0U] = 0x18U; /* Set row mode 0, 18 tiles wide */
-				wrk[(i << 1) + 1U] = 0x00U;
-			}
-			wrk[ 8] = ((M74_LOGO_WORK + 16U) & 0xFFU);
-			wrk[ 9] = ((M74_LOGO_WORK + 16U) >> 8);
-			wrk[10] = ((M74_LOGO_WORK + 28U) & 0xFFU);
-			wrk[11] = ((M74_LOGO_WORK + 28U) >> 8);
-			wrk[12] = ((M74_LOGO_WORK + 40U) & 0xFFU);
-			wrk[13] = ((M74_LOGO_WORK + 40U) >> 8);
-			wrk[14] = ((M74_LOGO_WORK + 52U) & 0xFFU);
-			wrk[15] = ((M74_LOGO_WORK + 52U) >> 8);
+			rsl[0] = 0U;
+			rsl[1] = 0U;
+			rsl[2] = 255U; /* Row selector setup to simply use the logo rows */
 			m74_tdesc = (unsigned int)(&(wrk[0])); /* Tile descriptors (4 rows only) */
 			m74_tidx  = (unsigned int)(&(wrk[8])); /* Tile indices (4 rows only) */
-			for (i = 0U; i < 54U; i++)
+			for (i = 0U; i < 70U; i++)
 			{
-				wrk[i + 16U] = pgm_read_byte(&(uzeboxlogo_vram[i]));
+				wrk[i] = pgm_read_byte(&(uzeboxlogo_vram[i]));
 			}
 			for (i = 0U; i < 5U; i++)
 			{
@@ -91,14 +119,7 @@
 
 			/* Fill in normal logo image & palette */
 
-			for (i = 0U; i < 13U; i++)
-			{
-				M74_RamTileFillRom((unsigned int)(&uzeboxlogo_tiles_1[0]) + ((unsigned int)(i) * 32U), 0xC1U + i, 0U);
-			}
-			for (i = 0U; i < 16U; i++)
-			{
-				pal[i] = pgm_read_byte(&(uzeboxlogo_pal_1[i]));
-			}
+			uzeboxlogo_1_load();
 			m74_config =
 			    M74_CFG_RAM_TDESC |
 			    M74_CFG_RAM_TIDX |
@@ -108,26 +129,12 @@
 
 			/* Fill in flash logo image & palette */
 
-			for (i = 0U; i < 13U; i++)
-			{
-				M74_RamTileFillRom((unsigned int)(&uzeboxlogo_tiles_2[0]) + ((unsigned int)(i) * 32U), 0xC1U + i, 0U);
-			}
-			for (i = 0U; i < 16U; i++)
-			{
-				pal[i] = pgm_read_byte(&(uzeboxlogo_pal_2[i]));
-			}
+			uzeboxlogo_2_load();
 			WaitVsync(2U);
 
 			/* Fill in normal logo image & palette (again) */
 
-			for (i = 0U; i < 13U; i++)
-			{
-				M74_RamTileFillRom((unsigned int)(&uzeboxlogo_tiles_1[0]) + ((unsigned int)(i) * 32U), 0xC1U + i, 0U);
-			}
-			for (i = 0U; i < 16U; i++)
-			{
-				pal[i] = pgm_read_byte(&(uzeboxlogo_pal_1[i]));
-			}
+			uzeboxlogo_1_load();
 
 			#if (INTRO_LOGO == 2)
 				SetMasterVolume(0xC0U);

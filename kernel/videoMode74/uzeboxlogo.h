@@ -34,7 +34,7 @@ static const unsigned char uzeboxlogo_pal_2[] PROGMEM = {
 };
 
 
-/* Tile layout for the Uzebox logo
+/* Descriptors, Indices & Tile layout for the Uzebox logo
 ** Uses a 18 tile wide setup with an interleaved VRAM since only the middle 5
 ** tiles contain valuable data, the rest are blank. Height is 4 tiles (32
 ** rows).
@@ -44,6 +44,14 @@ static const unsigned char uzeboxlogo_pal_2[] PROGMEM = {
 ** 0xCE - 0xD2: Uzebox text tiles */
 
 static const unsigned char uzeboxlogo_vram[] PROGMEM = {
+ 0x18, 0x00,
+ 0x18, 0x00,
+ 0x18, 0x00,
+ 0x18, 0x00,
+ ((M74_LOGO_WORK + 16U) & 0xFFU), ((M74_LOGO_WORK + 16U) >> 8),
+ ((M74_LOGO_WORK + 28U) & 0xFFU), ((M74_LOGO_WORK + 28U) >> 8),
+ ((M74_LOGO_WORK + 40U) & 0xFFU), ((M74_LOGO_WORK + 40U) >> 8),
+ ((M74_LOGO_WORK + 52U) & 0xFFU), ((M74_LOGO_WORK + 52U) >> 8),
  0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0,  0xC0, 0xC1, 0xC2, 0xC3, 0xC4,
  0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0,  0xC5, 0xC6, 0xC7, 0xC8, 0xC9,
  0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0,  0xCA, 0xCB, 0xCC, 0xCD, 0xC0,
