@@ -21,6 +21,8 @@
 */
 #pragma once
 
+#include <stdint.h>
+
 #ifdef SD_CARD_DEBUG
     extern uint32_t SD_DEBUG_bootRecordSector;
     extern uint16_t SD_DEBUG_bytesPerSector;
