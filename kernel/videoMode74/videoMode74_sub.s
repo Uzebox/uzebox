@@ -76,20 +76,12 @@ sdldis:
 	ldi   r24,     0xFF    ; ( 475)
 	sts   v_sstat, r24     ; ( 477) Disable loading in HSync by marking it completed
 #if (M74_RESET_ENABLE != 0)
-	lds   r24,     m74_reset_lo   ; ()
-	lds   r25,     m74_reset_hi   ; ()
-	or    r24,     r25     ; () If zero, then no reset
-	ldi   r24,     lo8(M74_RESET_STACK - 1) ; () Set up frame render stack
-	ldi   r25,     hi8(M74_RESET_STACK - 1) ; ()
-	breq  .+2              ; ()
-	out   STACKL,  r24     ; ()
-	breq  .+2              ; ()
-	out   STACKH,  r25     ; ()
-	M74WT_R24      98      ; ( 586)
+	M74WT_R24      92      ; ( 569)
+	rjmp  sdldie           ; ( 571)
 #else
 	M74WT_R24      109     ; ( 586)
-#endif
 	rjmp  sdle             ; ( 588)
+#endif
 sdl0:
 	cp    r16,     r21     ; ( 519)
 	brcc  .+2              ; ( 520 /  521)
@@ -114,16 +106,19 @@ sdl1:
 	ldi   r21,     0xFF    ; () Send an extra byte, discarding last byte before command completion.
 	out   _SFR_IO_ADDR(SPDR), r22 ; ( 570) Empty CRC
 #if (M74_RESET_ENABLE != 0)
-	lds   r24,     m74_reset_lo   ; ( 572)
-	lds   r25,     m74_reset_hi   ; ( 574)
-	or    r24,     r25     ; ( 575) If zero, then no reset
-	ldi   r24,     lo8(M74_RESET_STACK - 1) ; ( 576) Set up frame render stack
-	ldi   r25,     hi8(M74_RESET_STACK - 1) ; ( 577)
-	breq  .+2              ; ( 578)
-	out   STACKL,  r24     ; ( 579)
-	breq  .+2              ; ( 580)
-	out   STACKH,  r25     ; ( 581)
-	M74WT_R24      6       ; ( 587)
+	ori   r19,     0x40    ; ( 571) Restore SD load enabled flag in m74_config
+sdldie:
+	lds   r24,     m74_reset_lo   ; ( 573)
+	lds   r25,     m74_reset_hi   ; ( 575)
+	or    r24,     r25     ; ( 576) If zero, then no reset
+	ldi   r24,     lo8(M74_VIDEO_STACK - 1) ; ( 577) Set up frame render stack
+	ldi   r25,     hi8(M74_VIDEO_STACK - 1) ; ( 578)
+	breq  .+2              ; ( 579)
+	out   STACKL,  r24     ; ( 580)
+	breq  .+2              ; ( 581)
+	out   STACKH,  r25     ; ( 582)
+	M74WT_R24      4       ; ( 586)
+	sbrc  r19,     6       ; ( 587 /  588) Jump over SD card output if SD was disabled
 #else
 	M74WT_R24      17      ; ( 587)
 #endif
@@ -134,8 +129,8 @@ sdle:
 	lds   r24,     m74_reset_lo   ; ()
 	lds   r25,     m74_reset_hi   ; ()
 	or    r24,     r25     ; () If zero, then no reset
-	ldi   r24,     lo8(M74_RESET_STACK - 1) ; () Set up frame render stack
-	ldi   r25,     hi8(M74_RESET_STACK - 1) ; ()
+	ldi   r24,     lo8(M74_VIDEO_STACK - 1) ; () Set up frame render stack
+	ldi   r25,     hi8(M74_VIDEO_STACK - 1) ; ()
 	breq  .+2              ; ()
 	out   STACKL,  r24     ; ()
 	breq  .+2              ; ()
@@ -260,6 +255,7 @@ laend:
 	; Clear any pending timer interrupt
 	ldi   ZL,      (1<<OCF1A)
 	sts   _SFR_MEM_ADDR(TIFR1), ZL
+
 #if (M74_RESET_ENABLE != 0)
 	lds   r24,     m74_reset_lo
 	lds   r25,     m74_reset_hi
@@ -267,6 +263,10 @@ laend:
 	or    r1,      r25
 	brne  .+2
 	ret                    ; Reset offset is zero: No reset
+	ldi   r22,     lo8(M74_MAIN_STACK - 1) ; () Set up main program stack
+	ldi   r23,     hi8(M74_MAIN_STACK - 1) ; ()
+	out   STACKL,  r22     ; ()
+	out   STACKH,  r23     ; ()
 	clr   r1               ; For C language routines, r1 is zero
 	push  r24              ; Return address is the reset vector
 	push  r25
@@ -292,7 +292,7 @@ ddisl:
 #if (M74_RESET_ENABLE == 0)
 	breq  laend            ; (1819 / 1820)
 #else
-	breq  ddise            ; (1819 / 1820)
+	breq  ddise            ; (1819 / 1820) Don't alter stack if display is disabled
 #endif
 	inc   r16              ; (1820)
 	rcall hsync_pulse      ; (21 + AUDIO)

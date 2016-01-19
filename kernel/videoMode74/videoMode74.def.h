@@ -104,13 +104,28 @@
 ** before enabling display (if display is disabled, the reset mechanism is
 ** inactive). After enabling display from the initializing code, an empty
 ** loop should be provided so the video frame will reset onto the provided
-** code. Enabling changes a few defaults to make space for the stack. */
+** code. Enabling changes a few defaults to make space for the stack assuming
+** default configuration (if you change stack locations, you need to also set
+** up those proper).
+**
+** The stacks: The given addresses point above the top of the stacks (so at
+** the first byte unused by stack). For Video, 16 bytes of stack is necessary,
+** which space may be used for temporaries (or extra stack) for the main
+** program. For the main program, as many bytes as needed. The main program's
+** stack in a resetting configuration should be shared with the palette
+** buffer to conserve memory! (Providing 256 bytes for the main program).
+** Note that the Uzebox logo feature can not be used if you place the palette
+** buffer at 0x1000 - 0x10FF since the default stack top + 1 is 0x1100, so
+** the palette buffer will destroy the stack in the logo code. */
 
 #ifndef M74_RESET_ENABLE
 	#define M74_RESET_ENABLE   0
 #endif
-#ifndef M74_RESET_STACK
-	#define M74_RESET_STACK    0x1010
+#ifndef M74_VIDEO_STACK
+	#define M74_VIDEO_STACK    0x1010
+#endif
+#ifndef M74_MAIN_STACK
+	#define M74_MAIN_STACK     0x1010
 #endif
 
 
@@ -124,14 +139,11 @@
 
 
 /* Location of the palette buffer in RAM, high byte. The default location of
-** 0x0F00 places it below the stack. */
+** 0x0F00 places it below the stack (or shared with main stack in reset on
+** every frame configuration). */
 
 #ifndef M74_PALBUF_H
 	#define M74_PALBUF_H       0x0F
-#else
-	#if ((M74_RESET_ENABLE != 0) && (M74_PALBUF_H != 0x0F))
-		#error "If reset (M74_RESET_ENABLE) is enabled, then the palette buffer must be left at its default location! (M74_PALBUF_H)"
-	#endif
 #endif
 
 
@@ -143,7 +155,7 @@
 	#if (M74_RESET_ENABLE == 0)
 		#define M74_LOGO_WORK      0x1010
 	#else
-		#define M74_LOGO_WORK      (M74_RESET_STACK + 0x10)
+		#define M74_LOGO_WORK      (M74_VIDEO_STACK + 0x10)
 	#endif
 #endif
 
@@ -158,7 +170,7 @@
 	#if (M74_RESET_ENABLE == 0)
 		#define M74_PAL_OFF        0x1000
 	#else
-		#define M74_PAL_OFF        (M74_RESET_STACK + 0x00)
+		#define M74_PAL_OFF        (M74_VIDEO_STACK + 0x00)
 	#endif
 #endif
 
@@ -457,7 +469,7 @@
 	#if (M74_RESET_ENABLE == 0)
 		#define M74_RTLIST_OFF    0x1010
 	#else
-		#define M74_RTLIST_OFF    (M74_RESET_STACK + 0x10)
+		#define M74_RTLIST_OFF    (M74_VIDEO_STACK + 0x10)
 	#endif
 #endif
 
