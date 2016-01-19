@@ -225,9 +225,10 @@ M74_VramRestore:
 	mov   r1,      XH
 rlsrr0:
 	ld    XH,      Z+
-	andi  XH,      0x0F
-	ld    XL,      Z+
-	ld    r0,      Z+
+	andi  XH,      0x0F    ; Zero in XH indicates mangled entry, so no restore
+	ld    XL,      Z+      ; (This happens when a RAM tile was discarded,
+	ld    r0,      Z+      ; by restoring the VRAM, but a new proper tile
+	breq  .+2              ; allocation didn't finish yet)
 	st    X,       r0      ; Memory restored
 	dec   r1
 	brne  rlsrr0           ; List emptied
@@ -662,10 +663,6 @@ bspule:
 	rcall m74_blitspriteptprep
 bspure:
 
-	; Save current RAM tile count
-
-	sts   m74_rtno,  r12
-
 	; Done
 
 	pop   YH
@@ -1035,7 +1032,7 @@ bsppallcil1:
 
 	; Restore old tile index
 
-	mov   r18,     XL     ; Tile index will be in r18 to fit the other paths
+	mov   r18,     XL      ; Tile index will be in r18 to fit the other paths
 	lsl   XL
 	add   XL,      r18
 	add   YL,      XL
@@ -1045,6 +1042,8 @@ bsppallcil1:
 	ldd   r0,      Y + 2
 	andi  XH,      0xF
 	st    X,       r0      ; Restored old tile, so all sprite work is gone here
+	clr   XH               ; 0x0 as high 4 bits of RAM address indicates no
+	std   Y + 0,   XH      ; tile here in restore list
 
 	; Jump to prepare new tile
 
@@ -1080,13 +1079,18 @@ bsppallcbl:
 
 	; Prepare workspace. This is the last point where the offset of the
 	; tile is needed (to save it into the restore list, and replace it).
+	; Note the order of writing the restore list and saving its size:
+	; these are for ensuring reset tolerance, that is, no matter where the
+	; render is terminated, the restore list will correctly restore every
+	; modified tile in the VRAM.
 
 	ld    r19,     Z       ; Load original tile index
 	andi  ZH,      0x0F
 	or    ZH,      r20     ; Combined with importance of new sprite part
-	std   Y + 0,   ZH
-	std   Y + 1,   ZL
 	std   Y + 2,   r19     ; Original tile saved
+	std   Y + 1,   ZL
+	std   Y + 0,   ZH      ; Write high 4 bits of address last
+	sts   m74_rtno,  r12   ; Tile set up, so new size can also be saved
 
 	; Copy mask index if possible (there is a mask index list provided for
 	; the RAM tiles). Mask index is in r21

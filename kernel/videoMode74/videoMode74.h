@@ -60,6 +60,9 @@ extern volatile unsigned int  m74_ramma;
 #else
 #define m74_ramma  (M74_RAMMASK_OFF)
 #endif
+#if (M74_RESET_ENABLE != 0)
+extern volatile unsigned int  m74_reset;
+#endif
 #if (M74_SD_ENABLE != 0)
 extern volatile unsigned long m74_sdsec;
 extern volatile unsigned long m74_sdoff;

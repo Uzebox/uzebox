@@ -157,7 +157,7 @@
 				rsl[2] = wrk[72];
 			#endif
 
-			SetRenderingParameters(20U, 224U);
+			SetRenderingParameters(FIRST_RENDER_LINE, FRAME_LINES);
 
 		#endif
 	}
@@ -191,6 +191,9 @@
 #endif
 #if (M74_RTLIST_PTRE != 0)
 		m74_rtlist = M74_RTLIST_OFF;  /* RAM tile allocation workspace address */
+#endif
+#if (M74_RESET_ENABLE != 0)
+		m74_reset  = 0U;              /* Reset starts off disabled (so logo may display) */
 #endif
 #if (M74_SD_ENABLE != 0)
 		m74_sdsec  = 0U;              /* Sector part of SD offset initially zero */

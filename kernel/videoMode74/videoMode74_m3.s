@@ -22,11 +22,6 @@
 
 
 
-#define STACKH 0x3E
-#define STACKL 0x3D
-
-
-
 ;
 ; 2bpp Multicolor mode
 ;

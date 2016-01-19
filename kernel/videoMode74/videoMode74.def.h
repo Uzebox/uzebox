@@ -95,6 +95,25 @@
 ** for convenience. */
 
 
+/* Reset on every frame. If this is enabled, then a video frame will reset
+** onto a provided address (can be a C function with void parameters and
+** return), saving a lot of memory (240 bytes) from stack, using the palette
+** buffer for main program stack. However this also means that the main
+** program might not complete (ideally onto a "do-nothing" empty loop) before
+** the VBlank is over. You need to set m74_reset to an appropriate address
+** before enabling display (if display is disabled, the reset mechanism is
+** inactive). After enabling display from the initializing code, an empty
+** loop should be provided so the video frame will reset onto the provided
+** code. Enabling changes a few defaults to make space for the stack. */
+
+#ifndef M74_RESET_ENABLE
+	#define M74_RESET_ENABLE   0
+#endif
+#ifndef M74_RESET_STACK
+	#define M74_RESET_STACK    0x1010
+#endif
+
+
 /* Width of 2bpp mode output. At least 2 tiles. Note that multiple 2bpp chunks
 ** can occur within a row, so you can use more than one effective width by
 ** appropriately combining smaller blocks. */
@@ -109,6 +128,10 @@
 
 #ifndef M74_PALBUF_H
 	#define M74_PALBUF_H       0x0F
+#else
+	#if ((M74_RESET_ENABLE != 0) && (M74_PALBUF_H != 0x0F))
+		#error "If reset (M74_RESET_ENABLE) is enabled, then the palette buffer must be left at its default location! (M74_PALBUF_H)"
+	#endif
 #endif
 
 
@@ -117,7 +140,11 @@
 ** default location set here should be fine. Needs 73 bytes. */
 
 #ifndef M74_LOGO_WORK
-	#define M74_LOGO_WORK      0x1010
+	#if (M74_RESET_ENABLE == 0)
+		#define M74_LOGO_WORK      0x1010
+	#else
+		#define M74_LOGO_WORK      (M74_RESET_STACK + 0x10)
+	#endif
 #endif
 
 
@@ -128,7 +155,11 @@
 	#define M74_PAL_PTRE       0
 #endif
 #ifndef M74_PAL_OFF
-	#define M74_PAL_OFF        0x1000
+	#if (M74_RESET_ENABLE == 0)
+		#define M74_PAL_OFF        0x1000
+	#else
+		#define M74_PAL_OFF        (M74_RESET_STACK + 0x00)
+	#endif
 #endif
 
 
@@ -423,7 +454,11 @@
 	#define M74_RTLIST_PTRE   0
 #endif
 #ifndef M74_RTLIST_OFF
-	#define M74_RTLIST_OFF    0x1010
+	#if (M74_RESET_ENABLE == 0)
+		#define M74_RTLIST_OFF    0x1010
+	#else
+		#define M74_RTLIST_OFF    (M74_RESET_STACK + 0x10)
+	#endif
 #endif
 
 /* Sprite recolor table set start offset. Only the high byte is used. If it is

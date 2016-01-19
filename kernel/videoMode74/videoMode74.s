@@ -217,6 +217,19 @@
 .global m74_ramma
 #endif
 
+#if (M74_RESET_ENABLE != 0)
+;
+; volatile unsigned int m74_reset;
+;
+; Reset vector where the video frame render will reset upon return with an
+; empty stack. It should be a function with void parameters and void return.
+; This only happens when the video display is enabled. On init, before
+; enabling display, a proper reset vector should be set up, then after enable,
+; an empty loop should follow (waiting for the frame to terminate it).
+;
+.global m74_reset
+#endif
+
 #if (M74_SD_ENABLE != 0)
 ;
 ; volatile unsigned long m74_sdsec;
@@ -337,9 +350,12 @@
 
 
 ;
-; Video output port, where the pixels go
+; Video output port, where the pixels go, and Stack
 ;
 #define PIXOUT VIDEO_PORT
+#define STACKH 0x3E
+#define STACKL 0x3D
+
 
 
 ;
@@ -442,6 +458,11 @@
 	m74_mcadd:
 	m74_mcadd_lo:  .byte 1 ; 2bpp Multicolor framebuffer start, low
 	m74_mcadd_hi:  .byte 1 ; 2bpp Multicolor framebuffer start, high
+#endif
+#if (M74_RESET_ENABLE != 0)
+	m74_reset:
+	m74_reset_lo:  .byte 1 ; Reset vector, low
+	m74_reset_hi:  .byte 1 ; Reset vector, high
 #endif
 #if (M74_SD_ENABLE != 0)
 	m74_sdsec:             ; SD load base sector address (4 bytes)

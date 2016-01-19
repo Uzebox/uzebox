@@ -75,7 +75,20 @@ sub_video_mode74:
 sdldis:
 	ldi   r24,     0xFF    ; ( 475)
 	sts   v_sstat, r24     ; ( 477) Disable loading in HSync by marking it completed
+#if (M74_RESET_ENABLE != 0)
+	lds   r24,     m74_reset_lo   ; ()
+	lds   r25,     m74_reset_hi   ; ()
+	or    r24,     r25     ; () If zero, then no reset
+	ldi   r24,     lo8(M74_RESET_STACK - 1) ; () Set up frame render stack
+	ldi   r25,     hi8(M74_RESET_STACK - 1) ; ()
+	breq  .+2              ; ()
+	out   STACKL,  r24     ; ()
+	breq  .+2              ; ()
+	out   STACKH,  r25     ; ()
+	M74WT_R24      98      ; ( 586)
+#else
 	M74WT_R24      109     ; ( 586)
+#endif
 	rjmp  sdle             ; ( 588)
 sdl0:
 	cp    r16,     r21     ; ( 519)
@@ -100,11 +113,37 @@ sdl1:
 	ldi   r22,     0x95    ; () Use the default init CRC (lowest bit set, bit unsure if that's necessary)
 	ldi   r21,     0xFF    ; () Send an extra byte, discarding last byte before command completion.
 	out   _SFR_IO_ADDR(SPDR), r22 ; ( 570) Empty CRC
-	M74WT_R24      17      ; ()
+#if (M74_RESET_ENABLE != 0)
+	lds   r24,     m74_reset_lo   ; ( 572)
+	lds   r25,     m74_reset_hi   ; ( 574)
+	or    r24,     r25     ; ( 575) If zero, then no reset
+	ldi   r24,     lo8(M74_RESET_STACK - 1) ; ( 576) Set up frame render stack
+	ldi   r25,     hi8(M74_RESET_STACK - 1) ; ( 577)
+	breq  .+2              ; ( 578)
+	out   STACKL,  r24     ; ( 579)
+	breq  .+2              ; ( 580)
+	out   STACKH,  r25     ; ( 581)
+	M74WT_R24      6       ; ( 587)
+#else
+	M74WT_R24      17      ; ( 587)
+#endif
 	out   _SFR_IO_ADDR(SPDR), r21 ; ( 588)
 sdle:
 #else
+#if (M74_RESET_ENABLE != 0)
+	lds   r24,     m74_reset_lo   ; ()
+	lds   r25,     m74_reset_hi   ; ()
+	or    r24,     r25     ; () If zero, then no reset
+	ldi   r24,     lo8(M74_RESET_STACK - 1) ; () Set up frame render stack
+	ldi   r25,     hi8(M74_RESET_STACK - 1) ; ()
+	breq  .+2              ; ()
+	out   STACKL,  r24     ; ()
+	breq  .+2              ; ()
+	out   STACKH,  r25     ; ()
+	M74WT_R24      106     ; ( 588)
+#else
 	M74WT_R24      117     ; ( 588)
+#endif
 #endif
 
 	; Load palette
@@ -221,7 +260,20 @@ laend:
 	; Clear any pending timer interrupt
 	ldi   ZL,      (1<<OCF1A)
 	sts   _SFR_MEM_ADDR(TIFR1), ZL
+#if (M74_RESET_ENABLE != 0)
+	lds   r24,     m74_reset_lo
+	lds   r25,     m74_reset_hi
+	mov   r1,      r24
+	or    r1,      r25
+	brne  .+2
+	ret                    ; Reset offset is zero: No reset
+	clr   r1               ; For C language routines, r1 is zero
+	push  r24              ; Return address is the reset vector
+	push  r25
+	reti                   ; All done, return empties stack
+#else
 	ret                    ; All done
+#endif
 
 ddis:
 	; Display Disabled frame
@@ -237,11 +289,32 @@ ddis:
 ddisl:
 	lds   r23,     render_lines_count ; (1817)
 	cp    r23,     r16     ; (1818)
+#if (M74_RESET_ENABLE == 0)
 	breq  laend            ; (1819 / 1820)
+#else
+	breq  ddise            ; (1819 / 1820)
+#endif
 	inc   r16              ; (1820)
 	rcall hsync_pulse      ; (21 + AUDIO)
 	M74WT_R24      1813 - 21 - AUDIO_OUT_HSYNC_CYCLES
 	rjmp  ddisl            ; (1815)
+#if (M74_RESET_ENABLE != 0)
+ddise:
+	rcall hsync_pulse      ; Last hsync, from now cycle precise part over.
+
+	; Set vsync flag & flip field
+	lds   ZL,      sync_flags
+	ldi   r20,     SYNC_FLAG_FIELD
+	eor   ZL,      r20
+	ori   ZL,      SYNC_FLAG_VSYNC
+	sts   sync_flags, ZL
+	; Clear any pending timer interrupt
+	ldi   ZL,      (1<<OCF1A)
+	sts   _SFR_MEM_ADDR(TIFR1), ZL
+
+	ret                    ; All done
+#endif
+
 
 
 
