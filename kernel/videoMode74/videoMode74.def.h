@@ -129,6 +129,21 @@
 #endif
 
 
+/* Disable color zero. Color zero can not be used for sprites (it is the
+** transparent color). If you don't need it (using only up to 15 colors), you
+** can disable it by this option. This causes omitting initializing bytes 0 -
+** 16 of the palette buffer, which may be used for other purposes then (for
+** example the video stack). Color zero should not occur in the image data
+** then (it will cause pixels of undefined colors for this index). Note that
+** it also disables 2bpp mode (which uses color indices 0 - 3). You may use
+** the Multicolor mode (Row mode 3) instead with a repeated single tile row
+** to conserve RAM memory if you need simple 2bpp. */
+
+#ifndef M74_COL0_DISABLE
+	#define M74_COL0_DISABLE   0
+#endif
+
+
 /* Width of 2bpp mode output. At least 2 tiles. Note that multiple 2bpp chunks
 ** can occur within a row, so you can use more than one effective width by
 ** appropriately combining smaller blocks. */
@@ -180,6 +195,10 @@
 
 #ifndef M74_COL0_RELOAD
 	#define M74_COL0_RELOAD    0
+#else
+	#if ((M74_COL0_RELOAD != 0) && (M74_COL0_DISABLE != 0))
+		#error "Color 0 is disabled (M74_COL0_DISABLE set), relaoding (M74_COL0_RELOAD) can not be used!"
+	#endif
 #endif
 #ifndef M74_COL0_PTRE
 	#define M74_COL0_PTRE      0
@@ -216,7 +235,7 @@
 #endif
 
 
-/* This can be used to enable 2bpp Multicolor (Rom mode 3). This mode takes
+/* This can be used to enable 2bpp Multicolor (Row mode 3). This mode takes
 ** almost 3K of flash and also some bytes of RAM. */
 
 #ifndef M74_M3_ENABLE

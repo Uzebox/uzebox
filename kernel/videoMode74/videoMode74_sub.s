@@ -152,15 +152,23 @@ sdle:
 	ldi   ZH,      hi8(M74_PAL_OFF) ; ( 591)
 	rjmp  .                ; ( 593)
 #endif
+#if (M74_COL0_DISABLE != 0)
+	ldi   YL,      16      ; ( 594) Color 0 disabled: skip it
+	adiw  ZL,      1       ; (   2)
+	M74WT_R24      42      ; (  44)
+	rjmp  lcnze            ; (  46)
+#else
 	clr   YL               ; ( 594)
+#endif
 lcloop:
-	sbrs  r19,     3       ; ( 1)
+	sbrs  r19,     3       ; ( 1) Even color indices
 	rjmp  .+4              ; ( 3)
 	ld    r24,     Z+      ; ( 4)
 	rjmp  .+2              ; ( 6)
 	lpm   r24,     Z+      ; ( 6)
 	rcall m74_setpalcol    ; (45) (3 + 36 cycles)
 	inc   YL               ; (46)
+lcnze:
 #if (M74_SD_ENABLE != 0)
 	movw  r16,     ZL      ; ( 1)
 	movw  ZL,      r14     ; ( 2)
@@ -170,7 +178,7 @@ lcloop:
 #else
 	M74WT_R24      39      ; (39)
 #endif
-	sbrs  r19,     3       ; ( 1)
+	sbrs  r19,     3       ; ( 1) Odd color indices
 	rjmp  .+4              ; ( 3)
 	ld    r24,     Z+      ; ( 4)
 	rjmp  .+2              ; ( 6)

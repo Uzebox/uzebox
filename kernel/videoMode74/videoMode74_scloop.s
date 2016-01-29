@@ -214,6 +214,11 @@ csp00:
 	brpl  csp00a           ; ( 9 / 10)
 	rjmp  c1bp8            ; (11)
 csp00a:
+#if (M74_COL0_DISABLE != 0)
+	rjmp  csp00b           ; (12) Without Color index 0, there is no sense for the 2bpp mode
+c2bppe:
+	rjmp  cend0            ; (56)
+#else
 	brne  csp00b           ; (11 / 12)
 c2bpp:
 	; 2bpp 2+ tile (16+ px / 4+ bytes) wide surface
@@ -306,6 +311,7 @@ c2bppl:
 	lpm   r24,     Z       ; () Dummy load (nop)
 	out   PIXOUT,  r4      ; (15) Pixel 2
 	rjmp  c2bpple          ; ()
+#endif
 c1bp8:
 	; 1bpp 8 pixels wide ROM / RAM tile output
 	lsr   ZL               ; (12) Back to 0x00 - 0x7F range
