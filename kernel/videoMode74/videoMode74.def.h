@@ -501,3 +501,19 @@
 #ifndef M74_RECTB_OFF
 	#define M74_RECTB_OFF     0x0000
 #endif
+
+/* Enable slow recoloring. It makes sprite blitting about 15 percents slower
+** while offering a 256 byte ROM area of 16 byte (or less) recolor tables (one
+** byte for one index). This allows for heavier sprite recolor use. Note that
+** if enabled, recolor can not be turned off at all. The first 16 bytes should
+** be filled up for straight recolor (values 0 - 15), so M74_BlitSprite works
+** correctly. The recolor table index is a simple offset within the 256 byte
+** (wrapping) table, allowing to pack recolor maps tight. */
+
+#ifndef M74_REC_SLOW
+	#define M74_REC_SLOW      0
+#else
+	#if ((M74_REC_SLOW != 0) && (M74_RECTB_OFF == 0x0000))
+		#error "A recolor table (M74_RECTB_OFF) is necessary to use slow recoloring (M74_REC_SLOW)"
+	#endif
+#endif

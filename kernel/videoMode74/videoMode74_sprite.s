@@ -463,7 +463,11 @@ bpixe:
 M74_BlitSprite:
 	push  r16
 #if ((M74_RECTB_OFF >> 8) != 0)
+#if (M74_REC_SLOW == 0)
 	ldi   r16,     0xFF    ; Recoloring is off
+#else
+	clr   r16              ; Default recolor
+#endif
 	rjmp  m74_blitsprite_entry
 
 

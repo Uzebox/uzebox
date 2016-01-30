@@ -266,6 +266,16 @@ spljtaf:
 	rjmp  spll6f           ; 000000SS
 	rjmp  spll7f           ; 0000000S
 
+#if (M74_REC_SLOW != 0)
+
+	; Slow recolor, replaces the normal pixel fetch logic here
+	; (the endif for the else path is after this, with an M74_REC_SLOW
+	; comment)
+
+#include "videoMode74_sprsrec.s"
+
+#else
+
 	; S0000000
 
 splr7f:
@@ -1139,6 +1149,9 @@ spll7:
 	rjmp  spll7rc
 #endif
 	rjmp  splpxe2
+
+	; endif for M74_REC_SLOW
+#endif
 
 	; Pixel blitting
 
