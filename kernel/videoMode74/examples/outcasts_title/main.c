@@ -25,53 +25,15 @@
 
 
 
+/* Background color index for fading */
+#define BGCOL 0x0AU
+
+
+
 /* Row selectors */
 static unsigned char rowsel[] = {
          0U,   0U, /* First line: Start at scanline 0 */
  255U              /* End of list */
-};
-
-
-
-/* Tile row configurations. Entirely multicolor 22 tiles wide since it fits
-** well, and its capability to have 8px wide 1bpp alongside 6px wide 1bpp is
-** nice. */
-static const unsigned char trows[] PROGMEM = {
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
-
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
-
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
-
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U,
- 0x68U, 0x00U
 };
 
 
@@ -149,7 +111,7 @@ static const unsigned char line_content[] PROGMEM = {
 int main(){
 
 	/* Ensures that the font tile map is linked */
-	volatile unsigned char dummy_sec = imgfont[0];
+	volatile unsigned char dummy_sec = res_font[0];
 
 	unsigned char  i;
 	unsigned char  j;
@@ -161,7 +123,7 @@ int main(){
 	unsigned char  rb;
 	unsigned char  gb;
 	unsigned char  bb;
-	unsigned char* pal  = (unsigned char*)(0x1000U); /* Just below stack */
+	unsigned char* pal  = (unsigned char*)(M74_PAL_OFF);
 	unsigned char* mcdt = (unsigned char*)(0x0F00U - (9U * 39U) - 2304U); /* Multicolor image data */
 	unsigned char* mcvr = (unsigned char*)(0x0F00U - (9U * 39U)); /* Multicolor tiles */
 	unsigned char* vram = (unsigned char*)(0x0400U); /* 161 bytes are available here */
@@ -173,23 +135,15 @@ int main(){
 
 	/* Set tile row descriptors */
 
-	m74_tdesc = (unsigned int)(&trows[0]);
+	m74_tdesc = (unsigned int)(&res_screen_00[0]);
 	m74_tidx  = (unsigned int)(&tidx[0]);
-
-	/* Set background color (using the "paper" color on the MC image) */
-
-	m74_bgcol = 0xA0U;
-
-	/* Set multicolor mode framebuffer start address (moved in m74cfg, define) */
-
-	/* m74_mcadd = (unsigned int)(&mcdt[0]); */
 
 
 	/* Load multicolor image's palette */
 
 	for (i = 0U; i < 16U; i++)
 	{
-		pal[i] = pgm_read_byte(&(imgpal[i]));
+		pal[i] = pgm_read_byte(&(res_pal_00[i]));
 	}
 
 	/* Load multicolor image's data. */
@@ -249,14 +203,14 @@ int main(){
 
 		for (i = 0U; i < 16U; i++)
 		{
-			pal[i] = pgm_read_byte(&(imgpal[i]));
+			pal[i] = pgm_read_byte(&(res_pal_00[i]));
 		}
 
 		/* Do some palette hacks (fade in - out) */
 
-		rb = (pal[m74_bgcol >> 4] >> 0) & 7U;
-		gb = (pal[m74_bgcol >> 4] >> 3) & 7U;
-		bb = (pal[m74_bgcol >> 4] >> 6) & 3U;
+		rb = (pal[BGCOL] >> 0) & 7U;
+		gb = (pal[BGCOL] >> 3) & 7U;
+		bb = (pal[BGCOL] >> 6) & 3U;
 
 		for (i = 0U; i < 16U; i++)
 		{

@@ -35,17 +35,18 @@
 ;
 ; The description of mask support:
 ;
-; For every 4bpp tile type (4Kb ROM tile maps, half tile maps, 4bpp RAM tiles)
-; there is a corresponding mask index list, 128 bytes for the 0x00 - 0x7F
-; range, 64 bytes for the other two ranges. The index list selects the mask to
-; take from the mask pool. Its values are to be interpreted as follows:
+; For every 4bpp tile there is a corresponding mask index location determined
+; by M74_ROMMASKIDX_OFF for ROM tiles and M74_RAMMASKIDX_OFF for RAM tiles.
+; The mask index at that location selects the mask to use from the mask pool.
+; Its values are to be interpreted as follows:
 ;
 ; 0x00 - 0xDF: Indexes masks in the ROM mask pool.
 ; 0xE0 - 0xFD: Indexes masks in the RAM mask pool.
 ; 0xFE: Zero mask (all sprite pixels are shown).
 ; 0xFF: Full mask (no sprite pixels visible; no RAM tile allocation happens).
 ;
-; Of course these only apply if the sprite was requested to be blit with mask.
+; Of course these only apply if the sprite was requested to be blit with mask,
+; and the mask index lists are present.
 ;
 ; Sprite generation:
 ;
@@ -87,6 +88,19 @@
 .global M74_VramRestore
 
 ;
+; void M74_ResReset(void);
+;
+; Resets the VRAM restore list.
+;
+; This should be called if you want to drop the VRAM restore list for
+; completely refilling the VRAM. This strategy may be used in such
+; configurations where the restore list is placed under the palette buffer
+; or the video stack to conserve memory (its role being reduced to support
+; sprite importances).
+;
+.global M74_ResReset
+
+;
 ; void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl,
 ;                     unsigned char flg);
 ;
@@ -123,8 +137,8 @@
 ; high nybble first for pixels. Color index 0 is transparent.
 ;
 ; The col parameter selects the recolor table. If it is larger than 127,
-; recoloring is turned off.
-;
+; recoloring is turned off. If slow recoloring is used, 0 turns recoloring
+; off.
 ;
 .global M74_BlitSpriteCol
 #endif
@@ -174,13 +188,6 @@
 ;
 .global m74_rtmax
 
-;
-; volatile unsigned char m74_rtno;
-;
-; Pseudo-global, needed for initialization (to zero) only
-;
-.global m74_rtno
-
 
 
 .section .bss
@@ -193,7 +200,11 @@
 	m74_rtlist_hi: .byte 1 ; RAM tile allocation workspace pointer, high
 #endif
 	m74_rtmax:     .byte 1 ; Maximal number of RAM tiles allowed
-	m74_rtno:      .byte 1 ; Number of RAM tiles currently allocated
+
+	; Locals
+
+	v_rtno:        .byte 1 ; Number of RAM tiles currently allocated
+	v_ramtoff_hi:  .byte 1 ; RAM tiles offset high (low is zero)
 
 .section .text
 
@@ -219,7 +230,7 @@ M74_VramRestore:
 	ldi   ZL,      lo8(M74_RTLIST_OFF)
 	ldi   ZH,      hi8(M74_RTLIST_OFF)
 #endif
-	lds   XH,      m74_rtno
+	lds   XH,      v_rtno
 	cpi   XH,      0
 	breq  rlsrr1           ; List is empty
 	mov   r1,      XH
@@ -232,8 +243,29 @@ rlsrr0:
 	st    X,       r0      ; Memory restored
 	dec   r1
 	brne  rlsrr0           ; List emptied
-	sts   m74_rtno, r1
+	sts   v_rtno,  r1
 rlsrr1:
+	ret
+
+
+
+;
+; void M74_ResReset(void);
+;
+; Resets the VRAM restore list.
+;
+; This should be called if you want to drop the VRAM restore list for
+; completely refilling the VRAM. This strategy may be used in such
+; configurations where the restore list is placed under the palette buffer
+; or the video stack to conserve memory (its role being reduced to support
+; sprite importances).
+;
+; Clobbered registers:
+; r1 (set zero)
+;
+M74_ResReset:
+	clr   r1
+	sts   v_rtno,  r1
 	ret
 
 
@@ -266,6 +298,8 @@ rlsrr1:
 M74_PutPixel:
 
 	mov   r25,     r12
+	push  r4
+	push  r5
 	push  r13
 	push  r14
 	push  r15
@@ -273,79 +307,46 @@ M74_PutPixel:
 	push  r17
 	push  YL
 	push  YH
-
-	; Load tile descriptor first row which will determine what to use as
-	; tile sources.
-
-	mov   r16,     r18     ; Flags will stay in r16
-	lds   ZL,      m74_tdesc_lo
-	lds   ZH,      m74_tdesc_hi
-	lds   r19,     m74_config
-	sbrs  r19,     1       ; RAM or ROM descriptors?
-	rjmp  .+6
-	ld    r17,     Z+
-	ld    r18,     Z+
-	rjmp  .+4
-	lpm   r17,     Z+
-	lpm   r18,     Z+
-	andi  r16,     0xD7    ; Mask off flag bits not loaded from input
-	bst   r18,     2       ; T: RAM tile config to use
-	swap  r18
-	andi  r18,     0x30    ; Mask out 0x00 - 0x7F config selector
-	andi  r17,     0x07    ; Mask out 0x80 - 0xBF config selector
-	or    r17,     r18     ; Stores combined config selectors
-	bld   r16,     3       ; RAM tile config selector in flags
+	clr   r1               ; Make sure it is zero
+	mov   r16,     r18     ; Flags into r16 for the RAM tile allocator
 
 	; Load RAM tile maximum and current RAM tile count
 
 	lds   r13,     m74_rtmax
-	lds   r12,     m74_rtno
-
-	; Load VRAM properties
-
-#if (M74_VRAM_CONST == 0)
-	lds   r18,     v_vram_lo
-	lds   r19,     v_vram_hi
-	lds   r14,     v_vram_w
-	lds   r15,     v_vram_h
-	lds   r21,     v_vram_p
-#else
-	ldi   r18,     lo8(M74_VRAM_OFF)
-	ldi   r19,     hi8(M74_VRAM_OFF)
-	ldi   ZL,      M74_VRAM_W
-	ldi   ZH,      M74_VRAM_H
-	ldi   r21,     M74_VRAM_P
-	movw  r14,     ZL
-#endif
+	lds   r12,     v_rtno
 
 	; Save away X:Y locations (to retain them across calls)
 
-	mov   r23,     r20     ; Y into r23, enables movw usage
-	movw  XL,      r22     ; XH:XL, r23:r22 (Y:X)
+	mov   r23,     r20     ; Y into r23 to keep it clear from the RAM tile allocator
+	mov   r5,      r23
+	lsr   r5
+	lsr   r5
+	lsr   r5
+	dec   r5               ; Tile Y location on VRAM
+#if (M74_XSHIFT_OFF != 0)
+	ldi   ZL,      lo8(M74_XSHIFT_OFF)
+	ldi   ZH,      hi8(M74_XSHIFT_OFF)
+	add   ZL,      r5
+	adc   ZH,      r1
+	ld    r0,      Z
+	add   r22,     r0
+#endif
+	mov   r4,      r22
+	lsr   r4
+	lsr   r4
+	lsr   r4
+	dec   r4               ; Tile X location on VRAM
 	andi  r23,     0x07
 	andi  r22,     0x07
-	lsr   XL
-	lsr   XL
-	lsr   XL               ; Tile location on VRAM
-	lsr   XH
-	lsr   XH
-	lsr   XH
 
 	; Calculate pixel's tile location
 
-	dec   XL
-	dec   XH
-	cp    XL,      r14
+	ldi   XL,      M74_VRAM_W
+	ldi   XH,      M74_VRAM_H
+	cp    r4,      XL
 	brcc  bpixe            ; No pixel (off to the right or left)
-	cp    XH,      r15
+	cp    r5,      XH
 	brcc  bpixe            ; No pixel (off to the bottom or top)
-	movw  ZL,      r18
-	mul   XH,      r21
-	add   ZL,      r0
-	adc   ZH,      r1
-	clr   r1
-	add   ZL,      XL
-	adc   ZH,      r1
 
 	; Prepare pixel's importance into r20
 
@@ -368,7 +369,6 @@ M74_PutPixel:
 	;     r16: Flags updated:
 	;          bit4 cleared if backround's mask is zero (no masking)
 	;          bit5 indicates whether mask is in ROM (0) or RAM (1)
-	;     r20: Allocated RAM tile's pitch in bytes - 4
 	;       Y: Allocated RAM tile's data address
 
 	sbrs  r16,     4
@@ -392,33 +392,22 @@ M74_PutPixel:
 	sbrc  r17,     7
 	rjmp  bpixe            ; Pixel masked off
 bpixnm:
-	subi  r20,     0xFC    ; Add 4 to destination increment, so bytes
-	mov   r1,      r23
-	breq  .+4              ; Carry is clear here
-	mul   r23,     r20     ; Calculate offset on target
-	add   YL,      r0
-	adc   YH,      r1
-	clr   r1
+	lsl   r23
+	lsl   r23
 	ldi   r19,     0xF0    ; Preserve mask on target
 	andi  r24,     0x0F    ; Pixel color
 	lsr   r22              ; X offset
 	brcs  .+4
 	swap  r19
 	swap  r24              ; Align pixel in byte to high for even offsets
-	add   YL,      r22
-	adc   YH,      r1      ; Target address obtained
+	add   r23,     r22
+	add   YL,      r23     ; Target pixel pair offset in RAM tile
 	ld    r0,      Y
 	and   r0,      r19
 	or    r0,      r24
 	st    Y,       r0      ; Pixel completed
 
-	; Pixel output completed
-
 bpixe:
-
-	; Save current RAM tile count
-
-	sts   m74_rtno,  r12
 
 	; Done
 
@@ -429,6 +418,8 @@ bpixe:
 	pop   r15
 	pop   r14
 	pop   r13
+	pop   r5
+	pop   r4
 	mov   r12,     r25
 	ret
 
@@ -504,15 +495,12 @@ M74_BlitSpriteCol:
 m74_blitsprite_entry:
 	push  r11
 #endif
-	push  r2
-	push  r3
 	push  r4
 	push  r5
 	push  r6
 	push  r7
 	push  r8
 	push  r9
-	push  r10
 	push  r12
 	push  r13
 	push  r14
@@ -528,82 +516,59 @@ m74_blitsprite_entry:
 	mov   r11,     r16     ; Recolor index will stay in r11
 #endif
 	mov   r16,     r18     ; Flags will stay in r16
-	lds   ZL,      m74_tdesc_lo
-	lds   ZH,      m74_tdesc_hi
-	lds   r19,     m74_config
-	sbrs  r19,     1       ; RAM or ROM descriptors?
-	rjmp  .+6
-	ld    r17,     Z+
-	ld    r18,     Z+
-	rjmp  .+4
-	lpm   r17,     Z+
-	lpm   r18,     Z+
-	andi  r16,     0xD7    ; Mask off flag bits not loaded from input
-	bst   r18,     2       ; T: RAM tile config to use
-	swap  r18
-	andi  r18,     0x30    ; Mask out 0x00 - 0x7F config selector
-	andi  r17,     0x07    ; Mask out 0x80 - 0xBF config selector
-	or    r17,     r18     ; Stores combined config selectors
-	bld   r16,     3       ; RAM tile config selector in flags
+	clr   r1               ; Make sure it is zero
 
 	; Load RAM tile maximum and current RAM tile count
 
 	lds   r13,     m74_rtmax
-	lds   r12,     m74_rtno
+	lds   r12,     v_rtno
 
-	; Load VRAM properties
+	; Load VRAM dimensions
 
-#if (M74_VRAM_CONST == 0)
-	lds   r2,      v_vram_lo
-	lds   r3,      v_vram_hi
-	lds   r8,      v_vram_w
-	lds   r9,      v_vram_h
-	lds   r10,     v_vram_p
-#else
-	ldi   YL,      lo8(M74_VRAM_OFF)
-	ldi   YH,      hi8(M74_VRAM_OFF)
 	ldi   ZL,      M74_VRAM_W
 	ldi   ZH,      M74_VRAM_H
-	ldi   r21,     M74_VRAM_P
-	movw  r2,      YL
 	movw  r8,      ZL
-	mov   r10,     r21
+
+	; Prepare Y location
+
+	mov   r23,     r20     ; Y into r23
+	mov   r5,      r23
+	lsr   r5
+	lsr   r5
+	lsr   r5               ; Tile Y location on VRAM
+	andi  r23,     0x07    ; Location within tile on Y
+
+	; Prepare for lower row
+
+	push  r22
+	push  r23
+	subi  r23,     8
+	cp    r5,      r9
+	brcc  bsplle           ; No sprite (off to the bottom or top)
+	cpi   r23,     0xF8
+	breq  bsplle           ; No sprite (off tile)
+#if (M74_XSHIFT_OFF != 0)
+	ldi   ZL,      lo8(M74_XSHIFT_OFF)
+	ldi   ZH,      hi8(M74_XSHIFT_OFF)
+	add   ZL,      r5
+	adc   ZH,      r1
+	ld    r0,      Z
+	add   r22,     r0
 #endif
-
-	; Save away X:Y locations (to retain them across calls)
-
-	mov   r23,     r20     ; Y into r23, enables movw usage
-	movw  r4,      r22     ; r5:r4, r23:r22 (Y:X)
-	andi  r23,     0x07
+	mov   r4,      r22
+	lsr   r4
+	lsr   r4
+	lsr   r4               ; Tile X location on VRAM
 	andi  r22,     0x07
 	movw  r6,      r22     ; r7:r6, r23:r22, Location within tile
-	lsr   r4
-	lsr   r4
-	lsr   r4               ; Tile location on VRAM
-	lsr   r5
-	lsr   r5
-	lsr   r5
 
 	; Generate lower right sprite part
 
-	movw  r22,     r6      ; r23:r22, r7:r6
 	subi  r22,     8
-	subi  r23,     8
 	cpi   r22,     0xF8
-	breq  bsplre           ; No sprite (off tile)
-	cpi   r23,     0xF8
 	breq  bsplre           ; No sprite (off tile)
 	cp    r4,      r8
 	brcc  bsplre           ; No sprite (off to the right or left)
-	cp    r5,      r9
-	brcc  bsplre           ; No sprite (off to the bottom or top)
-	movw  ZL,      r2
-	mul   r5,      r10
-	add   ZL,      r0
-	adc   ZH,      r1
-	clr   r1
-	add   ZL,      r4
-	adc   ZH,      r1
 	rcall m74_blitspriteptprep
 bsplre:
 
@@ -611,61 +576,51 @@ bsplre:
 
 	dec   r4
 	movw  r22,     r6      ; r23:r22, r7:r6
-	subi  r23,     8
-	cpi   r23,     0xF8
-	breq  bsplle           ; No sprite (off tile)
 	cp    r4,      r8
 	brcc  bsplle           ; No sprite (off to the right or left)
-	cp    r5,      r9
-	brcc  bsplle           ; No sprite (off to the bottom or top)
-	movw  ZL,      r2
-	mul   r5,      r10
-	add   ZL,      r0
-	adc   ZH,      r1
-	clr   r1
-	add   ZL,      r4
-	adc   ZH,      r1
 	rcall m74_blitspriteptprep
 bsplle:
 
-	; Generate upper left sprite part
+	; Prepare for upper row
 
+	pop   r23
+	pop   r22
 	dec   r5
-	movw  r22,     r6      ; r23:r22, r7:r6
-	cp    r4,      r8
-	brcc  bspule           ; No sprite (off to the right or left)
 	cp    r5,      r9
 	brcc  bspule           ; No sprite (off to the bottom or top)
-	movw  ZL,      r2
-	mul   r5,      r10
-	add   ZL,      r0
+#if (M74_XSHIFT_OFF != 0)
+	ldi   ZL,      lo8(M74_XSHIFT_OFF)
+	ldi   ZH,      hi8(M74_XSHIFT_OFF)
+	add   ZL,      r5
 	adc   ZH,      r1
-	clr   r1
-	add   ZL,      r4
-	adc   ZH,      r1
-	rcall m74_blitspriteptprep
-bspule:
+	ld    r0,      Z
+	add   r22,     r0
+#endif
+	mov   r4,      r22
+	lsr   r4
+	lsr   r4
+	lsr   r4               ; Tile X location on VRAM
+	andi  r22,     0x07
+	movw  r6,      r22     ; r7:r6, r23:r22, Location within tile
 
 	; Generate upper right sprite part
 
-	inc   r4
-	movw  r22,     r6      ; r23:r22, r7:r6
 	subi  r22,     8
 	cpi   r22,     0xF8
 	breq  bspure           ; No sprite (off tile)
 	cp    r4,      r8
 	brcc  bspure           ; No sprite (off to the right or left)
-	cp    r5,      r9
-	brcc  bspure           ; No sprite (off to the bottom or top)
-	movw  ZL,      r2
-	mul   r5,      r10
-	add   ZL,      r0
-	adc   ZH,      r1
-	clr   r1
-	add   ZL,      r4
-	adc   ZH,      r1
 	rcall m74_blitspriteptprep
 bspure:
+
+	; Generate upper left sprite part
+
+	dec   r4
+	movw  r22,     r6      ; r23:r22, r7:r6
+	cp    r4,      r8
+	brcc  bspule           ; No sprite (off to the right or left)
+	rcall m74_blitspriteptprep
+bspule:
 
 	; Done
 
@@ -676,15 +631,12 @@ bspure:
 	pop   r14
 	pop   r13
 	pop   r12
-	pop   r10
 	pop   r9
 	pop   r8
 	pop   r7
 	pop   r6
 	pop   r5
 	pop   r4
-	pop   r3
-	pop   r2
 #if ((M74_RECTB_OFF >> 8) != 0)
 	pop   r11
 #endif
@@ -700,25 +652,27 @@ bspure:
 ; r25:r24: Source 8x8 sprite start address
 ;     r23: Y location on tile (2's complement; 0xF9 - 0x07 inclusive)
 ;     r22: X location on tile (2's complement; 0xF9 - 0x07 inclusive)
-;     r17: Configuration selectors for tiles
-;          bit0-2: 0x80 - 0xBF config selector
-;          bit4-5: 0x00 - 0x7F config selector
 ;     r16: Flags
 ;          bit0: If set, flip horizontally
 ;          bit1: If set, sprite source is RAM
 ;          bit2: If set, flip vertically
-;          bit3: RAM tile map selector, if set, uses config 1
+;          bit3: Free to accept original "mask is used" flag
 ;          bit4: If set, mask is used
+;          bit5: Free to accept ROM (0) / RAM (1) mask source select
 ;          bit6-7: Sprite importance (larger: higher)
-;       Z: Tile offset to blit sprite onto
+;      r4: Column (X) on VRAM
+;      r5: Row (Y) on VRAM
 ;     r13: Maximal number of RAM tiles allocated to sprites
 ;     r12: Current first free RAM tile index
 ;      r1: Zero
+;  r3: r2: VRAM start offset
+;      r8: VRAM width (not used)
+;      r9: VRAM height (not used)
+;     r10: VRAM pitch
 ; Return:
 ;     r12: Updated according to remaining RAM tiles
-;     r16: bit5 clobbered
 ; Clobbered registers:
-; r0, r14, r15, r18, r19, r20, r21, r22, r23, XL, XH, YL, YH, ZL, ZH, T
+; r0, r14, r15, r17, r18, r19, r20, r21, r22, r23, XL, XH, YL, YH, ZL, ZH, T
 ;
 m74_blitspriteptprep:
 
@@ -757,11 +711,11 @@ m74_blitspriteptprep:
 	; Call the sprite part blitter
 
 	rcall m74_blitspritept
-	sbrc  r17,     7
-	ori   r16,     0x10    ; Restore mask usage flag (was only cleared, so OK)
 
 bsppexit:
 
+	bst   r16,     3
+	bld   r16,     4       ; Restore mask usage flag (was only cleared, so OK)
 	ret
 
 
@@ -772,13 +726,12 @@ bsppexit:
 ; RAM tile. It also returns the necessary parameters for blitting.
 ;
 ;     r20: Importance, low 4 bits must be zero. Higher is the more important.
-;     r17: Configuration selectors for tiles
-;          bit0-2: 0x80 - 0xBF config selector
-;          bit4-5: 0x00 - 0x7F config selector
 ;     r16: Flags
-;          bit3: RAM tile map selector, if set, uses config 1
+;          bit3: Free to accept original "mask is used" flag
 ;          bit4: If set, mask is used
-;       Z: Tile offset to blit source data onto
+;          bit5: Free to accept ROM (0) / RAM (1) mask source select
+;      r4: Column (X) on VRAM
+;      r5: Row (Y) on VRAM
 ;     r13: Maximal number of RAM tiles allocated to sprites
 ;     r12: Current first free RAM tile index
 ;      r1: Zero
@@ -787,14 +740,12 @@ bsppexit:
 ;     r12: Updated according to remaining RAM tiles
 ; r14:r15: Mask offset (only set up if masking remined enabled)
 ;     r16: Flags updated:
+;          bit3 contains original r16 bit4
 ;          bit4 cleared if backround's mask is zero (no masking)
 ;          bit5 indicates whether mask is in ROM (0) or RAM (1)
-;     r17: Updated:
-;          bit7 contains original r16 bit4 (Flags, mask used setting)
-;     r20: Allocated RAM tile's pitch in bytes - 4
 ;       Y: Allocated RAM tile's data address
 ; Clobbered registers:
-; r0, r18, r19, r21, XL, XH, ZL, ZH
+; r0, r17, r18, r19, r20, r21, XL, XH, ZL, ZH
 ;
 m74_ramtilealloc:
 
@@ -808,105 +759,114 @@ m74_ramtilealloc:
 	ldi   YH,      hi8(M74_RTLIST_OFF)
 #endif
 
-	; Check whether RAM tile allocation is necessary. The mask is also
-	; loaded here since a full mask (0xFF) should inhibit sprite output.
-	; The RAM tile allocation has no effect on the mask selection, it just
-	; needs to store it when a RAM tile is allocated, so subsequent loads
-	; here will fetch the proper mask (if a RAM tile is found here, then
-	; the underlaying tile's mask). Note that the mask has to be loaded
-	; even if masking is off (flags bit 4 clear) since a subsequent sprite
-	; placed on the RAM tile might need it (if placed with mask).
+#if (M74_MSK_ENABLE != 0)
+	; Load the mask used setting into the 'T' flag, also setting bit 3 of
+	; flags as required.
 
-	bst   r16,     4       ; T: Mask is used setting
-	ld    r18,     Z       ; Load tile index
-	movw  XL,      ZL      ; Save VRAM address for later use in the RAM tile allocator
-	mov   r21,     r18     ; r21 will be used to index in the mask index list
-	sbrs  r18,     7
-	rjmp  bsppmt00         ; ROM tiles 0x00 - 0x7F
-	sbrs  r18,     6
-	rjmp  bsppmt80         ; ROM tiles 0x80 - 0xBF
-	ldi   ZH,      hi8(M74_TBANK3_0_MSK)
-	sbrc  r16,     3
-	ldi   ZH,      hi8(M74_TBANK3_1_MSK)
-	cpi   ZH,      0       ; If zero, then RAM tiles have no mask
-	breq  bsppmz
-	ldi   ZL,      lo8(M74_TBANK3_0_MSK)
-	sbrc  r16,     3
-	ldi   ZL,      lo8(M74_TBANK3_1_MSK)
-	andi  r21,     0x3F
-	add   ZL,      r21
-	adc   ZH,      r1      ; Position to the RAM tile's mask index
-	ld    r21,     Z       ; Mask loaded from RAM
-	rjmp  bsppme           ; Mask acquired
-bsppmz:
-	ldi   r21,     0xFE    ; Zero mask
-	rjmp  bsppmex          ; Mask acquired (that is, zero, so no mask)
-bsppmt00d:
-	.byte ((M74_TBANKM0_0_MSK >> 8) & 0xFF)
-	.byte ( M74_TBANKM0_0_MSK       & 0xFF)
-	.byte ((M74_TBANKM0_1_MSK >> 8) & 0xFF)
-	.byte ( M74_TBANKM0_1_MSK       & 0xFF)
-	.byte ((M74_TBANKM0_2_MSK >> 8) & 0xFF)
-	.byte ( M74_TBANKM0_2_MSK       & 0xFF)
-	.byte ((M74_TBANKM0_3_MSK >> 8) & 0xFF)
-	.byte ( M74_TBANKM0_3_MSK       & 0xFF)
-bsppmt80d:
-	.byte ((M74_TBANK2_0_MSK  >> 8) & 0xFF)
-	.byte ( M74_TBANK2_0_MSK        & 0xFF)
-	.byte ((M74_TBANK2_1_MSK  >> 8) & 0xFF)
-	.byte ( M74_TBANK2_1_MSK        & 0xFF)
-	.byte ((M74_TBANK2_2_MSK  >> 8) & 0xFF)
-	.byte ( M74_TBANK2_2_MSK        & 0xFF)
-	.byte ((M74_TBANK2_3_MSK  >> 8) & 0xFF)
-	.byte ( M74_TBANK2_3_MSK        & 0xFF)
-	.byte ((M74_TBANK2_4_MSK  >> 8) & 0xFF)
-	.byte ( M74_TBANK2_4_MSK        & 0xFF)
-	.byte ((M74_TBANK2_5_MSK  >> 8) & 0xFF)
-	.byte ( M74_TBANK2_5_MSK        & 0xFF)
-	.byte ((M74_TBANK2_6_MSK  >> 8) & 0xFF)
-	.byte ( M74_TBANK2_6_MSK        & 0xFF)
-	.byte ((M74_TBANK2_7_MSK  >> 8) & 0xFF)
-	.byte ( M74_TBANK2_7_MSK        & 0xFF)
-bsppmt00:
+	bst   r16,     4
+	bld   r16,     3
+#endif
+
+	; Prepare RAM tile offset before first allocation. The only sensible
+	; configuration for using sprites or blitting is to have a single RAM
+	; tile setup across the entire sprite covered VRAM, so this works, and
+	; it enhances performance for repeated blits (especially into the same
+	; RAM tile). Uses tile row 0 for the fetch since for sprite blitting
+	; the first tile descriptor rows necessarily belong to the respective
+	; VRAM rows.
+
+	cpse  r12,     r1
+	rjmp  rtatle           ; At least one RAM tile allocated: not the first!
+	lds   ZL,      m74_tdesc_lo
+	lds   ZH,      m74_tdesc_hi
+	lds   r17,     m74_config
+	sbrs  r17,     1       ; ROM / RAM tile descriptor index select
+	rjmp  .+4
+	ld    r17,     Z       ; Tile descriptor index from RAM
+	rjmp  .+2
+	lpm   r17,     Z       ; Tile descriptor index from ROM
 	clr   ZH
 	mov   ZL,      r17
-	lsl   ZL
-	swap  ZL
-	andi  ZL,      0x6
-	subi  ZL,      lo8(-(bsppmt00d))
-	sbci  ZH,      hi8(-(bsppmt00d))
-	rjmp  bsppmtcom
-bsppmt80:
-	clr   ZH
-	mov   ZL,      r17
-	lsl   ZL
-	andi  r21,     0x3F
-	andi  ZL,      0xE
-	subi  ZL,      lo8(-(bsppmt80d))
-	sbci  ZH,      hi8(-(bsppmt80d))
-bsppmtcom:
-	lpm   r19,     Z+
-	cpi   r19,     0       ; If zero, then ROM tiles have no mask
-	breq  bsppmz
-	lpm   ZL,      Z
-	mov   ZH,      r19
-	add   ZL,      r21
-	adc   ZH,      r1
-	lpm   r21,     Z       ; Tiles 0x00 - 0xBF: Mask index list in ROM
-bsppme:
-	cpi   r21,     0xFF
-	brne  bsppmex          ; Not full mask, so something will render
-	brts  bsppramtnone     ; Masks used and tile has full mask: No sprite rendered
-bsppmex:
+	sbrs  r17,     7
+	rjmp  rtatl0
+	subi  ZL,      lo8(-(M74_RAMTD_OFF - 128 + 4))
+	sbci  ZH,      hi8(-(M74_RAMTD_OFF - 128 + 4))
+	ld    r17,     Z
+	rjmp  rtatl1
+rtatl0:
+	subi  ZL,      lo8(-(M74_ROMTD_OFF + 4))
+	sbci  ZH,      hi8(-(M74_ROMTD_OFF + 4))
+	lpm   r17,     Z
+rtatl1:
+	subi  r17,     0x08    ; Correct offset (RAM tiles have 0x08 added to real base)
+	sts   v_ramtoff_hi, r17
+rtatle:
+
+	; Load tile's data, first pass.
+	; X: VRAM offset
+	; r18: Tile index
+	; This is for determining whether the tile was already allocated (if
+	; it is within the sprite allocated RAM tile range).
+
+	ldi   r21,     M74_VRAM_P
+	mul   r5,      r21     ; Row offset
+	movw  XL,      r0
+	clr   r1
+	subi  XL,      lo8(-(M74_VRAM_OFF))
+	sbci  XH,      hi8(-(M74_VRAM_OFF))
+	add   XL,      r4      ; Column offset
+	adc   XH,      r1
+	ld    r18,     X       ; Load tile index
+
+	; If the tile is within the sprite allocated range, then go for fast
+	; path, new sprite component should simply blit over it.
+
 	cpi   r18,     0xC0
-	brcs  bsppallc         ; ROM tile: Needs allocation
-	andi  r18,     0x3F    ; Check whether it is a sprite workspace RAM tile
-	cp    r18,     r13     ; (if not, then a RAM tile has to be allocated at this location)
-	brcc  bsppallc         ; RAM tile at or above sprite limit: Needs allocation
+	brcs  rtanew1
+	andi  r18,     0x3F
+	cp    r18,     r12
+	brcc  rtanew0
 
-	; Already allocated RAM tile. Add importance of new sprite part to it,
-	; so it becomes less likely to be removed when too many sprites are to
-	; be rendered.
+
+
+	; Fast path: Already allocated RAM tile. VRAM address in X is no
+	; longer needed. Load its mask if necessary.
+
+#if (M74_MSK_ENABLE != 0)
+	brtc  rtafnm           ; No mask: Sprite blits
+	ldi   ZL,      lo8(M74_RAMMASKIDX_OFF)
+	ldi   ZH,      hi8(M74_RAMMASKIDX_OFF)
+	add   ZL,      r18
+	adc   ZH,      r1
+	ld    r17,     Z       ; Load mask index of RAM tile
+	cpi   r17,     0xFE
+	brcc  rtafn0           ; No mask (0xFE) or Full mask (0xFF)
+	ldi   r21,     8       ; Multiplier for mask data
+	cpi   r17,     0xE0
+	brcs  rtafro           ; 0x00 - 0xDF: ROM masks
+	ldi   ZL,      lo8(M74_RAMMASK_OFF - (0xE0 * 8))
+	ldi   ZH,      hi8(M74_RAMMASK_OFF - (0xE0 * 8))
+	ori   r16,     0x20    ; Mask is in RAM (bit 5 set)
+	rjmp  rtafrc
+rtafn0:
+	brne  rtadroptile      ; 0xFF: Full mask: Tile dropped
+	andi  r16,     0xEF    ; Clear bit 4 of flags (no mask)
+	rjmp  rtafnm           ; 0xFE: No mask: Sprite blits
+rtafro:
+	ldi   ZL,      lo8(M74_ROMMASK_OFF)
+	ldi   ZH,      hi8(M74_ROMMASK_OFF)
+	andi  r16,     0xDF    ; Mask is in ROM (bit 5 clear)
+rtafrc:
+	mul   r17,     r21
+	add   ZL,      r0
+	adc   ZH,      r1      ; Start offset of mask
+	clr   r1
+	movw  r14,     ZL
+rtafnm:
+#endif
+
+	; Add importance of new sprite part to the RAM tile, so it becomes
+	; less likely to be removed when too many sprites are to be rendered.
 
 	mov   r0,      r18
 	lsl   r0
@@ -919,145 +879,248 @@ bsppmex:
 	ori   r19,     0xF0    ; Saturate at 15
 	st    Y,       r19
 
-	; Prepare destination. Note the loading of pitch (increment), 4 bytes
-	; less than the actual pitch, to fit the copy blocks below (and this
-	; way an increment of 256 bytes also work right).
+	; Finish, loading the RAM tile data start offset in Y
 
-	; This is also used to perform a far jump (after the allocation), so
-	; branches to bsppallc stay in range
-
-	sbrs  r16,     3
-	rjmp  bsppram0
-	ldi   YL,      lo8(M74_TBANK3_1_OFF)
-	ldi   YH,      hi8(M74_TBANK3_1_OFF)
-	ldi   r20,     ((M74_TBANK3_1_INC << 2) - 4)
-	rjmp  bsppram1
-
-bsppramtnone:
-
-	clt                    ; Return: T clear (No allocation, can't draw)
+	ldi   r21,     32
+	mul   r18,     r21
+	movw  YL,      r0
+	clr   r1
+	lds   r0,      v_ramtoff_hi
+	add   YH,      r0
+	set                    ; T flag set: Render the sprite
 	ret
 
-bsppallc:
+
+
+	; Slow path: A new RAM tile has to be allocated or reused since the
+	; targeted tile is a ROM or non-sprite allocated RAM tile
+
+rtanew0:
+	ori   r18,     0xC0
+rtanew1:
+
+	; First retrieve the mask index, if it is 0xFF and the sprite is asked
+	; to be output with mask, then the sprite part's blit must be
+	; cancelled. Otherwise the mask index has to be copied off onto the
+	; RAM tile masks so further sprite blits respect it. Along with the
+	; mask also retrieve the tile's absolute address to be used for
+	; copying its contents off. Low bit will store the tile's type:
+	; 0: ROM 4bpp tile
+	; 1: RAM 4bpp tile
+	; Here it is assumed that VRAM rows correspond to tile descriptor
+	; rows, no a necessity for Mode 74, but for sprites it is. It is also
+	; assumed that Row mode 0 is used all the way.
+	;
+	; Results:
+	;
+	; r15:r14: Tile absolute address (bit 0: Set for RAM tiles)
+	;     r17: Mask index
+
+	mov   r19,     r18
+	swap  r19
+	lsr   r19
+	lsr   r19
+	andi  r19,     0x03    ; Selects tile bank to load
+	lds   ZL,      m74_tdesc_lo
+	lds   ZH,      m74_tdesc_hi
+	lds   r17,     m74_config
+	add   ZL,      r5
+	adc   ZH,      r1      ; Tile descriptor index location
+	sbrs  r17,     1       ; ROM / RAM tile descriptor index select
+	rjmp  rtairo
+	ld    r17,     Z       ; Tile descriptor index from RAM
+	rjmp  rtaira
+rtaidra:
+	subi  ZL,      lo8(-(M74_RAMTD_OFF - 128 + 1))
+	sbci  ZH,      hi8(-(M74_RAMTD_OFF - 128 + 1))
+	ld    r19,     Z
+	rjmp  rtaidco
+rtadroptile:
+	clt                    ; Tile can not be rendered exit point
+	ret                    ; (Placed here to be accessible by conditional branches)
+rtairo:
+	lpm   r17,     Z       ; Tile descriptor index from ROM
+rtaira:
+	clr   ZH
+	mov   ZL,      r19
+	add   ZL,      r17
+	adc   ZH,      r1      ; Might be necessary if RAM area passes 128b
+	sbrc  r17,     7       ; Bit 7 zero: ROM tile descriptor
+	rjmp  rtaidra
+	subi  ZL,      lo8(-(M74_ROMTD_OFF + 1))
+	sbci  ZH,      hi8(-(M74_ROMTD_OFF + 1))
+	lpm   r19,     Z
+rtaidco:
+	ldi   r21,     32
+	muls  r18,     r21
+	add   r19,     r1      ; Tile offset in r19:r0 (same way like in scanline loop)
+	cpi   r18,     0xC0
+	brcs  rtaitro          ; To ROM tiles (0x00 - 0xBF)
+	inc   r0               ; RAM tiles
+	mov   r14,     r0
+	mov   r15,     r19
+#if (M74_MSK_ENABLE != 0)
+	mov   ZL,      r18
+	andi  ZL,      0x3F
+	clr   ZH
+	subi  ZL,      lo8(-(M74_RAMMASKIDX_OFF))
+	sbci  ZH,      hi8(-(M74_RAMMASKIDX_OFF))
+	ld    r17,     Z       ; Mask index in r17
+#endif
+	rjmp  rtaitlc
+rtaitro:
+	mov   r14,     r0
+	mov   r15,     r19
+#if (M74_MSK_ENABLE != 0)
+	ldi   r21,     8
+	mul   r14,     r21
+	mov   r17,     r1
+	mul   r15,     r21
+	movw  ZL,      r0
+	clr   r1
+	add   ZL,      r17
+	adc   ZH,      r1      ; ROM mask offset (0 - 2047) by tile offset (0 - 65535)
+	subi  ZL,      lo8(-(M74_ROMMASKIDX_OFF))
+	sbci  ZH,      hi8(-(M74_ROMMASKIDX_OFF))
+	lpm   r17,     Z       ; Mask index in r17
+#endif
+rtaitlc:
+	clr   r1
+
+#if (M74_MSK_ENABLE != 0)
+	; Masking decisions, processing 0xFE and 0xFF masks. Upon return the T
+	; flag (masking enabled) is appropriately modified along with bit 4 of
+	; r16. With masking set, r17 is guaranteed to be below 0xFE (so
+	; selecting a valid ROM / RAM mask).
+
+	brtc  rtamd0           ; No masking at all
+	cpi   r17,     0xFE
+	brcs  rtamd0           ; Masking with masks
+	brne  rtadroptile      ; 0xFF: Full mask, no sprite blitting
+	andi  r16,     0xEF    ; Clear bit 4 of flags (no mask)
+	clt                    ; Also clear the T flag (no mask) for further use
+rtamd0:
+#endif
+
+
 
 	; Try to allocate a new RAM tile for the sprite, then prepare it for
 	; sprite blitting.
 
-	movw  ZL,      XL      ; Restore VRAM address
 	cpse  r12,     r13     ; Already hit sprite limit?
-	rjmp  bsppallcnw       ; No, can allocate new RAM tile
+	rjmp  rtaallocnew      ; No, can allocate new RAM tile
 
 	; Ran out of RAM tiles. An already allocated RAM tile has to be
 	; dropped (if possible) to make space for the new sprite part. This is
 	; done by looking for the lowest importance, if it is less or equal
 	; the importance of the coming sprite part, it is discarded.
 
-	mov   r19,     r13     ; Will be used for loop counter
-	ldi   r18,     0xFF    ; Will seek the lowest importance
-	                       ; XL: Will store index of lowest importance
-	mov   XL,      r19     ; (Note: It will be written at least once in loop)
-	lsl   XL               ; (Note: Here it is used as temp for calculation)
-	add   XL,      r19
-	subi  XL,      24      ; Remove one loop block (8 x 3 bytes)
-	add   YL,      XL
-	adc   YH,      r1      ; Start on top end minus one loop block
-	mov   XL,      r19
-	subi  r19,     0xF9    ; Add 0x07 to produce a round-up to next multiple of 8
-	andi  r19,     0xF8
-	andi  XL,      0x07
-	breq  bsppallcil8
-	cpi   XL,      0x02
-	brcs  bsppallcil1
-	breq  bsppallcil2
-	cpi   XL,      0x04
-	brcs  bsppallcil3
-	breq  bsppallcil4
-	cpi   XL,      0x06
-	brcs  bsppallcil5
-	breq  bsppallcil6
-	rjmp  bsppallcil7
-bsppallcil:
+	mov   ZH,      r13     ; Will be used for loop counter
+	ldi   r19,     0xFF    ; Will seek the lowest importance
+	                       ; ZL: Will store index of lowest importance
+	mov   ZL,      ZH      ; (Note: It will be written at least once in loop)
+	subi  ZH,      1
+	andi  ZH,      0xF8
+	add   YL,      ZH
+	adc   YH,      r1
+	add   YL,      ZH
+	adc   YH,      r1
+	add   YL,      ZH
+	adc   YH,      r1      ; Y starts so first iteration performs 1 - 8 comparisons
+	andi  ZL,      0x07
+	breq  rtaallocil8
+	cpi   ZL,      0x02
+	brcs  rtaallocil1
+	breq  rtaallocil2
+	cpi   ZL,      0x04
+	brcs  rtaallocil3
+	breq  rtaallocil4
+	cpi   ZL,      0x06
+	brcs  rtaallocil5
+	breq  rtaallocil6
+	rjmp  rtaallocil7
+rtaallocil:
 	sbiw  YL,      24
-	subi  XL,      0xF8    ; Add 8, correcting tile indices found in prev. iteration
-bsppallcil8:
+	subi  ZL,      0xF8    ; Add 8, correcting tile indices found in prev. iteration
+rtaallocil8:
 	ldd   r0,      Y + 21
-	cp    r0,      r18
+	cp    r0,      r19
 	brcc  .+4
-	mov   r18,     r0
-	ldi   XL,      0x07
-bsppallcil7:
+	mov   r19,     r0
+	ldi   ZL,      0x07
+rtaallocil7:
 	ldd   r0,      Y + 18
-	cp    r0,      r18
+	cp    r0,      r19
 	brcc  .+4
-	mov   r18,     r0
-	ldi   XL,      0x06
-bsppallcil6:
+	mov   r19,     r0
+	ldi   ZL,      0x06
+rtaallocil6:
 	ldd   r0,      Y + 15
-	cp    r0,      r18
+	cp    r0,      r19
 	brcc  .+4
-	mov   r18,     r0
-	ldi   XL,      0x05
-bsppallcil5:
+	mov   r19,     r0
+	ldi   ZL,      0x05
+rtaallocil5:
 	ldd   r0,      Y + 12
-	cp    r0,      r18
+	cp    r0,      r19
 	brcc  .+4
-	mov   r18,     r0
-	ldi   XL,      0x04
-bsppallcil4:
+	mov   r19,     r0
+	ldi   ZL,      0x04
+rtaallocil4:
 	ldd   r0,      Y +  9
-	cp    r0,      r18
+	cp    r0,      r19
 	brcc  .+4
-	mov   r18,     r0
-	ldi   XL,      0x03
-bsppallcil3:
+	mov   r19,     r0
+	ldi   ZL,      0x03
+rtaallocil3:
 	ldd   r0,      Y +  6
-	cp    r0,      r18
+	cp    r0,      r19
 	brcc  .+4
-	mov   r18,     r0
-	ldi   XL,      0x02
-bsppallcil2:
+	mov   r19,     r0
+	ldi   ZL,      0x02
+rtaallocil2:
 	ldd   r0,      Y +  3
-	cp    r0,      r18
+	cp    r0,      r19
 	brcc  .+4
-	mov   r18,     r0
-	ldi   XL,      0x01
-bsppallcil1:
+	mov   r19,     r0
+	ldi   ZL,      0x01
+rtaallocil1:
 	ldd   r0,      Y +  0
-	cp    r0,      r18
+	cp    r0,      r19
 	brcc  .+4
-	mov   r18,     r0
-	ldi   XL,      0x00
-	subi  r19,     8
-	brne  bsppallcil
-	andi  r18,     0xF0
-	cp    r20,     r18     ; Compare with new part's importance
+	mov   r19,     r0
+	ldi   ZL,      0x00
+	subi  ZH,      8
+	brcc  rtaallocil
+	andi  r19,     0xF0
+	cp    r20,     r19     ; Compare with new part's importance
 	brcc  .+2
-	rjmp  bsppramtnone     ; Exit without render since it was less important
+	rjmp  rtadroptile      ; Exit without render since it was less important
 
 	; Restore old tile index
 
-	mov   r18,     XL      ; Tile index will be in r18 to fit the other paths
-	lsl   XL
-	add   XL,      r18
-	add   YL,      XL
+	mov   r19,     ZL      ; New (RAM) tile index will be in r19
+	lsl   ZL
+	add   ZL,      r19
+	add   YL,      ZL
 	adc   YH,      r1      ; Note: During the loop, Y wound back to start
-	ldd   XH,      Y + 0
-	ldd   XL,      Y + 1
+	ldd   ZH,      Y + 0
+	ldd   ZL,      Y + 1
 	ldd   r0,      Y + 2
-	andi  XH,      0xF
-	st    X,       r0      ; Restored old tile, so all sprite work is gone here
-	clr   XH               ; 0x0 as high 4 bits of RAM address indicates no
-	std   Y + 0,   XH      ; tile here in restore list
+	andi  ZH,      0xF
+	st    Z,       r0      ; Restored old tile, so all sprite work is gone here
+	clr   ZH               ; 0x0 as high 4 bits of RAM address indicates no
+	std   Y + 0,   ZH      ; tile here in restore list
 
 	; Jump to prepare new tile
 
-	rjmp  bsppallcbl
+	rjmp  rtaallocbl
 
-bsppallcnw:
+rtaallocnew:
 
 	; New RAM tile allocation
 
-	mov   r18,     r12     ; New tile index to use (low 6 bits)
+	mov   r19,     r12     ; New (RAM) tile index to use (low 6 bits)
 	mov   r0,      r12
 	lsl   r0
 	add   r0,      r12
@@ -1065,319 +1128,188 @@ bsppallcnw:
 	adc   YH,      r1      ; Position at new ramtile's location in workspace
 	inc   r12
 
-bsppallcbl:
+rtaallocbl:
 
 	; RAM tile preparation: either newly allocated or over a discarded
 	; previously allocated RAM tile, both are the same from here. The tile
-	; index to use (low 6 bits only, high 2 bits zero) is in r18 and the
-	; workspace (Y) points at the tile's location proper.
+	; index to use (low 6 bits only, high 2 bits zero) is in r19 and the
+	; workspace (Y) points at the tile's location proper. In r18 the
+	; source tile's index is still present.
 
-	; Save tile offset on stack (out of regs to spare). Note that the
-	; algorithm would work fine if the tile was written here, however if
-	; the render spills out of VBLANK, then it may cause tile flicker
-	; artifacts. Having only sprite flicker is less of a problem, so
-	; changing the VRAM is delayed to happen after the tile copy.
-
-	push  ZL
-	push  ZH
-
-	; Prepare workspace. This is the last point where the offset of the
-	; tile is needed (to save it into the restore list, and replace it).
+	; Prepare workspace. This is the last point where the restore list is
+	; accessed. The tile's address has to be kept around for writing the
+	; RAM tile index in it after the fill is done (reset tolerance).
 	; Note the order of writing the restore list and saving its size:
 	; these are for ensuring reset tolerance, that is, no matter where the
 	; render is terminated, the restore list will correctly restore every
 	; modified tile in the VRAM.
 
-	ld    r19,     Z       ; Load original tile index
-	andi  ZH,      0x0F
-	or    ZH,      r20     ; Combined with importance of new sprite part
-	std   Y + 2,   r19     ; Original tile saved
-	std   Y + 1,   ZL
-	std   Y + 0,   ZH      ; Write high 4 bits of address last
-	sts   m74_rtno,  r12   ; Tile set up, so new size can also be saved
+	mov   r21,     XH
+	andi  r21,     0x0F
+	or    r21,     r20     ; Combined with importance of new sprite part
+	std   Y + 2,   r18     ; Original tile saved
+	std   Y + 1,   XL
+	std   Y + 0,   r21     ; Write high 4 bits of address last
+	sts   v_rtno,  r12     ; Tile set up, so new size can also be saved
 
-	; Copy mask index if possible (there is a mask index list provided for
-	; the RAM tiles). Mask index is in r21
+	; Prepare destination offset (on RAM tile)
 
-	ldi   XH,      hi8(M74_TBANK3_0_MSK)
-	sbrc  r16,     3
-	ldi   XH,      hi8(M74_TBANK3_1_MSK)
-	cpi   XH,      0
-	breq  bsppallcnm       ; No masks used
-	ldi   XL,      lo8(M74_TBANK3_0_MSK)
-	sbrc  r16,     3
-	ldi   XL,      lo8(M74_TBANK3_1_MSK)
-	add   XL,      r18
-	adc   XH,      r1      ; Position to the RAM tile's mask index
-	st    X,       r21
-bsppallcnm:
+	ldi   r21,     32
+	mul   r19,     r21
+	movw  YL,      r0
+	clr   r1
+	lds   r0,      v_ramtoff_hi
+	add   YH,      r0
 
-	; Load destination address and copy the source tile data itself onto
-	; the RAM tile.
+	; Load source offset and branch off to ROM / RAM tile fill
 
-	; Prepare destination. Note the loading of pitch (increment), 4 bytes
-	; less than the actual pitch, to fit the copy blocks below (and this
-	; way an increment of 256 bytes also work right).
+	movw  ZL,      r14
+	sbrs  ZL,      0
+	rjmp  rtaallocromt
+	andi  ZL,      0xFE    ; RAM tiles, clear low bit
 
-	sbrs  r16,     3
-	rjmp  .+8
-	ldi   XL,      lo8(M74_TBANK3_1_OFF)
-	ldi   XH,      hi8(M74_TBANK3_1_OFF)
-	ldi   r20,     ((M74_TBANK3_1_INC << 2) - 4)
-	rjmp  .+6
-	ldi   XL,      lo8(M74_TBANK3_0_OFF)
-	ldi   XH,      hi8(M74_TBANK3_0_OFF)
-	ldi   r20,     ((M74_TBANK3_0_INC << 2) - 4)
-	mov   r0,      r18
-	lsl   r0
-	lsl   r0
-	add   XL,      r0
-	adc   XH,      r1      ; Position at target beginning
-	movw  YL,      XL      ; Y: Target address
 
-	; Select the source, also branching off to RAM / ROM tiles (different
-	; copy routine required), then copy stuff.
 
-	mov   ZL,      r17
-	clr   ZH               ; Prepare Z for ROM tiles (r17: Configuration selectors)
-	sbrs  r19,     7
-	rjmp  bsppallcc00
-	sbrs  r19,     6
-	rjmp  bsppallcc80
+	; RAM tile filler.
 
-	; RAM tiles
+	ldi   r21,     8
+rtaallocramtl:
+	ld    r0,      Z+
+	st    Y+,      r0
+	ld    r0,      Z+
+	st    Y+,      r0
+	ld    r0,      Z+
+	st    Y+,      r0
+	ld    r0,      Z+
+	st    Y+,      r0
+	dec   r21
+	brne  rtaallocramtl
+	rjmp  rtaalloccpe      ; Copy OK, now set VRAM offset to new tile
 
-	movw  ZL,      XL
-	sub   ZL,      r18
-	sbc   ZH,      r1      ; Revert to RAM tile block beginning
-	andi  r19,     0x3F
-	lsl   r19
-	lsl   r19
+
+
+	; ROM tile filler. Unrolled to make it faster (this is the most common
+	; path)
+
+rtaallocromt:
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+	lpm   r0,      Z+
+	st    Y+,      r0
+rtaalloccpe:
+
+
+
+#if (M74_MSK_ENABLE != 0)
+	; Write out mask index for the RAM tile
+
+	ldi   ZL,      lo8(M74_RAMMASKIDX_OFF)
+	ldi   ZH,      hi8(M74_RAMMASKIDX_OFF)
 	add   ZL,      r19
-	adc   ZH,      r1      ; Position of source got
-	ldi   r19,     8
-	rjmp  bsppallccc0e
-bsppallccc0l:
-	add   XL,      r20
-	adc   XH,      r1
-	add   ZL,      r20
 	adc   ZH,      r1
-bsppallccc0e:
-	ld    r0,      Z+
-	st    X+,      r0
-	ld    r0,      Z+
-	st    X+,      r0
-	ld    r0,      Z+
-	st    X+,      r0
-	ld    r0,      Z+
-	st    X+,      r0
-	dec   r19
-	brne  bsppallccc0l
-	rjmp  bsppallcstil     ; Copy OK, now set VRAM offset to new tile
+	st    Z,       r17
+#endif
 
-	; ROM tiles 0x00 - 0x7F
 
-bsppallcc00d:
-	.byte ((M74_TBANKM0_0_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANKM0_1_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANKM0_2_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANKM0_3_OFF >> 8) & 0xFF)
-bsppallcc00:
-	swap  ZL
-	andi  ZL,      0x3
-	subi  ZL,      lo8(-(bsppallcc00d))
-	sbci  ZH,      hi8(-(bsppallcc00d))
-	rjmp  bsppallcccoml
 
-	; ROM tiles 0x80 - 0xBF
+	; Fill completed. Rewind destination to the beginning of the tile,
+	; and save the RAM tile's index on VRAM so it becomes visible.
 
-bsppallcc80d:
-	.byte ((M74_TBANK2_0_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANK2_1_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANK2_2_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANK2_3_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANK2_4_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANK2_5_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANK2_6_OFF >> 8) & 0xFF)
-	.byte ((M74_TBANK2_7_OFF >> 8) & 0xFF)
-bsppallcc80:
-	andi  r19,     0x3F
-	andi  ZL,      0x7
-	subi  ZL,      lo8(-(bsppallcc80d))
-	sbci  ZH,      hi8(-(bsppallcc80d))
+	sbiw  YL,      32
+	ori   r19,     0xC0    ; Make true tile index (0xC0 - 0xFF) from RAM tile index
+	st    X,       r19     ; X still holds VRAM offset
 
-	; ROM tiles common copy (unrolled since this is the most frequently
-	; used path, in this way it takes about the same amount of cycles
-	; total like the RAM tile copy remaining in a loop)
 
-bsppallcccoml:
-	lpm   ZH,      Z
-	lsl   r19
-	lsl   r19
-	mov   ZL,      r19
-	adc   ZH,      r1      ; Position of source got
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	add   XL,      r20
-	adc   XH,      r1
-	subi  ZL,      0x04
-	sbci  ZH,      0xFE    ; Adds 508 to Z (512 byte row increment for all ROM tiles)
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	add   XL,      r20
-	adc   XH,      r1
-	subi  ZL,      0x04
-	sbci  ZH,      0xFE    ; Adds 508 to Z (512 byte row increment for all ROM tiles)
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	add   XL,      r20
-	adc   XH,      r1
-	subi  ZL,      0x04
-	sbci  ZH,      0xFE    ; Adds 508 to Z (512 byte row increment for all ROM tiles)
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	add   XL,      r20
-	adc   XH,      r1
-	subi  ZL,      0x04
-	sbci  ZH,      0xFE    ; Adds 508 to Z (512 byte row increment for all ROM tiles)
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	add   XL,      r20
-	adc   XH,      r1
-	subi  ZL,      0x04
-	sbci  ZH,      0xFE    ; Adds 508 to Z (512 byte row increment for all ROM tiles)
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	add   XL,      r20
-	adc   XH,      r1
-	subi  ZL,      0x04
-	sbci  ZH,      0xFE    ; Adds 508 to Z (512 byte row increment for all ROM tiles)
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	add   XL,      r20
-	adc   XH,      r1
-	subi  ZL,      0x04
-	sbci  ZH,      0xFE    ; Adds 508 to Z (512 byte row increment for all ROM tiles)
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
-	lpm   r0,      Z+
-	st    X+,      r0
 
-	; Set the RAM tile for the VRAM offset saved on stack a while above.
+#if (M74_MSK_ENABLE != 0)
+	; Complete the mask by loading the offset into r15:r14.
 
-bsppallcstil:
-	pop   ZH
-	pop   ZL
-	ori   r18,     0xC0    ; Temporarily set high 2 bits (indicates RAM tile)
-	st    Z,       r18     ; Replace it to new tile index
-	andi  r18,     0x3F
-
-	rjmp  bsppallcok       ; Allocation complete (r18 retains tile index low 6 bits)
-
-	; Continued from the already allocated path preparing destination (in
-	; r18 having the RAM tile index)
-
-bsppram0:
-	ldi   YL,      lo8(M74_TBANK3_0_OFF)
-	ldi   YH,      hi8(M74_TBANK3_0_OFF)
-	ldi   r20,     ((M74_TBANK3_0_INC << 2) - 4)
-bsppram1:
-	lsl   r18
-	lsl   r18
-	add   YL,      r18
-	adc   YH,      r1      ; Position at target beginning
-
-bsppallcok:
-
-	; At this point target tile number is already OK in r18 (0x00 - 0x3F).
-	; Only the mask source has to be set up (r16 bit 5 and r15:r14). Mask
-	; index is ready in r21, T stores bit 4 of r16: the mask usage flag.
-
-	bld   r17,     7       ; Save mask usage away on a spare bit of config. selectors
-	brtc  bspppe           ; No masking: nothing more to do.
-	cpi   r21,     0xFE    ; Note: 0xFF full mask already branched to exit
-	breq  bsppzma
-	ldi   r19,     8       ; Multiplier for mask data
-	cpi   r21,     0xE0
-	brcc  bsppramma
-#if (M74_ROMMASK_PTRE != 0)
-	lds   r14,     m74_romma_lo
-	lds   r15,     m74_romma_hi
-#else
+	brtc  rtaanm           ; No masking if clear
+	ldi   r21,     8       ; Multiplier for mask data
+	cpi   r17,     0xE0
+	brcs  rtaaro           ; 0x00 - 0xDF: ROM masks
+	ldi   ZL,      lo8(M74_RAMMASK_OFF - (0xE0 * 8))
+	ldi   ZH,      hi8(M74_RAMMASK_OFF - (0xE0 * 8))
+	ori   r16,     0x20    ; Mask is in RAM (bit 5 set)
+	rjmp  rtaarc
+rtaaro:
 	ldi   ZL,      lo8(M74_ROMMASK_OFF)
 	ldi   ZH,      hi8(M74_ROMMASK_OFF)
-	movw  r14,     ZL
-#endif
-	andi  r16,     0xDF    ; Clear bit 5 (Mask source: ROM)
-	rjmp  bspppmc
-bsppramma:
-#if (M74_RAMMASK_PTRE != 0)
-	lds   r14,     m74_ramma_lo
-	lds   r15,     m74_ramma_hi
-#else
-	ldi   ZL,      lo8(M74_RAMMASK_OFF)
-	ldi   ZH,      hi8(M74_RAMMASK_OFF)
-	movw  r14,     ZL
-#endif
-	ori   r16,     0x20    ; Set bit 5 (Mask source: RAM)
-	subi  r21,     0xE0
-bspppmc:
-	mul   r21,     r19
-	add   r14,     r0
-	adc   r15,     r1
+	andi  r16,     0xDF    ; Mask is in ROM (bit 5 clear)
+rtaarc:
+	mul   r17,     r21
+	add   ZL,      r0
+	adc   ZH,      r1      ; Start offset of mask
 	clr   r1
-bspppe:
-	set                    ; Return: T set (RAM tile allocated)
-	ret
-bsppzma:
-	andi  r16,     0xEF    ; Zero mask: No mask to be used
-	set                    ; Return: T set (RAM tile allocated)
+	movw  r14,     ZL
+rtaanm:
+#endif
+
+
+
+	; All done, return
+
+	set
 	ret
 
 

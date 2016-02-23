@@ -28,7 +28,7 @@
 /* Row selectors */
 static unsigned char rowsel[] = {
          9U,   0U, /* First line: Start at scanline 9 */
- 255U           /* End of list */
+ 255U              /* End of list */
 };
 
 
@@ -70,48 +70,6 @@ static const unsigned char sine[] PROGMEM = {
 };
 #define sintb(x) pgm_read_byte(&(sine[((x)      ) & 0xFFU]))
 #define costb(x) pgm_read_byte(&(sine[((x) + 64U) & 0xFFU]))
-
-
-
-/* Tile row configurations */
-static const unsigned char trows[] PROGMEM = {
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
-
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
-
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
-
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
- 0x00U, 0x00U,
-};
-
 
 
 /* Tile map indices */
@@ -171,7 +129,7 @@ static const unsigned char scrolltxt[] PROGMEM =
 int main(){
 
 	/* Ensures that the tile map is linked */
-	volatile unsigned char dummy_sec = imgdata00[0];
+	volatile unsigned char dummy_sec = res_sprites_00[0];
 
 	unsigned char  i;
 	unsigned char  t0;
@@ -179,8 +137,8 @@ int main(){
 	unsigned char  t2;
 	unsigned int   a16;
 	unsigned int   c16 = 0U;
-	unsigned char* vram = (unsigned char*)(0x0400U);
-	unsigned char* pal  = (unsigned char*)(0x1000U);
+	unsigned char* vram = (unsigned char*)(M74_VRAM_OFF);
+	unsigned char* pal  = (unsigned char*)(M74_PAL_OFF);
 
 	/* Set rendering parameteras: Reduce height to 22 fake tiles, the many
 	** sprites need it (the dragon disc image originally had 24 fake
@@ -191,11 +149,11 @@ int main(){
 
 	/* Set row selector */
 
-	m74_rows = (unsigned int)(&rowsel[0]);
+	m74_rows  = (unsigned int)(&rowsel[0]);
 
 	/* Set tile row descriptors */
 
-	m74_tdesc = (unsigned int)(&trows[0]);
+	m74_tdesc = (unsigned int)(&res_screen_00[0]);
 	m74_tidx  = (unsigned int)(&tidx[0]);
 
 	/* Set maximal RAM tile count allocated for sprites */
@@ -206,7 +164,7 @@ int main(){
 
 	for (i = 0U; i < 16U; i++)
 	{
-		pal[i] = pgm_read_byte(&(imgpal[i]));
+		pal[i] = pgm_read_byte(&(res_pal_00[i]));
 	}
 
 	/* Set up VRAM */
@@ -266,7 +224,7 @@ int main(){
 		for (i = 0U; i < 8U; i++)
 		{
 			t0 = (c16 + (i * 32U)) & 0xFFU;
-			M74_BlitSprite( TILES_SECT + 0x2000U + (32U * 32U),
+			M74_BlitSprite( RES_SPRITES_00_OFF + (32U * 32U),
 			                ((( sintb(t0) * (unsigned int)(t1)) >> 8)       >> 1) + 101U + ((0U - t1) >> 2),
 			                ((((costb(t0) * (unsigned int)(t1)) >> 8) * 3U) >> 2) + 113U + (((0U - t1) * 3U) >> 3),
 			                M74_SPR_I2 | M74_SPR_MASK );
@@ -293,7 +251,7 @@ int main(){
 			if (t0 != 0U)
 			{
 				t1 = ((i + 1U) << 3) - (c16 & 7U);
-				M74_BlitSpriteCol( TILES_SECT + 0x2000U + (32U * t0),
+				M74_BlitSpriteCol( RES_SPRITES_00_OFF + (32U * t0),
 				                   t1,
 				                   (sintb(t1 + 16U) >> 1) + 32U,
 				                   t2,

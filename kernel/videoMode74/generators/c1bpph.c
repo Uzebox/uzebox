@@ -20,10 +20,8 @@
 **
 **  ---
 **
-**  The input image must be 8 rows tall, the width can be any multiple of 8.
-**  The row increment to be used with the result depends on the input width
-**  (divide it by 32). For usage with the 2bpp Multicolor mode, the width must
-**  be 2048 pixels (row increment is 0, so 256 bytes).
+**  The input image must be 8 rows tall, the width must be 2048 pixels
+**  (8 * 256).
 **
 **  The palette is ignored. Index 0 will become background (zero), index 1
 **  will become foreground (one).
@@ -51,8 +49,8 @@ int main(void)
 
  /* Basic tests */
 
- if ((width & 0x7U) != 0U){
-  fprintf(stderr, "Input width must be a multiple of 8!\n");
+ if ((width != 2048U){
+  fprintf(stderr, "Input width must be 2048!\n");
   return 1;
  }
  if (height != 8U){

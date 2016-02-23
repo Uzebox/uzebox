@@ -30,10 +30,9 @@
 ;
 ; void M74_VramMove(signed char x, signed char y);
 ;
-; Moves the contents of the VRAM with the given amount of tiles. The VRAM is
-; as defined by the M74_SetVram or M74_SetVramEx functions. Uses a bit more
-; than 4 cycles per copied tile for usual use cases. Up to 24 columns may be
-; moved, so to move 1 tile left / right, at most 25 tiles of VRAM width may
+; Moves the contents of the VRAM with the given amount of tiles. Uses a bit
+; more than 4 cycles per copied tile for usual use cases. Up to 24 columns may
+; be moved, so to move 1 tile left / right, at most 25 tiles of VRAM width may
 ; be set up (the VRAM pitch may be larger).
 ;
 .global M74_VramMove
@@ -41,21 +40,19 @@
 ;
 ; void M74_VramFillCol(unsigned char y, unsigned int src, unsigned char incr);
 ;
-; Fills a column of VRAM from the given source. The VRAM is as defined by the
-; M74_SetVram or M74_SetVramEx functions. Takes as many bytes as tall the VRAM
-; is. The source is incremented by incr after each copy. If the source is
-; larger or equal to 0x1000, it is treated as a ROM pointer, otherwise a RAM
-; pointer.
+; Fills a column of VRAM from the given source. Takes as many bytes as tall
+; the VRAM is. The source is incremented by incr after each copy. If the
+; source is larger or equal to 0x1000, it is treated as a ROM pointer,
+; otherwise a RAM pointer.
 ;
 .global M74_VramFillCol
 
 ;
 ; void M74_VramFillRow(unsigned char x, unsigned int src, unsigned char incr);
 ;
-; Fills a row of VRAM from the given source. The VRAM is as defined by the
-; M74_SetVram or M74_SetVramEx functions. Takes as many bytes as wide the VRAM
-; is (using the width, not the pitch for this). The source is incremented by
-; incr after each copy. If the source is larger or equal to 0x1000, it is
+; Fills a row of VRAM from the given source. Takes as many bytes as wide the
+; VRAM is (using the width, not the pitch for this). The source is incremented
+; by incr after each copy. If the source is larger or equal to 0x1000, it is
 ; treated as a ROM pointer, otherwise a RAM pointer.
 ;
 .global M74_VramFillRow
@@ -63,8 +60,7 @@
 ;
 ; void M74_VramFill(unsigned int src, unsigned char pitch);
 ;
-; Fills the VRAM from the given source. The VRAM is as defined by the
-; M74_SetVram or M74_SetVramEx functions. Behaves like calling M74_VramFillRow
+; Fills the VRAM from the given source. Behaves like calling M74_VramFillRow
 ; for every row with an increment of one, between rows incrementing the source
 ; pointer from its value on the beginning of the row by pitch.
 ;
@@ -78,10 +74,9 @@
 ;
 ; void M74_VramMove(signed char x, signed char y);
 ;
-; Moves the contents of the VRAM with the given amount of tiles. The VRAM is
-; as defined by the M74_SetVram or M74_SetVramEx functions. Uses a bit more
-; than 4 cycles per copied tile for usual use cases. Up to 24 columns may be
-; moved, so to move 1 tile left / right, at most 25 tiles of VRAM width may
+; Moves the contents of the VRAM with the given amount of tiles. Uses a bit
+; more than 4 cycles per copied tile for usual use cases. Up to 24 columns may
+; be moved, so to move 1 tile left / right, at most 25 tiles of VRAM width may
 ; be set up (the VRAM pitch may be larger).
 ;
 ;     r24: x
@@ -94,19 +89,11 @@ M74_VramMove:
 
 	; Load VRAM layout
 
-#if (M74_VRAM_CONST == 0)
-	lds   XL,      v_vram_lo
-	lds   XH,      v_vram_hi
-	lds   r25,     v_vram_w
-	lds   r23,     v_vram_h
-	lds   r21,     v_vram_p
-#else
 	ldi   XL,      lo8(M74_VRAM_OFF)
 	ldi   XH,      hi8(M74_VRAM_OFF)
 	ldi   r25,     M74_VRAM_W
 	ldi   r23,     M74_VRAM_H
 	ldi   r21,     M74_VRAM_P
-#endif
 	clr   r20              ; Will be used as a zero reg.
 
 	; Determine width and height of the move into r23 and r25 also
@@ -351,11 +338,10 @@ vrmcile:
 ;
 ; void M74_VramFillCol(unsigned char y, unsigned int src, unsigned char incr);
 ;
-; Fills a column of VRAM from the given source. The VRAM is as defined by the
-; M74_SetVram or M74_SetVramEx functions. Takes as many bytes as tall the VRAM
-; is. The source is incremented by incr after each copy. If the source is
-; larger or equal to 0x1000, it is treated as a ROM pointer, otherwise a RAM
-; pointer.
+; Fills a column of VRAM from the given source. Takes as many bytes as tall
+; the VRAM is. The source is incremented by incr after each copy. If the
+; source is larger or equal to 0x1000, it is treated as a ROM pointer,
+; otherwise a RAM pointer.
 ;
 ;     r24: y
 ; r23:r22: src
@@ -372,17 +358,10 @@ M74_VramFillCol:
 
 	; Load VRAM layout
 
-#if (M74_VRAM_CONST == 0)
-	lds   XL,      v_vram_lo
-	lds   XH,      v_vram_hi
-	lds   r23,     v_vram_h
-	lds   r22,     v_vram_p
-#else
 	ldi   XL,      lo8(M74_VRAM_OFF)
 	ldi   XH,      hi8(M74_VRAM_OFF)
 	ldi   r23,     M74_VRAM_H
 	ldi   r22,     M74_VRAM_P
-#endif
 	clr   r1               ; Zero
 
 	; Calculate start offset
@@ -426,10 +405,9 @@ vrfcram:
 ;
 ; void M74_VramFillRow(unsigned char x, unsigned int src, unsigned char incr);
 ;
-; Fills a row of VRAM from the given source. The VRAM is as defined by the
-; M74_SetVram or M74_SetVramEx functions. Takes as many bytes as wide the VRAM
-; is (using the width, not the pitch for this). The source is incremented by
-; incr after each copy. If the source is larger or equal to 0x1000, it is
+; Fills a row of VRAM from the given source. Takes as many bytes as wide the
+; VRAM is (using the width, not the pitch for this). The source is incremented
+; by incr after each copy. If the source is larger or equal to 0x1000, it is
 ; treated as a ROM pointer, otherwise a RAM pointer.
 ;
 ;     r24: x
@@ -447,18 +425,11 @@ M74_VramFillRow:
 
 	; Load VRAM layout
 
-#if (M74_VRAM_CONST == 0)
-	lds   XL,      v_vram_lo
-	lds   XH,      v_vram_hi
-	lds   r23,     v_vram_h
-	lds   r0,      v_vram_p
-#else
 	ldi   XL,      M74_VRAM_P
 	mov   r0,      XL
 	ldi   XL,      lo8(M74_VRAM_OFF)
 	ldi   XH,      hi8(M74_VRAM_OFF)
 	ldi   r23,     M74_VRAM_H
-#endif
 
 	; Calculate start offset
 
@@ -499,8 +470,7 @@ vrfrram:
 ;
 ; void M74_VramFill(unsigned int src, unsigned char pitch);
 ;
-; Fills the VRAM from the given source. The VRAM is as defined by the
-; M74_SetVram or M74_SetVramEx functions. Behaves like calling M74_VramFillRow
+; Fills the VRAM from the given source. Behaves like calling M74_VramFillRow
 ; for every row with an increment of one, between rows incrementing the source
 ; pointer from its value on the beginning of the row by pitch.
 ;
@@ -518,19 +488,11 @@ M74_VramFill:
 
 	; Load VRAM layout
 
-#if (M74_VRAM_CONST == 0)
-	lds   XL,      v_vram_lo
-	lds   XH,      v_vram_hi
-	lds   r25,     v_vram_w
-	lds   r23,     v_vram_h
-	lds   r24,     v_vram_p
-#else
 	ldi   XL,      lo8(M74_VRAM_OFF)
 	ldi   XH,      hi8(M74_VRAM_OFF)
 	ldi   r25,     M74_VRAM_W
 	ldi   r23,     M74_VRAM_H
 	ldi   r24,     M74_VRAM_P
-#endif
 
 	; Calculate remaining increments after row outputs
 

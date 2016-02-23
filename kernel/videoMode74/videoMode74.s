@@ -50,21 +50,19 @@
 ;
 ; Global configuration flags
 ;
-; bit 0: Row mode 3 double scanning enabled if set.
-; bit 1: If set, Tile row descriptors are located in RAM, otherwise ROM (64b)
+; bit 0: Row mode 3 double scanning enabled if set
+; bit 1: If set, Tile row descriptors are located in RAM, otherwise ROM (32b)
 ; bit 2: If set, Tile index source list is in RAM, otherwise ROM (64b)
 ; bit 3: If set, RAM palette source, otherwise ROM (16b)
 ; bit 4: Color 0 reload enabled if set
-; bit 5: If set, RAM color 0 reload source, otherwise ROM (256b)
-; bit 6: SD load enabled if set. This is cleared in every frame.
-; bit 7: Display enabled if set. Otherwise screen is black.
+; bit 5: Unused
+; bit 6: SD load enabled if set. This is cleared in every frame
+; bit 7: Display enabled if set. Otherwise screen is black
 ;
 ; Color 0 reload:
 ; If enabled, on every scanline, Color 0 of the palette will be reloaded. This
-; overrides the color 0 of palette reloads in a separator (except within the
-; separator if it request itself being colored by the new palette). The
-; reloads are performed by logical scanline position (as set by Row select).
-; Color 0 reload only works at 22 tiles or less width.
+; overrides the color 0 of palette reloads in a separator. The reloads are
+; performed by logical scanline position (as set by Row select).
 ;
 .global m74_config
 
@@ -88,65 +86,75 @@
 ;
 ; volatile unsigned int m74_tdesc;
 ;
-; Tile row descriptor address. There are 32 x 8 bytes of tile descriptors
-; either in ROM or RAM as requested by bit 1 of m74_config. They are formatted
-; as follows:
+; Tile row descriptor address. This points at a 32 byte list of indices which
+; address into the tile descriptor tables.
 ;
-; byte 0: bit 0 - 2: ROM 4bpp tiles at 0x80 - 0xBF configuration selector
+; There are two such tables selected by bit 7 of the index: if the bit is 0,
+; it selects the ROM table, otherwise the RAM table. The low 7 bits of the
+; index are an offset into this table.
+;
+; Each entry takes 5 bytes using the following layout:
+;
+; byte 0: bit 0 - 2: Row mode:
+;                    0: ROM 4bpp tiles (3 x 64 ROM tiles + 64 RAM tiles)
+;                    1: Flat tiles (Fills with the 16 colors)
+;                    2: Special: Separator line
+;                    3: Special: 2bpp Multicolor (see videoMode74_m3.s)
+;                    4: ROM 8px wide 1bpp tiles
+;                    5: RAM 8px wide 1bpp tiles
+;                    6: ROM 6px wide 1bpp tiles
+;                    7: ROM 6px wide 1bpp tiles with Fg color attributes
+;                    Modes 0, 1, 4, 5, 6 and 7 select a configuration for
+;                    tiles 0x00 - 0x7F. Tiles 0x80 - 0xFF are always ROM + RAM
+;                    4bpp tiles.
 ;         bit 3 - 4: Row width:
-;                    0: 24 tiles (192 px) (Color 0 reload not supported)
+;                    0: 24 tiles (192 px)
 ;                    1: 22 tiles (176 px)
 ;                    2: 20 tiles (160 px)
 ;                    3: 18 tiles (144 px)
-;         bit 5 - 7: Mode for tiles 0x00 - 0x7F:
-;                    0: ROM 4bpp tiles
-;                    1: RAM 8px wide 1bpp tiles
-;                    2: ROM 8px wide 1bpp tiles
-;                    3: Special: 2bpp Multicolor (see videoMode74_m3.s)
-;                    4: RAM 2bpp region (2+ tiles wide, M74_2BPP_WIDTH)
-;                    5: ROM 6px wide 1bpp tiles
-;                    6: ROM 6px wide 1bpp tiles with Fg color attributes
-;                    7: Special: Separator with Palette reload feature
-; byte 1: bit 0 - 1: Tiles at 0x00 - 0x7F configuration selector
-;         bit     2: RAM 4bpp tiles at 0xC0 - 0xFF configuration selector
-;         bit     3: If set, full logical row is used to generate base offset
-;         bit 4 - 7: Foreground color index for 1bpp modes
+;         bit 5 - 7: Offset for 1bpp modes (Row modes 4, 5, 6 and 7)
+;                    This adds to the tile index to select a region of the
+;                    complete 2K tileset containing 256 tiles.
+; byte 1: Offset high for tiles 0x00 - 0x7F
+;         In row mode 0, offset for tiles 0x00 - 0x3F
+; byte 2: Foreground (high nybble) and background (low nybble) colors for 1bpp
+;         modes (Row modes 4, 5, 6 and 7).
+;         In row mode 0, offset high for tiles 0x40 - 0x7F (add 0xF8 to it).
+; byte 3: Offset high for tiles 0x80 - 0xBF (add 0x10 to it).
+; byte 4: Offset high for tiles 0xC0 - 0xFF (add 0x08 to it).
+;
+; Specials:
+; Row mode 2 only uses bytes 0 and 1.
+; Row mode 3 only uses bytes 0, 1 and 2. However if it is selected as the
+; first row of the display, bytes 3 and 4 are used to load the start address
+; for the Multicolor pixel data.
+; These may be used to pack row descriptor data tighter (as the index is
+; simply a byte address into the table).
 ;
 ; In all modes, the high bits of bytes refer to pixels on the left.
 ;
-; Modes 5 and 6 (6px wide 1bpp tiles):
+; Modes 6 and 7 (6px wide 1bpp tiles):
 ;
 ; These tiles come in blocks of 4, substituting 3 "normal" tiles. Within the
 ; block tile indices 0x80 - 0xFF will also produce 6px wide 1bpp tiles.
 ;
-; Mode 7 (Separator with Palette reload feature):
+; Mode 2 (Separator with Palette reload feature):
 ;
 ; This mode displays a simple separator while allowing a reload of the palette
 ; (useful for split-screen effects).
 ;
-; It uses byte 1 to color the individual tiles of the separator, also
-; respecting bits 3 - 4 of byte 0 for its width. It can not be X scrolled.
+; It uses the high nybble of byte 1 to color the separator line, also
+; respecting bits 3 - 4 of byte 0 for its width.
 ;
-; The tile index source specifies the offset of the palette, if bit 2 of
-; byte 0 is set, it is in RAM, otherwise in ROM. The line within the tile row
-; selects the palette to use (16 byte increments), allowing to access 8
-; palettes.
+; The tile index source specifies the offset of the palette, if bit 5 of
+; byte 0 is set, it is in RAM, otherwise in ROM. Palette reload can take place
+; for line 0, from the given offset, which also affects the color of the
+; separator line, or line 7, from given offset + 16, which doesn't affect the
+; color of the separator line (taken from the previous palette).
 ;
-; If bit 1 of the mode byte is set, the separator is colored by the new
-; palette, otherwise by the old palette.
-;
-; The render of the selector is as follows:
-; 0: Color index from the high nybble of byte 1
-; 1: Color index from the low nybble of byte 1
-; -: Black
-; Width = 24 tiles:
-; |0|1|0|1|0|1|0|1|0|1|0|1|1|0|1|0|1|0|1|0|1|0|1|0|
-; Width = 22 tiles:
-; |-|1|0|1|0|1|0|1|0|1|0|1|1|0|1|0|1|0|1|0|1|0|1|-|
-; Width = 20 tiles:
-; |-|-|0|1|0|1|0|1|0|1|0|1|1|0|1|0|1|0|1|0|1|0|-|-|
-; Width = 18 tiles:
-; |-|-|-|1|0|1|0|1|0|1|0|1|1|0|1|0|1|0|1|0|1|-|-|-|
+; Palette reload can be turned off by setting bit 6 of byte 0. This case the
+; seperator is simply a single colored line of the given width (SD streaming
+; may occur underneath).
 ;
 .global m74_tdesc
 
@@ -158,14 +166,6 @@
 ;
 .global m74_tidx
 
-;
-; volatile unsigned char m74_bgcol;
-;
-; The background color used for 1bpp modes. It is a color index into the
-; palette on the high nybble (the low nybble is unused).
-;
-.global m74_bgcol
-
 #if (M74_PAL_PTRE != 0)
 ;
 ; volatile unsigned int m74_pal;
@@ -174,27 +174,6 @@
 ; The frame's render starts with this palette.
 ;
 .global m74_pal
-#endif
-
-#if ((M74_COL0_PTRE != 0) && (M74_COL0_RELOAD != 0))
-;
-; volatile unsigned int m74_col0;
-;
-; Address of Color 0 reload table, either in RAM or ROM depending on bit 5 of
-; m74_config. Only used if it is enabled by bit 4 of m74_config, and the
-; displayed row is 22 tiles wide or narrower.
-;
-.global m74_col0
-#endif
-
-#if ((M74_M3_PTRE != 0) && (M74_M3_ENABLE != 0))
-;
-; volatile unsigned int m74_mcadd;
-;
-; 2bpp Multicolor mode framebuffer start address. Used if such mode is
-; displayed.
-;
-.global m74_mcadd
 #endif
 
 #if (M74_ROMMASK_PTRE != 0)
@@ -266,31 +245,6 @@
 .global m74_sddst
 #endif
 
-#if (M74_VRAM_CONST == 0)
-;
-; void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt);
-;
-; Sets up a region to use with the Uzebox kernel functions and rectangular
-; VRAM based support functions of Mode 74. It doesn't alter the video mode
-; itself, it should be set up so it uses this region as tile index sources to
-; actually display the area.
-;
-.global M74_SetVram
-#endif
-
-#if (M74_VRAM_CONST == 0)
-;
-; void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hgt, unsigned char pt);
-;
-; Sets up a region to use with the Uzebox kernel functions and rectangular
-; VRAM based support functions of Mode 74. It doesn't alter the video mode
-; itself, it should be set up so it uses this region as tile index sources to
-; actually display the area. The 'pt' parameter can specify a pitch larger
-; than the used width.
-;
-.global M74_SetVramEx
-#endif
-
 ;
 ; unsigned char M74_Finish(void);
 ;
@@ -324,26 +278,26 @@
 .global SetFont
 
 ;
-; void M74_RamTileFillRom(unsigned int src, unsigned char dst, unsigned char map);
+; void M74_RamTileFillRom(unsigned int src, unsigned char dst);
 ;
-; Fills a RAM tile from an arbitrarily located ROM 32 byte source. The 'map'
-; parameter specifies the RAM tile map configuration to use (0 or 1).
+; Fills a RAM tile from a ROM tile. Source is a normal address, destination is
+; a tile offset (byte offset divided by 32).
 ;
 .global M74_RamTileFillRom
 
 ;
-; void M74_RamTileFillRam(unsigned int src, unsigned char dst, unsigned char map);
+; void M74_RamTileFillRam(unsigned char src, unsigned char dst);
 ;
-; Fills a RAM tile from an arbitrarily located RAM 32 byte source. The 'map'
-; parameter specifies the RAM tile map configuration to use (0 or 1).
+; Fills a RAM tile from a RAM tile. Both source and destination are tile
+; offsets (byte offset divided by 32).
 ;
 .global M74_RamTileFillRam
 
 ;
-; void M74_RamTileClear(unsigned char dst, unsigned char map);
+; void M74_RamTileClear(unsigned char dst);
 ;
-; Clears a RAM tile to color index zero. The 'map' parameter specifies the RAM
-; tile map configuration to use (0 or 1).
+; Clears a RAM tile to color index zero. Destination is a tile offset (byte
+; offset divided by 32).
 ;
 .global M74_RamTileClear
 
@@ -422,7 +376,6 @@
 	; Globals
 
 	m74_config:    .byte 1 ; Global configuration
-	m74_bgcol:     .byte 1 ; Background color for 1bpp modes (high nybble)
 #if (M74_ROWS_PTRE != 0)
 	m74_rows:
 	m74_rows_lo:   .byte 1 ; Row selector address, low
@@ -438,26 +391,6 @@
 	m74_pal:
 	m74_pal_lo:    .byte 1 ; Palette source, low
 	m74_pal_hi:    .byte 1 ; Palette source, high
-#endif
-#if ((M74_COL0_PTRE != 0) && (M74_COL0_RELOAD != 0))
-	m74_col0:
-	m74_col0_lo:   .byte 1 ; Color 0 reload address, low
-	m74_col0_hi:   .byte 1 ; Color 0 reload address, high
-#endif
-#if (M74_ROMMASK_PTRE != 0)
-	m74_romma:
-	m74_romma_lo:  .byte 1 ; ROM mask pool address, low
-	m74_romma_hi:  .byte 1 ; ROM mask pool address, high
-#endif
-#if (M74_RAMMASK_PTRE != 0)
-	m74_ramma:
-	m74_ramma_lo:  .byte 1 ; RAM mask pool address, low
-	m74_ramma_hi:  .byte 1 ; RAM mask pool address, high
-#endif
-#if ((M74_M3_PTRE != 0) && (M74_M3_ENABLE != 0))
-	m74_mcadd:
-	m74_mcadd_lo:  .byte 1 ; 2bpp Multicolor framebuffer start, low
-	m74_mcadd_hi:  .byte 1 ; 2bpp Multicolor framebuffer start, high
 #endif
 #if (M74_RESET_ENABLE != 0)
 	m74_reset:
@@ -487,16 +420,10 @@
 
 	; Locals
 
-#if (M74_VRAM_CONST == 0)
-	v_vram_lo:     .byte 1 ; VRAM location for rectangular VRAM functions, low
-	v_vram_hi:     .byte 1 ; VRAM location for rectangular VRAM functions, high
-	v_vram_w:      .byte 1 ; Width of VRAM for rectangular VRAM functions
-	v_vram_h:      .byte 1 ; Height of VRAM for rectangular VRAM functions
-	v_vram_p:      .byte 1 ; Pitch of VRAM for rectangular VRAM functions
-#endif
-	v_hsize:       .byte 1 ; Horizontal size on bits 3 and 4
 	v_rows_lo:     .byte 1 ; Row selector current address, low
 	v_rows_hi:     .byte 1 ; Row selector current address, high
+	v_reset_lo:    .byte 1 ; Stack restore address, low
+	v_reset_hi:    .byte 1 ; Stack restore address, high
 #if (M74_M3_ENABLE != 0)
 	v_m3ptr_lo:    .byte 1 ; Current location in multicolor framebuffer, low
 	v_m3ptr_hi:    .byte 1 ; Current location in multicolor framebuffer, high
@@ -506,61 +433,12 @@
 
 
 
+#if (M74_SPR_ENABLE != 0)
 ;
 ; Sprite library. Included here to avoid it interfering with relative jumps &
 ; calls within the Mode 74 core.
 ;
 #include "videoMode74/videoMode74_sprite.s"
-
-
-
-#if (M74_VRAM_CONST == 0)
-;
-; void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt);
-;
-; Sets up a region to use with the Uzebox kernel functions. It doesn't alter
-; the video mode itself, it should be set up so it uses this region as tile
-; index sources to actually display the area.
-;
-; r25:r24: addr
-;     r22: wdt
-;     r20: hgt
-;
-.section .text.M74_SetVram
-M74_SetVram:
-	sts   v_vram_hi, r25
-	sts   v_vram_lo, r24
-	sts   v_vram_w, r22
-	sts   v_vram_h, r20
-	sts   v_vram_p, r22
-	ret
-#endif
-
-
-
-#if (M74_VRAM_CONST == 0)
-;
-; void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hgt, unsigned char pt);
-;
-; Sets up a region to use with the Uzebox kernel functions and rectangular
-; VRAM based support functions of Mode 74. It doesn't alter the video mode
-; itself, it should be set up so it uses this region as tile index sources to
-; actually display the area. The 'pt' parameter can specify a pitch larger
-; than the used width.
-;
-; r25:r24: addr
-;     r22: wdt
-;     r20: hgt
-;     r18: pt
-;
-.section .text.M74_SetVramEx
-M74_SetVramEx:
-	sts   v_vram_hi, r25
-	sts   v_vram_lo, r24
-	sts   v_vram_w, r22
-	sts   v_vram_h, r20
-	sts   v_vram_p, r18
-	ret
 #endif
 
 
@@ -573,21 +451,11 @@ M74_SetVramEx:
 ;
 .section .text.ClearVram
 ClearVram:
-#if (M74_VRAM_CONST == 0)
-	lds   r18,     v_vram_p
-	lds   r19,     v_vram_h
-#else
-	ldi   r18,     M74_VRAM_P
-	ldi   r19,     M74_VRAM_H
-#endif
-	mul   r18,     r19     ; Length of VRAM in r1:r0
-#if (M74_VRAM_CONST == 0)
-	lds   ZL,      v_vram_lo
-	lds   ZH,      v_vram_hi
-#else
+	ldi   r18,     lo8(M74_VRAM_P * M74_VRAM_H)
+	ldi   r19,     hi8(M74_VRAM_P * M74_VRAM_H)
+	movw  r0,      r18     ; Length of VRAM in r1:r0
 	ldi   ZL,      lo8(M74_VRAM_OFF)
 	ldi   ZH,      hi8(M74_VRAM_OFF)
-#endif
 	clr   r20
 	; Clear excess bytes compared to lower multiple of 4
 	sbrs  r0,      0
@@ -638,60 +506,36 @@ clvr2:
 .section .text
 SetTile:
 SetFont:
-#if (M74_VRAM_CONST == 0)
-	lds   r25,     v_vram_p
-#else
 	ldi   r25,     M74_VRAM_P
-#endif
 	mul   r25,     r22
-	add   r0,      r24
-	brcc  sttl0
-	inc   r1               ; Carry over
-sttl0:
-#if (M74_VRAM_CONST == 0)
-	lds   ZL,      v_vram_lo
-	lds   ZH,      v_vram_hi
-#else
-	ldi   ZL,      lo8(M74_VRAM_OFF)
-	ldi   ZH,      hi8(M74_VRAM_OFF)
-#endif
-	add   ZL,      r0
-	adc   ZH,      r1
-	st    Z,       r20
+	movw  ZL,      r0
 	clr   r1
+	add   ZL,      r24
+	adc   ZH,      r1
+	subi  ZL,      lo8(-(M74_VRAM_OFF))
+	sbci  ZH,      hi8(-(M74_VRAM_OFF))
+	st    Z,       r20
 	ret
 
 
 
 ;
-; void M74_RamTileFillRom(unsigned int src, unsigned char dst, unsigned char map);
+; void M74_RamTileFillRom(unsigned int src, unsigned char dst);
 ;
-; Fills a RAM tile from an arbitrarily located ROM 32 byte source. The 'map'
-; parameter specifies the RAM tile map configuration to use (0 or 1).
-;
-; r1 must be zero (stands if called from C)
+; Fills a RAM tile from a ROM tile. Source is a normal address, destination is
+; a tile offset (byte offset divided by 32).
 ;
 ; r25:r24: src
 ;     r22: dst
-;     r20: map
 ;
 .section .text.M74_RamTileFillRom
 M74_RamTileFillRom:
-	ldi   XL,      lo8(M74_TBANK3_0_OFF)
-	sbrc  r20,     0
-	ldi   XL,      lo8(M74_TBANK3_1_OFF)
-	ldi   XH,      hi8(M74_TBANK3_0_OFF)
-	sbrc  r20,     0
-	ldi   XH,      hi8(M74_TBANK3_1_OFF)
-	ldi   r21,     ((M74_TBANK3_0_INC << 2) - 4)
-	sbrc  r20,     0
-	ldi   r21,     ((M74_TBANK3_1_INC << 2) - 4)
-	lsl   r22
-	lsl   r22
-	add   XL,      r22
-	adc   XH,      r1      ; r1 is zero
-	movw  ZL,      r24
-	ldi   r20,     8
+	movw  ZL,      r24     ; Source offset in Z
+	ldi   XL,      32
+	mul   r22,     XL
+	movw  XL,      r0      ; Destination offset generated in X
+	clr   r1               ; r1 must be zero for C
+	ldi   r22,     8
 frtrol:
 	lpm   r0,      Z+
 	st    X+,      r0
@@ -701,43 +545,30 @@ frtrol:
 	st    X+,      r0
 	lpm   r0,      Z+
 	st    X+,      r0
-	add   XL,      r21
-	adc   XH,      r1      ; r1 is zero
-	dec   r20
+	dec   r22
 	brne  frtrol
 	ret
 
 
 
 ;
-; void M74_RamTileFillRam(unsigned int src, unsigned char dst, unsigned char map);
+; void M74_RamTileFillRam(unsigned char src, unsigned char dst);
 ;
-; Fills a RAM tile from an arbitrarily located RAM 32 byte source. The 'map'
-; parameter specifies the RAM tile map configuration to use (0 or 1).
+; Fills a RAM tile from a RAM tile. Both source and destination are tile
+; offsets (byte offset divided by 32).
 ;
-; r1 must be zero (stands if called from C)
-;
-; r25:r24: src
+;     r24: src
 ;     r22: dst
-;     r20: map
 ;
 .section .text.M74_RamTileFillRam
 M74_RamTileFillRam:
-	ldi   XL,      lo8(M74_TBANK3_0_OFF)
-	sbrc  r20,     0
-	ldi   XL,      lo8(M74_TBANK3_1_OFF)
-	ldi   XH,      hi8(M74_TBANK3_0_OFF)
-	sbrc  r20,     0
-	ldi   XH,      hi8(M74_TBANK3_1_OFF)
-	ldi   r21,     ((M74_TBANK3_0_INC << 2) - 4)
-	sbrc  r20,     0
-	ldi   r21,     ((M74_TBANK3_1_INC << 2) - 4)
-	lsl   r22
-	lsl   r22
-	add   XL,      r22
-	adc   XH,      r1      ; r1 is zero
-	movw  ZL,      r24
-	ldi   r20,     8
+	ldi   XL,      32
+	mul   r24,     XL
+	movw  ZL,      r0      ; Source offset generated in Z
+	mul   r22,     XL
+	movw  XL,      r0      ; Destination offset generated in X
+	clr   r1               ; r1 must be zero for C
+	ldi   r22,     8
 frtral:
 	ld    r0,      Z+
 	st    X+,      r0
@@ -747,49 +578,33 @@ frtral:
 	st    X+,      r0
 	ld    r0,      Z+
 	st    X+,      r0
-	add   XL,      r21
-	adc   XH,      r1      ; r1 is zero
-	dec   r20
+	dec   r22
 	brne  frtral
 	ret
 
 
 
 ;
-; void M74_RamTileClear(unsigned char dst, unsigned char map);
+; void M74_RamTileClear(unsigned char dst);
 ;
-; Clears a RAM tile to color index zero. The 'map' parameter specifies the RAM
-; tile map configuration to use (0 or 1).
-;
-; r1 must be zero (stands if called from C)
+; Clears a RAM tile to color index zero. Destination is a tile offset (byte
+; offset divided by 32).
 ;
 ;     r24: dst
-;     r22: map
 ;
 .section .text.M74_RamTileClear
 M74_RamTileClear:
-	ldi   XL,      lo8(M74_TBANK3_0_OFF)
-	sbrc  r22,     0
-	ldi   XL,      lo8(M74_TBANK3_1_OFF)
-	ldi   XH,      hi8(M74_TBANK3_0_OFF)
-	sbrc  r22,     0
-	ldi   XH,      hi8(M74_TBANK3_1_OFF)
-	ldi   r21,     ((M74_TBANK3_0_INC << 2) - 4)
-	sbrc  r22,     0
-	ldi   r21,     ((M74_TBANK3_1_INC << 2) - 4)
-	lsl   r24
-	lsl   r24
-	add   XL,      r24
-	adc   XH,      r1      ; r1 is zero
-	ldi   r20,     8
+	ldi   XL,      32
+	mul   r24,     XL
+	movw  XL,      r0      ; Destination offset generated in X
+	clr   r1               ; r1 must be zero for C
+	ldi   r22,     8
 frtcll:
 	st    X+,      r1
 	st    X+,      r1
 	st    X+,      r1
 	st    X+,      r1
-	add   XL,      r21
-	adc   XH,      r1      ; r1 is zero
-	dec   r20
+	dec   r22
 	brne  frtcll
 	ret
 
@@ -800,14 +615,14 @@ frtcll:
 
 ;
 ; Other components of the mode.
-; Note that the order of _scloop, _m7, _m3 and _sub must be preserved and they
+; Note that the order of _scloop, _m2, _m3 and _sub must be preserved and they
 ; must be last (so add further includes before them, this is required due to
 ; some hsync_pulse rcalls which the kernel adds after the video mode), to
 ; ensure that all relative jumps are within range.
 ;
 #include "videoMode74/videoMode74_scloop.s"
-#if (M74_M7_ENABLE != 0)
-#include "videoMode74/videoMode74_m7.s"
+#if (M74_M2_ENABLE != 0)
+#include "videoMode74/videoMode74_m2.s"
 #endif
 #include "videoMode74/videoMode74_sub.s"
 #if (M74_M3_ENABLE != 0)

@@ -26,15 +26,32 @@
 
 sub_video_mode74:
 
-	; Entry happens in cycle 467.
+;
+; Entry happens in cycle 467.
+;
 
-	; Check for display enable
 
-	lds   r19,     m74_config   ; ( 469)
+
+;
+; Check for display enable
+;
+; If no display, then just consume the configured height without any of
+; Mode 74's features
+;
+
+	lds   r19,     m74_config     ; ( 469)
 	sbrs  r19,     7       ; ( 470 /  471)
 	rjmp  ddis             ; ( 472) Display disabled
 
-	; Initialize SD loading (as needed)
+
+
+;
+; Initialize SD loading (as needed). Also sets up the video frame stack proper
+; in the spare time (while just waiting for SPI)
+;
+; Cycles:  117
+; Ends:    588
+;
 
 #if (M74_SD_ENABLE != 0)
 	sbrs  r19,     6       ; ( 472 /  473)
@@ -75,13 +92,8 @@ sub_video_mode74:
 sdldis:
 	ldi   r24,     0xFF    ; ( 475)
 	sts   v_sstat, r24     ; ( 477) Disable loading in HSync by marking it completed
-#if (M74_RESET_ENABLE != 0)
 	M74WT_R24      92      ; ( 569)
 	rjmp  sdldie           ; ( 571)
-#else
-	M74WT_R24      109     ; ( 586)
-	rjmp  sdle             ; ( 588)
-#endif
 sdl0:
 	cp    r16,     r21     ; ( 519)
 	brcc  .+2              ; ( 520 /  521)
@@ -105,45 +117,43 @@ sdl1:
 	ldi   r22,     0x95    ; () Use the default init CRC (lowest bit set, bit unsure if that's necessary)
 	ldi   r21,     0xFF    ; () Send an extra byte, discarding last byte before command completion.
 	out   _SFR_IO_ADDR(SPDR), r22 ; ( 570) Empty CRC
-#if (M74_RESET_ENABLE != 0)
 	ori   r19,     0x40    ; ( 571) Restore SD load enabled flag in m74_config
 sdldie:
-	lds   r24,     m74_reset_lo   ; ( 573)
-	lds   r25,     m74_reset_hi   ; ( 575)
-	or    r24,     r25     ; ( 576) If zero, then no reset
-	ldi   r24,     lo8(M74_VIDEO_STACK - 1) ; ( 577) Set up frame render stack
-	ldi   r25,     hi8(M74_VIDEO_STACK - 1) ; ( 578)
-	breq  .+2              ; ( 579)
-	out   STACKL,  r24     ; ( 580)
-	breq  .+2              ; ( 581)
-	out   STACKH,  r25     ; ( 582)
-	M74WT_R24      4       ; ( 586)
+	M74WT_R24      5       ; ( 576)
+	in    r24,     STACKL  ; ( 577) Load stack address for restoration before return
+	in    r25,     STACKH  ; ( 578) (Only actually used unless reset was enabled)
+	sts   v_reset_lo, r24  ; ( 580) Save restore address
+	sts   v_reset_hi, r25  ; ( 582)
+	ldi   r24,     lo8(M74_VIDEO_STACK + 15) ; ( 583)
+	ldi   r25,     hi8(M74_VIDEO_STACK + 15) ; ( 584)
+	out   STACKL,  r24     ; ( 585) Init the empty Video stack
+	out   STACKH,  r25     ; ( 586)
 	sbrc  r19,     6       ; ( 587 /  588) Jump over SD card output if SD was disabled
-#else
-	M74WT_R24      17      ; ( 587)
-#endif
 	out   _SFR_IO_ADDR(SPDR), r21 ; ( 588)
 sdle:
 #else
-#if (M74_RESET_ENABLE != 0)
-	lds   r24,     m74_reset_lo   ; ()
-	lds   r25,     m74_reset_hi   ; ()
-	or    r24,     r25     ; () If zero, then no reset
-	ldi   r24,     lo8(M74_VIDEO_STACK - 1) ; () Set up frame render stack
-	ldi   r25,     hi8(M74_VIDEO_STACK - 1) ; ()
-	breq  .+2              ; ()
-	out   STACKL,  r24     ; ()
-	breq  .+2              ; ()
-	out   STACKH,  r25     ; ()
-	M74WT_R24      106     ; ( 588)
-#else
-	M74WT_R24      117     ; ( 588)
-#endif
+	in    r24,     STACKL  ; ( 472) Load stack address for restoration before return
+	in    r25,     STACKH  ; ( 473) (Only actually used unless reset was enabled)
+	sts   v_reset_lo, r24  ; ( 475) Save restore address
+	sts   v_reset_hi, r25  ; ( 477)
+	ldi   r24,     lo8(M74_VIDEO_STACK + 15) ; ( 478)
+	ldi   r25,     hi8(M74_VIDEO_STACK + 15) ; ( 479)
+	out   STACKL,  r24     ; ( 480) Init the empty Video stack
+	out   STACKH,  r25     ; ( 481)
+	M74WT_R24      107     ; ( 588)
 #endif
 
-	; Load palette
 
-	ldi   YH,      M74_PALBUF_H ; ( 589)
+
+;
+; Load palette (along with a few SD access attempts if enabled)
+; (m74_config is loaded into r19)
+;
+; Cycles: 1069
+; Ends:   1657
+;
+
+	ldi   YH,      hi8(M74_PALBUF)  ; ( 589)
 #if (M74_PAL_PTRE != 0)
 	lds   ZL,      m74_pal_lo   ; ( 591)
 	lds   ZH,      m74_pal_hi   ; ( 593)
@@ -187,7 +197,15 @@ lcnze:
 	inc   YL               ; (46)
 	brne  lcloop           ; (47 / 48) (1063 cy total; at 1657 here)
 
-	; Initializing for the scanline loop
+
+
+;
+; Initialize scanline counters
+; (m74_config is loaded into r19)
+;
+; Cycles:   13
+; Ends:   1670
+;
 
 	clr   r16              ; ( 1) Scanline counter
 #if (M74_ROWS_PTRE != 0)
@@ -204,34 +222,74 @@ lcnze:
 	sts   v_rows_lo, ZL    ; (11)
 	sts   v_rows_hi, ZH    ; (13)
 
+
+
+;
+; Initialize Row Mode 3 (Multicolor) if this mode was enabled
+; (m74_config is loaded into r19)
+;
+; Row Mode 3's pointer is initialized by the first tile descriptor row which
+; should point to a descriptor which defines a Mode 3 row (whose last two
+; bytes are unused within the scanline loop).
+;
+; Cycles:   28
+; Ends:   1698
+;
+
 #if (M74_M3_ENABLE != 0)
-	; Initialize 2bpp Multicolor mode
-
-#if (M74_M3_PTRE != 0)
-	lds   r18,     m74_mcadd_lo ; (15)
-	lds   r19,     m74_mcadd_hi ; (17)
+	lds   ZL,      m74_tdesc_lo ; ( 2)
+	lds   ZH,      m74_tdesc_hi ; ( 4)
+	sbrs  r19,     1       ; ( 5 /  6)
+	rjmp  .+4              ; ( 7)
+	ld    ZL,      Z       ; ( 8) Tile descriptor index from RAM
+	rjmp  .+2              ; (10)
+	lpm   ZL,      Z       ; (10) Tile descriptor index from ROM
+	clr   ZH               ; (11)
+	sbrs  ZL,      7       ; (12 / 13) Bit 7 zero: ROM
+	rjmp  lrtdro           ; (14)
+	andi  ZL,      0x7F    ; (14)
+	subi  ZL,      lo8(-(M74_RAMTD_OFF + 3)) ; (15)
+	sbci  ZH,      hi8(-(M74_RAMTD_OFF + 3)) ; (16)
+	ld    r24,     Z+      ; (18)
+	ld    r25,     Z+      ; (20)
+	rjmp  lrtdco           ; (22)
+lrtdro:
+	subi  ZL,      lo8(-(M74_ROMTD_OFF + 3)) ; (15)
+	sbci  ZH,      hi8(-(M74_ROMTD_OFF + 3)) ; (16)
+	lpm   r24,     Z+      ; (19)
+	lpm   r25,     Z+      ; (22)
+lrtdco:
+	sbiw  r24,     1       ; (24) Adjust for pre-incrementing stack
+	sts   v_m3ptr_lo, r24  ; (26)
+	sts   v_m3ptr_hi, r25  ; (28)
 #else
-	ldi   r18,     lo8(M74_M3_OFF)   ; (14)
-	ldi   r19,     hi8(M74_M3_OFF)   ; (15)
-	rjmp  .                ; (17)
-#endif
-	subi  r18,     1       ; (18) Stack is pre-incrementing, so correct
-	sbci  r19,     0       ; (19)
-	sts   v_m3ptr_lo, r18  ; (21)
-	sts   v_m3ptr_hi, r19  ; (23)
-#else
-	M74WT_R24      10      ; (23) (At 1680 here)
+	M74WT_R24      28      ; (28)
 #endif
 
-	; Sandwiched between waits so it is simpler to shift it a bit around
-	; when tweaking the scanline loop.
 
-	M74WT_R24      19      ; (1699)
-	call  m74_scloop       ; (1712)
-	M74WT_R24      27      ; (1739)
 
-	; Do some SD loads, then complete it by writing out address, used to
-	; finish the function if necessary.
+;
+; Frame render loop
+;
+; Sandwiched between waits so it is simpler to shift it a bit around
+; when tweaking the scanline loop.
+;
+
+
+
+	M74WT_R24      0       ; (1698)
+	rjmp  m74_scloop       ; (1707)
+m74_scloopr:
+	M74WT_R24      32      ; (1739)
+
+
+
+;
+; Frame lead-out
+;
+; Do some SD loads, then complete it by writing out address, used to
+; finish the function if necessary.
+;
 
 #if (M74_SD_ENABLE != 0)
 	movw  ZL,      r14     ; ( 1)
@@ -251,40 +309,61 @@ lcnze:
 	lds   r0,      sync_pulse ; (1817)
 	sub   r0,      r16     ; (1818)
 	sts   sync_pulse, r0   ; (1820 = 0)
-laend:
 	rcall hsync_pulse      ; Last hsync, from now cycle precise part over.
 
 	; Set vsync flag & flip field
+
 	lds   ZL,      sync_flags
 	ldi   r20,     SYNC_FLAG_FIELD
 	eor   ZL,      r20
 	ori   ZL,      SYNC_FLAG_VSYNC
 	sts   sync_flags, ZL
+
 	; Clear any pending timer interrupt
+
 	ldi   ZL,      (1<<OCF1A)
 	sts   _SFR_MEM_ADDR(TIFR1), ZL
+
+
+
+;
+; Finalize, restoring stack as necessary
+;
+; (Not in cycle-synced part any more)
+;
 
 #if (M74_RESET_ENABLE != 0)
 	lds   r24,     m74_reset_lo
 	lds   r25,     m74_reset_hi
 	mov   r1,      r24
 	or    r1,      r25
-	brne  .+2
-	ret                    ; Reset offset is zero: No reset
-	ldi   r22,     lo8(M74_MAIN_STACK - 1) ; () Set up main program stack
-	ldi   r23,     hi8(M74_MAIN_STACK - 1) ; ()
-	out   STACKL,  r22     ; ()
-	out   STACKH,  r23     ; ()
+	brne  lares
+#endif
+	lds   r24,     v_reset_lo ; Normal return with no reset: restore original stack
+	lds   r25,     v_reset_hi
+	out   STACKL,  r24
+	out   STACKH,  r25
+	ret
+#if (M74_RESET_ENABLE != 0)
+lares:
+	ldi   r22,     lo8(M74_MAIN_STACK - 1) ; Set up main program stack
+	ldi   r23,     hi8(M74_MAIN_STACK - 1)
+	out   STACKL,  r22
+	out   STACKH,  r23
 	clr   r1               ; For C language routines, r1 is zero
 	push  r24              ; Return address is the reset vector
 	push  r25
-	reti                   ; All done, return empties stack
-#else
-	ret                    ; All done
+	reti
 #endif
 
+
+
+;
+; Display Disabled frame. It still consumes the height set up by the kernel as
+; the kernel requires that for proper function.
+;
+
 ddis:
-	; Display Disabled frame
 
 #if (M74_SD_ENABLE != 0)
 	ldi   r24,     0xFF    ; ( 473)
@@ -297,31 +376,32 @@ ddis:
 ddisl:
 	lds   r23,     render_lines_count ; (1817)
 	cp    r23,     r16     ; (1818)
-#if (M74_RESET_ENABLE == 0)
-	breq  laend            ; (1819 / 1820)
-#else
-	breq  ddise            ; (1819 / 1820) Don't alter stack if display is disabled
-#endif
+	breq  ddise            ; (1819 / 1820)
 	inc   r16              ; (1820)
 	rcall hsync_pulse      ; (21 + AUDIO)
 	M74WT_R24      1813 - 21 - AUDIO_OUT_HSYNC_CYCLES
 	rjmp  ddisl            ; (1815)
-#if (M74_RESET_ENABLE != 0)
+
 ddise:
 	rcall hsync_pulse      ; Last hsync, from now cycle precise part over.
 
 	; Set vsync flag & flip field
+
 	lds   ZL,      sync_flags
 	ldi   r20,     SYNC_FLAG_FIELD
 	eor   ZL,      r20
 	ori   ZL,      SYNC_FLAG_VSYNC
 	sts   sync_flags, ZL
+
 	; Clear any pending timer interrupt
+
 	ldi   ZL,      (1<<OCF1A)
 	sts   _SFR_MEM_ADDR(TIFR1), ZL
 
 	ret                    ; All done
-#endif
+
+
+
 
 
 

@@ -30,7 +30,6 @@
 #pragma once
 
 extern volatile unsigned char m74_config;
-extern volatile unsigned char m74_bgcol;
 #if (M74_ROWS_PTRE != 0)
 extern volatile unsigned int  m74_rows;
 #else
@@ -43,23 +42,6 @@ extern volatile unsigned int  m74_pal;
 #else
 #define m74_pal    (M74_PAL_OFF)
 #endif
-#if (M74_COL0_RELOAD != 0)
-#if (M74_COL0_PTRE != 0)
-extern volatile unsigned int  m74_col0;
-#else
-#define m74_col0   (M74_COL0_OFF)
-#endif
-#endif
-#if (M74_ROMMA_PTRE != 0)
-extern volatile unsigned int  m74_romma;
-#else
-#define m74_romma  (M74_ROMMASK_OFF)
-#endif
-#if (M74_RAMMA_PTRE != 0)
-extern volatile unsigned int  m74_ramma;
-#else
-#define m74_ramma  (M74_RAMMASK_OFF)
-#endif
 #if (M74_RESET_ENABLE != 0)
 extern volatile unsigned int  m74_reset;
 #endif
@@ -68,13 +50,6 @@ extern volatile unsigned long m74_sdsec;
 extern volatile unsigned long m74_sdoff;
 extern volatile unsigned char m74_sdcnt;
 extern volatile unsigned int  m74_sddst;
-#endif
-#if (M74_M3_ENABLE != 0)
-#if (M74_M3_PTRE != 0)
-extern volatile unsigned int  m74_mcadd;
-#else
-#define m74_mcadd  (M74_M3_OFF)
-#endif
 #endif
 #if (M74_RTLIST_PTRE != 0)
 extern volatile unsigned int  m74_rtlist;
@@ -89,19 +64,22 @@ extern void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt)
 extern void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hgt, unsigned char pt);
 #endif
 extern unsigned char M74_Finish(void);
+extern void M74_VramMove(signed char x, signed char y);
+extern void M74_VramFillCol(unsigned char y, unsigned int src, unsigned char incr);
+extern void M74_VramFillRow(unsigned char x, unsigned int src, unsigned char incr);
+extern void M74_VramFill(unsigned int src, unsigned char pitch);
+extern void M74_RamTileFillRom(unsigned int  src, unsigned char dst);
+extern void M74_RamTileFillRam(unsigned char src, unsigned char dst);
+extern void M74_RamTileClear(unsigned char dst);
+#if (M74_SPR_ENABLE != 0)
 extern void M74_VramRestore(void);
+extern void M74_ResReset(void);
 extern void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl, unsigned char flg);
 #if ((M74_RECTB_OFF >> 8) != 0)
 extern void M74_BlitSpriteCol(unsigned int spo, unsigned char xl, unsigned char yl, unsigned char flg, unsigned char col);
 #endif
 extern void M74_PutPixel(unsigned char col, unsigned char xl, unsigned char yl, unsigned char flg);
-extern void M74_VramMove(signed char x, signed char y);
-extern void M74_VramFillCol(unsigned char y, unsigned int src, unsigned char incr);
-extern void M74_VramFillRow(unsigned char x, unsigned int src, unsigned char incr);
-extern void M74_VramFill(unsigned int src, unsigned char pitch);
-extern void M74_RamTileFillRom(unsigned int src, unsigned char dst, unsigned char map);
-extern void M74_RamTileFillRam(unsigned int src, unsigned char dst, unsigned char map);
-extern void M74_RamTileClear(unsigned char dst, unsigned char map);
+#endif
 
 
 /*
@@ -127,6 +105,5 @@ extern void M74_RamTileClear(unsigned char dst, unsigned char map);
 #define M74_CFG_RAM_TIDX         0x04U
 #define M74_CFG_RAM_PALETTE      0x08U
 #define M74_CFG_COL0_RELOAD      0x10U
-#define M74_CFG_RAM_COL0         0x20U
 #define M74_CFG_LOAD_SD          0x40U
 #define M74_CFG_ENABLE           0x80U

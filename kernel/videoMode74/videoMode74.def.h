@@ -41,23 +41,30 @@
 
 #ifndef TILE_WIDTH
 	#define TILE_WIDTH     8
-	#define VRAM_TILES_H   24
-	#define SCREEN_TILES_H 24
-#elif   TILE_WIDTH == 6
-	#define VRAM_TILES_H   32
-	#define SCREEN_TILES_H 32
-#elif   TILE_WIDTH == 8
-	#define VRAM_TILES_H   24
-	#define SCREEN_TILES_H 24
+#endif
+#if     (TILE_WIDTH == 6)
+	#ifndef VRAM_TILES_H
+		#define VRAM_TILES_H   32
+	#endif
+	#ifndef SCREEN_TILES_H
+		#define SCREEN_TILES_H 32
+	#endif
+#elif   (TILE_WIDTH == 8)
+	#ifndef VRAM_TILES_H
+		#define VRAM_TILES_H   24
+	#endif
+	#ifndef SCREEN_TILES_H
+		#define SCREEN_TILES_H 24
+	#endif
 #else
-	#error "Invalid value defined in the makefile for TILE_WIDTH. Supported values are 6 or 8."
+	#error "Invalid value for TILE_WIDTH. Supported values are 6 or 8."
 #endif
 
 #ifndef TILE_HEIGHT
-	#define TILE_HEIGHT 8
-#elif   TILE_HEIGHT == 8
-#else
-	#error "Invalid value defined in the makefile for TILE_HEIGHT. Supported value is 8."
+	#define TILE_HEIGHT    8
+#endif
+#if     (TILE_HEIGHT != 8)
+	#error "Invalid value for TILE_HEIGHT. Supported value is 8."
 #endif
 
 #ifndef VRAM_TILES_V
@@ -68,19 +75,26 @@
 	#define SCREEN_TILES_V (224 / TILE_HEIGHT)
 #endif
 
+#ifndef FRAME_LINES
+	#define FRAME_LINES (SCREEN_TILES_V * TILE_HEIGHT)
+#endif
+
 #ifndef FIRST_RENDER_LINE
-	#define FIRST_RENDER_LINE 20
+	#define FIRST_RENDER_LINE 20 + ((224 - FRAME_LINES) / 2)
 #endif
 
 #define VRAM_SIZE       (VRAM_TILES_H * VRAM_TILES_V)
 #define VRAM_ADDR_SIZE  1
 #define VRAM_PTR_TYPE   unsigned char
 
-#define SPRITES_ENABLED 0
-
-#ifndef FRAME_LINES
-	#define FRAME_LINES (SCREEN_TILES_V * TILE_HEIGHT)
+#ifndef SPRITES_ENABLED
+	#define SPRITES_ENABLED 0
 #endif
+
+
+#define HSYNC_USABLE_CYCLES 215
+
+
 
 /* Notes: Don't use 'U' suffixes for the defines since they are used in
 ** assembler sources where the assembler doesn't understand them. */
@@ -93,6 +107,27 @@
 ** accompanying "_PTRE" definition to '1' for the cost of 2 RAM bytes. They
 ** will still be initialized with the corresponding compile time definition
 ** for convenience. */
+
+
+
+/* Video temporary workspaces.
+** These are only used during the scanline render, so if you are using the
+** reset feature, you can locate them at such locations where the main code
+** may reuse them. */
+
+/* The render stack. Needs 16 bytes. Defines the bottom of the stack. */
+#ifndef M74_VIDEO_STACK
+	#define M74_VIDEO_STACK    0x1010
+#endif
+
+/* The palette buffer. The low byte of the address is ignored (256 byte
+** boundary). Needs 256 bytes. Disabling color 0 makes the first 16 bytes
+** available for other purposes. */
+#ifndef M74_PALBUF
+	#define M74_PALBUF         0x0F00
+#endif
+
+
 
 
 /* Reset on every frame. If this is enabled, then a video frame will reset
@@ -108,12 +143,9 @@
 ** default configuration (if you change stack locations, you need to also set
 ** up those proper).
 **
-** The stacks: The given addresses point above the top of the stacks (so at
-** the first byte unused by stack). For Video, 16 bytes of stack is necessary,
-** which space may be used for temporaries (or extra stack) for the main
-** program. For the main program, as many bytes as needed. The main program's
-** stack in a resetting configuration should be shared with the palette
-** buffer to conserve memory! (Providing 256 bytes for the main program).
+** The main program stack: The definition gives the top of the stack (so first
+** used stack position is the definition - 1). It should be shared with the
+** palette buffer and optionally other work areas to conserve memory.
 ** Note that the Uzebox logo feature can not be used if you place the palette
 ** buffer at 0x1000 - 0x10FF since the default stack top + 1 is 0x1100, so
 ** the palette buffer will destroy the stack in the logo code. */
@@ -121,12 +153,24 @@
 #ifndef M74_RESET_ENABLE
 	#define M74_RESET_ENABLE   0
 #endif
-#ifndef M74_VIDEO_STACK
-	#define M74_VIDEO_STACK    0x1010
-#endif
 #ifndef M74_MAIN_STACK
-	#define M74_MAIN_STACK     0x1010
+	#define M74_MAIN_STACK     0x1100
 #endif
+
+
+
+/* Tile descriptor tables. Each uses up to 130 bytes in ROM or RAM
+** respectively. To have Mode 74 operational, you have to define at least one
+** proper tile descriptor! The Uzebox logo feature expects M74_RAMTD_OFF
+** defined, using its first 5 bytes, which it restores after use. */
+
+#ifndef M74_ROMTD_OFF
+	#define M74_ROMTD_OFF      0
+#endif
+#ifndef M74_RAMTD_OFF
+	#define M74_RAMTD_OFF      0x1030
+#endif
+
 
 
 /* Disable color zero. Color zero can not be used for sprites (it is the
@@ -144,35 +188,19 @@
 #endif
 
 
-/* Width of 2bpp mode output. At least 2 tiles. Note that multiple 2bpp chunks
-** can occur within a row, so you can use more than one effective width by
-** appropriately combining smaller blocks. */
-
-#ifndef M74_2BPP_WIDTH
-	#define M74_2BPP_WIDTH     16
-#endif
-
-
-/* Location of the palette buffer in RAM, high byte. The default location of
-** 0x0F00 places it below the stack (or shared with main stack in reset on
-** every frame configuration). */
-
-#ifndef M74_PALBUF_H
-	#define M74_PALBUF_H       0x0F
-#endif
-
 
 /* Location of intro logo workspace. Only used during the intro logo's display
 ** if it is enabled, after that the related memory can be reused. Normally the
-** default location set here should be fine. Needs 73 bytes. */
+** default location set here should be fine. A region for the logo RAM tiles
+** also has to be set up (it uses 18 RAM tiles, so 576 bytes). */
 
 #ifndef M74_LOGO_WORK
-	#if (M74_RESET_ENABLE == 0)
-		#define M74_LOGO_WORK      0x1010
-	#else
-		#define M74_LOGO_WORK      (M74_VIDEO_STACK + 0x10)
-	#endif
+	#define M74_LOGO_WORK      0x1040
 #endif
+#ifndef M74_LOGO_RAMTILES
+	#define M74_LOGO_RAMTILES  0x0700
+#endif
+
 
 
 /* Location of the 16 color palette. By default place it below the stack
@@ -182,34 +210,25 @@
 	#define M74_PAL_PTRE       0
 #endif
 #ifndef M74_PAL_OFF
-	#if (M74_RESET_ENABLE == 0)
-		#define M74_PAL_OFF        0x1000
-	#else
-		#define M74_PAL_OFF        (M74_VIDEO_STACK + 0x00)
-	#endif
+	#define M74_PAL_OFF        0x1000
 #endif
 
 
-/* The Color 0 reload feature may be disabled to save a tiny bit of flash and
-** two bytes of RAM. You may also limit it to a single offset. */
 
-#ifndef M74_COL0_RELOAD
-	#define M74_COL0_RELOAD    0
-#else
-	#if ((M74_COL0_RELOAD != 0) && (M74_COL0_DISABLE != 0))
-		#error "Color 0 is disabled (M74_COL0_DISABLE set), relaoding (M74_COL0_RELOAD) can not be used!"
-	#endif
-#endif
-#ifndef M74_COL0_PTRE
-	#define M74_COL0_PTRE      0
-#endif
+/* Color 0 reloading on every scanline from RAM can be enabled by defining a
+** 256 byte RAM bank for it (so low bytes of the offset are ignored).
+** Reloading is performed by the logical row counter, so potentially all 256
+** bytes may be accessed. The actual use of reloading can be controlled by a
+** global configuration flag. */
+
 #ifndef M74_COL0_OFF
-	#if ((M74_COL0_RELOAD != 0) && (M74_COL0_PTRE == 0))
-		#error "To use Color 0 reload without pointer, a valid address is needed! (M74_COL0_OFF)"
-	#else
-		#define M74_COL0_OFF       0
+	#define M74_COL0_OFF       0
+#else
+	#if ((M74_COL0_OFF != 0) && (M74_COL0_DISABLE != 0))
+		#error "Color 0 is disabled (M74_COL0_DISABLE set), relaoding (M74_COL0_OFF nonzero) can not be used!"
 	#endif
 #endif
+
 
 
 /* This can be used to constrain row selector address to a compile time
@@ -227,11 +246,12 @@
 #endif
 
 
-/* This can be used to disable separator line (Row mode 7) to save some flash
-** space if this mode is not needed. */
 
-#ifndef M74_M7_ENABLE
-	#define M74_M7_ENABLE      1
+/* This can be used to enable separator line (Row mode 2). It uses some dozen
+** bytes of Flash. */
+
+#ifndef M74_M2_ENABLE
+	#define M74_M2_ENABLE      0
 #endif
 
 
@@ -241,16 +261,7 @@
 #ifndef M74_M3_ENABLE
 	#define M74_M3_ENABLE      0
 #endif
-#ifndef M74_M3_PTRE
-	#define M74_M3_PTRE        0
-#endif
-#ifndef M74_M3_OFF
-	#if ((M74_M3_ENABLE != 0) && (M74_M3_PTRE == 0))
-		#error "To use Row Mode 3 without pointer, a valid address is needed! (M74_M3_OFF)"
-	#else
-		#define M74_M3_OFF         0
-	#endif
-#endif
+
 
 
 /* Setting this subtract value enables double scanning for row mode 3 by
@@ -272,225 +283,129 @@
 ** arbitrary 2 byte aligned part of an SD card sector in every frame. It costs
 ** some flash and RAM. At up to 22 tiles width it works perfectly, at 24 tiles
 ** width it might not be able to finish the load during display, so
-** M74_Finish() will take more time. Using M74_SD_EXT (adds an SD load at the
-** cost of audio cycles to every line) along with some non-scrolling sections
-** and-or separator lines may allow it reliably finishing. */
+** M74_Finish() will take more time. */
 
 #ifndef M74_SD_ENABLE
 	#define M74_SD_ENABLE      0
 #endif
-#if     (M74_SD_ENABLE != 0)
-	#ifndef M74_SD_EXT
-		#define M74_SD_EXT         0
+
+
+
+/* The VRAM used for the kernel and sprite output. This is a rectangular
+** region normally mapping to the VRAM set up for Mode 74 output (m74_tidx),
+** so sprites and kernel stuff appears proper. */
+
+#ifndef M74_VRAM_OFF
+	#error "A base address for kernel and sprite VRAM surface is necessary!"
+#endif
+#ifndef M74_VRAM_W
+	#define M74_VRAM_W VRAM_TILES_H
+#endif
+#ifndef M74_VRAM_H
+	#define M74_VRAM_H VRAM_TILES_V
+#endif
+#ifndef M74_VRAM_P
+	#define M74_VRAM_P M74_VRAM_W
+#endif
+
+
+
+/* The followings belong to the sprite system. The sprite system should only
+** be enabled if it is actually used (takes a considerable amount of flash),
+** then the necessary components have to be defined. */
+
+#ifndef M74_SPR_ENABLE
+	#define M74_SPR_ENABLE     SPRITES_ENABLED
+#endif
+
+
+
+/* Enable the masking system. Masks allow sprites to show behind tiles, using
+** 1bpp data. Masking costs 1 extra byte for each tile for holding indices
+** into a mask table. It also takes some flash and extra CPU time. */
+
+#ifndef M74_MSK_ENABLE
+	#define M74_MSK_ENABLE     0
+#endif
+
+
+
+/* ROM mask index base. The ROM has 2048 tile slots, this list may have at
+** most that many bytes. It doesn't need to be aligned to any boundary.
+** Typically tile assets are packed together in the ROM taking one
+** continuous region: this base offset may be forged so the first used
+** location belongs to the first sprite. Example: If tiles begin at 0x8000,
+** for 256 tiles, and you want to have the mask indices for them at 0xA000,
+** 256 bytes, the base should be set up as (0xA000 - (0x8000 / 32)). */
+
+#ifndef M74_ROMMASKIDX_OFF
+	#if ((M74_SPR_ENABLE != 0) && (M74_MSK_ENABLE != 0))
+		#error "A ROM mask index base (M74_ROMMASKIDX_OFF) has to be defined for the sprite system!"
 	#endif
-	#if     (M74_SD_EXT == 0)
-		#define HSYNC_USABLE_CYCLES 223
-	#else
-		#define HSYNC_USABLE_CYCLES 196
-	#endif
-#else
-	#define HSYNC_USABLE_CYCLES 223
 #endif
 
+/* RAM mask index base. This is always based at whatever RAM tile offset base
+** is set up (there is no practical use for supporting more than 64 RAM tiles
+** here since it can not be exploited). So it has up to 64 elements, the first
+** belonging to RAM tile 0 (Tile index 0xC0). If RAM tiles are only used for
+** rendering sprites or the area is repopulated after every frame, this may be
+** located under the palette buffer or video stack. */
 
-
-/* The VRAM used for the kernel and sprite output. Setting it compile time
-** saves 5 bytes of RAM and some flash space. */
-
-#ifndef M74_VRAM_CONST
-	#define M74_VRAM_CONST     0
-#elif   (M74_VRAM_CONST != 0)
-	#ifndef M74_VRAM_OFF
-		#error "A base address for VRAM is necessary if M74_VRAM_CONST is used!"
-	#endif
-	#ifndef M74_VRAM_W
-		#define M74_VRAM_W VRAM_TILES_H
-	#endif
-	#ifndef M74_VRAM_H
-		#define M74_VRAM_H VRAM_TILES_V
-	#endif
-	#ifndef M74_VRAM_P
-		#define M74_VRAM_P M74_VRAM_W
+#ifndef M74_RAMMASKIDX_OFF
+	#if ((M74_SPR_ENABLE != 0) && (M74_MSK_ENABLE != 0))
+		#error "A RAM mask index base (M74_RAMMASKIDX_OFF) has to be defined for the sprite system!"
 	#endif
 #endif
 
 
-/* Resource locations. At least one for each of the three 4bpp ranges
-** (0x00 - 0x7F, 0x80 - 0xBF, 0xC0 - 0xFF) must be provided. */
 
-/* 0x00 - 0x7F: Mode dependent tiles for modes 1, 2, 4, 5 and 6. 'OFF' is the
-** offset, 'INC' is the increment per row in byte units (or tiles for the 1bpp
-** modes). Not required (maybe not using any of these modes). An increment
-** value of 0 is interpreted as 256, this is required if you need a 1bpp
-** tileset shared between Row mode 3 (Multicolor) and these modes. */
+/* ROM mask pool's address. At most 224 x 8 bytes (depends on used masks).
+** If no actual masks are used, or only RAM masks are used, this may be left
+** zero. */
 
-#ifndef M74_TBANK01_0_OFF
-	#define M74_TBANK01_0_OFF  0
-#endif
-#ifndef M74_TBANK01_0_INC
-	#define M74_TBANK01_0_INC  128
-#endif
-#ifndef M74_TBANK01_1_OFF
-	#define M74_TBANK01_1_OFF  M74_TBANK01_0_OFF
-#endif
-#ifndef M74_TBANK01_1_INC
-	#define M74_TBANK01_1_INC  M74_TBANK01_0_INC
-#endif
-#ifndef M74_TBANK01_2_OFF
-	#define M74_TBANK01_2_OFF  M74_TBANK01_0_OFF
-#endif
-#ifndef M74_TBANK01_2_INC
-	#define M74_TBANK01_2_INC  M74_TBANK01_0_INC
-#endif
-#ifndef M74_TBANK01_3_OFF
-	#define M74_TBANK01_3_OFF  M74_TBANK01_0_OFF
-#endif
-#ifndef M74_TBANK01_3_INC
-	#define M74_TBANK01_3_INC  M74_TBANK01_0_INC
-#endif
-
-/* 0x00 - 0x7F: Mode dependent tiles for mode 0 (4Kb ROM tile maps). At least
-** one must be defined. The low byte should be zero (it is ignored). The MSK
-** definitions may be omitted if there are no masks (used for sprites), they
-** are ROM offsets for mask indices (1 byte each). */
-
-#ifndef M74_TBANKM0_0_OFF
-	#error "At least one tile bank 0-1 offset needed (M74_TBANKM0_0_OFF)"
-#endif
-#ifndef M74_TBANKM0_0_MSK
-	#define M74_TBANKM0_0_MSK  0
-#endif
-#ifndef M74_TBANKM0_1_OFF
-	#define M74_TBANKM0_1_OFF  M74_TBANKM0_0_OFF
-#endif
-#ifndef M74_TBANKM0_1_MSK
-	#define M74_TBANKM0_1_MSK  M74_TBANKM0_0_MSK
-#endif
-#ifndef M74_TBANKM0_2_OFF
-	#define M74_TBANKM0_2_OFF  M74_TBANKM0_0_OFF
-#endif
-#ifndef M74_TBANKM0_2_MSK
-	#define M74_TBANKM0_2_MSK  M74_TBANKM0_0_MSK
-#endif
-#ifndef M74_TBANKM0_3_OFF
-	#define M74_TBANKM0_3_OFF  M74_TBANKM0_0_OFF
-#endif
-#ifndef M74_TBANKM0_3_MSK
-	#define M74_TBANKM0_3_MSK  M74_TBANKM0_0_MSK
-#endif
-
-/* 0x80 - 0xBF: 2Kb ROM tile maps (half 4Kb maps). At least one must be
-** defined. The low byte should be zero (it is ignored). The MSK definitions
-** may be omitted if there are no masks (used for sprites), they are ROM
-** offsets for mask indices (1 byte each). */
-
-#ifndef M74_TBANK2_0_OFF
-	#error "At least one tile bank 2 offset needed (M74_TBANK2_0_OFF)"
-#endif
-#ifndef M74_TBANK2_0_MSK
-	#define M74_TBANK2_0_MSK  0
-#endif
-#ifndef M74_TBANK2_1_OFF
-	#define M74_TBANK2_1_OFF  M74_TBANK2_0_OFF
-#endif
-#ifndef M74_TBANK2_1_MSK
-	#define M74_TBANK2_1_MSK  M74_TBANK2_0_MSK
-#endif
-#ifndef M74_TBANK2_2_OFF
-	#define M74_TBANK2_2_OFF  M74_TBANK2_0_OFF
-#endif
-#ifndef M74_TBANK2_2_MSK
-	#define M74_TBANK2_2_MSK  M74_TBANK2_0_MSK
-#endif
-#ifndef M74_TBANK2_3_OFF
-	#define M74_TBANK2_3_OFF  M74_TBANK2_0_OFF
-#endif
-#ifndef M74_TBANK2_3_MSK
-	#define M74_TBANK2_3_MSK  M74_TBANK2_0_MSK
-#endif
-#ifndef M74_TBANK2_4_OFF
-	#define M74_TBANK2_4_OFF  M74_TBANK2_0_OFF
-#endif
-#ifndef M74_TBANK2_4_MSK
-	#define M74_TBANK2_4_MSK  M74_TBANK2_0_MSK
-#endif
-#ifndef M74_TBANK2_5_OFF
-	#define M74_TBANK2_5_OFF  M74_TBANK2_0_OFF
-#endif
-#ifndef M74_TBANK2_5_MSK
-	#define M74_TBANK2_5_MSK  M74_TBANK2_0_MSK
-#endif
-#ifndef M74_TBANK2_6_OFF
-	#define M74_TBANK2_6_OFF  M74_TBANK2_0_OFF
-#endif
-#ifndef M74_TBANK2_6_MSK
-	#define M74_TBANK2_6_MSK  M74_TBANK2_0_MSK
-#endif
-#ifndef M74_TBANK2_7_OFF
-	#define M74_TBANK2_7_OFF  M74_TBANK2_0_OFF
-#endif
-#ifndef M74_TBANK2_7_MSK
-	#define M74_TBANK2_7_MSK  M74_TBANK2_0_MSK
-#endif
-
-/* 0xC0 - 0xFF: 4bpp RAM tile maps. At least one must be defined. 'OFF' is the
-** offset, 'INC' is the increment per row in 4 byte units (64 is the maximum
-** sensible value expect probably if combining the two RAM tile sections for
-** some reason). The MSK definitions may be omitted if there are no masks
-** (used for sprites), they are RAM offsets for mask indices (1 byte each). */
-
-#ifndef M74_TBANK3_0_OFF
-	#error "At least one tile bank 3 offset needed (M74_TBANK3_0_OFF)"
-#endif
-#ifndef M74_TBANK3_0_INC
-	#error "At least one tile bank 3 increment needed (M74_TBANK3_0_INC)"
-#endif
-#ifndef M74_TBANK3_0_MSK
-	#define M74_TBANK3_0_MSK  0
-#endif
-#ifndef M74_TBANK3_1_OFF
-	#define M74_TBANK3_1_OFF  M74_TBANK3_0_OFF
-#endif
-#ifndef M74_TBANK3_1_INC
-	#define M74_TBANK3_1_INC  M74_TBANK3_0_INC
-#endif
-#ifndef M74_TBANK3_1_MSK
-	#define M74_TBANK3_1_MSK  M74_TBANK3_0_MSK
-#endif
-
-/* ROM mask pool's address. At most 224 x 8 bytes (depends on used masks). */
-
-#ifndef M74_ROMMASK_PTRE
-	#define M74_ROMMASK_PTRE  0
-#endif
 #ifndef M74_ROMMASK_OFF
-	#define M74_ROMMASK_OFF   0
+	#define M74_ROMMASK_OFF    0
 #endif
 
-/* RAM mask pool's address. At most 14 x 8 bytes (depends on used masks). */
+/* RAM mask pool's address. At most 14 x 8 bytes (depends on used masks).
+** If no actual masks are used, or only ROM masks are used, this may be left
+** zero. */
 
-#ifndef M74_RAMMASK_PTRE
-	#define M74_RAMMASK_PTRE  0
-#endif
 #ifndef M74_RAMMASK_OFF
-	#define M74_RAMMASK_OFF   0
+	#define M74_RAMMASK_OFF    0
 #endif
+
+
+
+/* Location of X row shifts. It can be disabled by leaving it zero. Enabling
+** it adds row shifts (to the left) of 0 - 7 pixels which should follow how
+** the display is generated. This somewhat eases scrolling, and enables
+** parallax scrolling. Up to 32 bytes, depending on how many rows the VRAM
+** has. If the content is re-generated before the render of every frame, it
+** may be located under the palette buffer or video stack. */
+
+#ifndef M74_XSHIFT_OFF
+	#define M74_XSHIFT_OFF     0
+#endif
+
+
 
 /* RAM tile allocation workspace pointer for sprites. Up to 192 bytes (depends
-** on maximal number of RAM tiles used, 3 bytes for a RAM tile). By default it
-** is dropped below the stack which may be suitable if not too many RAM tiles
-** are used, and the program doesn't use much of stack. */
+** on maximal number of RAM tiles used, 3 bytes for a RAM tile). It may be
+** located below the palette buffer if the VRAM is rebuilt before new renders
+** completely (this case M74_ResReset has to be called before starting the
+** render). */
 
 #ifndef M74_RTLIST_PTRE
-	#define M74_RTLIST_PTRE   0
+	#define M74_RTLIST_PTRE    0
 #endif
 #ifndef M74_RTLIST_OFF
-	#if (M74_RESET_ENABLE == 0)
-		#define M74_RTLIST_OFF    0x1010
-	#else
-		#define M74_RTLIST_OFF    (M74_VIDEO_STACK + 0x10)
+	#if ((M74_SPR_ENABLE != 0) && (M74_RTLIST_PTRE == 0))
+		#error "A RAM tile list offset (M74_RTLIST_OFF) has to be defined for the sprite system!"
 	#endif
 #endif
+
+
 
 /* Sprite recolor table set start offset. Only the high byte is used. If it is
 ** set zero, then the recoloring support is not compiled in (saving some flash
@@ -499,7 +414,7 @@
 ** pairs). */
 
 #ifndef M74_RECTB_OFF
-	#define M74_RECTB_OFF     0x0000
+	#define M74_RECTB_OFF      0
 #endif
 
 /* Enable slow recoloring. It makes sprite blitting about 15 percents slower
@@ -511,7 +426,7 @@
 ** (wrapping) table, allowing to pack recolor maps tight. */
 
 #ifndef M74_REC_SLOW
-	#define M74_REC_SLOW      0
+	#define M74_REC_SLOW       0
 #else
 	#if ((M74_REC_SLOW != 0) && (M74_RECTB_OFF == 0x0000))
 		#error "A recolor table (M74_RECTB_OFF) is necessary to use slow recoloring (M74_REC_SLOW)"

@@ -24,19 +24,16 @@
 /* Where the tile & similar aligned data is placed (not Mode 74 specific) */
 #define TILES_SECT 0x5800
 
-/* Mode 74 specifics (Note: TBANKM0, TBANK2 and TBANKM3 are not filled, just
-** added since required by Mode 74. The entire title screen uses
-** Multicolor) */
+/* Resource locations (Not Mode 74 specific) */
+#define RES_SCREEN_00_OFF  (TILES_SECT + 0x0080U)
+#define RES_PAL_00_OFF     (TILES_SECT + 0x00E0U)
+#define RES_FONT_OFF       (TILES_SECT + 0x0100U)
 
-#define M74_TBANKM0_0_OFF  0
-#define M74_TBANK2_0_OFF   0
-#define M74_TBANK3_0_OFF   0x0800
-#define M74_TBANK3_0_INC   32
+/* Mode 74 specifics */
 
-#define M74_TBANK01_0_OFF  (TILES_SECT + 0x0000)
-#define M74_TBANK01_0_INC  0
+#define M74_VRAM_OFF       0x0400
+#define M74_ROMTD_OFF      (TILES_SECT + 0x0000)
 #define M74_M3_ENABLE      1
-#define M74_M3_OFF         (0x0F00-(9*39)-2304)
 
 
 #endif

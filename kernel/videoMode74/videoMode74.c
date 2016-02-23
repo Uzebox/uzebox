@@ -41,7 +41,8 @@
 
 			for (i = 0U; i < 13U; i++)
 			{
-				M74_RamTileFillRom((unsigned int)(&uzeboxlogo_tiles_1[0]) + ((unsigned int)(i) * 32U), 0xC1U + i, 0U);
+				M74_RamTileFillRom( (unsigned int)(&uzeboxlogo_tiles_1[0]) + ((unsigned int)(i) * 32U), 
+				                    (M74_LOGO_RAMTILES >> 5) + 0x01U + i);
 			}
 			for (i = 0U; i < 16U; i++)
 			{
@@ -59,7 +60,8 @@
 
 			for (i = 0U; i < 13U; i++)
 			{
-				M74_RamTileFillRom((unsigned int)(&uzeboxlogo_tiles_2[0]) + ((unsigned int)(i) * 32U), 0xC1U + i, 0U);
+				M74_RamTileFillRom( (unsigned int)(&uzeboxlogo_tiles_2[0]) + ((unsigned int)(i) * 32U),
+				                    (M74_LOGO_RAMTILES >> 5) + 0x01U + i);
 			}
 			for (i = 0U; i < 16U; i++)
 			{
@@ -85,27 +87,32 @@
 
 			#if (M74_ROWS_OFF != 0)
 				rsl = (unsigned char*)(m74_rows);
-				wrk[70] = rsl[0]; /* Save initializer of row selector */
-				wrk[71] = rsl[1];
-				wrk[72] = rsl[2];
+				wrk[71] = rsl[0]; /* Save initializer of row selector */
+				wrk[72] = rsl[1];
+				wrk[73] = rsl[2];
 			#else
-				m74_rows = (unsigned int)(&(wrk[70]));
+				m74_rows = (unsigned int)(&(wrk[71]));
 				rsl = (unsigned char*)(m74_rows);
 			#endif
-			rsl[0] = 0U;
-			rsl[1] = 0U;
-			rsl[2] = 255U; /* Row selector setup to simply use the logo rows */
-			m74_tdesc = (unsigned int)(&(wrk[0])); /* Tile descriptors (4 rows only) */
-			m74_tidx  = (unsigned int)(&(wrk[8])); /* Tile indices (4 rows only) */
-			for (i = 0U; i < 70U; i++)
+			for (i = 0U; i < 71U; i++)
 			{
 				wrk[i] = pgm_read_byte(&(uzeboxlogo_vram[i]));
 			}
+			for (i = 0U; i < 5U; i++){
+				wrk[74U + i] = ((unsigned char*)(M74_RAMTD_OFF))[i];
+				((unsigned char*)(M74_RAMTD_OFF))[i] = wrk[i];
+			}
+			rsl[0] = 0U;
+			rsl[1] = 0U;
+			rsl[2] = 255U; /* Row selector setup to simply use the logo rows */
+			m74_tdesc = (unsigned int)(&(wrk[5])); /* Tile descriptors (4 rows only) */
+			m74_tidx  = (unsigned int)(&(wrk[9])); /* Tile indices (4 rows only) */
 			for (i = 0U; i < 5U; i++)
 			{
-				M74_RamTileFillRom((unsigned int)(&uzeboxlogo_text[0]) + (i * 32U), 0xCEU + i, 0U);
+				M74_RamTileFillRom( (unsigned int)(&uzeboxlogo_text[0]) + (i * 32U),
+				                    (M74_LOGO_RAMTILES >> 5) + 0x0EU + i);
 			}
-			M74_RamTileClear(0xC0U, 0U);
+			M74_RamTileClear((M74_LOGO_RAMTILES >> 5));
 			SetRenderingParameters(110U, 32U);
 
 			/* Logo display sequence starts */
@@ -152,10 +159,13 @@
 			** also the default rendering parameters */
 
 			#if (M74_ROWS_OFF != 0)
-				rsl[0] = wrk[70];
-				rsl[1] = wrk[71];
-				rsl[2] = wrk[72];
+				rsl[0] = wrk[71];
+				rsl[1] = wrk[72];
+				rsl[2] = wrk[73];
 			#endif
+			for (i = 0U; i < 5U; i++){
+				((unsigned char*)(M74_RAMTD_OFF))[i] = wrk[74U + i];
+			}
 
 			SetRenderingParameters(FIRST_RENDER_LINE, FRAME_LINES);
 
@@ -168,26 +178,11 @@
 	void InitializeVideoMode()
 	{
 		m74_config = 0U;    /* Display disabled */
-		m74_bgcol  = 0U;    /* Background color: index zero */
-		m74_rtmax  = 32U;   /* Allow 32 RAM tiles by default (should leave enough stack with default config) */
-		m74_rtno   = 0U;    /* Currently allocated RAM tiles */
 #if (M74_ROWS_PTRE != 0)
 		m74_rows   = M74_ROWS_OFF;    /* Row selector address */
 #endif
 #if (M74_PAL_PTRE != 0)
 		m74_pal    = M74_PAL_OFF;     /* 16 color palette address */
-#endif
-#if ((M74_COL0_PTRE != 0) && (M74_COL0_RELOAD != 0))
-		m74_col0   = M74_COL0_OFF;    /* Color 0 reload address */
-#endif
-#if ((M74_M3_PTRE != 0) && (M74_M3_ENABLE != 0))
-		m74_mcadd  = M74_M3_OFF;      /* Multicolor framebuffer address */
-#endif
-#if (M74_ROMMASK_PTRE != 0)
-		m74_romma  = M74_ROMMASK_OFF; /* ROM mask pool address */
-#endif
-#if (M74_RAMMASK_PTRE != 0)
-		m74_ramma  = M74_RAMMASK_OFF; /* RAM mask pool address */
 #endif
 #if (M74_RTLIST_PTRE != 0)
 		m74_rtlist = M74_RTLIST_OFF;  /* RAM tile allocation workspace address */
@@ -197,6 +192,10 @@
 #endif
 #if (M74_SD_ENABLE != 0)
 		m74_sdsec  = 0U;              /* Sector part of SD offset initially zero */
+#endif
+#if (M74_SPR_ENABLE != 0)
+		m74_rtmax  = 32U;   /* Sprites: Allow 32 RAM tiles by default */
+		M74_ResReset();     /* Sprites: Clean up restore list */
 #endif
 	}
 

@@ -25,8 +25,9 @@
 #define TILES_H
 
 
-extern const unsigned char imgfont[] __attribute__ ((section (".tiles")));
-extern const unsigned char imgpal[] PROGMEM;
+extern const unsigned char res_font[] __attribute__ ((section (".tiles")));
+extern const unsigned char res_pal_00[] __attribute__ ((section (".tiles")));
+extern const unsigned char res_screen_00[] __attribute__ ((section (".tiles")));
 extern const unsigned char imgattr[] PROGMEM;
 extern const unsigned char imgdata[] PROGMEM;
 

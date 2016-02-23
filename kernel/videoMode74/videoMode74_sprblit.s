@@ -44,7 +44,6 @@
 ;       Y: Target RAM tile address
 ;     r23: Y location on tile (2's complement; 0xF9 - 0x07)
 ;     r22: X location on tile (2's complement; 0xF9 - 0x07)
-;     r20: Target RAM tile pitch in bytes - 4
 ;     r16: Flags
 ;          bit0: If set, flip horizontally
 ;          bit1: If set, sprite source is RAM
@@ -55,35 +54,30 @@
 ;     r1:  Zero
 ; r15:r14: Mask source offset (8 bytes). Only used if r16 bit4 is set
 ; Clobbered registers:
-; r0, r14, r15, r18, r19, r20, r21, r22, r23, XL, XH, ZL, ZH, T
+; r0, r14, r15, r17, r18, r19, r20, r21, r22, r23, XL, XH, YL, YH, ZL, ZH, T
 ;
 m74_blitspritept:
 
 	; Save a few registers to have something to work with
 
-	push  r17              ; Will be used for mask
-	push  r13              ; Will store destination increment
 	push  r12              ; Will be used for loop counter
 	push  r24
 	push  r25              ; Preserve source start address
 
 	; Calculate target offset including mask (which belongs / aligns with
-	; the target). Increments are used as byte units -1, so the increment
-	; of 256 bytes may be supported properly.
+	; the target).
 
-	subi  r20,     0xFD    ; Add 3 to destination increment, to make it only bytes - 1
-	mov   r13,     r20     ; Store destination increment
 	bst   r23,     7       ; T: Set if Y location negative, clear otherwise
+#if (M74_MSK_ENABLE != 0)
 	brts  .+4              ; Y location positive (move down?)
 	add   r14,     r23
 	adc   r15,     r1      ; Set up mask source
-	brts  .+12             ; Y location positive (move down?)
-	mul   r23,     r20     ; If positive, calculate offset on target
+#endif
+	brts  .+10             ; Y location positive (move down?)
+	mov   r0,      r23     ; If positive, calculate offset on target
+	lsl   r0               ; Destination increment is 4 bytes / row
+	lsl   r0
 	add   YL,      r0
-	adc   YH,      r1
-	clr   r1
-	add   YL,      r23     ; Compensate for the -1
-	adc   YH,      r1      ; Target start address obtained in Y
 
 	; Calculate source offset and increment (A sprite line is 4 bytes)
 
@@ -133,36 +127,34 @@ spbs2:
 	; one without)
 
 	bst   r16,     1       ; T: ROM / RAM sprite source
-	clr   r20              ; Prepare sprite data clearing for both loops
+#if (M74_MSK_ENABLE != 0)
 	sbrc  r16,     4       ; Has mask?
 	rjmp  spbml            ; Enter render loop with mask
+#endif
 	clr   r17              ; Use zero for mask
 	rjmp  spbl             ; No mask, enter maskless render loop
 spblret:
 	dec   r12
 	breq  spbex
-	clr   r20              ; Create a zero register (begin clearing sprite data buffer)
 	add   r24,     XL
 	adc   r25,     XH      ; Source increment / decrement
-	sec                    ; Boost destination increment range to 1 - 256
-	adc   YL,      r13
-	adc   YH,      r20     ; Destination increment
+	subi  YL,      0xFC    ; Destination increment
 spbl:
-	clr   r21              ; Continue sprite data buffer pre-clear
+	clr   r20              ; Pre-clear sprite data buffer
+	clr   r21
 	movw  r22,     r20     ; r23:r22 cleared
 	movw  ZL,      r0      ; Load jump target
 	ijmp
+#if (M74_MSK_ENABLE != 0)
 spbmlret:
 	dec   r12
 	breq  spbex
-	clr   r20              ; Create a zero register (begin clearing sprite data buffer)
 	add   r24,     XL
 	adc   r25,     XH      ; Source increment / decrement
-	sec                    ; Boost destination increment range to 1 - 256
-	adc   YL,      r13
-	adc   YH,      r20     ; Destination increment
+	subi  YL,      0xFC    ; Destination increment
 spbml:
-	clr   r21              ; Continue sprite data buffer pre-clear
+	clr   r20              ; Pre-clear sprite data buffer
+	clr   r21
 	movw  r22,     r20     ; r23:r22 cleared
 	movw  ZL,      r14     ; Load mask offset
 	sbrc  r16,     5
@@ -175,6 +167,7 @@ spbml:
 	movw  r14,     ZL      ; Save mask offset
 	movw  ZL,      r0      ; Load jump target
 	ijmp
+#endif
 
 	; Done, clean up and return
 
@@ -182,8 +175,6 @@ spbex:
 	pop   r25
 	pop   r24
 	pop   r12
-	pop   r13
-	pop   r17
 	clr   r1
 	ret
 
@@ -272,7 +263,7 @@ spljtaf:
 	; (the endif for the else path is after this, with an M74_REC_SLOW
 	; comment)
 
-#include "videoMode74_sprsrec.s"
+#include "videoMode74/videoMode74_sprsrec.s"
 
 #else
 
@@ -1165,9 +1156,13 @@ splpx2x:
 	cpi   r23,     0x01
 	brcc  splpx0n
 splpx0x:
+#if (M74_MSK_ENABLE != 0)
 	sbrs  r16,     4       ; Has mask?
 	rjmp  spblret          ; No mask return
 	rjmp  spbmlret         ; Has mask return
+#else
+	rjmp  spblret          ; No mask return
+#endif
 splpxe8:
 	cpi   r20,     0x01
 splpx6n:
@@ -1217,9 +1212,13 @@ splpx0h:
 	or    r23,     r18
 	std   Y + 3,   r23
 splexit:
+#if (M74_MSK_ENABLE != 0)
 	sbrs  r16,     4       ; Has mask?
 	rjmp  spblret          ; No mask return
 	rjmp  spbmlret         ; Has mask return
+#else
+	rjmp  spblret          ; No mask return
+#endif
 splpx6l:
 	ldd   r18,     Y + 0
 	andi  r18,     0x0F
@@ -1249,6 +1248,10 @@ splpx0l:
 	andi  r18,     0x0F
 	or    r23,     r18
 	std   Y + 3,   r23
+#if (M74_MSK_ENABLE != 0)
 	sbrs  r16,     4       ; Has mask?
 	rjmp  spblret          ; No mask return
 	rjmp  spbmlret         ; Has mask return
+#else
+	rjmp  spblret          ; No mask return
+#endif

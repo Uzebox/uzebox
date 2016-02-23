@@ -25,10 +25,10 @@
 #define TILES_H
 
 
-extern const unsigned char imgpal[] PROGMEM;
-extern const unsigned char imgvram[] PROGMEM;
-extern const unsigned char imgdata00[] __attribute__ ((section (".tiles")));
-extern const unsigned char imgdata80[] __attribute__ ((section (".tiles")));
+extern const unsigned char imgvram[]        PROGMEM;
+extern const unsigned char res_screen_00[]  __attribute__ ((section (".tiles")));
+extern const unsigned char res_pal_00[]     __attribute__ ((section (".tiles")));
+extern const unsigned char res_sprites_00[] __attribute__ ((section (".tiles")));
 
 
 #endif

@@ -20,9 +20,8 @@ source to include it.
 Here only a list is provided, all the generators are described in their head
 comments.
 
-- c1bpph.c:  1 bit / pixel tilesets (Row modes 1, 2, 3, 5, 6)
+- c1bpph.c:  1 bit / pixel tilesets (Row modes 3, 4, 5, 6, 7)
 - c1bppmh.c: 1 bit / pixel masks (For the sprite engine)
-- c4bpph.c:  4 bit / pixel tilesets (Row mode 0, 0x80 - 0xBF in other modes)
-- c4bppsh.c: 4 bit / pixel sprites (For the sprite engine)
+- c4bppsh.c: 4 bit / pixel sprites and tiles (For all 4bpp use)
 - cmcolh.c:  2 bit / pixel multicolor (Row mode 3)
 - cremaph.c: Color remapping table (For the sprite engine)
