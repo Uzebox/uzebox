@@ -144,7 +144,7 @@ static void reset(void){
 	** non-volatile globals are written out proper before starting the
 	** render which may be terminated early. */
 
-	__asm__ volatile ("nop");
+	M74_Seq();
 
 	/* Balls */
 
@@ -209,7 +209,7 @@ static void reset(void){
 
 	/* All done */
 
-	while(1);
+	M74_Halt();
 }
 
 
@@ -263,12 +263,12 @@ int main(){
 	}
 
 
-	/* Over. Note that the __asm__ is necessary: it enforces a sequence
-	** point, so the C code optimizer will write back everything before
-	** passing it. Otherwise this wouldn't happen, and non-volatile
-	** globals may not be updated ever. */
+	/* Over. Add an enforced sequence point here, so all non-volatile
+	** globals are written out proper before passing it. Otherwise this
+	** wouldn't happen, and non-volatile globals may not be updated
+	** ever. */
 
-	__asm__ volatile ("nop");
+	M74_Seq();
 
 	/* Set main configuration flags & Enable */
 
@@ -276,6 +276,6 @@ int main(){
 	    M74_CFG_RAM_PALETTE |
 	    M74_CFG_ENABLE;
 
-	while(1);
+	M74_Halt();
 
 }

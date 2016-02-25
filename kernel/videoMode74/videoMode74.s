@@ -301,6 +301,27 @@
 ;
 .global M74_RamTileClear
 
+;
+; void M74_Halt(void);
+;
+; Halts program execution. Use with reset (M74_RESET_ENABLE set) to terminate
+; components which are supposed to be terminated by a new frame. This is not
+; required, but by the C language a function call is necessary to enforce a
+; sequence point (so every side effect completes before the call including
+; writes to any globals).
+;
+.global M74_Halt
+
+;
+; void M74_Seq(void);
+;
+; Sequence point. Use with reset (M74_RESET_ENABLE set) to enforce a sequence
+; point, so everything is carried out which is before. This is not required,
+; but by the C language a function call is necessary to enforce a sequence
+; point (so every side effect completes before the call including writes to
+; any globals).
+;
+.global M74_Seq
 
 
 ;
@@ -606,6 +627,36 @@ frtcll:
 	st    X+,      r1
 	dec   r22
 	brne  frtcll
+	ret
+
+
+
+;
+; void M74_Halt(void);
+;
+; Halts program execution. Use with reset (M74_RESET_ENABLE set) to terminate
+; components which are supposed to be terminated by a new frame. This is not
+; required, but by the C language a function call is necessary to enforce a
+; sequence point (so every side effect completes before the call including
+; writes to any globals).
+;
+.section .text.M74_Halt
+M74_Halt:
+	rjmp  M74_Halt
+
+
+
+;
+; void M74_Seq(void);
+;
+; Sequence point. Use with reset (M74_RESET_ENABLE set) to enforce a sequence
+; point, so everything is carried out which is before. This is not required,
+; but by the C language a function call is necessary to enforce a sequence
+; point (so every side effect completes before the call including writes to
+; any globals).
+;
+.section .text.M74_Seq
+M74_Seq:
 	ret
 
 

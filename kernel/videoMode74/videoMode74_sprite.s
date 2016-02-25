@@ -298,8 +298,6 @@ M74_ResReset:
 M74_PutPixel:
 
 	mov   r25,     r12
-	push  r4
-	push  r5
 	push  r13
 	push  r14
 	push  r15
@@ -318,34 +316,32 @@ M74_PutPixel:
 	; Save away X:Y locations (to retain them across calls)
 
 	mov   r23,     r20     ; Y into r23 to keep it clear from the RAM tile allocator
-	mov   r5,      r23
-	lsr   r5
-	lsr   r5
-	lsr   r5
-	dec   r5               ; Tile Y location on VRAM
+	mov   r19,     r23
+	lsr   r19
+	lsr   r19
+	lsr   r19
+	dec   r19              ; Tile Y location on VRAM
 #if (M74_XSHIFT_OFF != 0)
 	ldi   ZL,      lo8(M74_XSHIFT_OFF)
 	ldi   ZH,      hi8(M74_XSHIFT_OFF)
-	add   ZL,      r5
+	add   ZL,      r19
 	adc   ZH,      r1
 	ld    r0,      Z
 	add   r22,     r0
 #endif
-	mov   r4,      r22
-	lsr   r4
-	lsr   r4
-	lsr   r4
-	dec   r4               ; Tile X location on VRAM
+	mov   r18,     r22
+	lsr   r18
+	lsr   r18
+	lsr   r18
+	dec   r18              ; Tile X location on VRAM
 	andi  r23,     0x07
 	andi  r22,     0x07
 
-	; Calculate pixel's tile location
+	; Check whether it is on VRAM
 
-	ldi   XL,      M74_VRAM_W
-	ldi   XH,      M74_VRAM_H
-	cp    r4,      XL
+	cpi   r18,     M74_VRAM_W
 	brcc  bpixe            ; No pixel (off to the right or left)
-	cp    r5,      XH
+	cpi   r19,     M74_VRAM_H
 	brcc  bpixe            ; No pixel (off to the bottom or top)
 
 	; Prepare pixel's importance into r20
@@ -418,8 +414,6 @@ bpixe:
 	pop   r15
 	pop   r14
 	pop   r13
-	pop   r5
-	pop   r4
 	mov   r12,     r25
 	ret
 
@@ -705,6 +699,7 @@ m74_blitspriteptprep:
 
 	; Allocate the RAM tile and calculate necessary address data
 
+	movw  r18,     r4      ; Column (X) & Row (Y) offsets
 	rcall m74_ramtilealloc
 	brtc  bsppexit         ; No RAM tile
 
@@ -730,8 +725,8 @@ bsppexit:
 ;          bit3: Free to accept original "mask is used" flag
 ;          bit4: If set, mask is used
 ;          bit5: Free to accept ROM (0) / RAM (1) mask source select
-;      r4: Column (X) on VRAM
-;      r5: Row (Y) on VRAM
+;     r18: Column (X) on VRAM
+;     r19: Row (Y) on VRAM
 ;     r13: Maximal number of RAM tiles allocated to sprites
 ;     r12: Current first free RAM tile index
 ;      r1: Zero
@@ -809,12 +804,12 @@ rtatle:
 	; it is within the sprite allocated RAM tile range).
 
 	ldi   r21,     M74_VRAM_P
-	mul   r5,      r21     ; Row offset
+	mul   r19,     r21     ; Row (Y) offset
 	movw  XL,      r0
 	clr   r1
 	subi  XL,      lo8(-(M74_VRAM_OFF))
 	sbci  XH,      hi8(-(M74_VRAM_OFF))
-	add   XL,      r4      ; Column offset
+	add   XL,      r18     ; Column (X) offset
 	adc   XH,      r1
 	ld    r18,     X       ; Load tile index
 
@@ -916,15 +911,10 @@ rtanew1:
 	; r15:r14: Tile absolute address (bit 0: Set for RAM tiles)
 	;     r17: Mask index
 
-	mov   r19,     r18
-	swap  r19
-	lsr   r19
-	lsr   r19
-	andi  r19,     0x03    ; Selects tile bank to load
 	lds   ZL,      m74_tdesc_lo
 	lds   ZH,      m74_tdesc_hi
 	lds   r17,     m74_config
-	add   ZL,      r5
+	add   ZL,      r19     ; r19: Still row (Y) offset
 	adc   ZH,      r1      ; Tile descriptor index location
 	sbrs  r17,     1       ; ROM / RAM tile descriptor index select
 	rjmp  rtairo
@@ -942,7 +932,11 @@ rtairo:
 	lpm   r17,     Z       ; Tile descriptor index from ROM
 rtaira:
 	clr   ZH
-	mov   ZL,      r19
+	mov   ZL,      r18
+	swap  ZL
+	lsr   ZL
+	lsr   ZL
+	andi  ZL,      0x03    ; Selects tile bank to load
 	add   ZL,      r17
 	adc   ZH,      r1      ; Might be necessary if RAM area passes 128b
 	sbrc  r17,     7       ; Bit 7 zero: ROM tile descriptor
