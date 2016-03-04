@@ -32,7 +32,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 5
+#define VERSION_MIN 6
 void parseXml(TiXmlDocument* doc);
 bool process();
 unsigned char* loadRawImage();
@@ -355,6 +355,7 @@ bool process(){
 
 			fprintf(tf,"#define %s %i\n", toUpperCase(def.defName), index);
 		}
+		fprintf(tf,"\n");
 	}
 
 	//Export maps second
