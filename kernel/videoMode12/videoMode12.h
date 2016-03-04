@@ -1,5 +1,5 @@
 /*
- *  Uzebox(tm) Video Mode 8
+ *  Uzebox(tm) Video Mode 12
  *  Copyright (C) 2009  Alec Bourque
  *  
  *  This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 /** 
  * ==============================================================================
  *
- * This file contains function prototypes & exports for video mode 8
+ * This file contains function prototypes & exports for video mode 12
  *
  * ===============================================================================
  */

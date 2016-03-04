@@ -1,5 +1,5 @@
 /*
- *  Uzebox(tm) Video Mode 8
+ *  Uzebox(tm) Video Mode 12
  *  Copyright (C) 2009 Alec Bourque
  *  
  *  This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 /** 
  * ==============================================================================
  *
- * This file contains global defines for video mode 8 (for asm & C)
+ * This file contains global defines for video mode 12 (for asm & C)
  *
  * ===============================================================================
  */
@@ -31,12 +31,8 @@
 #define VMODE_C_PROTOTYPES "videoMode12/videoMode12.h"
 #define VMODE_FUNC sub_video_mode12
 
-//#define SCREEN_WIDTH 120
-//#define SCREEN_HEIGHT 96
-
-//#define VRAM_SIZE (SCREEN_WIDTH*SCREEN_HEIGHT)/4
-//#define VRAM_ADDR_SIZE 1
-//#define VRAM_TILES_H 15	
+#define VRAM_ADDR_SIZE 1 //in bytes
+#define VRAM_PTR_TYPE char
 
 #define FIRST_RENDER_LINE 36
 #define FRAME_LINES 192

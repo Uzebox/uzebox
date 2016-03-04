@@ -134,6 +134,7 @@
     extern unsigned char ReadEeprom(unsigned int addr);
 	extern char EepromWriteBlock(struct EepromBlockStruct *block);
 	extern char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block);
+	extern char EepromBlockExists(unsigned int blockId, u16* eepromAddr, u8* nextFreeBlockId);
 	extern bool isEepromFormatted();
 	extern void FormatEeprom(void);
 	extern void FormatEeprom2(u16 *ids, u8 count);
@@ -167,7 +168,9 @@
 	extern void SetLedOff();
 	extern void ToggleLed();
 
-	extern u16  GetRandomSeed();
+	extern u16  GetTrueRandomSeed(); 		//uses the entropy generator to generate a seed. Needs -DTRUE_RANDOM_GEN == 1	
+	extern u16 GetPrngNumber(u16);			//non-zero values seeds the LFSR generator (pseudo-random generator)
+	
 
 	//Debug
 	extern void debug_clear();

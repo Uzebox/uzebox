@@ -37,6 +37,7 @@ extern void InitializeVideoMode();
 extern void InitSoundPort();
 
 void ReadButtons();
+char EepromBlockExistsInternal(unsigned int blockId, u16* eepromAddr, u8* nextFreeBlockId);
 
 extern unsigned char sync_phase;
 extern unsigned char sync_pulse;
@@ -44,14 +45,8 @@ extern unsigned char sync_flags;
 extern Track tracks[CHANNELS];
 extern volatile unsigned int joypad1_status_lo,joypad2_status_lo;
 extern volatile unsigned int joypad1_status_hi,joypad2_status_hi;
-extern unsigned char tileheight, textheight;
-extern unsigned char line_buffer[];
-extern unsigned char render_start;
-extern unsigned char playback_start;
 extern unsigned char render_lines_count;
-extern unsigned char render_lines_count_tmp;
 extern unsigned char first_render_line;
-extern unsigned char first_render_line_tmp;
 extern unsigned char sound_enabled;
 
 #if SNES_MOUSE == 1
@@ -59,7 +54,7 @@ extern unsigned char sound_enabled;
 #endif
 
 u8 joypadsConnectionStatus;
-
+//u16 prng_state=0;
 
 const u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 								   (u8)(EEPROM_SIGNATURE>>8),	//
@@ -110,8 +105,8 @@ void SoftReset(void){
  * scanlinesToRender     = Total number of vertical lines to render. 
  */
 void SetRenderingParameters(u8 firstScanlineToRender, u8 scanlinesToRender){        
-	render_lines_count_tmp=scanlinesToRender;
-	first_render_line_tmp=firstScanlineToRender;
+	render_lines_count=scanlinesToRender;
+	first_render_line=firstScanlineToRender;
 }
 
 
@@ -132,6 +127,7 @@ const u16 io_table[] PROGMEM ={
 	io_set(PORTD,(1<<PD4)+(1<<PD3)+(1<<PD2)), //turn on led & activate pull-ups for soft-power switches
 
 	//setup port A for joypads
+
 	io_set(DDRA,0b00001100), 	//set only control lines as outputs
 	io_set(PORTA,0b11111011),  //activate pullups on the data lines
 
@@ -218,9 +214,7 @@ void Initialize(void){
 	sync_pulse=SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES;
 
 	//set rendering parameters
-	render_lines_count_tmp=FRAME_LINES;
 	render_lines_count=FRAME_LINES;
-	first_render_line_tmp=FIRST_RENDER_LINE;
 	first_render_line=FIRST_RENDER_LINE;
 
 	joypad1_status_hi=0;
@@ -318,11 +312,18 @@ void ReadButtons(){
 
 }
 
+/**
+ * Initiates teh buttons reading and detect if joypads are connected.
+ * When no device are plugged, the internal AVR pullup will drive the data lines high
+ * otherwise the controller's shift register will drive the data lines low after 
+ * completing a transfer. (The shift register's serial input pin is tied to ground)
+ *
+ * This functions is call by the kernel during VSYNC or can be called by the user
+ * program when CONTROLLERS_VSYNC_READ==0.
+*/
 void ReadControllers(){
 
-	//detect if joypads are connected
-	//when no connector are plugged, the internal AVR pullup will drive the line high
-	//otherwise the controller's shift register will drive the line low.
+	//Detect if devices are connected.
 	joypadsConnectionStatus=0;
 	if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) joypadsConnectionStatus|=1;
 	if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) joypadsConnectionStatus|=2;
@@ -549,9 +550,6 @@ void ProcessMouseMovement(void){
  *                  01 -> Gamepad connected in P2 port
  *                  10 -> Mouse connected in P2 port
  *                  11 -> Reserved
-
- *          0=controller in P1
- *          1=mouse in P1
  */
 unsigned char DetectControllers(){
 	//unsigned int joy;
@@ -608,7 +606,7 @@ void FormatEeprom(void) {
    }
    
    // Write free blocks IDs
-   for (u16 i = (EEPROM_BLOCK_SIZE*EEPROM_HEADER_SIZE); i < (64*EEPROM_BLOCK_SIZE); i+=EEPROM_BLOCK_SIZE) {
+   for (u16 i = (EEPROM_BLOCK_SIZE*EEPROM_HEADER_SIZE); i < (EEPROM_MAX_BLOCKS*EEPROM_BLOCK_SIZE); i+=EEPROM_BLOCK_SIZE) {
 	  WriteEeprom(i,(u8)EEPROM_FREE_BLOCK);
 	  WriteEeprom(i+1,(u8)(EEPROM_FREE_BLOCK>>8));
    }
@@ -626,7 +624,7 @@ void FormatEeprom2(u16 *ids, u8 count) {
    }
 
    // Paint unreserved free blocks
-   for (int i = EEPROM_HEADER_SIZE; i < 64; i++) {
+   for (int i = EEPROM_HEADER_SIZE; i < EEPROM_MAX_BLOCKS; i++) {
 	  id=ReadEeprom(i*EEPROM_BLOCK_SIZE)+(ReadEeprom((i*EEPROM_BLOCK_SIZE)+1)<<8);
 
 	  for (j = 0; j < count; j++) {
@@ -660,34 +658,26 @@ bool IsPowerSwitchPressed(){
 }
 
 /*
- * Write a data block in the specified block id. If the block does not exist, it is created.
+ * Write the specified structure into the specified EEPROM block id. 
+ * If the block does not exist, it is created.
  *
- * Returns: 0 on success or error codes
+ * Returns:
+ *  0x00 = Success
+ * 	0x01 = EEPROM_ERROR_INVALID_BLOCK
+ *	0x02 = EEPROM_ERROR_FULL
  */
 char EepromWriteBlock(struct EepromBlockStruct *block){
-	unsigned char i,nextFreeBlock=0,c;
-	unsigned int destAddr=0,id;
-	unsigned char *srcPtr=(unsigned char *)block;
+	u16 eepromAddr=0;
+	u8 *srcPtr=(unsigned char *)block,res,nextFreeBlock=0;
 
-	if(!isEepromFormatted()) return EEPROM_ERROR_NOT_FORMATTED;
-	if(block->id==EEPROM_FREE_BLOCK || block->id==EEPROM_SIGNATURE) return EEPROM_ERROR_INVALID_BLOCK;
+	res=EepromBlockExists(block->id,&eepromAddr,&nextFreeBlock);
+	if(res!=0 && res!=EEPROM_ERROR_BLOCK_NOT_FOUND) return res;
 
-	//scan all blocks and get the adress of that block or the next free one.
-	for(i=EEPROM_HEADER_SIZE;i<64;i++){
-		id=ReadEeprom(i*EEPROM_BLOCK_SIZE)+(ReadEeprom((i*EEPROM_BLOCK_SIZE)+1)<<8);
-		if(id==block->id){
-			destAddr=i*EEPROM_BLOCK_SIZE;
-			break;
-		}
-		if(id==0xffff && nextFreeBlock==0) nextFreeBlock=i;
-	}
+	if(eepromAddr==0 && nextFreeBlock==0) return EEPROM_ERROR_FULL;
+	if(eepromAddr==0 && nextFreeBlock!=0) eepromAddr=nextFreeBlock*EEPROM_BLOCK_SIZE;
 
-	if(destAddr==0 && nextFreeBlock==0) return EEPROM_ERROR_FULL;
-	if(nextFreeBlock!=0) destAddr=nextFreeBlock*EEPROM_BLOCK_SIZE;
-
-	for(i=0;i<EEPROM_BLOCK_SIZE;i++){
-		c=*srcPtr;
-		WriteEeprom(destAddr++,c);
+	for(u8 i=0;i<EEPROM_BLOCK_SIZE;i++){
+		WriteEeprom(eepromAddr++,*srcPtr);
 		srcPtr++;	
 	}
 	
@@ -695,42 +685,64 @@ char EepromWriteBlock(struct EepromBlockStruct *block){
 }
 
 /*
- * Reads a data block in the specified structure.
+ * Loads a data block from the in EEPROM into the specified structure.
  *
  * Returns: 
  *  0x00 = Success
  * 	0x01 = EEPROM_ERROR_INVALID_BLOCK
- *	0x02 = EEPROM_ERROR_FULL
  *	0x03 = EEPROM_ERROR_BLOCK_NOT_FOUND
- *	0x04 = EEPROM_ERROR_NOT_FORMATTED
  */
-char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
-	unsigned char i;
-	unsigned int destAddr=0xffff,id;
-	unsigned char *destPtr=(unsigned char *)block;
+char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){	
+	u16 eepromAddr;
+	u8 *blockPtr=(unsigned char *)block;
 
-	if(!isEepromFormatted()) return EEPROM_ERROR_NOT_FORMATTED;
+	u8 res=EepromBlockExists(blockId,&eepromAddr,NULL);
+	if(res!=0) return res;
+
+	for(u8 i=0;i<EEPROM_BLOCK_SIZE;i++){
+		*blockPtr=ReadEeprom(eepromAddr++);
+		blockPtr++;	
+	}
+	
+	return EEPROM_OK;
+}
+
+
+/*
+ * Scan is the specified EEPROM if block id exists. 
+ * @param eepromAddr Set with it adress in EEPROM memory if block exists or zero if doesn't exist
+ * @param nextFreeBlockId Set with id of next unnalocated block avaliable or zero (0) if all are allocated (i.e: eeprom is full)
+ * 
+ * @return
+ *  0x00 = Success, Block exists.
+ * 	0x01 = EEPROM_ERROR_INVALID_BLOCK.
+ *	0x03 = EEPROM_ERROR_BLOCK_NOT_FOUND.
+ */
+char EepromBlockExists(unsigned int blockId, u16* eepromAddr, u8* nextFreeBlockId){
+	u8 nextFreeBlock=0;
+	u8 result=EEPROM_ERROR_BLOCK_NOT_FOUND;
+	u16 id;
+	*eepromAddr=0;
+
 	if(blockId==EEPROM_FREE_BLOCK) return EEPROM_ERROR_INVALID_BLOCK;
-
-	//scan all blocks and get the adress of that block
-	for(i=0;i<32;i++){
+		
+	//scan all blocks and get the memory adress of that block and the next free block
+	for(u8 i=0;i<EEPROM_MAX_BLOCKS;i++){
 		id=ReadEeprom(i*EEPROM_BLOCK_SIZE)+(ReadEeprom((i*EEPROM_BLOCK_SIZE)+1)<<8);
+		
 		if(id==blockId){
-			destAddr=i*EEPROM_BLOCK_SIZE;
-			break;
+			*eepromAddr=(i*EEPROM_BLOCK_SIZE);
+			result=EEPROM_OK;
+		}
+		
+		if(id==0xffff && nextFreeBlock==0){
+			nextFreeBlock=i;
+			if(nextFreeBlockId!=NULL) *nextFreeBlockId=nextFreeBlock;					
 		}
 	}
 
-	if(destAddr==0xffff) return EEPROM_ERROR_BLOCK_NOT_FOUND;			
-
-	for(i=0;i<EEPROM_BLOCK_SIZE;i++){
-		*destPtr=ReadEeprom(destAddr++);
-		destPtr++;	
-	}
-	
-	return 0;
+	return result;
 }
-
 
 
 #if UART == 1
@@ -810,7 +822,25 @@ char EepromReadBlock(unsigned int blockId,struct EepromBlockStruct *block){
 		uart_tx_head=0;
 	}
 
+
 #endif
+
+
+/**
+ * Generate a random number based on a LFSR. This function is *much* faster than avr-libc rand();
+ * taps: 16 14 13 11; feedback polynomial: x^16 + x^14 + x^13 + x^11 + 1
+ *
+ * Input: Zero=return the next random value. Non-zero=Sets the seed value.
+ */
+u16 GetPrngNumber(u16 seed){
+	static u16 prng_state;
+  	
+	if(seed!=0) prng_state=seed;
+	
+	u16 bit  = ((prng_state >> 0) ^ (prng_state >> 2) ^ (prng_state >> 3) ^ (prng_state >> 5) ) & 1;
+	prng_state =  (prng_state >> 1) | (bit << 15);
+	return prng_state;   
+}
 
 
 #if DEBUG==1

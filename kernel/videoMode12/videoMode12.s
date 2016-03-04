@@ -1,5 +1,5 @@
 /*
- *  Uzebox Kernel - Mode 8
+ *  Uzebox Kernel - Mode 12
  *  Copyright (C) 2009  Alec Bourque
  *
  *  This program is free software: you can redistribute it and/or modify

@@ -1,7 +1,7 @@
 /*
 (The MIT License)
 
-Copyright (c) 2008-2015 by
+Copyright (c) 2008-2016 by
 David Etherton, Eric Anderton, Alec Bourque (Uze), Filipe Rinaldi,
 Sandor Zsuga (Jubatian), Matt Pandina (Artcfox)
 

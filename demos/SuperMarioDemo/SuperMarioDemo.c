@@ -320,7 +320,7 @@ void PerformActions(){
 unsigned char processControls(void){
 	static unsigned char ov=4,scroll=0;
 	static int lastbuttons=0;
-	unsigned int joy=BTN_RIGHT ;//ReadJoypad(0);
+	unsigned int joy=ReadJoypad(0);
 
 
 	if(joy&BTN_A){
