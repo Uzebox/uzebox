@@ -99,7 +99,7 @@ extern void Respawn(u8 id);
 
 extern s8 TriggerAnimation(const u8* animation,u8 x,u8 y,u8 param1);
 extern void ProcessAnimations();
-extern void CopyTileToRam(u8 romIndex,u8 ramIndex);
+//extern void CopyTileToRam(u8 romIndex,u8 ramIndex);
 extern char ram_tiles[];
 extern void UnpackGameMap(u8 mapNo);
 extern void PrintByte2(int x,int y, unsigned char val);

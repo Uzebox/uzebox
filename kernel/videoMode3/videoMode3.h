@@ -38,7 +38,7 @@ struct SpriteStruct
 };			
 
 struct BgRestoreStruct{
-	u16 addr;
+	u8* addr;
 	u8 tileIndex;
 };
 
@@ -56,5 +56,26 @@ typedef struct {
 
 extern ScreenType Screen;
 
+/*Define the tile table for the specified sprite bank.*/
 extern void SetSpritesTileBank(u8 bank,const char* tileData);
+
 extern u8 GetTile(u8 x,u8 y);
+
+/*Write a ramtile index to VRAM*/
+#define SetRamTile(x,y,i) SetTile(x,y,i-RAM_TILES_COUNT)
+
+/*Set the number of ramtiles to allocate for the user program. User ramtiles are
+ * not use by the kernel and the sprite blitter. User ramtiles are allocated from
+ * the beginning of the ramtiles table.*/
+extern void SetUserRamTilesCount(u8 count);
+
+/*Get a pointer to the specified tamtile index. User ramtiles are allocated from
+ * the beginning of the ramtiles table.*/
+extern u8* GetUserRamTile(u8 index);
+
+/*Copy srcTile from the active tileset in flash to destTile ramtile*/
+extern void CopyFlashTile(u8 srcTile,u8 destTile);
+
+/*Copy srcTile ramtile to destTile ramtile*/
+extern void CopyRamTile(u8 srcTile,u8 destTile);
+

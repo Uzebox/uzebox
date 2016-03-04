@@ -93,6 +93,9 @@ void redraw()
 		SetTile(ax,24,5);
 			//PrintChar(ax+2,ay,maze[ay][ax]);  //this is the 'draw' command from the old text-only version
     Print(3,26,strCred);  // vanity string
+	//PrintInt(22,25,GetTrueRandomSeed(),true);
+	PrintInt(22,25,GetPrngNumber(0),true);
+	
 }
 
 int main()
@@ -107,13 +110,9 @@ int main()
 
    SetFontTable(fonts);  // this tells Print___() commands what font to use
    ClearVram();          // clears out display memory (like a 'clear screen')
-
-  //DDRD &= 0xF7; // These are used by the "power" switch and LED on the "Gamer" baseboard that 
-  //PORTD|= 0x08; // is paired with the AVCore.  The 'power' button is used to switch mazes for now.
-  
-  
-
-
+   
+   //srand(GetTrueRandomSeed());    		//randomize using the entropy generator
+   GetPrngNumber(0);
 
 new_maze:
   for(ay=0; ay<Y_SIZE; ay++) 
@@ -174,13 +173,18 @@ new_maze:
 	
 	redraw();                                    // draw the screen for the player
 
+
+
  
  // This is what happens when you turn a static demo into a 'game'
  // For a real game, you probably don't want to do this, but it works here and is simple...
  
  //while(PIND&0x04)       // if the button on the Gamer Baseboard isn't pressed
- while(ReadPowerSwitch()==0) // if the button on the Gamer Baseboard isn't pressed
- {z++;                  // the z counter is used later on for a seed for the random number generator (user interaction = randomness)
+ while(!IsPowerSwitchPressed()) // if the button on the Gamer Baseboard isn't pressed
+ {
+
+
+ z++;                  // the z counter is used later on for a seed for the random number generator (user interaction = randomness)
  joypad=ReadJoypad(0);  // get the joypad state
 
  WaitVsync(1);          // this waits a frame and essentially slows the gameplay down
@@ -218,8 +222,6 @@ new_maze:
 	// check for idle time                     // use the frame counter to make the player graphic change if you wait around. ;-)
 	}
 
-	srand(z);    // our player-influenced 'z' value is now used to reseed the random number generator, resulting in a 'new' maze
- 
 	redraw();    // redraw the screen to update new player position
  }
 

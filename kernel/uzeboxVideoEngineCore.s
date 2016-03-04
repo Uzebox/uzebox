@@ -86,8 +86,6 @@
 .global joypad2_status_lo
 .global joypad1_status_hi
 .global joypad2_status_hi
-.global first_render_line_tmp
-.global render_lines_count_tmp
 .global first_render_line
 .global render_lines_count
 
@@ -110,8 +108,6 @@
 	first_render_line:		.byte 1
 	render_lines_count: 	.byte 1
 
-	first_render_line_tmp:	.byte 1
-	render_lines_count_tmp: .byte 1
 	
 	;last read results of joypads
 	joypad1_status_lo:	.byte 1
@@ -162,7 +158,7 @@ latency_loop:
 	brlo latency_loop
 	jmp .
 	
-	;increment sync pulse counter
+	;decrement sync pulse counter
 	lds ZL,sync_pulse
 	dec ZL
 	sts sync_pulse,ZL
@@ -417,12 +413,7 @@ no_render:
 	ldi ZL,SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES
 	sts sync_pulse,ZL
 
-	;fetch render height registers if they changed	
-	lds ZH,first_render_line_tmp
-	sts first_render_line,ZH
-	
-	lds ZH,render_lines_count_tmp
-	sts render_lines_count,ZH
+
 
 	;increment the vsync counter
 	lds r24,vsync_counter
@@ -792,11 +783,21 @@ internal_spi_byte:
 		ldi r24,0
 		sts sync_pulse,r24
 
+
+		sts _SFR_MEM_ADDR(TIMSK1),r24
+		sts _SFR_MEM_ADDR(OCR1AL),r24
+		sts _SFR_MEM_ADDR(OCR1AH),r24
+		sts _SFR_MEM_ADDR(OCR1BL),r24
+		sts _SFR_MEM_ADDR(OCR1BH),r24
+		sts _SFR_MEM_ADDR(TCNT1H),r24
+		sts _SFR_MEM_ADDR(TCNT1L),r24
+		
 		sts _SFR_MEM_ADDR(TCCR1A),r24	
 		ldi 24,(1<<CS10)
 		sts _SFR_MEM_ADDR(TCCR1B),r24
 
 		cli
+
 		;enable watchdog at fastest speed and generate interrupts
 		ldi r24,0
 		sts _SFR_MEM_ADDR(MCUSR),r24	
@@ -823,9 +824,9 @@ internal_spi_byte:
 	; Returns: r24:r25(u16)
 	;********************************
 
-	.global GetRandomSeed
-	.section .text.GetRandomSeed
-	GetRandomSeed:
+	.global GetTrueRandomSeed
+	.section .text.GetTrueRandomSeed
+	GetTrueRandomSeed:
 		lds r24,random_value
 		lds r25,random_value+1
 		ret
@@ -839,7 +840,7 @@ internal_spi_byte:
 		;save flags & status register
 		push r16
 		push r17
-	
+
 		in r16,_SFR_IO_ADDR(SREG)
 		push r16
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="../data/font-6x6.png" type="png" tile-width="6" tile-height="6" />
+    <output file="../data/font-6x6.inc">
+        <tiles var-name="font"/>
+    </output>
+</gfx-xform>

@@ -41,7 +41,7 @@ void ReadButtons();
 extern unsigned char sync_phase;
 extern unsigned char sync_pulse;
 extern unsigned char sync_flags;
-extern struct TrackStruct tracks[CHANNELS];
+extern Track tracks[CHANNELS];
 extern volatile unsigned int joypad1_status_lo,joypad2_status_lo;
 extern volatile unsigned int joypad1_status_hi,joypad2_status_hi;
 extern unsigned char tileheight, textheight;
@@ -81,8 +81,8 @@ const u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 
 extern void wdt_randomize(void);
 
-void wdt_init(void) __attribute__((naked)) __attribute__((section(".init7")));
-void Initialize(void) __attribute__((naked)) __attribute__((section(".init8")));
+void wdt_init(void) __attribute__((naked)) __attribute__((section(".init7"), used));
+void Initialize(void) __attribute__((naked)) __attribute__((section(".init8"), used));
 
 void wdt_init(void)
 {
@@ -649,12 +649,14 @@ bool isEepromFormatted(){
 }
 
 /*
- * Reads the power button status. Works for all consoles. 
+ * Reads the power button status. 
  *
  * Returns: true if pressed.
  */
-u8 ReadPowerSwitch(){
-	return !((PIND&((1<<PD3)+(1<<PD2)))==((1<<PD3)+(1<<PD2)));
+bool IsPowerSwitchPressed(){
+	
+	return 	((PIND & ((1<<PD3)|(1<<PD2))) != ((1<<PD3)|(1<<PD2)));
+	
 }
 
 /*

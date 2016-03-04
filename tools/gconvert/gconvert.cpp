@@ -32,7 +32,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 7
+#define VERSION_MIN 6
 void parseXml(TiXmlDocument* doc);
 bool process();
 unsigned char* loadRawImage();
@@ -44,7 +44,8 @@ int paletteIndexFromColor(unsigned char color);
 
 //void exportType8bpp(unsigned char* buffer, vector<unsigned char*> uniqueTiles, FILE *tf);
 
-enum Duplicates { discard=0, keep } ;
+//enum Duplicates { discard=0, keep } ;
+//enum Duplicates { discard=0, keep } ;
 
 struct TileMap {
 	const char* varName;
@@ -52,6 +53,12 @@ struct TileMap {
 	int top;
 	int width;
 	int height;
+};
+
+struct TileDefine {
+	const char* defName;
+	int left;
+	int top;
 };
 
 struct Palette {
@@ -73,8 +80,9 @@ struct ConvertionDefinition {
 	const char* outputFile;
 	const char* tilesVarName;
 	int backgroundColor;		//optional, specify the mask color for mode 9
-	bool isBackgroundTiles;
-	enum Duplicates duplicateTiles;
+	bool isBackgroundTiles;		/*indicate the tileset is made of background tiles (vs tiles for sprites).
+								  Depending on the mode, it will be placed in different memory section.*/
+	bool removeDuplicateTiles;	//Remove identical tiles from the output tileset and ajust maps accordingly
 
 	int width;			//total image width in pixels
 	int height;			//total image height in pixels
@@ -85,17 +93,20 @@ struct ConvertionDefinition {
 	int mapsPointersSize;
 	TileMap* maps;
 	int mapsCount;
-	
+
+	TileDefine* defines;
+	int definesCount;
+
 	Palette palette;
 };
 
-typedef struct Image{
+typedef struct {
 	unsigned char* buffer;
 	int tileWidth;
 	int tileHeight;
 	int width;
 	int height;
-};
+}Image;
 
 ConvertionDefinition xform;
 
@@ -116,7 +127,7 @@ int main(int argc, char *argv[]) {
 	printf("Current working directory: %s\n",path);
 
 	//load the xform definition file
-	printf("Loading transformation file: %s ...\n",argv[1]);
+	printf("Loading transformation file: %s\n",argv[1]);
 	TiXmlDocument doc (argv[1]);
 	xform.xformFile=argv[1];
 
@@ -229,7 +240,7 @@ bool process(){
 	image.width=xform.width;
 	image.height=xform.height;
 
-	printf("File version: %i\n",xform.version);
+	printf("Transform file version: %i\n",xform.version);
 	printf("Input file: %s\n",xform.inputFile);
 	printf("Input file type: %s\n",xform.inputType);
 	printf("Input width: %ipx\n",xform.width);
@@ -238,7 +249,7 @@ bool process(){
 	printf("Tile height: %ipx\n",xform.tileHeight);
 	printf("Output file: %s\n",xform.outputFile);
 	printf("Output type: %s\n",xform.outputType);
-	printf("Duplicate tiles: %s\n",xform.duplicateTiles==keep?"keep":"discard");
+	printf("Remove duplicate tiles: %s\n",xform.removeDuplicateTiles?"true":"false");
 
 	printf("Tiles variable name: %s\n",xform.tilesVarName);
 	if(xform.maps!=NULL){
@@ -283,7 +294,7 @@ bool process(){
 
 			unsigned char* tile=getTileAt(h,v,&image);
 
-			if(xform.duplicateTiles==keep){
+			if(xform.removeDuplicateTiles==false){
 				uniqueTiles.push_back(tile);
 			}else{
 				int refIndex=-1;
@@ -311,9 +322,43 @@ bool process(){
 		}
 	}
 
-	int listSize=uniqueTiles.size();
+	//Export tile defines first
+	if(xform.defines!=NULL){
+		for(int d=0; d<xform.definesCount; d++){
+			TileDefine def=xform.defines[d];
 
-	//Export maps first
+			//validate tile define
+			if (def.defName==NULL) {
+				printf("Error: def-name not set for tile define\n");
+				return false;
+			}
+			else if(def.left>=horizontalTiles || def.top>=verticalTiles){
+				printf("Error: Position is are out of bound for tile define: %s\n",def.defName);
+				return false;
+			}
+
+			int index = -1;
+			unsigned char* tile=getTileAt(def.left,def.top,&image);
+			for(unsigned int i=0;i<uniqueTiles.size();i++){
+				unsigned char* b=uniqueTiles.at(i);
+				if(tilesEqual(tile,b,image.tileWidth*image.tileHeight)){
+					index=i;	//tile found in tile list
+					break;
+				}
+			}
+			free(tile);
+
+			if(index==-1){
+				printf("Define tile not found in tileset!\n");
+				return false;
+			}
+
+			fprintf(tf,"#define %s %i\n", toUpperCase(def.defName), index);
+		}
+		fprintf(tf,"\n");
+	}
+
+	//Export maps second
 	if(xform.maps!=NULL){
 
 		int index=0;
@@ -847,13 +892,15 @@ void parseXml(TiXmlDocument* doc){
 	xform.tilesVarName=tiles->Attribute("var-name");
     xform.outputType=output->Attribute("type");
 	const char* isBackgroundTiles=output->Attribute("isBackgroundTiles");
-    xform.isBackgroundTiles=isBackgroundTiles && strstr(isBackgroundTiles,"true");
+    xform.isBackgroundTiles=isBackgroundTiles && (isBackgroundTiles!=NULL && strstr(isBackgroundTiles,"true"));
 	if(output->QueryIntAttribute("background-color",&xform.backgroundColor)==TIXML_NO_ATTRIBUTE){
 		xform.backgroundColor=-1;
 	}
-	const char* dups=output->Attribute("duplicate-tiles");
-	if(dups!=NULL && strstr(dups,"keep")){
-		xform.duplicateTiles=keep;
+	const char* dups=output->Attribute("remove-duplicate-tiles");
+	if(dups!=NULL && strstr(dups,"false")){
+		xform.removeDuplicateTiles=false;
+	}else{
+		xform.removeDuplicateTiles=true; //default value
 	}
 
 	//palette
@@ -900,6 +947,32 @@ void parseXml(TiXmlDocument* doc){
 		xform.maps=NULL;
 	}
 
+	//tile defines
+	TiXmlElement* definesElem=output->FirstChildElement("defines");
+	if(definesElem!=NULL){
+		//count # of define sub-elements
+		const TiXmlNode* node;
+		int defineCount=0;
+		for(node=definesElem->FirstChild("define");node;node=node->NextSibling("define"))defineCount++;
+
+		TileDefine* defines=new TileDefine[defineCount];
+		xform.definesCount=defineCount;
+		defineCount=0;
+		for(node=definesElem->FirstChild("define");node;node=node->NextSibling("define")){
+			defines[defineCount].defName=node->ToElement()->Attribute("def-name");
+
+			node->ToElement()->QueryIntAttribute("top",&defines[defineCount].top);
+			node->ToElement()->QueryIntAttribute("left",&defines[defineCount].left);
+			defineCount++;
+		}
+		if(defineCount>0){
+			xform.defines=defines;
+		}else{
+			xform.defines=NULL;
+		}
+	}else{
+		xform.defines=NULL;
+	}
 }
 
 //load image in a byte arrays
@@ -1028,8 +1101,6 @@ unsigned char* loadPngImage(){
 
 unsigned char* loadImage(){
 	unsigned char* buffer;
-
-	printf("Loading image..\n");
 
 	//load the source image
 	if(strcmp(xform.inputType,"raw")==0){

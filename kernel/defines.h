@@ -31,6 +31,10 @@
 	#define __DEFINES_H_
  	#include <avr/io.h>
 
+	//Used by custom video modes to add quotes to paths
+	#define Q(x) #x
+	#define QUOTE(x) Q(x)
+
 	//For some reason the Atmega1284P io.h does not include the old "PA0" defines
 	#ifndef PA0
 		#define PA0 PORTA0
@@ -412,6 +416,8 @@
 	#define PC_TREMOLO_RATE	10
 	#define PC_SLIDE		11
 	#define PC_SLIDE_SPEED	12
+	#define PC_LOOP_START	13
+	#define PC_LOOP_END		14
 	#define PATCH_END		0xff
 
 
@@ -499,10 +505,12 @@
 	#define JOYPAD_DATA2_PIN PA1
 
 	#define EEPROM_BLOCK_SIZE 32
+	#define EEPROM_MAX_BLOCKS 64 //(2048/EEPROM_BLOCK_SIZE)
 	#define EEPROM_HEADER_SIZE 1
 	#define EEPROM_SIGNATURE 0x555A
 	#define EEPROM_SIGNATURE2 0x555B
 	#define EEPROM_FREE_BLOCK 0xffff
+	#define EEPROM_OK 0x0
 	#define EEPROM_ERROR_INVALID_BLOCK 0x1
 	#define EEPROM_ERROR_FULL 0x2
 	#define EEPROM_ERROR_BLOCK_NOT_FOUND 0x3
@@ -532,6 +540,11 @@
 		#include "videoMode12/videoMode12.def.h"
 	#elif VIDEO_MODE == 13
 		#include "videoMode13/videoMode13.def.h"
+	#elif VIDEO_MODE == 14
+		#include "videoMode14/videoMode14.def.h"
+	#elif VIDEO_MODE == 0
+	    //custom user defined video mode
+	    #include QUOTE(VIDEO_MODE_PATH/videoMode.def.h)
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif

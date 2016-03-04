@@ -110,6 +110,7 @@
 									//b7: priority			: 1=Hi/Fx, 0=low/regular note
 
 		unsigned char note;
+		unsigned char channel;
 
 		s16 slideStep;		//used to slide to note
 		u8  slideNote;		//target note
@@ -127,7 +128,6 @@
 		
 		unsigned char patchNo;
 		unsigned char fxPatchNo;
-		unsigned char patchLastStatus;
 		unsigned char patchNextDeltaTime;
 		unsigned char patchCurrDeltaTime;
 		unsigned char patchPlayingTime;	//used by fx to steal oldest voice
@@ -137,9 +137,10 @@
 			const char *patternPos;
 		#endif
 	};
+	typedef struct TrackStruct Track;
 
 
-	typedef void (*PatchCommand)(struct TrackStruct* track,unsigned char channel, char value);
+	typedef void (*PatchCommand)(Track* track, char value);
 
 	extern unsigned char mix_buf[];
 	extern volatile unsigned char *mix_pos;
@@ -148,8 +149,8 @@
 	extern unsigned char tr4_barrel_hi;
 	extern unsigned char tr4_params;
 	
-	extern struct MixerStruct mixer;					//low level sound mixer
-	extern struct TrackStruct tracks[CHANNELS];			//music player tracks
+	extern struct MixerStruct mixer;		//low level sound mixer
+	extern Track tracks[CHANNELS];			//music player tracks
 	extern void ProcessMusic(void);
 
 	extern volatile u8 uart_rx_buf_start;
@@ -163,15 +164,11 @@
 		unsigned int loopStart;
 		unsigned int loopEnd;   		       
 	}; 
+	typedef struct PatchStruct Patch;
 
 	extern void SetColorBurstOffset(unsigned char offset);
 	void ProcessMouseMovement(void);
 	void ProcessFading();
-
-
-
-
-
 
 	//EEPROM Kernel structs
 	#define EEPROM_HEADER_VER 1

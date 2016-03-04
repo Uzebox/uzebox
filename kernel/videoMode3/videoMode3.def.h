@@ -116,5 +116,5 @@
 #define SPRITE_BANK3 3<<6
 
 #define OFF_SCREEN SCREEN_TILES_H*TILE_WIDTH
-
+#define MAX_RAMTILES 60
 #define HSYNC_USABLE_CYCLES 225 //Maximum free cycles usable by the hysnc and audio

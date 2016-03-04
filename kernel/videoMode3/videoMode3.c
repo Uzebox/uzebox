@@ -40,19 +40,26 @@
 	extern unsigned char *tile_table_lo;
 	extern struct BgRestoreStruct ram_tiles_restore[];
 
-	extern void CopyTileToRam(unsigned char romTile,unsigned char ramTile);
 	extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
 
-	unsigned char free_tile_index;
+	unsigned char free_tile_index, userRamTilesCount=0,userRamTilesCount_tmp=0;
 	bool spritesOn=true;
 
 	void RestoreBackground(){
 		unsigned char i;
-		for(i=0;i<free_tile_index;i++){			
-			vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+		for(i=userRamTilesCount;i<free_tile_index;i++){
+			//vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
+			*ram_tiles_restore[i].addr=ram_tiles_restore[i].tileIndex;
 		}	
 	}
 
+	void SetUserRamTilesCount(u8 count){
+		userRamTilesCount_tmp=count;		
+	}
+
+	u8* GetUserRamTile(u8 index){
+		return ram_tiles+(index*TILE_HEIGHT*TILE_WIDTH);
+	}
 
 	void SetSpriteVisibility(bool visible){
 		spritesOn=visible;
@@ -143,8 +150,10 @@
 		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy;
 		unsigned int ramPtr,ssx,ssy;
 
-		free_tile_index=0;	
 		if(!spritesOn) return;
+
+		userRamTilesCount=userRamTilesCount_tmp;
+		free_tile_index=userRamTilesCount;
 	
 		for(i=0;i<MAX_SPRITES;i++){
 			bx=sprites[i].x;
@@ -208,18 +217,19 @@
 
 							bt=vram[ramPtr];						
 
-							if( (bt>=RAM_TILES_COUNT)  && (free_tile_index < RAM_TILES_COUNT) ){
-
-								//tile is mapped to flash. Copy it to next free RAM tile.
-								//if no ram free ignore tile
-								ram_tiles_restore[free_tile_index].addr=ramPtr;
+							if( ((bt>=RAM_TILES_COUNT) | (bt<userRamTilesCount)) && (free_tile_index < RAM_TILES_COUNT) ){ //if no ram free ignore tile
+								if( bt>=RAM_TILES_COUNT ){
+									//tile is mapped to flash. Copy it to next free RAM tile.
+									CopyFlashTile(bt-RAM_TILES_COUNT,free_tile_index);
+								}else if(bt<userRamTilesCount){
+									//tile is a user ram tile. Copy it to next free RAM tile.
+									CopyRamTile(bt,free_tile_index);
+								}
+								ram_tiles_restore[free_tile_index].addr=(&vram[ramPtr]);
 								ram_tiles_restore[free_tile_index].tileIndex=bt;
-													
-								CopyTileToRam(bt,free_tile_index);
-
 								vram[ramPtr]=free_tile_index;
 								bt=free_tile_index;
-								free_tile_index++;										
+								free_tile_index++;
 							}
 				
 							if(bt<RAM_TILES_COUNT){				

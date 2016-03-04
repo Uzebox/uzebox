@@ -1,5 +1,5 @@
 ###############################################################################
-# Makefile for the project SpriteDemo
+# Makefile for the project
 ###############################################################################
 
 ## General Flags
@@ -20,8 +20,8 @@ MIX_PATH_ESC:= $(subst $(SPACE),$(SPACE_ESC),$(MIX_PATH))
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=9 -DINTRO_LOGO=0 -DUART=1 -DDEBUG=1 -DUART_RX_BUFFER_SIZE=64 -DUART_TX_BUFFER_SIZE=256
-KERNEL_OPTIONS += -DMIXER_WAVES=\"$(MIX_PATH_ESC)\"  -DSOUND_MIXER=1 -DSOUND_CHANNEL_5_ENABLE=0
+KERNEL_OPTIONS  = -DVIDEO_MODE=9 -DINTRO_LOGO=0 -DUART=1  -DUART_RX_BUFFER_SIZE=256 -DUART_TX_BUFFER_SIZE=128
+KERNEL_OPTIONS += -DMIXER_WAVES=\"$(MIX_PATH_ESC)\"  -DSOUND_MIXER=1 -DSOUND_CHANNEL_5_ENABLE=0 -DRESOLUTION=60
 
 
 ## Options common to compile, link and assembly rules
@@ -54,7 +54,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o $(GAME).o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o uzenet.o keyboard.o console.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -86,6 +86,15 @@ uzeboxSoundEngine.o: $(KERNEL_DIR)/uzeboxSoundEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+keyboard.o: ../keyboard.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+console.o: ../console.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+uzenet.o: ../uzenet.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources

@@ -1,6 +1,6 @@
 /*
- *  Uzebox(tm) Video Mode 14
- *  Copyright (C) 20098  Alec Bourque
+ *  Uzebox(tm) Video Mode for Game of Life
+ *  Copyright (C) 2009 Alec Bourque
  *  
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,36 +21,34 @@
 /** 
  * ==============================================================================
  *
- * This file contains global defines for video mode 14
+ * This file contains global defines for this custom video mode (for asm & C)
  *
  * ===============================================================================
  */
 #pragma once
 
-#define VMODE_ASM_SOURCE "videoMode14/videoMode14.s"
-#define VMODE_C_PROTOTYPES "videoMode14/videoMode14.h"
-#define VMODE_FUNC sub_video_mode14
-
+#define VMODE_ASM_SOURCE QUOTE(VIDEO_MODE_PATH/videoMode.s)
+//#define VMODE_C_SOURCE QUOTE(VIDEO_MODE_PATH/videoMode.c)
+#define VMODE_C_PROTOTYPES QUOTE(VIDEO_MODE_PATH/videoMode.h)
+#define VMODE_FUNC sub_video_mode
 
 #define TILE_HEIGHT 8
-#define TILE_WIDTH 8
-#define TILE_BPP 2
-#define TILE_MAX_NO 128
-#define RAMTILE_SIZE ((TILE_HEIGHT * TILE_WIDTH * TILE_BPP * TILE_MAX_NO) / 8)
-
-#define VRAM_TILES_H 32
-#define VRAM_TILES_V 28		
-#define SCREEN_TILES_H 32
+#define TILE_WIDTH 6
+#define VRAM_TILES_H 40
+#define VRAM_TILES_V 28
+#define SCREEN_TILES_H 40
 #define SCREEN_TILES_V 28
 
-#ifndef FIRST_RENDER_LINE
-	#define FIRST_RENDER_LINE 20	
-#endif
-#define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V
-#define VRAM_ADDR_SIZE 1 //in bytes
 
+#define SCREEN_WIDTH 88
+#define SCREEN_HEIGHT 56 //74
 
-#ifndef FRAME_LINES
-	#define FRAME_LINES SCREEN_TILES_V*TILE_HEIGHT
-#endif
+#define PAGE_SIZE (SCREEN_WIDTH/8)*SCREEN_HEIGHT
+#define VRAM_SIZE PAGE_SIZE*2
+#define VRAM_ADDR_SIZE 1
+#define VRAM_PTR_TYPE u8
+#define TEXT_VRAM_SIZE SCREEN_TILES_H*SCREEN_TILES_V
+
+#define FIRST_RENDER_LINE 20
+#define FRAME_LINES 224
 

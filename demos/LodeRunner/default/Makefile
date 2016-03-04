@@ -1,10 +1,10 @@
-###############################################################################
-# Makefile for the project SpriteDemo
-###############################################################################
+###########################
+# Makefile for the project 
+###########################
 
 ## General Flags
-PROJECT = loderunner
-GAME= loderunner
+PROJECT = LodeRunner
+GAME= LodeRunner
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
@@ -27,16 +27,18 @@ CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d
 CFLAGS += $(KERNEL_OPTIONS)
 
 
+
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
 ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
+
 ## Linker flags
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=$(GAME).map 
 LDFLAGS += -Wl,-gc-sections 
-
+#LDFLAGS += -T $(KERNEL_DIR)/uzebox_linkscript.x
 
 ## Intel Hex file production flags
 HEX_FLASH_FLAGS = -R .eeprom
@@ -85,7 +87,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../loderunner.c
+$(GAME).o: ../LodeRunner.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

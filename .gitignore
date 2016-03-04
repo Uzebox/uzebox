@@ -13,4 +13,7 @@ eeprom.bin
 *.uze
 *.dll
 *.exe
-*.class
+
+*.log
+*.bak
+gdb-script.cfg
