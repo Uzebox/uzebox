@@ -1,7 +1,9 @@
 /*
 (The MIT License)
 
-Copyright (c) 2008-2013 David Etherton, Eric Anderton, Alec Bourque et al.
+Copyright (c) 2008-2015 by
+David Etherton, Eric Anderton, Alec Bourque (Uze), Filipe Rinaldi,
+Sandor Zsuga (Jubatian), Matt Pandina (Artcfox)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -37,18 +39,19 @@ More info at uzebox.org
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <iostream>
+#include <queue>
 
 #include "avr8.h"
-#include "gdbserver.h"
+#ifndef NOGDB
+    #include "gdbserver.h"
+#endif // NOGDB
 #include "SDEmulator.h"
 #include "Keyboard.h"
 #include "logo.h"
-#include "SDL_framerate.h"
-#include <iostream>
-#include <queue>
+
 using namespace std;
-
-
 
 #define X		((XL)|(XH<<8))
 #define DEC_X	(XL-- || XH--)
@@ -112,17 +115,15 @@ using namespace std;
 #define WDIE			64
 #define WDIF			128
 
-#define DELAY16MS		457142
+#define DELAY16MS			457142	//in cpu cycles
+#define HSYNC_HALF_PERIOD 	910		//in cpu cycles
+#define HSYNC_PERIOD 		1820	//in cpu cycles
 
-static const char *port_name(int);
-
-#if GUI
 static const char* joySettingsFilename = "joystick-settings";
-#endif
-
 
 #define SD_ENABLED() SDpath
 
+/*
 #define D3	((insn >> 4) & 7)
 #define R3	(insn & 7)
 #define D4	((insn >> 4) & 15)
@@ -132,17 +133,61 @@ static const char* joySettingsFilename = "joystick-settings";
 #define K8	(((insn >> 4) & 0xF0) | (insn & 0xF))
 #define k7	((s16)(insn<<6)>>9)
 #define k12	((s16)(insn<<4)>>4)
+*/
 
 #define BIT(x,b)	(((x)>>(b))&1)
 #define C			BIT(SREG,SREG_C)
 
-inline void set_bit(u8 &dest,int bit,int value)
+
+// Delayed output flags. If either is set, there is a delayed out waiting to
+// be written on the end of update_hardware, so the next cycle it can have
+// effect. The "dly_out" variable contains these flags, and the "dly_xxx"
+// variables the values to be written out.
+#define DLY_TCCR1B     0x0001U
+#define DLY_TCNT1      0x0002U
+
+
+// Masks for SREG bits, use to combine them
+#define SREG_IM (1U << SREG_I)
+#define SREG_TM (1U << SREG_T)
+#define SREG_HM (1U << SREG_H)
+#define SREG_SM (1U << SREG_S)
+#define SREG_VM (1U << SREG_V)
+#define SREG_NM (1U << SREG_N)
+#define SREG_ZM (1U << SREG_Z)
+#define SREG_CM (1U << SREG_C)
+
+// Clears bits. Use this on the bits which should change processing
+// the given instruction.
+inline static void clr_bits(u8 &dest, unsigned int bits)
 {
-	if (value)
-		dest |= (1<<bit);
-	else
-		dest &= ~(1<<bit);
+	dest = dest & (~bits);
 }
+// Inverse set bit: Sets if value is zero. Mostly for Z flag
+inline static void set_bit_inv(u8 &dest, unsigned int bit, unsigned int value)
+{
+	// Assume at most 16 bits input on value, makes it 0 or 1, the latter
+	// if the input was nonzero. The "& 1U" part is usually thrown away by
+	// the compiler (32 bits). The "& 0xFFFFU" part might also be thrown
+	// away depending on the input.
+	value = ((value & 0xFFFFU) - 1U) >> 31;
+	dest  = dest | ((value & 1U) << bit);
+}
+// Set bit using only the lowest bit of 'value': if 1, sets the bit.
+inline static void set_bit_1(u8 &dest, unsigned int bit, unsigned int value)
+{
+	// The "& 1" on 'value' might be thrown away for suitable input.
+	dest  = dest | ((value & 1U) << bit);
+}
+// Store bit (either set or clear) using only the lowest bit of 'value'.
+inline static void store_bit_1(u8 &dest, unsigned int bit, unsigned int value)
+{
+	// The "& 1" on 'value' might be thrown away for suitable input
+	// If 'bit' is constant (inlining), it folds up well on optimizing.
+	dest  = dest & (~(1U << bit));
+	dest  = dest | ((0U - (value & 1U)) & (1U << bit));
+}
+
 
 // This computes both the half-carry (bit3) and full carry (bit7)
 #define BORROWS		(~Rd&Rr)|(Rr&R)|(R&~Rd)
@@ -150,37 +195,42 @@ inline void set_bit(u8 &dest,int bit,int value)
 
 #define UPDATE_HC_SUB \
 	CH = BORROWS; \
-	set_bit(SREG, SREG_H, CH & 0x8); \
-	set_bit(SREG, SREG_C, CH & 0x80)
+	set_bit_1(SREG, SREG_H, (CH & 0x08U) >> 3); \
+	set_bit_1(SREG, SREG_C, (CH & 0x80U) >> 7);
 #define UPDATE_HC_ADD \
 	CH = CARRIES; \
-	set_bit(SREG, SREG_H, CH & 0x8); \
-	set_bit(SREG, SREG_C, CH & 0x80)
+	set_bit_1(SREG, SREG_H, (CH & 0x08U) >> 3); \
+	set_bit_1(SREG, SREG_C, (CH & 0x80U) >> 7);
 
-#define UPDATE_H		set_bit(SREG, SREG_H, (CARRIES & 0x8))
-#define UPDATE_Z		set_bit(SREG, SREG_Z, !R)
-#define UPDATE_V_ADD	set_bit(SREG, SREG_V, ((Rd&Rr&~R)|(~Rd&~Rr&R)) & 0x80)
-#define UPDATE_V_SUB	set_bit(SREG, SREG_V, ((Rd&~Rr&~R)|(~Rd&Rr&R)) & 0x80)
-#define UPDATE_N		set_bit(SREG, SREG_N, R & 0x80)
-#define UPDATE_S		set_bit(SREG, SREG_S, BIT(SREG,SREG_N) ^ BIT(SREG,SREG_V))
+#define UPDATE_H		set_bit_1(SREG, SREG_H, (CARRIES & 0x8) >> 3)
+#define UPDATE_Z		set_bit_inv(SREG, SREG_Z, R)
+#define UPDATE_V_ADD	set_bit_1(SREG, SREG_V, (((Rd&Rr&~R)|(~Rd&~Rr&R)) & 0x80) >> 7)
+#define UPDATE_V_SUB	set_bit_1(SREG, SREG_V, (((Rd&~Rr&~R)|(~Rd&Rr&R)) & 0x80) >> 7)
+#define UPDATE_N		set_bit_1(SREG, SREG_N, (R & 0x80) >> 7)
+#define UPDATE_S		set_bit_1(SREG, SREG_S, BIT(SREG,SREG_N) ^ BIT(SREG,SREG_V))
 
 #define UPDATE_SVN_SUB	UPDATE_V_SUB; UPDATE_N; UPDATE_S
 #define UPDATE_SVN_ADD	UPDATE_V_ADD; UPDATE_N; UPDATE_S
 
 // Simplified version for logical insns.
+// sreg_clr on S, V, and N should be called before this.
+// If 7th bit of R is set:
+//     Sets N, sets S, clears V.
+// If 7th bit of R is clear:
+//     Clears N, clears S, clears V.
 #define UPDATE_SVN_LOGICAL \
-	if (R & 0x80) { /* Set N and S, clear V */ \
-		SREG = (SREG | (1<<SREG_N) | (1<<SREG_S)) & ~(1<<SREG_V); \
-	} else { /* Clear N and S and V */ \
-		SREG = (SREG & ~((1<<SREG_S)|(1<<SREG_V)|(1<<SREG_N))); \
-	}
+	SREG |= ((0x7FU - (unsigned int)(R)) >> 8) & (SREG_SM | SREG_NM);
 
-#define UPDATE_CZ_MUL(x)		set_bit(SREG,SREG_C,x & 0x8000); set_bit(SREG,SREG_Z,!x)
+#define UPDATE_CZ_MUL(x)		set_bit_1(SREG,SREG_C,(x & 0x8000) >> 15); set_bit_inv(SREG,SREG_Z,x)
 
-#define CLEAR_Z		(SREG &= ~(1<<SREG_Z))
+// UPDATE_CLEAR_Z: Updates Z flag by clearing if result is nonzero. This
+// should be used if the previous Z flag state is meant to be preserved (such
+// as in CPC), so don't include Z in a clr_bits then.
+#define UPDATE_CLEAR_Z		(SREG &= ~(((0U - (unsigned int)(R)) >> 8) & SREG_ZM))
+
 #define SET_C		(SREG |= (1<<SREG_C))
 
-#define ILLEGAL_OP fprintf(stderr,"invalid insn %x\n",insn); shutdown(1);
+#define ILLEGAL_OP fprintf(stderr,"invalid insn at address %x\n",currentPc); shutdown(1);
 
 #if defined(_DEBUG)
 #define DISASM 1
@@ -219,6 +269,13 @@ static u8 encode_delta(int d)
 	return result;
 }
 
+u32 hsync_more_col;
+u32 hsync_less_col;
+
+#ifndef __EMSCRIPTEN__
+FILE* avconv_video = NULL;
+FILE* avconv_audio = NULL;
+#endif // __EMSCRIPTEN__
 
 void avr8::spi_calculateClock(){
     // calculate the number of cycles before the write completes
@@ -236,127 +293,190 @@ void avr8::spi_calculateClock(){
     SPI_DEBUG("SPI divider set to : %d (%d cycles per byte)\n",spiClockDivider,spiCycleWait);
 }
 
-void avr8::write_io(u8 addr,u8 value)
+// Renders a line into a 32 bit output buffer.
+// Performs a shrink by 2
+static inline void render_line(u32* dest, u8 const* src, unsigned int spos, u32 const* pal)
 {
+	for (unsigned int i = 0; i < VIDEO_DISP_WIDTH; i++)
+		dest[i] = pal[src[((i << 1) + spos) & 0x7FFU]];
+}
+
+inline void avr8::write_io(u8 addr,u8 value)
+{
+	// Pixel output ideally should inline, it is performed about 2 - 3
+	// million times per second in a Uzebox game.
 	if (addr == ports::PORTC)
 	{
-	     pixel = palette[value & DDRC];
+		pixel_raw = value & DDRC;
 	}
-	// p106 in 644 manual; 16-bit values are latched
-	else if (addr == ports::TCNT1H || addr == ports::ICR1H)
-		TEMP = value;
-	else if (addr == ports::TCNT1L || addr == ports::ICR1L)
+	else
 	{
-		io[addr] = value;
-		io[addr+1] = TEMP;
+		write_io_x(addr, value);
 	}
-	else if (addr == ports::PORTD)
+}
+
+// Should not be called directly, use write_io instead (pixel output!)
+void avr8::write_io_x(u8 addr,u8 value)
+{
+	u8 changed;
+	u8 went_low;
+
+	switch (addr)
 	{
-        // write value with respect to DDRD register
-        io[addr] = value & DDRD;
+	case (ports::OCR2A):
+		if (enableSound && TCCR2B)
+		{
+			// raw pcm sample at 15.7khz
+#ifndef __EMSCRIPTEN__
+			while (audioRing.isFull())SDL_Delay(1);
+#endif // __EMSCRIPTEN__
+			SDL_LockAudio();
+			audioRing.push(value);
+			SDL_UnlockAudio();
 
-    }
+#ifndef __EMSCRIPTEN__
+			//Send audio byte to ffmpeg
+			if(recordMovie && avconv_audio) {
+				fwrite(&value, 1, 1, avconv_audio);
 
-	else if (addr == ports::PORTB)
-	{
-        u32 elapsed = cycleCounter - prevPortB;
-        prevPortB = cycleCounter;
+				// Keep audio in sync, since the sample rate we encode at is not a factor of the clock speed
+				const double needs_extra_sample = 4.0 * 1.0 / 15734.0 / (1.0 / 15734.0 - 1820.0 / 28636360.0);
+				static double accumulated_error = 0.0;
+				accumulated_error += (28636360 % 15734);
+				if (accumulated_error > needs_extra_sample) {
+					accumulated_error -= needs_extra_sample;
+					fwrite(&value, 1, 1, avconv_audio);
+				}
+			}
+#endif // __EMSCRIPTEN__
+		}
+		break;
 
+	case (ports::PORTD):
+		// write value with respect to DDRD register
+		io[addr] = value & DDRD;
+		break;
 
-       if ((value&1) && scanline_count == -999 && elapsed >= 774 -7 && elapsed <= 774 + 7)
-       {
-    	   scanline_count = scanline_top;
-       }
-       else if ((value&1) && scanline_count != -999)
-       {
-            scanline_count++;
-            current_cycle = left_edge;
+	case (ports::PORTB):
+		if(value&1){
+			elapsedCycles=cycleCounter-prevCyclesCounter;
 
-            current_scanline = (u32*)((u8*)screen->pixels + scanline_count * 2 * screen->pitch + inset);
-            next_scanline = current_scanline + (screen->pitch>>2);
+			if (scanline_count == -999 && elapsedCycles >= HSYNC_HALF_PERIOD -10 && elapsedCycles <= HSYNC_HALF_PERIOD + 10)
+			{
+			   scanline_count = scanline_top;
+			}
+			else if (scanline_count != -999)
+			{
 
-            if (scanline_count == 224)
-            {
-            	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-            	SDL_Flip(screen);
-            	SDL_framerateDelay(&fpsmanager);
+				if (scanline_count >= 0){
+					render_line(
+						(u32*)((u8*)surface->pixels + scanline_count * surface->pitch),
+						&scanline_buf[0],
+						left_edge + left_edge_cycle,
+						palette);
+				}
 
-                SDL_Event event;
-                while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
-                {
-					switch (event.type) {
-						case SDL_KEYDOWN:
-							handle_key_down(event);
-							break;
-						case SDL_KEYUP:
-							handle_key_up(event);
-							break;
-						case SDL_JOYBUTTONDOWN:
-						case SDL_JOYBUTTONUP:
-						case SDL_JOYAXISMOTION:
-						case SDL_JOYHATMOTION:
-						case SDL_JOYBALLMOTION:
-							if (jmap.jstate != JMAP_IDLE)
-								map_joysticks(event);
-							else
-								update_joysticks(event);
-							break;
-						case SDL_QUIT:
-							printf("User abort (closed window).\n");
-							shutdown(0);
-							break;
+				scanline_count ++;
+				left_edge_cycle = cycleCounter;
+
+				if (scanline_count == 224)
+				{
+
+					SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
+					SDL_RenderClear(renderer);
+					SDL_RenderCopy(renderer, texture, NULL, NULL);
+					SDL_RenderPresent(renderer);
+
+#ifndef __EMSCRIPTEN__
+					//Send video frame to ffmpeg
+					if (recordMovie && avconv_video) fwrite(surface->pixels, VIDEO_DISP_WIDTH*224*4, 1, avconv_video);
+#endif // __EMSCRIPTEN__
+
+					SDL_Event event;
+#ifndef NOGDB
+					while (singleStep? SDL_WaitEvent(&event) : SDL_PollEvent(&event))
+#else // NOGDB
+					while (SDL_PollEvent(&event))
+#endif // NOGDB
+					{
+						switch (event.type) {
+							case SDL_KEYDOWN:
+								handle_key_down(event);
+								break;
+							case SDL_KEYUP:
+								handle_key_up(event);
+								break;
+							case SDL_JOYBUTTONDOWN:
+							case SDL_JOYBUTTONUP:
+							case SDL_JOYAXISMOTION:
+							case SDL_JOYHATMOTION:
+							case SDL_JOYBALLMOTION:
+								if (jmap.jstate != JMAP_IDLE)
+									map_joysticks(event);
+								else
+									update_joysticks(event);
+								break;
+							case SDL_QUIT:
+								printf("User abort (closed window).\n");
+								shutdown(0);
+								break;
+						}
 					}
-                }
 
-                //capture or replay controlelr capture data
-                if(captureMode==CAPTURE_WRITE){
-                	fputc((u8)(buttons[0]&0xff),captureFile);
-                	fputc((u8)((buttons[0]>>8)&0xff),captureFile);
-                }else if(captureMode==CAPTURE_READ && captureSize>0){
-                	buttons[0]=captureData[capturePtr]+(captureData[capturePtr+1]<<8);
-                	capturePtr+=2;
-                	captureSize-=2;
-                }
+					//capture or replay controlelr capture data
+					if(captureMode==CAPTURE_WRITE){
+						fputc((u8)(buttons[0]&0xff),captureFile);
+						fputc((u8)((buttons[0]>>8)&0xff),captureFile);
+					}else if(captureMode==CAPTURE_READ && captureSize>0){
+						buttons[0]=captureData[capturePtr]+(captureData[capturePtr+1]<<8);
+						capturePtr+=2;
+						captureSize-=2;
+					}else if(captureMode==CAPTURE_READ && captureSize==0){
+						printf("Playback reached end of capture file.\n");
+						shutdown(0);
+					}
 
 
-                if (pad_mode == SNES_MOUSE)
-                {
-                    // http://www.repairfaq.org/REPAIR/F_SNES.html
-                    // we always report "low sensitivity"
-                    int mouse_dx, mouse_dy;
-                    u8 mouse_buttons = SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
-                    mouse_dx >>= mouse_scale;
-                    mouse_dy >>= mouse_scale;
-                    // clear high bit so we know it's the mouse
-                    buttons[0] = (encode_delta(mouse_dx) << 24)
-                        | (encode_delta(mouse_dy) << 16) | 0x7FFF;
-                    if (mouse_buttons & SDL_BUTTON_LMASK)
-                        buttons[0] &= ~(1<<9);
-                    if (mouse_buttons & SDL_BUTTON_RMASK)
-                        buttons[0] &= ~(1<<10);
-                    // keep mouse centered so it doesn't get stuck on edge of screen.
-                    // ...and immediately consume the bogus motion event it generated.
-                    if (fullscreen)
-                    {
-                        SDL_WarpMouse(400,300);
-                        SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
-                    }
-                }
-                else
-                    buttons[0] |= 0xFFFF8000;
-                singleStep = nextSingleStep;
+					if (pad_mode == SNES_MOUSE)
+					{
+						// http://www.repairfaq.org/REPAIR/F_SNES.html
+						// we always report "low sensitivity"
+						int mouse_dx, mouse_dy;
+						u8 mouse_buttons = SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
+						mouse_dx >>= mouse_scale;
+						mouse_dy >>= mouse_scale;
+						// clear high bit so we know it's the mouse
+						buttons[0] = (encode_delta(mouse_dx) << 24)
+							| (encode_delta(mouse_dy) << 16) | 0x7FFF;
+						if (mouse_buttons & SDL_BUTTON_LMASK)
+							buttons[0] &= ~(1<<9);
+						if (mouse_buttons & SDL_BUTTON_RMASK)
+							buttons[0] &= ~(1<<8);
+						// keep mouse centered so it doesn't get stuck on edge of screen.
+						// ...and immediately consume the bogus motion event it generated.
+						if (fullscreen)
+						{
+							SDL_WarpMouseInWindow(window,400,300);
+							SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
+						}
+					}
+					else
+						buttons[0] |= 0xFFFF8000;
 
-                if (SDL_MUSTLOCK(screen))
-                    SDL_LockSurface(screen);
-                scanline_count = -999;
-                ++frameCounter;
-            }
-        }
-    }
-	else if (addr == ports::PORTA)
-	{
-		u8 changed = value ^ io[addr];
-		u8 went_low = changed & io[addr];
+#ifndef NOGDB
+					singleStep = nextSingleStep;
+#endif // NOGDB
+					scanline_count = -999;
+				}
+			}
+
+		   prevCyclesCounter=cycleCounter;
+		}
+		break;
+
+	case (ports::PORTA):
+		changed = value ^ io[addr];
+		went_low = changed & io[addr];
 
 		if (went_low == (1<<2))		// LATCH
 		{
@@ -379,7 +499,7 @@ void avr8::write_io(u8 addr,u8 value)
 
 			if ((latched_buttons[1] < 0xFFFFF) && !new_input_mode)
 			{
-				printf("New input routines detected, switching emulation method.\n");
+				//New input routines detected, switching emulation method
 				new_input_mode = true;
 			}
 		}
@@ -392,7 +512,6 @@ void avr8::write_io(u8 addr,u8 value)
 				//check uzekeyboard start condition: clock=low & latch=high simultaneously
 				if((value&0x0c)==0x04){
 					uzeKbState=KB_TX_START;
-					if(!uzeKbEnabled) SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,SDL_DEFAULT_REPEAT_INTERVAL);
 					uzeKbEnabled=true;	//enable keyboard capture for Uzebox Keyboard
 				}
 				break;
@@ -449,110 +568,130 @@ void avr8::write_io(u8 addr,u8 value)
 
 
 		io[addr] = value;
-	}
-	else if (addr == ports::OCR2A)
-	{
-		if (enableSound && TCCR2B)
-		{
-			// raw pcm sample at 15.7khz
-			while (audioRing.isFull()) SDL_Delay(1);
-			SDL_LockAudio();
-			audioRing.push(value);
-			SDL_UnlockAudio();
+		break;
+
+	case (ports::TCNT1H):
+		// p106 in 644 manual; 16-bit values are latched
+		T16_latch = value;
+		break;
+
+	case (ports::TCNT1L):
+		dly_TCNT1L = value;
+		dly_TCNT1H = T16_latch;
+		dly_out |= DLY_TCNT1;
+		break;
+
+	case (ports::SPDR):
+		if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled and card is present
+			spiByte = value;
+			//TODO: flag collision if x-fer in progress
+			spiClock = spiCycleWait;
+			spiTransfer = 1;
+			SPSR ^= 0x80; // clear interrupt
+			//SPI_DEBUG("spiClock: %0.2X\n",spiClock);
 		}
-	}
-
-
-
-    else if(addr == ports::SPDR)
-    {
-        if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled and card is present
-            spiByte = value;
-            //TODO: flag collision if x-fer in progress
-            spiClock = spiCycleWait;
-            spiTransfer = 1;
-            SPSR ^= 0x80; // clear interrupt
-            //SPI_DEBUG("spiClock: %0.2X\n",spiClock);
-        }
-       // SPI_DEBUG("SPDR: %0.2X\n",value);
-        io[addr] = value;
-    }
-    else if(addr == ports::SPCR)
-    {
-        SPI_DEBUG("SPCR: %02X\n",value);
-        io[addr] = value;
-        if(SD_ENABLED()) spi_calculateClock();
-    }
-    else if(addr == ports::SPSR){
-        SPI_DEBUG("SPSR: %02X\n",value);
-        io[addr] = value;
-        if(SD_ENABLED()) spi_calculateClock();
-    }
-
-    else if(addr == ports::EECR){
-        //printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
-        //EEPROM can only be put into either read or write mode, and the master bit must be set
-
-        if(value & EERE){
-            if(io[addr] & EEPE){
-                io[addr] = value ^ EERE; // programming in progress, don't allow this to be set
-            }
-            else{
-                io[addr] = value;
-            }
-        }
-        else if(value & EEPE){
-            if( (io[addr] & EERE) || !(io[addr] & EEMPE)){  // need master program enabled first
-                io[addr] = value ^ EEPE; // read in progress, don't allow this to be set
-            }
-            else{
-                io[addr] = value;
-            }
-        }
-        if(value & EEMPE){
-            io[addr] = value;
-            eeClock = 4;
-        }
-        else{
-            io[addr] = value;
-        }
-    }
-    else if(addr == ports::EEARH || addr == ports::EEARL || addr == ports::EEDR){
-        //printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
+		// SPI_DEBUG("SPDR: %0.2X\n",value);
 		io[addr] = value;
-    }
-    else if(addr == ports::TIFR1){
+		break;
+
+	case (ports::SPCR):
+		SPI_DEBUG("SPCR: %02X\n",value);
+		io[addr] = value;
+		if(SD_ENABLED()) spi_calculateClock();
+		break;
+
+	case (ports::SPSR):
+		SPI_DEBUG("SPSR: %02X\n",value);
+		io[addr] = value;
+		if(SD_ENABLED()) spi_calculateClock();
+		break;
+
+	case (ports::EECR):
+		//printf("writing to port %s (%x) pc = %x\n",port_name(addr),value,pc-1);
+		//EEPROM can only be put into either read or write mode, and the master bit must be set
+
+		if(value & EERE){
+			if(io[addr] & EEPE){
+				io[addr] = value ^ EERE; // programming in progress, don't allow this to be set
+			}
+			else{
+				io[addr] = value;
+			}
+		}
+		else if(value & EEPE){
+			if( (io[addr] & EERE) || !(io[addr] & EEMPE)){  // need master program enabled first
+				io[addr] = value ^ EEPE; // read in progress, don't allow this to be set
+			}
+			else{
+				io[addr] = value;
+			}
+		}
+		if(value & EEMPE){
+			io[addr] = value;
+			// eeClock = 4; TODO: This was only set here, never used. Maybe a never completed EEPROM timing code.
+		}
+		else{
+			io[addr] = value;
+		}
+		break;
+
+	// Note: This was commented out in the original code. If needed,
+	// integrate in the switch.
+	//else if(addr == ports::EEARH || addr == ports::EEARL || addr == ports::EEDR){
+	//	io[addr] = value;
+
+	case (ports::TIFR1):
 		//clear flags by writing logical one
 		io[addr] &= ~(value);
-    }
+		break;
 
-	#ifdef USE_PORT_PRINT
-    else if(addr == ports::res3A){
-        // emulator-only whisper support
-        printf("%c",value);
-    }
-    else if(addr == ports::res39){
-        // emulator-only whisper support
-        printf("%02x",value);
-    }
-	#endif
+	case (ports::TCCR1B):
+		dly_TCCR1B = value;
+		dly_out |= DLY_TCCR1B;
+		break;
 
-	else
+	case (ports::OCR1AH):
+	case (ports::OCR1AL):
+	case (ports::OCR1BH):
+	case (ports::OCR1BL):
+		// TODO: These should also be latched by the Atmel docs, maybe
+		// implement it later.
 		io[addr] = value;
+		TCNT1 += timer1_base - timer1_next;
+		timer1_base = 0U;
+		timer1_next = 0U; // Force timer state recalculation (update_hardware)
+		break;
+
+	case (ports::res3A):
+		// emulator-only whisper support
+		printf("%c",value);
+		break;
+
+	case (ports::res39):
+		// emulator-only whisper support
+		printf("%02x",value);
+		break;
+
+	default:
+		io[addr] = value;
+		break;
+	}
 }
 
 
 u8 avr8::read_io(u8 addr)
 {
 	// p106 in 644 manual; 16-bit values are latched
-	if (addr == ports::TCNT1L || addr == ports::ICR1L)
+	if      (addr == ports::TCNT1L)
 	{
-		TEMP = io[addr+1];
-		return io[addr];
+		unsigned int curr_timer = TCNT1 + timer1_base - timer1_next;
+		T16_latch = (curr_timer >> 8) & 0xFFU;
+		return curr_timer & 0xFFU;
 	}
-	else if (addr == ports::TCNT1H || addr == ports::ICR1H){
-		return TEMP;
-    }
+	else if (addr == ports::TCNT1H)
+	{
+		return T16_latch;
+	}
 	else
 	{
 		return io[addr];
@@ -561,16 +700,423 @@ u8 avr8::read_io(u8 addr)
 
 
 
-u8 avr8::exec()
+// Inline variation of update_hardware, to be used with frequent multi-cycle
+// instructions.
+inline void avr8::update_hardware_fast()
+{
+	if (timer1_next == 0U)
+	{
+		update_hardware();
+		return;
+	}
+
+	cycleCounter ++;
+	timer1_next --;
+	scanline_buf[cycleCounter & 0x7FFU] = pixel_raw;
+}
+
+
+
+// Performs hardware updates which have to be calculated at cycle precision
+void avr8::update_hardware()
+{
+	cycleCounter ++;
+
+	// timer1_next stores the cycles remaining until the next event on the
+	// Timer1 16 bit timer. It can be cleared to zero whenever the timer's
+	// state is changed (port writes). Locking it to zero should have no
+	// effect, causing the timer to re-calculate its state proper on every
+	// update_hardware call. It should only improve performance.
+
+	if (timer1_next == 0U)
+	{
+
+		// Apply time elapsed between full timer processings
+
+		TCNT1 += timer1_base;
+
+		// Apply delayed timer interrupt flags
+
+		TIFR1 |= itd_TIFR1;
+		itd_TIFR1 = 0U;
+
+		// Process timer
+
+		if ((TCCR1B & 7U) != 0U) // If timer 1 is started
+		{
+
+			unsigned int OCR1A = OCR1AL | ((unsigned int)(OCR1AH) << 8);
+			unsigned int OCR1B = OCR1BL | ((unsigned int)(OCR1BH) << 8);
+
+			if(TCCR1B & WGM12) // Timer in CTC mode: count up to OCRnA then resets to zero
+			{
+
+				if (TCNT1 == 0xFFFFU)
+				{
+					itd_TIFR1 |= TOV1;
+				}
+
+				if (TCNT1 == OCR1B)
+				{
+					itd_TIFR1 |= OCF1B;
+				}
+
+				if (TCNT1 == OCR1A)
+				{
+					TCNT1 = 0U;
+					itd_TIFR1 |= OCF1A;
+				}
+				else
+				{
+					TCNT1 = (TCNT1 + 1U) & 0xFFFFU;
+				}
+
+				// Calculate next timer event
+
+				if (itd_TIFR1 == 0U)
+				{
+					timer1_next = 0xFFFFU - TCNT1;
+					if ( (TCNT1 <= OCR1B) &&
+					     (timer1_next > (OCR1B - TCNT1)) )
+					{
+						timer1_next = (OCR1B - TCNT1);
+					}
+					if ( (TCNT1 <= OCR1A) &&
+					     (timer1_next > (OCR1A - TCNT1)) )
+					{
+						timer1_next = (OCR1A - TCNT1);
+					}
+				}
+
+			}else{	//timer in normal mode: counts up to 0xffff then rolls over
+
+				if (TCNT1 == 0xFFFFU)
+				{
+					itd_TIFR1 |= TOV1;
+				}
+				TCNT1 = (TCNT1 + 1U) & 0xFFFFU;
+
+				// Calculate next timer event
+
+				if (itd_TIFR1 == 0U)
+				{
+					timer1_next = 0xFFFFU - TCNT1;
+				}
+
+			}
+
+		}
+
+		// Set timer base to be able to reproduce TCNT1 outside full timer
+		// processing
+
+		timer1_base = timer1_next;
+
+	}
+	else
+	{
+		timer1_next --;
+	}
+
+	// Draw pixel on scanline
+
+	scanline_buf[cycleCounter & 0x7FFU] = pixel_raw;
+}
+
+
+
+// Performs hardware updates which can be done at instruction precision
+// Also process interrupt requests
+inline void avr8::update_hardware_ins()
+{
+	// Apply delayed outputs
+	//
+	// Notes: This can be here since as of now, it looks like all
+	// instructions writing IO registers perform that in their last
+	// cycle, so a delayed output may only be produced then, that is,
+	// after the instruction. If this doesn't hold up, this will have
+	// to be placed in the update_hardware call.
+
+	if (dly_out != 0U)
+	{
+		if ((dly_out & DLY_TCCR1B) != 0U)
+		{
+			TCCR1B = dly_TCCR1B;
+			TCNT1 += timer1_base - timer1_next;
+			timer1_base = 0U;
+			timer1_next = 0U; // Timer state changes
+		}
+		if ((dly_out & DLY_TCNT1) != 0U)
+		{
+			TCNT1 = (dly_TCNT1H << 8) | dly_TCNT1L;
+			timer1_base = 0U;
+			timer1_next = 0U; // Timer state changes
+		}
+		dly_out = 0U;
+	}
+
+	// Get cycle count to emulate
+
+	unsigned int cycles = cycleCounter - cycle_ctr_ins;
+	cycle_ctr_ins = cycleCounter;
+
+	// Notes:
+	//
+	// From this point if further cycles are required to be consumed,
+	// those should be consumed using update_hardware(). This won't
+	// increase this run's cycle count (cycles), but will show in the
+	// next run proper.
+
+	// Watchdog notes:
+	//
+	// This is a bare minimum implementation to make the Uzebox kernel's
+	// seed generator operational (used for seeding a PRNG).
+
+	if(WDTCSR & WDE){ //if watchdog enabled
+		watchdogTimer += cycles;
+		if(watchdogTimer>=DELAY16MS && (WDTCSR&WDIE)){
+			WDTCSR|=WDIF;	//watchdog interrupt
+			//reset watchdog
+			//watchdog is based on a RC oscillator
+			//so add some random variation to simulate entropy
+			watchdogTimer=rand()%1024;
+		}
+	}
+
+    // clock the SPI hardware.
+    if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled
+        //TODO: test for master/slave modes (assume master for now)
+        // TODO: factor in clock divider
+
+        if(spiTransfer){
+            if(spiClock <= cycles){
+                //SPI_DEBUG("SPI transfer complete\n");
+                update_spi();
+                spiClock = 0;
+                spiTransfer = 0;
+                SPSR |= 0x80; // set interrupt
+            }
+            else{
+                spiClock -= cycles;
+            }
+        }
+            /*
+        //HACK: instantaneous SPI access
+        if(spiTransfer && spiClock > 0){
+            update_spi();
+            SPSR |= 0x80; // set interrupt
+            spiTransfer = 0;
+            spiClock = 0;
+        }*/
+
+        // test for interrupt (enable and interrupt flag for SPI)
+        // TODO (Jubatian): Verify that the move is OK, if not, try to fix
+        // it there (where the other interrupts are)
+    }
+
+    //clock the EEPROM hardware
+    /*
+    1. Wait until EEPE becomes zero.
+    2. Wait until SELFPRGEN in SPMCSR becomes zero.
+    3. Write new EEPROM address to EEAR (optional).
+    4. Write new EEPROM data to EEDR (optional).
+    5. Write a logical one to the EEMPE bit while writing a zero to EEPE in EECR.
+    6. Within four clock cycles after setting EEMPE, write a logical one to EEPE.
+    The EEPROM can not be programmed during a CPU write to the Flash memory.
+    */
+    // are we attempting to program?
+
+	// TODO (Jubatian):
+	//
+	// cycleCounter is incremented here by 4, but this has no effect on at
+	// least Timer 1 and the video output, maybe even more. Not like
+	// writing to EEPROM would be a common task when drawing the video
+	// frame, though.
+
+    if(EECR & (EEPE|EERE))
+    {
+		if(EECR & EEPE){
+			//printf("attempting write of EEPROM\n");
+			cycleCounter += 4; // writes take four cycles
+			int addr = (EEARH << 8) | EEARL;
+			if(addr < eepromSize) eeprom[addr] = EEDR;
+			EECR ^= (EEMPE | EEPE); // clear program bits
+
+			// interrupt?
+			//if((EECR & EERIE) && BIT(SREG,SREG_I)){
+			//    SPSR ^= 0x80; // clear the interrupt
+			//    trigger_interrupt(SPI_STC); // execute the vector
+			//}
+		}
+		// are we attempting to read?
+		else if(EECR & EERE){
+		   // printf("attempting read of EEPROM\n");
+			cycleCounter += 4; // eeprom reads take 4 additonal cycles
+			int addr = (EEARH << 8) | EEARL;
+			if(addr < eepromSize) EEDR = eeprom[addr];
+			EECR ^= EERE; // clear read  bit
+
+			// interrupt?
+			//if((EECR & EERIE) && BIT(SREG,SREG_I)){
+			//    SPSR ^= 0x80; // clear the interrupt
+			//    trigger_interrupt(SPI_STC); // execute the vector
+			//}
+		}
+    }
+
+	// Process interrupts in order of priority
+
+	if(SREG & (1<<SREG_I))
+	{
+		// Note (Jubatian):
+		// The SD card's SPI interrupt trigger was within the SPI
+		// handling part in update_hardware, however it belongs to
+		// interrupt triggers. Priority order might be broken (but
+		// essentially the emulator behaved according to this order
+		// prior to this move).
+		if((SPCR & 0x80) && (SPSR & 0x80))
+		{
+			// TODO: verify that SPI is dependent upon the global interrupt flag
+			SPSR ^= 0x80; // Clear the interrupt
+			trigger_interrupt(SPI_STC);
+		}
+		else if ((WDTCSR&(WDIF|WDIE))==(WDIF|WDIE))
+		{
+			WDTCSR&= ~WDIF; // Clear watchdog flag
+			trigger_interrupt(WDT);
+		}
+		else if((TIFR1 & (OCF1A|OCF1B|TOV1)) && (TIMSK1&(OCIE1A|OCIE1B|TOIE1)))
+		{
+			if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) )
+			{
+				TIFR1&= ~OCF1A; // Clear CTC match flag
+				trigger_interrupt(TIMER1_COMPA);
+			}
+			else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B))
+			{
+				TIFR1&= ~OCF1B; // Clear CTC match flag
+				trigger_interrupt(TIMER1_COMPB);
+			}
+			else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1))
+			{
+				TIFR1&= ~TOV1; // Clear TOV1 flag
+				trigger_interrupt(TIMER1_OVF);
+			}
+		}
+	}
+}
+
+
+instructionList_t instructionList[] = {
+
+{   1,"ADC    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0001110000000000, 0b0000000111110000, 0b0000001000001111},
+{   2,"ADD    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0000110000000000, 0b0000000111110000, 0b0000001000001111},
+{   3,"ADIW   r%d, %d "                ,   1,   2,  24,   0,   3,   1,   0,   0,   1,   2, 0b1001011000000000, 0b0000000000110000, 0b0000000011001111},
+{   4,"AND    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0010000000000000, 0b0000000111110000, 0b0000001000001111},
+{   5,"ANDI   r%d, %d "                ,   1,   1,  16,   0,   3,   1,   0,   0,   1,   1, 0b0111000000000000, 0b0000000011110000, 0b0000111100001111},
+{   6,"ASR    r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000000101, 0b0000000111110000, 0b0000000000000000},
+{   7,"BCLR   %d "                     ,   7,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010010001000, 0b0000000001110000, 0b0000000000000000},
+{   8,"BLD    r%d, %d "                ,   1,   1,   0,   0,   6,   1,   0,   0,   1,   1, 0b1111100000000000, 0b0000000111110000, 0b0000000000000111},
+{   9,"BRBC   %d, %d "                 ,   7,   1,   0,   0,   3,   1,   0,   1,   1,   2, 0b1111010000000000, 0b0000000000000111, 0b0000001111111000},
+{  10,"BRBS   %d, %d "                 ,   7,   1,   0,   0,   3,   1,   0,   1,   1,   2, 0b1111000000000000, 0b0000000000000111, 0b0000001111111000},
+{  11,"BREAK "                         ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010110011000, 0b0000000000000000, 0b0000000000000000},
+{  12,"BSET   %d "                     ,   7,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000001000, 0b0000000001110000, 0b0000000000000000},
+{  13,"BST    r%d, %d "                ,   1,   1,   0,   0,   6,   1,   0,   0,   1,   1, 0b1111101000000000, 0b0000000111110000, 0b0000000000000111},
+{  14,"CALL   %d (+ next word) "       ,   0,   1,   0,   0,   3,   1,   0,   0,   2,   4, 0b1001010000001110, 0b0000000000000000, 0b0000000111110001},
+{  15,"CBI    io%d, %d "               ,   8,   1,   0,   0,   6,   1,   0,   0,   1,   2, 0b1001100000000000, 0b0000000011111000, 0b0000000000000111},
+{  16,"COM    r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000000000, 0b0000000111110000, 0b0000000000000000},
+{  17,"CP     r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0001010000000000, 0b0000000111110000, 0b0000001000001111},
+{  18,"CPC    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0000010000000000, 0b0000000111110000, 0b0000001000001111},
+{  19,"CPI    r%d, %d "                ,   1,   1,  16,   0,   3,   1,   0,   0,   1,   1, 0b0011000000000000, 0b0000000011110000, 0b0000111100001111},
+{  20,"CPSE   r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   3, 0b0001000000000000, 0b0000000111110000, 0b0000001000001111},
+{  21,"DEC    r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000001010, 0b0000000111110000, 0b0000000000000000},
+{  22,"EOR    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0010010000000000, 0b0000000111110000, 0b0000001000001111},
+{  23,"FMUL   r%d, r%d "               ,   1,   1,  16,   0,   2,   1,  16,   0,   1,   2, 0b0000001100001000, 0b0000000001110000, 0b0000000000000111},
+{  24,"FMULS  r%d, r%d "               ,   1,   1,  16,   0,   2,   1,  16,   0,   1,   2, 0b0000001110000000, 0b0000000001110000, 0b0000000000000111},
+{  25,"FMULSU r%d, r%d "               ,   1,   1,  16,   0,   2,   1,  16,   0,   1,   2, 0b0000001110001000, 0b0000000001110000, 0b0000000000000111},
+{  26,"ICALL "                         ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001010100001001, 0b0000000000000000, 0b0000000000000000},
+{  27,"IJMP "                          ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001010000001001, 0b0000000000000000, 0b0000000000000000},
+{  28,"IN     r%d, io%d "              ,   1,   1,   0,   0,   8,   1,   0,   0,   1,   1, 0b1011000000000000, 0b0000000111110000, 0b0000011000001111},
+{  29,"INC    r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000000011, 0b0000000111110000, 0b0000000000000000},
+{  30,"JMP    %d (+ next word) "       ,   0,   1,   0,   0,   3,   1,   0,   0,   2,   3, 0b1001010000001100, 0b0000000000000000, 0b0000000111110001},
+{  31,"LD     r%d, -X "                ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000001110, 0b0000000111110000, 0b0000000000000000},
+{  32,"LD     r%d, -Y "                ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000001010, 0b0000000111110000, 0b0000000000000000},
+{  33,"LD     r%d, -Z "                ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000000010, 0b0000000111110000, 0b0000000000000000},
+{  34,"LD     r%d, X "                 ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000001100, 0b0000000111110000, 0b0000000000000000},
+{  35,"LD     r%d, X+ "                ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000001101, 0b0000000111110000, 0b0000000000000000},
+{  36,"LD     r%d, Y+ "                ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000001001, 0b0000000111110000, 0b0000000000000000},
+{  37,"LD     r%d, Y+%d "              ,   1,   1,   0,   0,   5,   1,   0,   0,   1,   3, 0b1000000000001000, 0b0000000111110000, 0b0010110000000111},
+{  38,"LD     r%d, Z+ "                ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000000001, 0b0000000111110000, 0b0000000000000000},
+{  39,"LD     r%d, Z+%d "              ,   1,   1,   0,   0,   5,   1,   0,   0,   1,   3, 0b1000000000000000, 0b0000000111110000, 0b0010110000000111},
+{  40,"LDI    r%d, %d "                ,   1,   1,  16,   0,   3,   1,   0,   0,   1,   1, 0b1110000000000000, 0b0000000011110000, 0b0000111100001111},
+{  41,"LDS    r%d, %d (+next word) "   ,   1,   1,   0,   0,   0,   1,   0,   0,   2,   2, 0b1001000000000000, 0b0000000111110000, 0b0000000000000000},
+{  42,"LPM "                           ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001010111001000, 0b0000000000000000, 0b0000000000000000},
+{  43,"LPM    r%d, Z "                 ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000000100, 0b0000000111110000, 0b0000000000000000},
+{  44,"LPM    r%d, Z+ "                ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   3, 0b1001000000000101, 0b0000000111110000, 0b0000000000000000},
+{  45,"LSR    r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000000110, 0b0000000111110000, 0b0000000000000000},
+{  46,"MOV    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0010110000000000, 0b0000000111110000, 0b0000001000001111},
+{  47,"MOVW   r%d, r%d "               ,   1,   2,   0,   0,   2,   2,   0,   0,   1,   1, 0b0000000100000000, 0b0000000011110000, 0b0000000000001111},
+{  48,"MUL    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   2, 0b1001110000000000, 0b0000000111110000, 0b0000001000001111},
+{  49,"MULS   r%d, r%d "               ,   1,   1,  16,   0,   2,   1,  16,   0,   1,   2, 0b0000001000000000, 0b0000000011110000, 0b0000000000001111},
+{  50,"MULSU  r%d, r%d "               ,   1,   1,  16,   0,   2,   1,  16,   0,   1,   2, 0b0000001100000000, 0b0000000001110000, 0b0000000000000111},
+{  51,"NEG    r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000000001, 0b0000000111110000, 0b0000000000000000},
+{  52,"NOP "                           ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b0000000000000000, 0b0000000000000000, 0b0000000000000000},
+{  53,"OR     r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0010100000000000, 0b0000000111110000, 0b0000001000001111},
+{  54,"ORI    r%d, %d "                ,   1,   1,  16,   0,   3,   1,   0,   0,   1,   1, 0b0110000000000000, 0b0000000011110000, 0b0000111100001111},
+{  55,"OUT    io%d, r%d "              ,   8,   1,   0,   0,   1,   1,   0,   0,   1,   1, 0b1011100000000000, 0b0000011000001111, 0b0000000111110000},
+{  56,"POP    r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001000000001111, 0b0000000111110000, 0b0000000000000000},
+{  57,"PUSH   r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001001000001111, 0b0000000111110000, 0b0000000000000000},
+{  58,"RCALL  %d "                     ,   0,   1,   0,   0,   3,   1,   0,   1,   1,   3, 0b1101000000000000, 0b0000000000000000, 0b0000111111111111},
+{  59,"RET "                           ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   4, 0b1001010100001000, 0b0000000000000000, 0b0000000000000000},
+{  60,"RETI "                          ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   4, 0b1001010100011000, 0b0000000000000000, 0b0000000000000000},
+{  61,"RJMP   %d "                     ,   0,   1,   0,   0,   3,   1,   0,   1,   1,   2, 0b1100000000000000, 0b0000000000000000, 0b0000111111111111},
+{  62,"ROR    r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000000111, 0b0000000111110000, 0b0000000000000000},
+{  63,"SBC    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0000100000000000, 0b0000000111110000, 0b0000001000001111},
+{  64,"SBCI   r%d, %d "                ,   1,   1,  16,   0,   3,   1,   0,   0,   1,   1, 0b0100000000000000, 0b0000000011110000, 0b0000111100001111},
+{  65,"SBI    io%d, %d "               ,   8,   1,   0,   0,   6,   1,   0,   0,   1,   2, 0b1001101000000000, 0b0000000011111000, 0b0000000000000111},
+{  66,"SBIC   io%d, %d "               ,   8,   1,   0,   0,   6,   1,   0,   0,   1,   3, 0b1001100100000000, 0b0000000011111000, 0b0000000000000111},
+{  67,"SBIS   io%d, %d "               ,   8,   1,   0,   0,   6,   1,   0,   0,   1,   3, 0b1001101100000000, 0b0000000011111000, 0b0000000000000111},
+{  68,"SBIW   r%d, %d "                ,   1,   2,  24,   0,   3,   1,   0,   0,   1,   2, 0b1001011100000000, 0b0000000000110000, 0b0000000011001111},
+{  69,"SBRC   r%d, %d "                ,   2,   1,   0,   0,   6,   1,   0,   0,   1,   3, 0b1111110000000000, 0b0000000111110000, 0b0000000000000111},
+{  70,"SBRS   r%d, %d "                ,   2,   1,   0,   0,   6,   1,   0,   0,   1,   3, 0b1111111000000000, 0b0000000111110000, 0b0000000000000111},
+{  71,"SLEEP "                         ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010110001000, 0b0000000000000000, 0b0000000000000000},
+{  72,"SPM    z+ "                     ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010111101000, 0b0000000000000000, 0b0000000000000000},
+{  73,"ST     -x, r%d "                ,   2,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001001000001110, 0b0000000111110000, 0b0000000000000000},
+{  74,"ST     -y, r%d "                ,   2,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001001000001010, 0b0000000111110000, 0b0000000000000000},
+{  75,"ST     -z, r%d "                ,   2,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001001000000010, 0b0000000111110000, 0b0000000000000000},
+{  76,"ST     x, r%d "                 ,   2,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001001000001100, 0b0000000111110000, 0b0000000000000000},
+{  77,"ST     x+, r%d "                ,   2,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001001000001101, 0b0000000111110000, 0b0000000000000000},
+{  78,"ST     y+, r%d "                ,   2,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001001000001001, 0b0000000111110000, 0b0000000000000000},
+{  79,"ST     y+q, r%d (q=%d) "        ,   1,   1,   0,   0,   5,   1,   0,   0,   1,   2, 0b1000001000001000, 0b0000000111110000, 0b0010110000000111},
+{  80,"ST     z+, r%d "                ,   2,   1,   0,   0,   0,   1,   0,   0,   1,   2, 0b1001001000000001, 0b0000000111110000, 0b0000000000000000},
+{  81,"ST     z+q, r%d (q=%d) "        ,   1,   1,   0,   0,   5,   1,   0,   0,   1,   2, 0b1000001000000000, 0b0000000111110000, 0b0010110000000111},
+{  82,"STS    k, r%d "                 ,   1,   1,   0,   0,   0,   1,   0,   0,   2,   2, 0b1001001000000000, 0b0000000111110000, 0b0000000000000000},
+{  83,"SUB    r%d, r%d "               ,   1,   1,   0,   0,   2,   1,   0,   0,   1,   1, 0b0001100000000000, 0b0000000111110000, 0b0000001000001111},
+{  84,"SUBI   r%d, %d "                ,   1,   1,  16,   0,   3,   1,   0,   0,   1,   1, 0b0101000000000000, 0b0000000011110000, 0b0000111100001111},
+{  85,"SWAP   r%d "                    ,   1,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010000000010, 0b0000000111110000, 0b0000000000000000},
+{  86,"WDR "                           ,   0,   1,   0,   0,   0,   1,   0,   0,   1,   1, 0b1001010110101000, 0b0000000000000000, 0b0000000000000000},
+
+
+{   0,"END"                            ,   0,   0,   0,   0,   0,   0,   0,   0,  0,   0, 0b0000000000000000, 0b0000000000000000, 0b0000000000000000}
+
+};
+
+unsigned int avr8::exec()
 {
 
-	u16 lastpc = pc;
-	u16 insn = progmem[pc++];
-	u8 cycles = 1;				// Most insns run in one cycle, so assume that
-	u8 Rd, Rr, R, d, CH;
+	currentPc=pc;
+	const instructionDecode_t insnDecoded = progmemDecoded[pc];
+	const u8  opNum  = insnDecoded.opNum;
+	const u8  arg1_8 = insnDecoded.arg1;
+	const s16 arg2_8 = insnDecoded.arg2;
+
+	const unsigned int startcy = cycleCounter;
+	u8 Rd, Rr, R, CH;
 	u16 uTmp, Rd16, R16;
 	s16 sTmp;
 
+#ifndef NOGDB
+	//GDB must be first
 	if (enableGdb == true)
 	{
 		gdb->exec();
@@ -586,743 +1132,835 @@ u8 avr8::exec()
 
 	if (state == CPU_STOPPED)
 		return 0;
+#endif // NOGDB
+
+	//Program counter must be incremented *after* GDB
+	pc++;
 
 
 
-	switch (insn >> 12) 
-	{
-	case 0:
-	  /*0000 0000 0000 0000		NOP
-		0000 0001 dddd rrrr		MOVW Rd+1:Rd,Rr+1:R
-		0000 0010 dddd rrrr		MULS Rd,Rr
-		0000 0011 0ddd 0rrr		MULSU Rd,Rr (registers are in 16-23 range)
-		0000 0011 0ddd 1rrr		FMUL Rd,Rr (registers are in 16-23 range)
-		0000 0011 1ddd 0rrr		FMULS Rd,Rr
-		0000 0011 1ddd 1rrr		FMULSU Rd,Rr
-		0000 01rd dddd rrrr		CPC Rd,Rr
-		0000 10rd dddd rrrr		SBC Rd,Rr
-		0000 11rd dddd rrrr		ADD Rd,Rr (LSL is ADD Rd,Rd)*/
-		switch(insn >> 8)
-		{
-		case 0: /*NOP*/; 
-			break;
-		case 1: /*MOVW*/ 
-			// Don't use tab because the operand is really wide
-			Rd = D4 << 1; 
-			Rr = R4 << 1; 
-			r[Rd] = r[Rr]; 
-			r[Rd+1] = r[Rr+1]; 
-			break;
-		case 2: /*MULS*/ 
-			Rd = r[D4 + 16]; 
-			Rr = r[R4 + 16];
-			sTmp = (s8)Rd * (s8)Rr; 
-			r0 = (u8)sTmp; 
-			r1 = (u8)(sTmp >> 8);
-			UPDATE_CZ_MUL(sTmp);
-			cycles=2;
-			break;
-		case 3: /*MULSU/FMULS/FMULSU*/ 
-			switch (insn & 0x88)
-			{
-			case 0x00:/*MULSU*/
-				Rd = r[D3 + 16];
-				Rr = r[R3 + 16]; 
-				sTmp = (s8)Rd * (u8)Rr; 
-				r0 = (u8)sTmp; 
-				r1 = (u8)(sTmp >> 8);
-				UPDATE_CZ_MUL(sTmp);
-				cycles=2;
-				break;
-			case 0x08:/*FMUL*/
-				Rd = r[D3 + 16];
-				Rr = r[R3 + 16]; 
-				uTmp = (u8)Rd * (u8)Rr; 
-				r0 = (u8)(uTmp << 1); 
-				r1 = (u8)(uTmp >> 7);
-				UPDATE_CZ_MUL(uTmp);
-				cycles=2;
-				break;
-			case 0x80:/*FMULS*/
-				Rd = r[D3 + 16];
-				Rr = r[R3 + 16]; 
-				sTmp = (s8)Rd * (s8)Rr; 
-				r0 = (u8)(sTmp << 1); 
-				r1 = (u8)(sTmp >> 7);
-				UPDATE_CZ_MUL(sTmp);
-				cycles=2;
-				break;
-			case 0x88:/*FMULSU*/
-				Rd = r[D3 + 16];
-				Rr = r[R3 + 16]; 
-				sTmp = (s8)Rd * (u8)Rr; 
-				r0 = (u8)(sTmp << 1); 
-				r1 = (u8)(sTmp >> 7);
-				UPDATE_CZ_MUL(sTmp);
-				cycles=2;
-				break;
-			}
-			break;
-		case 4: case 5: case 6: case 7: /*CPC*/
-			Rd = r[D5];
-			Rr = r[R5];
-			R = Rd - Rr - C;
-			UPDATE_HC_SUB; UPDATE_SVN_SUB; if (R) CLEAR_Z;
-			break;
-		case 8: case 9: case 10: case 11: /*SBC*/
-			Rd = r[d = D5];
-			Rr = r[R5];
-			R = Rd - Rr - C;
-			UPDATE_HC_SUB; UPDATE_SVN_SUB; if (R) CLEAR_Z;
-			r[d] = R;
-			break;
-		case 12: case 13: case 14: case 15: /*ADD*/
-			Rd = r[d = D5];
-			Rr = r[R5];
-			R = Rd + Rr;
-			UPDATE_HC_ADD; UPDATE_SVN_ADD; UPDATE_Z; 
-			r[d] = R;
-			break;
-		}
-		break;
-	case 1:
-	  /*0001 00rd dddd rrrr		CPSE Rd,Rr
-		0001 01rd dddd rrrr		CP Rd,Rr
-		0001 10rd dddd rrrr		SUB Rd,Rr
-		0001 11rd dddd rrrr		ADC Rd,Rr (ROL is ADC Rd,Rd)*/
-		switch ((insn >> 10) & 3)
-		{
-		case 0: /*CPSE*/
-			Rd = r[D5];
-			Rr = r[R5];
-			if (Rd == Rr)
-			{
-				uTmp = get_insn_size(progmem[pc]);
-				cycles += uTmp;
-				pc += uTmp;
-			}
-			break;
-		case 1: /*CP*/
-			Rd = r[D5];
-			Rr = r[R5];
-			R = Rd - Rr;
-			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
-			break;
-		case 2: /*SUB*/
-			Rd = r[d = D5];
-			Rr = r[R5];
-			R = Rd - Rr;
-			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
-			r[d] = R;
-			break;
-		case 3: /*ADC*/
-			Rd = r[d = D5];
-			Rr = r[R5];
+	// Instruction decoder notes:
+	//
+	// The instruction's timing is determined by how many update_hardware
+	// calls are executed during its decoding. One update_hardware call is
+	// placed after the instruction decoder since all instructions take at
+	// least one cycle (there is at least one cycle after the last read /
+	// write effect), so only multi-cycle instructions need to perform
+	// extra calls to update_hardware.
+	//
+	// The read_sram and write_sram calls only access the sram.
+	// TODO: I am not sure whether the instructions calling these only do
+	// so on the real thing, but doing otherwise is unlikely, and may even
+	// be buggy then (the behavior of things like having the stack over IO
+	// area...). This solution is at least fast for these instructions.
+
+	switch (opNum){
+
+		case  1: // 0001 11rd dddd rrrr		(1) ADC Rd,Rr (ROL is ADC Rd,Rd)
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
 			R = Rd + Rr + C;
-			UPDATE_HC_ADD; UPDATE_SVN_ADD; UPDATE_Z; 
-			r[d] = R;
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_ADD; UPDATE_SVN_ADD; UPDATE_Z;
+			r[arg1_8] = R;
 			break;
-		}
-		break;
-	case 2:
-	  /*0010 00rd dddd rrrr		AND Rd,Rr (TST is AND Rd,Rd)
-		0010 01rd dddd rrrr		EOR Rd,Rr (CLR is EOR Rd,Rd)
-		0010 10rd dddd rrrr		OR Rd,Rr
-		0010 11rd dddd rrrr		MOV Rd,Rr*/
-		switch ((insn >> 10) & 3)
-		{
-		case 0: /*AND*/
-			Rd = r[d = D5];
-			Rr = r[R5];
-			R = Rd & Rr;
-			UPDATE_SVN_LOGICAL; UPDATE_Z;
-			r[d] = R;
-			break;
-		case 1: /*EOR*/
-			Rd = r[d = D5];
-			Rr = r[R5];
-			R = Rd ^ Rr;
-			UPDATE_SVN_LOGICAL; UPDATE_Z;
-			r[d] = R;
-			break;
-		case 2: /*OR*/
-			Rd = r[d = D5];
-			Rr = r[R5];
-			R = Rd | Rr;
-			UPDATE_SVN_LOGICAL; UPDATE_Z;
-			r[d] = R;
-			break;
-		case 3: /*MOV*/
-			r[D5]  = r[R5];
-			break;
-		}
-		break;
-	case 3: /*0011 KKKK dddd KKKK		CPI Rd,K */
-		Rd = r[D4 + 16];
-		Rr = K8;
-		R = Rd - Rr;
-		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
-		break;
-	case 4: /*0100 KKKK dddd KKKK		SBCI Rd,K */
-		Rd = r[d = D4 + 16];
-		Rr = K8;
-		R = Rd - Rr - C;
-		UPDATE_HC_SUB; UPDATE_SVN_SUB; if (R) CLEAR_Z;
-		r[d] = R;
-		break;
-	case 5: /*0101 KKKK dddd KKKK		SUBI Rd,K */
-		Rd = r[d = D4 + 16];
-		Rr = K8;
-		R = Rd - Rr;
-		UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
-		r[d] = R;
-		break;
-	case 6: /*0110 KKKK dddd KKKK		ORI Rd,K (same as SBR insn) */
-		Rd = r[d = D4 + 16];
-		Rr = K8;
-		R = Rd | Rr;
-		UPDATE_SVN_LOGICAL; UPDATE_Z;
-		r[d] = R;
-		break;
-	case 7: /*0111 KKKK dddd KKKK		ANDI Rd,K (CBR is ANDI with K complemented) */
-		Rd = r[d = D4 + 16];
-		Rr = K8;
-		R = Rd & Rr;
-		UPDATE_SVN_LOGICAL; UPDATE_Z;
-		r[d] = R;
-		break;
-	case 8: case 10:
-	  /*10q0 qq0d dddd 0qqq		LD Rd,Z+q
-		10q0 qq0d dddd 1qqq		LD Rd,Y+q
-		10q0 qq1d dddd 0qqq		ST Z+q,Rd
-		10q0 qq1d dddd 1qqq		ST Y+q,Rd */
-		Rd = D5;
-		Rr = (insn & 7) | ((insn >> 7) & 0x18) | ((insn >> 8) & 0x20);
-		uTmp = ((insn & 0x8)? Y : Z) + Rr;
-		if (insn & 0x200)	/*ST*/
-		{
-			write_sram(uTmp, r[Rd]);
-		}
-		else /*LD*/
-		{
-			r[Rd] = read_sram(uTmp);
-		}
-		cycles=2;
-		break;
-	case 9:
-		switch ((insn>>8) & 15)
-		{
-		case 0: case 1:
-		  /*1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
-			1001 000d dddd 0001		LD Rd,Z+
-			1001 000d dddd 0010		LD Rd,-Z
-			1001 000d dddd 0100		LPM Rd,Z
-			1001 000d dddd 0101		LPM Rd,Z+
-			1001 000d dddd 0110		ELPM Rd,Z
-			1001 000d dddd 0111		ELPM Rd,Z+
-			1001 000d dddd 1001		LD Rd,Y+
-			1001 000d dddd 1010		LD Rd,-Y
-			1001 000d dddd 1100		LD rd,X
-			1001 000d dddd 1101		LD rd,X+
-			1001 000d dddd 1110		LD rd,-X
-			1001 000d dddd 1111		POP Rd */
-			switch (insn & 15)
-			{
-			case 0: // LDS Rd,k
-				r[D5] = read_sram(progmem[pc++]);
-				cycles=2;
-				break;
-			case 1:	// LD Rd,Z+
-				r[D5] = read_sram(Z);
-				INC_Z;
-				cycles=2;
-				break;
-			case 2: // LD Rd,-Z
-				DEC_Z;
-				r[D5] = read_sram(Z);
-				cycles=2;
-				break;
-			case 4: // LPM Rd,Z
-				r[D5] = read_progmem(Z);
-				cycles=3;
-				break;
-			case 5: //LPM Rd,Z+
-				r[D5] = read_progmem(Z);
-				INC_Z;
-				cycles=3;
-				break;
-			case 6: //ELPM Rd,Z
-				r[D5] = read_progmem(Z);
-				cycles=3;
-				break;
-			case 7: //ELPM Rd,Z+
-				r[D5] = read_progmem(Z);
-				INC_Z;
-				cycles=3;
-				break;
-			case 9: //LD Rd,Y+
-				r[D5] = read_sram(Y);
-				INC_Y;
-				cycles=2;
-				break;
-			case 10: //LD Rd,-Y
-				DEC_Y;
-				r[D5] = read_sram(Y);
-				cycles=2;
-				break;
-			case 12: //LD Rd,X
-				r[D5] = read_sram(X);
-				cycles=2;
-				break;
-			case 13: //LD Rd,X+
-				r[D5] = read_sram(X);
-				INC_X;
-				cycles=2;
-				break;
-			case 14: //LD Rd,-X
-				DEC_X;
-				r[D5] = read_sram(X);
-				cycles=2;
-				break;
-			case 15: //POP Rd
-				INC_SP;
-				r[D5] = read_sram(SP);
-				cycles=2;
-				break;
-			default:
-				ILLEGAL_OP;
-				break;
-			}
-			break;
-		case 2: case 3:
-		  /*1001 001d dddd 0000		STS k,Rr (next word is rest of address)
-			1001 001r rrrr 0001		ST Z+,Rr
-			1001 001r rrrr 0010		ST -Z,Rr
-			1001 001r rrrr 1001		ST Y+,Rr
-			1001 001r rrrr 1010		ST -Y,Rr
-			1001 001r rrrr 1100		ST X,Rr
-			1001 001r rrrr 1101		ST X+,Rr
-			1001 001r rrrr 1110		ST -X,Rr
-			1001 001d dddd 1111		PUSH Rd */
-			cycles=2;
-			switch (insn & 15)
-			{
-			case 0: //STS
-				write_sram(progmem[pc++],r[D5]);
-				break;
-			case 1: //ST Z+,Rs
-				write_sram(Z,r[D5]);
-				INC_Z;
-				break;
-			case 2: //ST -Z,Rs
-				DEC_Z;
-				write_sram(Z,r[D5]);
-				break;
-			case 9: //ST Y+,Rs
-				write_sram(Y,r[D5]);
-				INC_Y;
-				break;
-			case 10: //ST -Y,Rs
-				DEC_Y;
-				write_sram(Y,r[D5]);
-				break;
-			case 12: //ST X,Rs
-				write_sram(X,r[D5]);
-				break;
-			case 13: //ST X+,Rs
-				write_sram(X,r[D5]);
-				INC_X;
-				break;
-			case 14: //ST -X,Rs
-				DEC_X;
-				write_sram(X,r[D5]);
-				break;
-			case 15: //PUSH Rs
-				write_sram(SP,r[D5]);
-				DEC_SP;
-				break;
-			default:
-				ILLEGAL_OP;
-				break;
-			}
-			break;
-		case 4: case 5:
-		  /*1001 0100 0000 1001		IJMP (jump thru Z register)
-			1001 0100 0001 1001		EIJMP (probably not on 644)
-			1001 0100 0sss 1000		BSET s (SEC, etc are aliases with sss implicit)
-			1001 0100 1sss 1000		BCLR s (CLC, etc are aliases with sss implicit)
-			1001 0100 KKKK 1011		DES (probably not on 644)
-			1001 0101 0000 1000		RET
-			1001 0101 0000 1001		ICALL (call thru Z register)
-			1001 0101 0001 1000		RETI
-			1001 0101 0001 1001		EICALL (probably not on 644)
-			1001 0101 1000 1000		SLEEP
-			1001 0101 1001 1000		BREAK
-			1001 0101 1010 1000		WDR
-			1001 0101 1100 1000		LPM (r0 implied, why is this special?)
-			1001 0101 1101 1000		ELPM (r0 implied)
-			1001 0101 1110 1000		SPM Z (writes R1:R0)
-		    1001 010d dddd 0000		COM Rd
-			1001 010d dddd 0001		NEG Rd
-			1001 010d dddd 0010		SWAP Rd
-			1001 010d dddd 0011		INC Rd
-			1001 010d dddd 0101		ASR Rd
-			1001 010d dddd 0110		LSR Rd
-			1001 010d dddd 0111		ROR Rd
-			1001 010d dddd 1010		DEC Rd
-			1001 010k kkkk 110k		JMP k (next word is rest of address)
-			1001 010k kkkk 111k		CALL k (next word is rest of address) */
-			// Bunch of weird cases here, check for them first and then re-decode.
-			switch (insn)
-			{
-			case 0x9409: //IJMP
-			    pc = Z;
-			    cycles = 2;
-			    break;
-			case 0x940C: // JMP; relies on fact that upper k bits are always zero!
-			    pc = progmem[pc];
-			    cycles = 3;
-			    break;
-			case 0x940E: // CALL; relies on fact that upper k bits are always zero!
-			    write_sram(SP,(pc+1));
-			    DEC_SP;
-			    write_sram(SP,(pc+1)>>8);
-			    DEC_SP;
-			    pc = progmem[pc];
-			    cycles = 4;
-			    break;
-			case 0x9419: //EIJMP
-			    pc = Z;
-			    cycles = 2;
-			    break;
-			case 0x9508: //RET
-			    INC_SP;
-			    pc = read_sram(SP) << 8;
-			    INC_SP;
-			    pc |= read_sram(SP);
-			    cycles = 4;
-			    break;
-			case 0x9509: //ICALL
-			    write_sram(SP,u8(pc));
-			    DEC_SP;
-			    write_sram(SP,(pc)>>8);
-			    DEC_SP;
-			    pc = Z;
-			    cycles = 3;
-			    break;
-			case 0x9518: //RETI
-			    INC_SP;
-			    pc = read_sram(SP) << 8;
-			    INC_SP;
-			    pc |= read_sram(SP);
-			    cycles = 4;
-			    SREG |= (1<<SREG_I);
-			    //--interruptLevel;
-			    break;
-			case 0x9519: //EICALL
-			    write_sram(SP,u8(pc));
-			    DEC_SP;
-			    write_sram(SP,(pc)>>8);
-			    DEC_SP;
-			    pc = Z;
-			    cycles = 3;
-			    break;
-			case 0x9588: //SLEEP
-			    // no operation
-			    break;
-			case 0x9598: //BREAK
-			    // no operation
-			    break;
-			case 0x95A8: //WDR
 
-				//watchdog is based on a RC oscillator
-				//so add some random variation to simulate entropy
-				watchdogTimer=rand()%1024;
-
-			    if(prevWDR){
-			        printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
-			        prevWDR = 0;
-			    }else{
-			    	prevWDR = cycleCounter + 1;
-			    }
-
+		case  2: // 0000 11rd dddd rrrr		(1) ADD Rd,Rr (LSL is ADD Rd,Rd)
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			R = Rd + Rr;
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_ADD; UPDATE_SVN_ADD; UPDATE_Z;
+			r[arg1_8] = R;
 			break;
-			case 0x95C8: //LPM r0,Z
-			    r0 = read_progmem(Z);
-			    cycles = 3;
-			    break;
-			case 0x95D8: //ELPM r0,Z
-			    r0 = read_progmem(Z);
-			    cycles = 3;
-			    break;
-			case 0x95E8: //SPM
-			    if (Z >= progSize/2)
-				{
-					fprintf(stderr,"illegal write to progmem addr %x\n",Z);
-                    shutdown(1);
-				}
-				else
-					progmem[Z] = r0 | (r1<<8);
-			    cycles = 4; // undocumented?!?!?
-			    break;
-			default:
-			    /*1001 010d dddd 0000		COM Rd
-				1001 010d dddd 0001		NEG Rd
-				1001 010d dddd 0010		SWAP Rd
-				1001 010d dddd 0011		INC Rd
-				1001 010d dddd 0101		ASR Rd
-				1001 010d dddd 0110		LSR Rd
-				1001 010d dddd 0111		ROR Rd
-				1001 0100 0sss 1000		BSET s (SEC, etc are aliases with sss implicit)
-				1001 0100 1sss 1000		BCLR s (CLC, etc are aliases with sss implicit)
-				1001 010d dddd 1010		DEC Rd */
-			    switch (insn & 15)
-				{
-				case 0: //COM Rd
-					r[D5] = R = ~r[D5];
-					UPDATE_SVN_LOGICAL; UPDATE_Z; SET_C;
-					break;
-				case 1: //NEG Rd
-					Rr = r[D5];
-					Rd = 0;
-					r[D5] = R = Rd - Rr;
-					UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
-					break;
-				case 2: //SWAP Rd
-					Rd = r[D5];
-					r[D5] = (Rd >> 4) | (Rd << 4);
-					break;
-				case 3: //INC Rd
-					R = ++r[D5];
-					UPDATE_N;
-					set_bit(SREG,SREG_V,R==0x80);
-					UPDATE_S;
-					UPDATE_Z;
-					break;
-				case 5: //ASR Rd
-					Rd = r[D5];
-					set_bit(SREG,SREG_C,Rd&1);
-					r[D5] = R = (Rd >> 1) | (Rd & 0x80);
-					UPDATE_N;
-					set_bit(SREG,SREG_V,(R>>7)^(Rd&1));
-					UPDATE_S;
-					UPDATE_Z;
-					break;
-				case 6: //LSR Rd
-					Rd = r[D5];
-					set_bit(SREG,SREG_C,Rd&1);
-					r[D5] = R = (Rd >> 1);
-					UPDATE_N;
-					set_bit(SREG,SREG_V,Rd&1);
-					UPDATE_S;
-					UPDATE_Z;
-					break;
-				case 7: //ROR Rd
-					Rd = r[D5];
-					r[D5] = R = (Rd >> 1) | ((SREG&1)<<7);
-					set_bit(SREG,SREG_C,Rd&1);
-					UPDATE_N;
-					set_bit(SREG,SREG_V,(R>>7)^(Rd&1));
-					UPDATE_S;
-					UPDATE_Z;
-					break;
-				case 8: //Clear/Set flags
-					Rd = (insn>>4)&7;
-					if (insn & 0x80)
-					{
-						//CLx,"CZNVSHTI"
-						SREG &= ~(1<<Rd);
-					}
-					else
-					{
-						//SEx,"CZNVSHTI"
-						SREG |= (1<<Rd);
-					}
-					break;
-				case 10: //DEC Rd
-					R = --r[D5];
-					UPDATE_N;
-					set_bit(SREG,SREG_V,R==0x7F);
-					UPDATE_S;
-					UPDATE_Z;
-					break;
-				default:
-					ILLEGAL_OP;
-					break;
-				}
-			    break;
-			}
-			break;
-		case 6:
-		  /*1001 0110 KKdd KKKK		ADIW Rd+1:Rd,K   (16-bit add to upper four register pairs) */
-			Rd = ((insn >> 3) & 0x6) + 24;
-			Rr = ((insn >> 2) & 0x30) | (insn & 0xF);
+
+		case  3: // 1001 0110 KKdd KKKK		(2) ADIW Rd+1:Rd,K   (16-bit add to upper four register pairs)
+			Rd = arg1_8;
+			Rr = arg2_8;
 			Rd16 = r[Rd] | (r[Rd+1]<<8);
 			R16 = Rd16 + Rr;
 			r[Rd] = (u8)R16;
 			r[Rd+1] = (u8)(R16>>8);
-			set_bit(SREG,SREG_V,(~Rd16&R16)&0x8000);
-			set_bit(SREG,SREG_N,R16&0x8000);
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			set_bit_1(SREG,SREG_V,((~Rd16&R16)&0x8000) >> 15);
+			set_bit_1(SREG,SREG_N,(R16&0x8000) >> 15);
 			UPDATE_S;
-			set_bit(SREG,SREG_Z,!R16);
-			set_bit(SREG,SREG_C,(~R16&Rd16)&0x8000);
-			cycles=2;
+			set_bit_inv(SREG,SREG_Z,R16);
+			set_bit_1(SREG,SREG_C,((~R16&Rd16)&0x8000) >> 15);
+			update_hardware();
 			break;
-		case 7:
-		  /*1001 0111 KKdd KKKK		SBIW Rd+1:Rd,K */
-			Rd = ((insn >> 3) & 0x6) + 24;
-			Rr = ((insn >> 2) & 0x30) | (insn & 0xF);
+
+		case  4: // 0010 00rd dddd rrrr		(1) AND Rd,Rr (TST is AND Rd,Rd)
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			R = Rd & Rr;
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			UPDATE_SVN_LOGICAL; UPDATE_Z;
+			r[arg1_8] = R;
+			break;
+
+		case  5: // 0111 KKKK dddd KKKK		(1) ANDI Rd,K (CBR is ANDI with K complemented)
+			Rd = r[arg1_8];
+			Rr = arg2_8;
+			R = Rd & Rr;
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			UPDATE_SVN_LOGICAL; UPDATE_Z;
+			r[arg1_8] = R;
+			break;
+
+		case  6: // 1001 010d dddd 0101		(1) ASR Rd
+			Rd = r[arg1_8];
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			set_bit_1(SREG,SREG_C,Rd&1);
+			r[arg1_8] = R = (Rd >> 1) | (Rd & 0x80);
+			UPDATE_N;
+			set_bit_1(SREG,SREG_V,(R>>7)^(Rd&1));
+			UPDATE_S;
+			UPDATE_Z;
+			break;
+
+		case  8: // 1111 100d dddd 0bbb		(1) BLD Rd,b
+			Rd = arg1_8;
+			store_bit_1(r[Rd],arg2_8,(SREG >> SREG_T) & 1U);
+			break;
+
+		case  7: // 1001 0100 1sss 1000		(1) BCLR s (CLC, etc are aliases with sss implicit)
+			Rd = arg1_8;
+			SREG &= ~(1U << Rd);
+			break;
+
+		case  9: // 1111 01kk kkkk ksss		(1/2) BRBC s,k (BRCC, etc are aliases for this with sss implicit)
+			if (!(SREG & (1<<(arg1_8))))
+			{
+				update_hardware();
+				pc += arg2_8;
+			}
+			break;
+
+		case  10: // 1111 00kk kkkk ksss		(1/2) BRBS s,k (same here)
+			if (SREG & (1<<(arg1_8)))
+			{
+				update_hardware();
+				pc += arg2_8;
+			}
+			break;
+
+		case  11: // 1001 0101 1001 1000		(?) BREAK
+			// no operation
+			break;
+
+		case  12: // 1001 0100 0sss 1000		(1) BSET s (SEC, etc are aliases with sss implicit)
+			Rd = arg1_8;
+			SREG |= (1U << Rd);
+			break;
+
+		case  13: // 1111 101d dddd 0bbb		(1) BST Rd,b
+			Rd = r[arg1_8];
+			store_bit_1(SREG,SREG_T,(Rd >> (arg2_8)) & 1U);
+			break;
+
+		case  14: // 1001 010k kkkk 111k		(4) CALL k (next word is rest of address)
+			// Note: 64K progmem, so 'k' in first insn word is unused
+			update_hardware();
+			update_hardware();
+			update_hardware();
+			write_sram(SP,(pc+1));
+			DEC_SP;
+			write_sram(SP,(pc+1)>>8);
+			DEC_SP;
+			pc = arg2_8;
+			break;
+
+		case  15: // 1001 1000 AAAA Abbb		(2) CBI A,b
+			update_hardware();
+			Rd = arg1_8;
+			write_io(Rd, read_io(Rd) & ~(1<<(arg2_8)));
+			break;
+
+		case  16: // 1001 010d dddd 0000		(1) COM Rd
+			r[arg1_8] = R = ~r[arg1_8];
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			UPDATE_SVN_LOGICAL; UPDATE_Z; SET_C;
+			break;
+
+		case  17: // 0001 01rd dddd rrrr		(1) CP Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			R = Rd - Rr;
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
+			break;
+
+		case  18: // 0000 01rd dddd rrrr		(1) CPC Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			R = Rd - Rr - C;
+			clr_bits(SREG, SREG_CM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_CLEAR_Z;
+			break;
+
+		case  19: // 0011 KKKK dddd KKKK		(1) CPI Rd,K
+			Rd = r[arg1_8];
+			Rr = arg2_8;
+			R = Rd - Rr;
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
+			break;
+
+		case  20: // 0001 00rd dddd rrrr		(1/2/3) CPSE Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			if (Rd == Rr)
+			{
+				unsigned int icc = get_insn_size(progmemDecoded[pc].opNum);
+				pc += icc;
+				while (icc != 0U)
+				{
+					update_hardware();
+					icc --;
+				}
+			}
+			break;
+
+		case  21: // 1001 010d dddd 1010		(1) DEC Rd
+			R = --r[arg1_8];
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			UPDATE_N;
+			set_bit_inv(SREG,SREG_V,(unsigned int)(R) - 0x7FU);
+			UPDATE_S;
+			UPDATE_Z;
+			break;
+
+		case  22: // 0010 01rd dddd rrrr		(1) EOR Rd,Rr (CLR is EOR Rd,Rd)
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			R = Rd ^ Rr;
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			UPDATE_SVN_LOGICAL; UPDATE_Z;
+			r[arg1_8] = R;
+			break;
+		
+		case  23: // 0000 0011 0ddd 1rrr		(2) FMUL Rd,Rr (registers are in 16-23 range)
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			uTmp = (u8)Rd * (u8)Rr;
+			r0 = (u8)(uTmp << 1);
+			r1 = (u8)(uTmp >> 7);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
+			UPDATE_CZ_MUL(uTmp);
+			update_hardware();
+			break;
+
+		case  24: // 0000 0011 1ddd 0rrr		(2) FMULS Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			sTmp = (s8)Rd * (s8)Rr;
+			r0 = (u8)(sTmp << 1);
+			r1 = (u8)(sTmp >> 7);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
+			UPDATE_CZ_MUL(sTmp);
+			update_hardware();
+			break;
+
+		case  25: // 0000 0011 1ddd 1rrr		(2) FMULSU Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			sTmp = (s8)Rd * (u8)Rr;
+			r0 = (u8)(sTmp << 1);
+			r1 = (u8)(sTmp >> 7);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
+			UPDATE_CZ_MUL(sTmp);
+			update_hardware();
+			break;
+
+		case  26: // 1001 0101 0000 1001		(3) ICALL (call thru Z register)
+			update_hardware();
+			update_hardware();
+			write_sram(SP,u8(pc));
+			DEC_SP;
+			write_sram(SP,(pc)>>8);
+			DEC_SP;
+			pc = Z;
+			break;
+
+		case  27: // 1001 0100 0000 1001		(2) IJMP (jump thru Z register)
+			update_hardware_fast();
+			pc = Z;
+			break;
+
+		case  28: // 1011 0AAd dddd AAAA		(1) IN Rd,A
+			Rd = arg1_8;
+			Rr = arg2_8;
+			r[Rd] = read_io(Rr);
+			break;
+
+		case  29: // 1001 010d dddd 0011		(1) INC Rd
+			R = ++r[arg1_8];
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			UPDATE_N;
+			set_bit_inv(SREG,SREG_V,(unsigned int)(R) - 0x80U);
+			UPDATE_S;
+			UPDATE_Z;
+			break;
+
+		case  30: // 1001 010k kkkk 110k		(3) JMP k (next word is rest of address)
+			// Note: 64K progmem, so 'k' in first insn word is unused
+			update_hardware();
+			update_hardware();
+			pc = arg2_8;
+			break;
+
+		case  31: // 1001 000d dddd 1110		(2) LD rd,-X
+			update_hardware();
+			DEC_X;
+			r[arg1_8] = read_sram_io(X);
+			break;
+
+		case  32: // 1001 000d dddd 1010		(2) LD Rd,-Y
+			update_hardware();
+			DEC_Y;
+			r[arg1_8] = read_sram_io(Y);
+			break;
+
+		case  33: // 1001 000d dddd 0010		(2) LD Rd,-Z
+			update_hardware();
+			DEC_Z;
+			r[arg1_8] = read_sram_io(Z);
+			break;
+
+		case  34: // 1001 000d dddd 1100		(2) LD rd,X
+			update_hardware();
+			r[arg1_8] = read_sram_io(X);
+			break;
+
+		case  35: // 1001 000d dddd 1101		(2) LD rd,X+
+			update_hardware();
+			r[arg1_8] = read_sram_io(X);
+			INC_X;
+			break;
+
+		case  36: // 1001 000d dddd 1001		(2) LD Rd,Y+
+			update_hardware();
+			r[arg1_8] = read_sram_io(Y);
+			INC_Y;
+			break;
+
+		case  37: // 10q0 qq0d dddd 1qqq		(2) LDD Rd,Y+q
+			update_hardware();
+			Rd = arg1_8;
+			Rr = arg2_8;
+			r[Rd] = read_sram_io(Y + Rr);
+			break;
+
+		case  38: // 1001 000d dddd 0001		(2) LD Rd,Z+
+			update_hardware();
+			r[arg1_8] = read_sram_io(Z);
+			INC_Z;
+			break;
+
+		case  39: // 10q0 qq0d dddd 0qqq		(2) LDD Rd,Z+q
+			update_hardware();
+			Rd = arg1_8;
+			Rr = arg2_8;
+			r[Rd] = read_sram_io(Z + Rr);
+			break;
+
+		case  40: // 1110 KKKK dddd KKKK		(1) LDI Rd,K (SER is just LDI Rd,255)
+			r[arg1_8] = arg2_8;
+			break;
+
+		case  41: // 1001 000d dddd 0000		(2) LDS Rd,k (next word is rest of address)
+			update_hardware();
+			r[arg1_8] = read_sram_io(arg2_8);
+			pc++;
+			break;
+
+		case  42: // 1001 0101 1100 1000		(3) LPM (r0 implied, why is this special?)
+			update_hardware();
+			update_hardware();
+			r0 = read_progmem(Z);
+			break;
+
+		case  43: // 1001 000d dddd 0100		(3) LPM Rd,Z
+			update_hardware_fast();
+			update_hardware_fast();
+			r[arg1_8] = read_progmem(Z);
+			break;
+
+		case  44: // 1001 000d dddd 0101		(3) LPM Rd,Z+
+			update_hardware_fast();
+			update_hardware_fast();
+			r[arg1_8] = read_progmem(Z);
+			INC_Z;
+			break;
+
+		case  45: // 1001 010d dddd 0110		(1) LSR Rd
+			Rd = r[arg1_8];
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			set_bit_1(SREG,SREG_C,Rd&1);
+			r[arg1_8] = R = (Rd >> 1);
+			UPDATE_N;
+			set_bit_1(SREG,SREG_V,Rd&1);
+			UPDATE_S;
+			UPDATE_Z;
+			break;
+
+		case  46: // 0010 11rd dddd rrrr		(1) MOV Rd,Rr
+			r[arg1_8]  = r[arg2_8];
+			break;
+
+		case  47: // 0000 0001 dddd rrrr		(1) MOVW Rd+1:Rd,Rr+1:R
+			Rd = arg1_8;
+			Rr = arg2_8;
+			r[Rd] = r[Rr];
+			r[Rd+1] = r[Rr+1];
+			break;
+
+		case  48: // 1001 11rd dddd rrrr		(2) MUL Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			uTmp = Rd * Rr;
+			r0 = (u8)uTmp;
+			r1 = (u8)(uTmp >> 8);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
+			UPDATE_CZ_MUL(uTmp);
+			update_hardware_fast();
+			break;
+
+		case  49: // 0000 0010 dddd rrrr		(2) MULS Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			sTmp = (s8)Rd * (s8)Rr;
+			r0 = (u8)sTmp;
+			r1 = (u8)(sTmp >> 8);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
+			UPDATE_CZ_MUL(sTmp);
+			update_hardware();
+			break;
+
+		case  50: // 0000 0011 0ddd 0rrr		(2) MULSU Rd,Rr (registers are in 16-23 range)
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			sTmp = (s8)Rd * (u8)Rr;
+			r0 = (u8)sTmp;
+			r1 = (u8)(sTmp >> 8);
+			clr_bits(SREG, SREG_CM | SREG_ZM);
+			UPDATE_CZ_MUL(sTmp);
+			update_hardware();
+			break;
+
+		case  51: // 1001 010d dddd 0001		(1) NEG Rd
+			Rr = r[arg1_8];
+			Rd = 0;
+			r[arg1_8] = R = Rd - Rr;
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
+			break;
+
+		case  52: // 0000 0000 0000 0000		(1) NOP
+			break;
+
+		case  53: // 0010 10rd dddd rrrr		(1) OR Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			R = Rd | Rr;
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			UPDATE_SVN_LOGICAL; UPDATE_Z;
+			r[arg1_8] = R;
+			break;
+
+		case  54: // 0110 KKKK dddd KKKK		(1) ORI Rd,K (same as SBR insn)
+			Rd = r[arg1_8];
+			Rr = arg2_8;
+			R = Rd | Rr;
+			clr_bits(SREG, SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			UPDATE_SVN_LOGICAL; UPDATE_Z;
+			r[arg1_8] = R;
+			break;
+
+		case  55: // 1011 1AAd dddd AAAA		(1) OUT A,Rd
+			Rd = arg2_8;
+			Rr = arg1_8;
+			write_io(Rr,r[Rd]);
+			break;
+
+		case  56: // 1001 000d dddd 1111		(2) POP Rd
+			update_hardware();
+			INC_SP;
+			r[arg1_8] = read_sram(SP);
+			break;
+
+		case  57: // 1001 001d dddd 1111		(2) PUSH Rd
+			update_hardware();
+			write_sram(SP,r[arg1_8]);
+			DEC_SP;
+			break;
+
+		case  58: // 1101 kkkk kkkk kkkk		(3) RCALL k
+			update_hardware();
+			update_hardware();
+			write_sram(SP,(u8)pc);
+			DEC_SP;
+			write_sram(SP,pc>>8);
+			DEC_SP;
+			pc += arg2_8;
+			break;
+
+		case  59: // 1001 0101 0000 1000		(4) RET
+			update_hardware();
+			update_hardware();
+			update_hardware();
+			INC_SP;
+			pc = read_sram(SP) << 8;
+			INC_SP;
+			pc |= read_sram(SP);
+			break;
+
+		case  60: // 1001 0101 0001 1000		(4) RETI
+			update_hardware();
+			update_hardware();
+			update_hardware();
+			INC_SP;
+			pc = read_sram(SP) << 8;
+			INC_SP;
+			pc |= read_sram(SP);
+			SREG |= (1<<SREG_I);
+			//--interruptLevel;
+			break;
+
+		case  61: // 1100 kkkk kkkk kkkk		(2) RJMP k
+			update_hardware_fast();
+			pc += arg2_8;
+			break;
+
+		case  62: // 1001 010d dddd 0111		(1) ROR Rd
+			Rd = r[arg1_8];
+			r[arg1_8] = R = (Rd >> 1) | ((SREG&1)<<7);
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			set_bit_1(SREG,SREG_C,Rd&1);
+			UPDATE_N;
+			set_bit_1(SREG,SREG_V,(R>>7)^(Rd&1));
+			UPDATE_S;
+			UPDATE_Z;
+			break;
+
+		case  63: // 0000 10rd dddd rrrr		(1) SBC Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			R = Rd - Rr - C;
+			clr_bits(SREG, SREG_CM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_CLEAR_Z;
+			r[arg1_8] = R;
+			break;
+
+		case  64: // 0100 KKKK dddd KKKK		(1) SBCI Rd,K
+			Rd = r[arg1_8];
+			Rr = arg2_8;
+			R = Rd - Rr - C;
+			clr_bits(SREG, SREG_CM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_CLEAR_Z;
+			r[arg1_8] = R;
+			break;
+
+		case  65: // 1001 1010 AAAA Abbb		(2) SBI A,b
+			update_hardware();
+			Rd = arg1_8;
+			write_io(Rd, read_io(Rd) | (1<<(arg2_8)));
+			break;
+
+		case  66: // 1001 1001 AAAA Abbb		(1/2/3) SBIC A,b
+			Rd = arg1_8;
+			if (!(read_io(Rd) & (1<<(arg2_8))))
+			{
+				unsigned int icc = get_insn_size(progmemDecoded[pc].opNum);
+				pc += icc;
+				while (icc != 0U)
+				{
+					update_hardware();
+					icc --;
+				}
+			}
+			break;
+
+		case  67: // 1001 1011 AAAA Abbb		(1/2/3) SBIS A,b
+			Rd = arg1_8;
+			if (read_io(Rd) & (1<<(arg2_8)))
+			{
+				unsigned int icc = get_insn_size(progmemDecoded[pc].opNum);
+				pc += icc;
+				while (icc != 0U)
+				{
+					update_hardware();
+					icc --;
+				}
+			}
+			break;
+
+		case  68: // 1001 0111 KKdd KKKK		(2) SBIW Rd+1:Rd,K
+			Rd = arg1_8;
+			Rr = arg2_8;
 			Rd16 = r[Rd] | (r[Rd+1]<<8);
 			R16 = Rd16 - Rr;
 			r[Rd] = (u8)R16;
 			r[Rd+1] = (u8)(R16>>8);
-			set_bit(SREG,SREG_V,(Rd16&~R16)&0x8000);
-			set_bit(SREG,SREG_N,R16&0x8000);
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM);
+			set_bit_1(SREG,SREG_V,((Rd16&~R16)&0x8000) >> 15);
+			set_bit_1(SREG,SREG_N,(R16&0x8000) >> 15);
 			UPDATE_S;
-			set_bit(SREG,SREG_Z,!R16);
-			set_bit(SREG,SREG_C,(R16&~Rd16)&0x8000);
-			cycles=2;
+			set_bit_inv(SREG,SREG_Z,R16);
+			set_bit_1(SREG,SREG_C,((R16&~Rd16)&0x8000) >> 15);
+			update_hardware();
 			break;
-		case 8:
-		  /*1001 1000 AAAA Abbb		CBI A,b */
-			Rd = (insn >> 3) & 31;
-			write_io(Rd, read_io(Rd) & ~(1<<(insn&7)));
-			cycles=2;
-			break;
-		case 9:
-		  /*1001 1001 AAAA Abbb		SBIC A,b */
-			Rd = (insn >> 3) & 31;
-			if (!(read_io(Rd) & (1<<(insn&7))))
+
+		case  69: // 1111 110r rrrr 0bbb		(1/2/3) SBRC Rr,b
+			Rd = r[arg1_8];
+			if (((Rd >> (arg2_8)) & 1U) == 0)
 			{
-				uTmp = get_insn_size(progmem[pc]);
-				cycles += uTmp;
-				pc += uTmp;
+				unsigned int icc = get_insn_size(progmemDecoded[pc].opNum);
+				pc += icc;
+				while (icc != 0U)
+				{
+					update_hardware();
+					icc --;
+				}
 			}
 			break;
-		case 10:
-		  /*1001 1010 AAAA Abbb		SBI A,b */
-			Rd = (insn >> 3) & 31;
-			write_io(Rd, read_io(Rd) | (1<<(insn&7)));
-			cycles=2;
-			break;
-		case 11:
-		  /*1001 1011 AAAA Abbb		SBIS A,b */
-			Rd = (insn >> 3) & 31;
-			if (read_io(Rd) & (1<<(insn&7)))
+
+		case  70: // 1111 111r rrrr 0bbb		(1/2/3) SBRS Rr,b
+			Rd = r[arg1_8];
+			if (((Rd >> (arg2_8)) & 1U) == 1)
 			{
-				uTmp = get_insn_size(progmem[pc]);
-				cycles += uTmp;
-				pc += uTmp;
+				unsigned int icc = get_insn_size(progmemDecoded[pc].opNum);
+				pc += icc;
+				while (icc != 0U)
+				{
+					update_hardware();
+					icc --;
+				}
 			}
 			break;
-		case 12: case 13: case 14: case 15:
-		  /*1001 11rd dddd rrrr		MUL Rd,Rr */
-			Rd = r[D5];
-			Rr = r[R5];
-			uTmp = Rd * Rr; 
-			r0 = (u8)uTmp; 
-			r1 = (u8)(uTmp >> 8);
-			UPDATE_CZ_MUL(uTmp);
-			cycles=2;
+
+		case  71: // 1001 0101 1000 1000		(?) SLEEP
+			elapsedCyclesSleep=cycleCounter-lastCyclesSleep;
+			lastCyclesSleep=cycleCounter;
 			break;
-		}
-		break;
-	case 11:
-	  /*1011 0AAd dddd AAAA		IN Rd,A
-		1011 1AAd dddd AAAA		OUT A,Rd */ 
-		Rd = D5;
-		Rr = ((insn >> 5) & 0x30) | (insn & 0xF);
-		if (insn & 0x0800) // OUT
-		{
-			write_io(Rr,r[Rd]);
-		}
-		else	// IN
-		{
-			r[Rd] = read_io(Rr);
-		}
-		break;
-	case 12: /*1100 kkkk kkkk kkkk		RJMP k */
-		pc += k12;
-		cycles=2;
-		break;
-	case 13: /*1101 kkkk kkkk kkkk		RCALL k */
-		write_sram(SP,(u8)pc);
-		DEC_SP;
-		write_sram(SP,pc>>8);
-		DEC_SP;
-		pc += k12;
-		cycles=3;
-		break;
-	case 14: /*1110 KKKK dddd KKKK		LDI Rd,K (SER is just LDI Rd,255) */
-		r[D4 + 16] = K8;
-		break;
-	case 15:
-	  /*1111 00kk kkkk ksss		BRBS s,k (same here)
-		1111 01kk kkkk ksss		BRBC s,k (BRCC, etc are aliases for this with sss implicit)
-		1111 100d dddd 0bbb		BLD Rd,b
-		1111 101d dddd 0bbb		BST Rd,b
-		1111 110r rrrr 0bbb		SBRC Rr,b
-		1111 111r rrrr 0bbb		SBRS Rr,b */
-		switch ((insn >> 9) & 7)
-		{
-		case 0: case 1: /*BRBS*/
-			sTmp = k7;
-			if (SREG & (1<<(insn&7)))
+
+		case  72: // 1001 0101 1110 1000		(?) SPM Z (writes R1:R0)
+			update_hardware();
+			update_hardware(); // Cycle count undocumented?!?!?
+			update_hardware(); // (4 cycles emulated)
+			if (Z >= progSize/2)
 			{
-				pc += sTmp;
-				cycles=2;
+				fprintf(stderr,"illegal write to progmem addr %x\n",Z);
+				shutdown(1);
+			}else{
+				progmem[Z] = r0 | (r1<<8);
+				decodeFlash(Z-1);
+				decodeFlash(Z);
 			}
 			break;
-		case 2: case 3: /*BRBC*/
-			sTmp = k7;
-			if (!(SREG & (1<<(insn&7))))
-			{
-				pc += sTmp;
-				cycles=2;
+
+		case  73: // 1001 001r rrrr 1110		(2) ST -X,Rr
+			update_hardware();
+			DEC_X;
+			write_sram_io(X,r[arg1_8]);
+			break;
+
+		case  74: // 1001 001r rrrr 1010		(2) ST -Y,Rr
+			update_hardware();
+			DEC_Y;
+			write_sram_io(Y,r[arg1_8]);
+			break;
+
+		case  75: // 1001 001r rrrr 0010		(2) ST -Z,Rr
+			update_hardware();
+			DEC_Z;
+			write_sram_io(Z,r[arg1_8]);
+			break;
+
+		case  76: // 1001 001r rrrr 1100		(2) ST X,Rr
+			update_hardware();
+			write_sram_io(X,r[arg1_8]);
+			break;
+
+		case  77: // 1001 001r rrrr 1101		(2) ST X+,Rr
+			update_hardware();
+			write_sram_io(X,r[arg1_8]);
+			INC_X;
+			break;
+
+		case  78: // 1001 001r rrrr 1001		(2) ST Y+,Rr
+			update_hardware();
+			write_sram_io(Y,r[arg1_8]);
+			INC_Y;
+			break;
+
+		case  79: // 10q0 qq1d dddd 1qqq		(2) STD Y+q,Rd
+			Rd = arg1_8;
+			Rr = arg2_8;
+			update_hardware();
+			write_sram_io(Y + Rr, r[Rd]);
+			break;
+
+		case  80: // 1001 001r rrrr 0001		(2) ST Z+,Rr
+			update_hardware();
+			write_sram_io(Z,r[arg1_8]);
+			INC_Z;
+			break;
+
+		case  81: // 10q0 qq1d dddd 0qqq		(2) STD Z+q,Rd
+			Rd = arg1_8;
+			Rr = arg2_8;
+			update_hardware();
+			write_sram_io(Z + Rr, r[Rd]);
+			break;
+
+		case  82: // 1001 001d dddd 0000		(2) STS k,Rr (next word is rest of address)
+			update_hardware();
+			write_sram_io(arg2_8,r[arg1_8]);
+			pc++;
+			break;
+
+		case  83: // 0001 10rd dddd rrrr		(1) SUB Rd,Rr
+			Rd = r[arg1_8];
+			Rr = r[arg2_8];
+			R = Rd - Rr;
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
+			r[arg1_8] = R;
+			break;
+
+		case  84: // 0101 KKKK dddd KKKK		(1) SUBI Rd,K
+			Rd = r[arg1_8];
+			Rr = arg2_8;
+			R = Rd - Rr;
+			clr_bits(SREG, SREG_CM | SREG_ZM | SREG_NM | SREG_VM | SREG_SM | SREG_HM);
+			UPDATE_HC_SUB; UPDATE_SVN_SUB; UPDATE_Z;
+			r[arg1_8] = R;
+			break;
+
+		case  85: // 1001 010d dddd 0010		(1) SWAP Rd
+			Rd = r[arg1_8];
+			r[arg1_8] = (Rd >> 4) | (Rd << 4);
+			break;
+
+		case  86: // 1001 0101 1010 1000		(1) WDR
+			//watchdog is based on a RC oscillator
+			//so add some random variation to simulate entropy
+			watchdogTimer=rand()%1024;
+			if(prevWDR){
+				printf("WDR measured %u cycles\n", cycleCounter - prevWDR);
+				prevWDR = 0;
+			}else{
+				prevWDR = cycleCounter + 1;
 			}
 			break;
-		case 4: /*BLD*/
-			Rd = D5;
-			set_bit(r[Rd],insn&7,SREG & (1<<SREG_T));
+
+		default: // Illegal op.
+			ILLEGAL_OP;
 			break;
-		case 5: /*BST*/
-			Rd = r[D5];
-			set_bit(SREG,SREG_T,Rd & (1<<(insn&7)));
-			break;
-		case 6: /*SBRC*/
-			Rd = r[D5];
-			if (!(Rd & (1<<(insn&7))))
-			{
-				uTmp = get_insn_size(progmem[pc]);
-				cycles += uTmp;
-				pc += uTmp;
-			}
-			break;
-		case 7: /*SBRS*/
-			Rd = r[D5];
-			if (Rd & (1<<(insn&7)))
-			{
-				uTmp = get_insn_size(progmem[pc]);
-				cycles += uTmp;
-				pc += uTmp;
-			}
-			break;
-		}
-		break;
 	}
 
+	// Process hardware for the last instruction cycle
 
-	update_hardware(cycles);
+	update_hardware_fast();
 
-	return cycles;
+	// Run instruction precise emulation tasks
+
+	update_hardware_ins();
+
+	// Done, return cycles consumed during the processing of this instruction.
+
+	return cycleCounter - startcy;
 }
 
+u16 avr8::decodeArg(u16 flash, u16 argMask, u8 argNeg){
 
-void avr8::trigger_interrupt(int location)
+	u16 argMaskShift = 0x0001;
+	u16 decodeShift = 0x0001;
+	u16 arg = 0x0000;
+
+	while (argMaskShift != 0x4000){  //0x4000 is highest bit in argMask that can be set
+		if((argMaskShift & argMask) != 0){
+			if((argMaskShift & flash) != 0){
+				arg = arg | decodeShift;
+			}
+			decodeShift = decodeShift << 1 ;
+		}
+		argMaskShift = argMaskShift<<1;
+	}
+	decodeShift = decodeShift >>1;
+	
+	if((argNeg == 1) && ((decodeShift & arg) != 0)) {
+		while(decodeShift != 0x8000){
+			decodeShift = decodeShift << 1 ;
+			arg = arg | decodeShift;
+		}
+	}
+	
+	return(arg);
+}
+
+void avr8::instructionDecode(u16 address){
+
+	int i = 0;
+	u16 rawFlash;
+	u16 thisMask;
+	u16 arg1;
+	u16 arg2;
+
+	rawFlash = progmem[address];
+
+	instructionDecode_t thisInst;
+
+	thisInst.opNum = 0;
+	thisInst.arg1  = 0;
+	thisInst.arg2  = 0;
+
+	while(instructionList[i].opNum != 0){
+		thisMask = ~(instructionList[i].arg1Mask | instructionList[i].arg2Mask);
+
+		if((rawFlash & thisMask) == instructionList[i].mask){
+
+			arg1 = (decodeArg(rawFlash, instructionList[i].arg1Mask, instructionList[i].arg1Neg) * instructionList[i].arg1Mul) + instructionList[i].arg1Offset;
+			arg2 = (decodeArg(rawFlash, instructionList[i].arg2Mask, instructionList[i].arg2Neg) * instructionList[i].arg2Mul) + instructionList[i].arg2Offset;
+
+			if (instructionList[i].words == 2) { // the 2 word instructions have k16 as the 2nd word of total 32bit instruction
+				arg2 = progmem[address+1];
+			}
+
+			//fprintf(stdout, instructionList[i].opName, arg1, arg2);
+			//fprintf(stdout, "\n");
+
+			thisInst.opNum = instructionList[i].opNum;
+			thisInst.arg1  = arg1;
+			thisInst.arg2  = arg2;
+					
+			progmemDecoded[address] = thisInst;	
+			return;
+		}
+		i++;
+	}
+	return;
+}
+
+void avr8::decodeFlash(void){
+	for(u16 i=0; i<(progSize/2); i++){
+		decodeFlash(i);
+	}
+}
+void avr8::decodeFlash(u16 address){
+	
+	if (address < (progSize/2)) {
+		instructionDecode(address);
+	}
+}
+
+void avr8::trigger_interrupt(unsigned int location)
 {
 
 		// clear interrupt flag
-		set_bit(SREG,SREG_I,0);
+		store_bit_1(SREG,SREG_I,0);
 
 		// push current PC
 		write_sram(SP,(u8)pc);
@@ -1333,14 +1971,16 @@ void avr8::trigger_interrupt(int location)
 		// jump to new location (which jumps to the real handler)
 		pc = location;
 
-		// bill the cycles consumed.
-		// (this in theory can recurse back into here but we've
-		// already cleared the interrupt enable flag)
-		update_hardware(5);
+		// bill the cycles consumed (3 cycles).
+		// Note  that there is an error in the Atmega644 datasheet where
+		// it specifies the IRQ cycles as 5.
+		// see: http://www.avrfreaks.net/forum/interrupt-timing-conundrum
+		update_hardware();
+		update_hardware();
+		update_hardware();
 
 }
 
-#if GUI
 bool avr8::init_sd()
 {
 	if (SDemulator.init_with_directory(SDpath) < 0) {
@@ -1367,7 +2007,7 @@ bool avr8::init_sd()
 
 bool avr8::init_gui()
 {
-	if ( SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0 )
+	if ( SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0 )
 	{
 		fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
 		return false;
@@ -1376,20 +2016,38 @@ bool avr8::init_gui()
 	atexit(SDL_Quit);
 	init_joysticks();
 
-	if (fullscreen)
-		screen = SDL_SetVideoMode(800,600,32,sdl_flags | SDL_FULLSCREEN);
-	else
-		screen = SDL_SetVideoMode(630,448,32,sdl_flags);
-	if (!screen)
-	{
-		fprintf(stderr, "Unable to set 630x448x32 video mode.\n");
+	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,630,448,fullscreen?SDL_WINDOW_FULLSCREEN:SDL_WINDOW_RESIZABLE);
+	if (!window){
+		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
 		return false;
 	}
-	else if (fullscreen)	// Center in fullscreen
-		inset = ((600-448)/2) * screen->pitch + 4 * ((800-630)/2);
-
-	if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) < 0)
+	renderer = SDL_CreateRenderer(window, -1, sdl_flags);
+	if (!renderer){
+		SDL_DestroyWindow(window);
+		fprintf(stderr, "CreateRenderer failed: %s\n", SDL_GetError());
 		return false;
+	}
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+	SDL_RenderSetLogicalSize(renderer, 630, 448);
+
+	surface = SDL_CreateRGBSurface(0, VIDEO_DISP_WIDTH, 224, 32, 0, 0, 0, 0);
+	if(!surface){
+		fprintf(stderr, "CreateRGBSurface failed: %s\n", SDL_GetError());
+		return false;
+	}
+
+	texture = SDL_CreateTexture(renderer,surface->format->format,SDL_TEXTUREACCESS_STATIC,surface->w,surface->h);
+	if (!texture){
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyWindow(window);
+		fprintf(stderr, "CreateTexture failed: %s\n", SDL_GetError());
+		return false;
+	}
+
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
+
 
 	if (fullscreen)
 	{
@@ -1399,12 +2057,12 @@ bool avr8::init_gui()
 	// Open audio driver
 	SDL_AudioSpec desired;
 	memset(&desired, 0, sizeof(desired));
-	desired.freq = 15700;
+	desired.freq = 15734;
 	desired.format = AUDIO_U8;
 	desired.callback = audio_callback_stub;
 	desired.userdata = this;
 	desired.channels = 1;
-	desired.samples = 1024;
+	desired.samples = 512;
 	if (enableSound)
 	{
 		if (SDL_OpenAudio(&desired, NULL) < 0)
@@ -1416,12 +2074,12 @@ bool avr8::init_gui()
 			SDL_PauseAudio(0);
 	}
 
-	current_cycle = -999999;
-	scanline_top = -33;
+	left_edge_cycle = cycleCounter;
+	scanline_top = -33-5;
 	scanline_count = -999;
 	//Syncronized with the kernel, this value now results in the image 
 	//being perfectly centered in both the emulator and a real TV
-	left_edge = -166;
+	left_edge = VIDEO_LEFT_EDGE;
 
 	latched_buttons[0] = buttons[0] = ~0;
 	latched_buttons[1] = buttons[1] = ~0;
@@ -1434,17 +2092,58 @@ bool avr8::init_gui()
 		int red = (((i >> 0) & 7) * 255) / 7;
 		int green = (((i >> 3) & 7) * 255) / 7;
 		int blue = (((i >> 6) & 3) * 255) / 3;
-		palette[i] = SDL_MapRGB(screen->format, red, green, blue);
+		palette[i] = SDL_MapRGB(surface->format, red, green, blue);
 	}
 	
+	hsync_more_col=SDL_MapRGB(surface->format, 255,0, 0); //red
+	hsync_less_col=SDL_MapRGB(surface->format, 255,255, 0); //yellow
 
-	SDL_initFramerate(&fpsmanager);
-	SDL_setFramerate(&fpsmanager, 60);
+#ifndef __EMSCRIPTEN__
+	if (recordMovie){
+
+		if (avconv_video == NULL){
+			// Detect the pixel format that the GPU picked for optimal speed
+			char pix_fmt[] = "aaaa";
+			switch (surface->format->Rmask) {
+			case 0xff000000: pix_fmt[3] = 'r'; break;
+			case 0x00ff0000: pix_fmt[2] = 'r'; break;
+			case 0x0000ff00: pix_fmt[1] = 'r'; break;
+			case 0x000000ff: pix_fmt[0] = 'r'; break;
+			}
+			switch (surface->format->Gmask) {
+			case 0xff000000: pix_fmt[3] = 'g'; break;
+			case 0x00ff0000: pix_fmt[2] = 'g'; break;
+			case 0x0000ff00: pix_fmt[1] = 'g'; break;
+			case 0x000000ff: pix_fmt[0] = 'g'; break;
+			}
+			switch (surface->format->Bmask) {
+			case 0xff000000: pix_fmt[3] = 'b'; break;
+			case 0x00ff0000: pix_fmt[2] = 'b'; break;
+			case 0x0000ff00: pix_fmt[1] = 'b'; break;
+			case 0x000000ff: pix_fmt[0] = 'b'; break;
+			}
+			printf("Pixel Format = %s\n", pix_fmt);
+			char avconv_video_cmd[1024] = {0};
+			snprintf(avconv_video_cmd, sizeof(avconv_video_cmd) - 1, "ffmpeg -y -f rawvideo -s %ux224 -pix_fmt %s -r 59.94 -i - -vf scale=960:720 -sws_flags neighbor -an -preset ultrafast -qp 0 -tune animation uzemtemp.mp4", VIDEO_DISP_WIDTH, pix_fmt);
+			avconv_video = popen(avconv_video_cmd, "w");
+		}
+		if (avconv_video == NULL){
+			fprintf(stderr, "Unable to init ffmpeg.\n");
+			return false;
+		}
+
+		avconv_audio = popen("ffmpeg -y -f u8 -ar 15734 -ac 1 -i - -acodec libmp3lame -ar 44.1k uzemtemp.mp3", "w");
+		if(avconv_audio == NULL){
+			fprintf(stderr, "Unable to init ffmpeg.\n");
+			return false;
+		}
+	}
+#endif // __EMSCRIPTEN__
 
 	//Set window icon
 	SDL_Surface *slogo;
 	slogo = SDL_CreateRGBSurfaceFrom((void *)&logo,32,32,32,32*4,0xFF,0xff00,0xff0000,0xff000000);
-	SDL_WM_SetIcon(slogo, NULL);
+	SDL_SetWindowIcon(window,slogo);
 	SDL_FreeSurface(slogo);
 
 	return true;
@@ -1483,8 +2182,8 @@ void avr8::handle_key_down(SDL_Event &ev)
 			// SDLK_LEFT/RIGHT/UP/DOWN
 			// SDLK_abcd...
 			// SDLK_RETURN...
-			case SDLK_1: left_edge--; printf("left=%d\n",left_edge); break;
-			case SDLK_2: left_edge++; printf("left=%d\n",left_edge); break;
+			case SDLK_1: if (left_edge > 0U) { left_edge--; } printf("left=%u\n",left_edge); break;
+			case SDLK_2: if (left_edge < 2047U - ((VIDEO_DISP_WIDTH * 7U) / 3U)) { left_edge++; } printf("left=%u\n",left_edge); break;
 			case SDLK_3: scanline_top--; printf("top=%d\n",scanline_top); break;
 			case SDLK_4: scanline_top++; printf("top=%d\n",scanline_top); break;
 			case SDLK_5: 
@@ -1519,10 +2218,33 @@ void avr8::handle_key_down(SDL_Event &ev)
 				printf("user abort (pressed ESC).\n");
                 shutdown(0);
                 /* no break */
-			case SDLK_PRINT:
+			case SDLK_PRINTSCREEN:
 				sprintf(ssbuf,"uzem_%03d.bmp",ssnum++);
 				printf("saving screenshot to '%s'...\n",ssbuf);
-				SDL_SaveBMP(screen,ssbuf);
+                                {
+                                  SDL_Surface* surfBMP;
+                                  const Uint8 *kbstate = SDL_GetKeyboardState(NULL);
+                                  if (kbstate[SDL_SCANCODE_LSHIFT] || kbstate[SDL_SCANCODE_RSHIFT]) {
+                                    surfBMP = SDL_CreateRGBSurface(0, 240, 224, 32, 0, 0, 0, 0);
+                                  } else {
+                                    surfBMP = SDL_CreateRGBSurface(0, 630, 448, 32, 0, 0, 0, 0);
+                                  }
+                                  
+                                  if (!surfBMP){
+                                    fprintf(stderr, "CreateRGBSurface failed: %s\n", SDL_GetError());
+                                  } else {
+                                    if (SDL_BlitScaled(surface, NULL, surfBMP, NULL) < 0) {
+                                      fprintf(stderr, "BlitScaled failed: %s\n", SDL_GetError());
+                                      SDL_FreeSurface(surfBMP);
+                                    } else {
+                                      SDL_SaveBMP(surfBMP,ssbuf);
+                                      SDL_FreeSurface(surfBMP);
+                                      break;
+                                    }
+                                  }
+                                }
+                                fprintf(stderr, "There was a problem rescaling the screenshot, saving the unscaled version.\n");
+                                SDL_SaveBMP(surface,ssbuf); // at least save the weirdly scaled one				
 				break;
 			case SDLK_0:
 				PIND = PIND & ~0b00001100;
@@ -1564,11 +2286,10 @@ void avr8::handle_key_up(SDL_Event &ev)
 	}
 
 	update_buttons(ev.key.keysym.sym,false);
-	if (ev.key.keysym.sym == SDLK_0)
-		PIND |= 0b00001100;		//return soft power switch to normal (pullup)
+	if (ev.key.keysym.sym == SDLK_0) PIND |= 0b00001100;		//return soft power switch to normal (pullup)
 }
 
-struct keymap { u16 key; u8 player, bit; };
+struct keymap { u32 key; u8 player, bit; };
 #define END_OF_MAP { 0,0,0 }
 keymap nes_one_player[] = 
 {	
@@ -1661,7 +2382,7 @@ void avr8::init_joysticks() {
 			else {
 				joysticks[i].buttons = joyButtons[i];
 				joysticks[i].hats = 0;
-				printf("P%i joystick: %s.\n", i+1,SDL_JoystickName(i));
+				printf("P%i joystick: %s.\n", i+1,SDL_JoystickName(joysticks[i].device));
 			}
 			
 			for (int j= 0; j < MAX_JOYSTICK_AXES; ++j)
@@ -1727,7 +2448,7 @@ void avr8::map_joysticks(SDL_Event &ev)
 	} else if (jmap.jstate == JMAP_AXES && ev.type == SDL_JOYAXISMOTION) {
 		// Find index to place new axes
 		if (jmap.jaxis == JOY_AXIS_UNUSED) {
-			for (int i = 0, j = 0; i < MAX_JOYSTICK_AXES; i+=2) {
+			for (int i = 0; i < MAX_JOYSTICK_AXES; i+=2) {
 				if (joysticks[jmap.jindex].axes[i].axis == JOY_AXIS_UNUSED || joysticks[jmap.jindex].axes[i].axis == ev.jaxis.axis) {
 					joysticks[jmap.jindex].axes[i].axis = JOY_AXIS_UNUSED;
 					joysticks[jmap.jindex].axes[i+1].axis = JOY_AXIS_UNUSED;
@@ -1876,185 +2597,8 @@ void avr8::load_joystick_file(const char* filename)
 			printf("Warning: Invalid Joystick settings file.\n");
 	}
 }
-#endif
-
-void avr8::update_hardware(int cycles)
-{
-
-	cycleCounter += cycles;
-	watchdogTimer += cycles;
-
-	if (TCCR1B & 7)	//if timer 1 is started
-	{
-		TCNT1 = TCNT1L | (TCNT1H<<8);
-		OCR1A = OCR1AL | (OCR1AH<<8);
-		OCR1B = OCR1BL | (OCR1BH<<8);
-
-		if(TCCR1B & WGM12){ //timer in CTC mode: count up to OCRnA then resets to zero
-
-			if (TCNT1 > (0xFFFF - cycles)){
-				if (TIMSK1 & TOIE1){
-					 TIFR1|=TOV1; //overflow interrupt
-				}
-			}
-
-			if (TCNT1 < OCR1B && (TCNT1 + cycles) >= OCR1B){
-				if (TIMSK1 & OCIE1B){
-					TIFR1|=OCF1B; //CTC match flag interrupt
-				}
-			}
-
-			if (TCNT1 < OCR1A && TCNT1 + cycles >= OCR1A){
-				TCNT1 -= (OCR1A - cycles);
-				if (TIMSK1 & OCIE1A){
-					TIFR1|=OCF1A; //CTC match flag interrupt
-				}
-			}else{
-				TCNT1 += cycles;
-			}
-
-		}else{	//timer in normal mode: counts up to 0xffff then rolls over
-
-			if (TCNT1 > (0xFFFF - cycles)){
-				if (TIMSK1 & TOIE1){
-					 TIFR1|=TOV1; //overflow interrupt
-				}
-			}
-			TCNT1 += cycles;
-		}
-
-		TCNT1L = (u8) TCNT1;
-		TCNT1H = (u8) (TCNT1>>8);
-	}
 
 
-	if(WDTCSR & WDE){ //if watchdog enabled
-		if(watchdogTimer>=DELAY16MS && (WDTCSR&WDIE)){
-			WDTCSR|=WDIF;	//watchdog interrupt
-			//reset watchdog
-			//watchdog is based on a RC oscillator
-			//so add some random variation to simulate entropy
-			watchdogTimer=rand()%1024;
-		}
-	}
-
-    // clock the SPI hardware. 
-    if((SPCR & 0x40) && SD_ENABLED()){ // only if SPI is enabled
-        //TODO: test for master/slave modes (assume master for now)
-        // TODO: factor in clock divider 
-        
-        if(spiTransfer && (cycles > 0)){
-            if(spiClock <= cycles){
-                //SPI_DEBUG("SPI transfer complete\n");
-                update_spi();
-                spiClock = 0;
-                spiTransfer = 0;
-                SPSR |= 0x80; // set interrupt
-            }
-            else{
-                spiClock -= cycles;
-            }
-        }
-            /*        
-        //HACK: instantaneous SPI access        
-        if(spiTransfer && spiClock > 0){
-            update_spi();
-            SPSR |= 0x80; // set interrupt
-            spiTransfer = 0;
-            spiClock = 0;
-        }*/
-    
-        // test for interrupt (enable and interrupt flag for SPI)
-        if((SPCR & 0x80) && (SPSR & 0x80)){
-            //TODO: verify that SPI is dependent upon the global interrupt flag
-            if (BIT(SREG,SREG_I)){
-                SPSR ^= 0x80; // clear the interrupt
-                trigger_interrupt(SPI_STC); // execute the vector
-            }
-        }
-    }
-
-    //clock the EEPROM hardware
-    /*
-    1. Wait until EEPE becomes zero.
-    2. Wait until SELFPRGEN in SPMCSR becomes zero.
-    3. Write new EEPROM address to EEAR (optional).
-    4. Write new EEPROM data to EEDR (optional).
-    5. Write a logical one to the EEMPE bit while writing a zero to EEPE in EECR.
-    6. Within four clock cycles after setting EEMPE, write a logical one to EEPE.
-    The EEPROM can not be programmed during a CPU write to the Flash memory.
-    */
-    // are we attempting to program?
-    if(EECR & EEPE){
-        //printf("attempting write of EEPROM\n");
-        cycleCounter += 4; // writes take four cycles
-        int addr = (EEARH << 8) | EEARL;
-        if(addr < eepromSize) eeprom[addr] = EEDR;
-        EECR ^= (EEMPE | EEPE); // clear program bits
-        
-        // interrupt?
-        //if((EECR & EERIE) && BIT(SREG,SREG_I)){
-        //    SPSR ^= 0x80; // clear the interrupt
-        //    trigger_interrupt(SPI_STC); // execute the vector
-        //}
-    }
-    // are we attempting to read?
-    else if(EECR & EERE){
-       // printf("attempting read of EEPROM\n");
-        cycleCounter += 1; // ireads take one additonal cycle
-        int addr = (EEARH << 8) | EEARL;
-        if(addr < eepromSize) EEDR = eeprom[addr];
-        EECR ^= EERE; // clear read  bit
-        
-        // interrupt?
-        //if((EECR & EERIE) && BIT(SREG,SREG_I)){
-        //    SPSR ^= 0x80; // clear the interrupt
-        //    trigger_interrupt(SPI_STC); // execute the vector
-        //}
-    }
-
-	//process interrupts in order of priority
-    if(SREG & (1<<SREG_I)){
-
-    	if ((WDTCSR&(WDIF|WDIE))==(WDIF|WDIE)){
-
-    		WDTCSR&= ~WDIF; //clear watchdog flag
-			trigger_interrupt(WDT);
-
-    	}else if ((TIFR1 & OCF1A) && (TIMSK1 & OCIE1A) ){
-
-			TIFR1&= ~OCF1A; //clear CTC match flag
-			trigger_interrupt(TIMER1_COMPA);
-
-		}else if ((TIFR1 & OCF1B) && (TIMSK1 & OCIE1B)){
-
-			TIFR1&= ~OCF1B; //clear CTC match flag
-			trigger_interrupt(TIMER1_COMPB);
-
-		}else if ((TIFR1 & TOV1) && (TIMSK1 & TOIE1)){
-
-			TIFR1&= ~TOV1; //clear TOV1 flag
-			trigger_interrupt(TIMER1_OVF);
-		}
-	}
-
-    //draw pixels on scanline
-	if (scanline_count >= 0 && current_cycle < 1440)
-	{
-		while (cycles)
-		{
-			if (current_cycle >= 0 && current_cycle < 1440)
-			{
-				current_scanline[(current_cycle*7)>>4] = pixel;
-				next_scanline[(current_cycle*7)>>4] = pixel;
-			}
-			current_cycle++;
-			--cycles;
-		}
-	}
-
-
-}
 
 #ifdef SPI_DEBUG
 char ascii(unsigned char ch){
@@ -2143,10 +2687,11 @@ void avr8::update_spi(){
         case 0x4c: //CMD12 =  STOP_TRANSMISSION
             SPDR = 0x00;
             spiState = SPI_RESPOND_SINGLE;
-            spiResponseBuffer[0] = 0x4; // card is in "trans" state
-            spiResponseBuffer[1] = 0xff; //ready
+            spiResponseBuffer[0] = 0xff; //stuff byte
+            spiResponseBuffer[1] = 0xff; //stuff byte
+            spiResponseBuffer[2] = 0x00; // card is ready //in "trans" state
             spiResponsePtr = spiResponseBuffer;
-            spiResponseEnd = spiResponsePtr+2;
+            spiResponseEnd = spiResponsePtr+3;
             spiByteCount = 0;
             break;
 
@@ -2362,30 +2907,6 @@ void avr8::update_spi(){
 }
 
 
-static inline int parse_hex_nibble(char s)
-{
-	if (s >= '0' && s <= '9')
-		return s - '0';
-	else if (s >= 'A' && s <= 'F')
-		return s - 'A' + 10;
-	else if (s >= 'a' && s <= 'a')
-		return s - 'a' + 10;
-	else
-		return -1;
-}
-
-static int parse_hex_byte(const char *s)
-{
-	return (parse_hex_nibble(s[0])<<4) | parse_hex_nibble(s[1]);
-}
-
-static int parse_hex_word(const char *s)
-{
-	return (parse_hex_nibble(s[0])<<12) | (parse_hex_nibble(s[1]) << 8) |
-		(parse_hex_nibble(s[2])<<4) | parse_hex_nibble(s[3]);
-}
-
-
 void avr8::SDLoadImage(char* filename){
     if(sdImage){
         printf("SD Image file already specified.");
@@ -2429,6 +2950,7 @@ u8 avr8::SDReadByte(){
 }
 
 void avr8::SDWriteByte(u8 value){    
+    (void)value;
     fprintf(stderr, "No write support in SD emulation\n");
 }
 
@@ -2466,7 +2988,7 @@ void avr8::LoadEEPROMFile(const char* filename){
 
 		size_t result=fread(eeprom,1,size,f);
         if (result != size){
-        	printf("Warning: fread in %s returned an unexpected value:%i,\n", __FUNCTION__,result);
+        	printf("Warning: fread in %s returned an unexpected value:%lu,\n", __FUNCTION__,result);
         }
         fclose(f);
     }
@@ -2496,11 +3018,32 @@ void avr8::shutdown(int errcode){
         }
     }
 
-    if(captureMode==CAPTURE_WRITE && captureFile!=NULL){
+    if(captureFile!=NULL){
     	fclose(captureFile);
     }
 
-#if GUI
+#ifndef __EMSCRIPTEN__
+    //movie recording
+    if(recordMovie){
+		if (avconv_video) pclose(avconv_video);
+		if (avconv_audio) pclose(avconv_audio);
+
+		char mux[1024];
+		strcpy(mux,"ffmpeg -y -i uzemtemp.mp4 -i uzemtemp.mp3 -vcodec copy -acodec copy -f mp4 ");
+		strcat(mux,romName);
+		strcat(mux,".mp4");
+
+		FILE* avconv_mux = popen(mux,"r");
+		if (avconv_mux) {
+			pclose(avconv_mux);
+			unlink("uzemtemp.mp4");
+			unlink("uzemtemp.mp3");
+		}else{
+			printf("Error with ffmpeg multiplexer.");
+		}
+    }
+#endif // __EMSCRIPTEN__
+
 	if (joystickFile) {
 		FILE* f = fopen(joystickFile,"wb");
 
@@ -2509,13 +3052,12 @@ void avr8::shutdown(int errcode){
 				fwrite(joyButtons[i],sizeof(struct joyButton),NUM_JOYSTICK_BUTTONS,f);
 				fwrite(joysticks[i].axes,sizeof(struct joyAxis),MAX_JOYSTICK_AXES,f);
 				
-				if (joysticks[i].device && SDL_JoystickOpened(SDL_JoystickIndex(joysticks[i].device)))
+				if (joysticks[i].device)
 					SDL_JoystickClose(joysticks[i].device);
 			}
             fclose(f);
         }
 	}
-#endif
 
     exit(errcode);
 }

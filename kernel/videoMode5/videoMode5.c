@@ -24,7 +24,7 @@
 	#include <avr/pgmspace.h>
 	#include "uzebox.h"
 	#include "intro.h"
-
+	
 	#if INTRO_LOGO !=0
 		#include "videoMode5/uzeboxlogo_6x8.pic.inc"
 		#include "videoMode5/uzeboxlogo_6x8.map.inc"
@@ -49,11 +49,11 @@
 				TriggerFx(0,0xff,true);
 			#endif
 
-			DrawMap(LOGO_X_POS,12,map_uzeboxlogo);
+			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo);
 			WaitVsync(6);
-			DrawMap(LOGO_X_POS,12,map_uzeboxlogo2);
+			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo2);
 			WaitVsync(4);
-			DrawMap(LOGO_X_POS,12,map_uzeboxlogo);
+			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo);
 
 			#if INTRO_LOGO == 2
 				SetMasterVolume(0xc0);

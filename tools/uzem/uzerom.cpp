@@ -93,20 +93,6 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
     return false;
 }
 
-//copy strings without end of lines special characters
-static void strcpy2(char* dest, char* src, int maxsize)
-{
-	u8 c;
-	int i=0;
-	while(i<maxsize){
-	//strcpy((char*)rom.header->name,line+5);
-		c=*src++;
-		if(c<32) break;
-		*dest++=c;
-		i++;
-	}
-}
-
 static inline int parse_hex_nibble(char s)
 {
 	if (s >= '0' && s <= '9')
@@ -132,7 +118,7 @@ static int parse_hex_word(const char *s)
 
 bool loadHex(const char *in_filename,unsigned char *buffer,unsigned int *bytesRead)
 {
-	
+	(void)bytesRead;
 	//http://en.wikipedia.org/wiki/.hex
 
 	//(I've added the spaces for clarity, they don't exist in the real files)

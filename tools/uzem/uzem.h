@@ -24,6 +24,6 @@ THE SOFTWARE.
 #ifndef UZEM_H
 #define UZEM_H
 
-#define VERSION "v1.3.3"
+#define VERSION "v1.4"
 
 #endif

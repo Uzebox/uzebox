@@ -80,6 +80,7 @@
 			struct SubChannelsStruct type;	
 		}channels;
 
+		//const char *pcmLoopStart;		//PCM channel's absolute adress of PCM loop start
 		int pcmLoopLenght;
 		const char *pcmLoopEnd;			//PCM channel's absolute adress of PCM loop end.
 	};
@@ -111,14 +112,6 @@
 		unsigned char note;
 		unsigned char channel;
 
-		#if MUSIC_ENGINE == MOD
-			const char *patternPos;
-		#else
-			unsigned char expressionVol;
-		#endif
-
-		u8 loopCount; 
-
 		s16 slideStep;		//used to slide to note
 		u8  slideNote;		//target note
 		u8	slideSpeed;		//fixed point 4:4, 1:0= 1/16 half note per frame
@@ -127,6 +120,7 @@
 		unsigned char tremoloLevel;
 		unsigned char tremoloRate;
 
+		unsigned char expressionVol;
 		unsigned char trackVol;
 		unsigned char noteVol;
 		unsigned char envelopeVol;		//(0-255)
@@ -139,6 +133,9 @@
 		unsigned char patchPlayingTime;	//used by fx to steal oldest voice
 		const char *patchCommandStreamPos;
 		
+		#if MUSIC_ENGINE == MOD
+			const char *patternPos;
+		#endif
 	};
 	typedef struct TrackStruct Track;
 
