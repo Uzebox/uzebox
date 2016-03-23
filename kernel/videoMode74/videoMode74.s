@@ -460,6 +460,7 @@
 ; calls within the Mode 74 core.
 ;
 #include "videoMode74/videoMode74_sprite.s"
+#include "videoMode74/videoMode74_vram.s"
 #endif
 
 
