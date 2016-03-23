@@ -31,7 +31,7 @@
 ; void M74_VramMove(signed char x, signed char y);
 ;
 ; Moves the contents of the VRAM with the given amount of tiles. Uses a bit
-; more than 4 cycles per copied tile for usual use cases. Up to 24 columns may
+; more than 4 cycles per copied tile for usual use cases. Up to 25 columns may
 ; be moved, so to move 1 tile left / right, at most 25 tiles of VRAM width may
 ; be set up (the VRAM pitch may be larger).
 ;
@@ -75,7 +75,7 @@
 ; void M74_VramMove(signed char x, signed char y);
 ;
 ; Moves the contents of the VRAM with the given amount of tiles. Uses a bit
-; more than 4 cycles per copied tile for usual use cases. Up to 24 columns may
+; more than 4 cycles per copied tile for usual use cases. Up to 25 columns may
 ; be moved, so to move 1 tile left / right, at most 25 tiles of VRAM width may
 ; be set up (the VRAM pitch may be larger).
 ;
@@ -118,10 +118,10 @@ vrmc2:
 	ret                    ; Would move more than the height
 vrmc3:
 
-	; Safety constraint: At most 24 tiles (there is no reason to copy
+	; Safety constraint: At most 25 tiles (there is no reason to copy
 	; more, and only this many is provided in the unrolled loops)
 
-	cpi   r25,     25
+	cpi   r25,     26
 	brcc  vrmc2
 
 	; Determine direction of movement to decide whether the copy has to
@@ -140,6 +140,7 @@ vrmyq:
 	rjmp  vrmcinc          ; Negative: Incrementing copy is necessary
 
 vrmcdec:
+
 	; Decrementing copy: bottom to top and (normally) right to left order.
 
 	movw  ZL,      XL      ; ZH:ZL, XH:XL
@@ -166,7 +167,7 @@ vrmcdec:
 	adc   ZH,      r1      ; Source address calculated
 	sub   r21,     r25     ; Pitch: to decrement between rows
 
-	; Copy loop (up to 24 tiles)
+	; Copy loop (up to 25 tiles)
 
 	mov   r24,     r23
 	movw  r22,     YL
@@ -177,6 +178,8 @@ vrmcdec:
 	sub   ZL,      r25
 	sbc   ZH,      r20
 	rjmp  vrmcdl
+	ld    r1,      -Y
+	st    -X,      r1
 	ld    r1,      -Y
 	st    -X,      r1
 	ld    r1,      -Y
@@ -257,7 +260,7 @@ vrmcinc:
 	adc   ZH,      r1      ; Source address calculated
 	sub   r21,     r25     ; Pitch: to increment between rows
 
-	; Copy loop (up to 24 tiles)
+	; Copy loop (up to 25 tiles)
 
 	mov   r24,     r23
 	movw  r22,     YL
@@ -268,6 +271,8 @@ vrmcinc:
 	sub   ZL,      r25
 	sbc   ZH,      r20
 	rjmp  vrmcil
+	ld    r1,      Y+
+	st    X+,      r1
 	ld    r1,      Y+
 	st    X+,      r1
 	ld    r1,      Y+
