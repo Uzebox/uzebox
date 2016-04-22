@@ -1052,3 +1052,7 @@ void SetMasterVolume(unsigned char vol){
 u8 GetMasterVolume(){
 	return masterVolume;
 }
+
+bool IsSongPlaying(){
+	return playSong;
+}

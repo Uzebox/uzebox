@@ -105,7 +105,7 @@
 	extern void DisableSoundEngine();
 	extern void SetSongSpeed(u8 speed);
 	extern	 u8 GetSongSpeed();
-
+	extern bool IsSongPlaying();
 
 	/*
 	 * Controllers functions
