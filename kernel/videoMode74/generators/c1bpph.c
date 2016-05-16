@@ -49,7 +49,7 @@ int main(void)
 
  /* Basic tests */
 
- if ((width != 2048U){
+ if (width != 2048U){
   fprintf(stderr, "Input width must be 2048!\n");
   return 1;
  }
