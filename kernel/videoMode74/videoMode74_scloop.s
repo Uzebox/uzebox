@@ -246,7 +246,7 @@ c1bp6d:
 	rjmp  cloop            ; (56 = 0)
 c1bp6c:
 	lpm   YL,      Z       ; (56 = 0) Dummy load (nop)
-	out   PIXOUT,  r7      ; ( 1) Pixel 0
+	out   PIXOUT,  r2      ; ( 1) Pixel 0
 	mov   XL,      r11     ; ( 2)
 	rjmp  c1bp6d           ; ( 4)
 
