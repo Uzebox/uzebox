@@ -280,24 +280,41 @@ bool processMegaMap(FILE* tf, MegaMapContainer* megaMapContainer, vector<MapCont
         fprintf(tf,"%i,%i", mapsVector->at(i)->width, mapsVector->at(i)->height);
 
         int c = 0;
+        int x = 0, originX = 0;
+        int y = 0, originY = 0;
+        int mapWidth = mapsVector->at(i)->width;
         for (int j = 0; j < mapsVector->at(i)->data.size(); j++){
-            megaTileCandidate.push_back(mapsVector->at(i)->data.at(j));
+            megaTileCandidate.push_back(mapsVector->at(i)->data.at(y*mapWidth+x));
+            x++;
+            if (x % megaMapContainer->megaTileWidth == 0){
+                x = originX;
+                y++;
+            }
+            
+            // Next mega tile candidate
             if (++counter == candidateSize){
-                if(c % 20 == 0) fprintf(tf,"\n"); //wrap line
+                if (c % 20 == 0) fprintf(tf,"\n"); //wrap line
                 fprintf(tf,",");
 
                 index = findMegaMapIndex(megaMapContainer, &megaTileCandidate); 
                 if (index == -1){
                     index = addMegaMapBlock(megaMapContainer, &megaTileCandidate);
                 }  
-                if(xform.mapsPointersSize==8 && index>0xff){
+                if (xform.mapsPointersSize==8 && index>0xff){
                     printf("Mega map can't contain more than 256 blocks.\n");
-		    return false;
-		}
+		            return false;
+		        }
                 megaTileCandidate.clear();
-               counter = 0;
+                counter = 0;
                 fprintf(tf, "0x%x", index);
                 c++;
+                originX += megaMapContainer->megaTileWidth;
+                if (originX == mapWidth){
+                    originX = 0;
+                    originY += megaMapContainer->megaTileHeight;
+                } 
+                x = originX;
+                y = originY;
             }
         }
         fprintf(tf,"};\n\n");
