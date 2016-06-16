@@ -270,14 +270,14 @@ bool processMegaMap(FILE* tf, MegaMapContainer* megaMapContainer, vector<MapCont
             printf("Map of height %d cannot be divided into mega tiles of height %d\n", mapsVector->at(i)->height, megaMapContainer->megaTileHeight);
             return false;
         }
-        fprintf(tf,"#define %s_WIDTH %i\n",toUpperCase(mapsVector->at(i)->varName),mapsVector->at(i)->width);
-        fprintf(tf,"#define %s_HEIGHT %i\n",toUpperCase(mapsVector->at(i)->varName),mapsVector->at(i)->height);
+        fprintf(tf,"#define %s_WIDTH %i\n",toUpperCase(mapsVector->at(i)->varName),mapsVector->at(i)->width/megaMapContainer->megaTileWidth);
+        fprintf(tf,"#define %s_HEIGHT %i\n",toUpperCase(mapsVector->at(i)->varName),mapsVector->at(i)->height/megaMapContainer->megaTileHeight);
         if(xform.mapsPointersSize==8){
             fprintf(tf,"const char %s[] PROGMEM ={",mapsVector->at(i)->varName);
         }else{
             fprintf(tf,"const int %s[] PROGMEM ={",mapsVector->at(i)->varName);
         }
-        fprintf(tf,"%i,%i", mapsVector->at(i)->width, mapsVector->at(i)->height);
+        fprintf(tf,"%i,%i", mapsVector->at(i)->width/megaMapContainer->megaTileWidth, mapsVector->at(i)->height/megaMapContainer->megaTileHeight);
 
         int c = 0;
         int x = 0, originX = 0;
