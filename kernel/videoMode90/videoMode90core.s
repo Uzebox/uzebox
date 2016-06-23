@@ -147,12 +147,29 @@
 .global SetTile
 
 ;
+; unsigned int GetTile(char x, char y);
+;
+; Retrieves a tile from a given X:Y location on VRAM. This is a supplementary
+; function set up to match with the Uzebox kernel's SetTile function.
+;
+.global GetTile
+
+;
 ; void SetFont(char x, char y, unsigned char tileId);
 ;
 ; Uzebox kernel function: sets a (character) tile at a given X:Y location on
 ; VRAM.
 ;
 .global SetFont
+
+;
+; unsigned char GetFont(char x, char y);
+;
+; Retrieves a (character) tile from a given X:Y location on VRAM. This is a
+; supplementary function set up to match with the Uzebox kernel's SetFont
+; function.
+;
+.global GetFont
 
 ;
 ; void SetFontTilesIndex(unsigned char index);
@@ -354,6 +371,36 @@ SetTile:
 
 
 ;
+; unsigned int GetTile(char x, char y);
+;
+; Retrieves a tile from a given X:Y location on VRAM. This is a supplementary
+; function set up to match with the Uzebox kernel's SetTile function.
+;
+;     r24: x
+;     r22: y
+;
+; Returns:
+;
+; r25:r24: Tile ID (r25 always zero)
+;
+.section .text.GetTile
+GetTile:
+
+	ldi   r18,     VRAM_TILES_H
+	mul   r22,     r18     ; Calculate Y line addr in vram
+	movw  XL,      r0
+	clr   r1
+	add   XL,      r24     ; Add X offset
+	adc   XH,      r1
+	subi  XL,      lo8(-(vram))
+	sbci  XH,      hi8(-(vram))
+	ld    r24,     X
+	clr   r25
+	ret
+
+
+
+;
 ; void SetFont(char x, char y, unsigned char tileId);
 ;
 ; Uzebox kernel function: sets a (character) tile at a given X:Y location on
@@ -377,6 +424,39 @@ SetFont:
 	lds   r0,      v_fbase
 	add   r20,     r0
 	st    X,       r20
+	ret
+
+
+
+;
+; unsigned char GetFont(char x, char y);
+;
+; Retrieves a (character) tile from a given X:Y location on VRAM. This is a
+; supplementary function set up to match with the Uzebox kernel's SetFont
+; function.
+;
+;     r24: x
+;     r22: y
+;
+; Returns:
+;
+; r25:r24: Tile ID (r25 always zero)
+;
+.section .text.GetFont
+GetFont:
+
+	ldi   r18,     VRAM_TILES_H
+	mul   r22,     r18     ; Calculate Y line addr in vram
+	movw  XL,      r0
+	clr   r1
+	add   XL,      r24     ; Add X offset
+	adc   XH,      r1
+	subi  XL,      lo8(-(vram))
+	sbci  XH,      hi8(-(vram))
+	lds   r0,      v_fbase
+	ld    r24,     X
+	add   r24,     r0
+	clr   r25
 	ret
 
 

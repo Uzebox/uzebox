@@ -35,6 +35,11 @@ extern unsigned char vram[];
 extern unsigned char palette[];
 extern const unsigned int* m90_trows;
 
+/* Supplementary functions to complement the Uzebox kernel's set */
+
+unsigned int  GetTile(char x, char y);
+unsigned char GetFont(char x, char y);
+
 /* Provided by the user tileset */
 
 extern const unsigned char m90_defpalette[];
