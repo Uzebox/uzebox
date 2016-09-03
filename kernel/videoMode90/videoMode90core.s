@@ -109,14 +109,14 @@
 
 
 ;
-; unsigned char* vram;
+; unsigned char vram[];
 ;
 ; The Video RAM. Its size depends on the configuration in VideoMode90.def.h.
 ;
 .global vram
 
 ;
-; unsigned char* palette;
+; unsigned char palette[];
 ;
 ; 16 bytes specifying the 16 colors potentially used by the tiles. The colors
 ; are in BBGGGRRR format (normal Uzebox colors).
@@ -244,11 +244,10 @@ sub_video_mode90:
 	sts   v_vrrow_lo, XL       ; ( 508)
 	ldi   XH,      hi8(vram)   ; ( 509)
 	sts   v_vrrow_hi, XH       ; ( 511)
-	clr   r18              ; ( 512)
 
 	; Wait until next line
 
-	WAIT  r18,     1290    ; (1802)
+	WAIT  r18,     1291    ; (1802)
 
 scl_1:
 
