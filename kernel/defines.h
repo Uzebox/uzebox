@@ -31,6 +31,10 @@
 	#define __DEFINES_H_
  	#include <avr/io.h>
 
+	//Used by custom video modes to add quotes to paths
+	#define Q(x) #x
+	#define QUOTE(x) Q(x)
+
 	//For some reason the Atmega1284P io.h does not include the old "PA0" defines
 	#ifndef PA0
 		#define PA0 PORTA0
@@ -534,8 +538,15 @@
 		#include "videoMode10/videoMode10.def.h"
 	#elif VIDEO_MODE == 12
 		#include "videoMode12/videoMode12.def.h"
+	#elif VIDEO_MODE == 13
+		#include "videoMode13/videoMode13.def.h"
+	#elif VIDEO_MODE == 14
+		#include "videoMode14/videoMode14.def.h"
 	#elif VIDEO_MODE == 74
 		#include "videoMode74/videoMode74.def.h"
+	#elif VIDEO_MODE == 0
+		//custom user defined video mode
+		#include QUOTE(VIDEO_MODE_PATH/videoMode.def.h)
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif

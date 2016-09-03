@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+ 
+	<input file="../data/graphics2.png" type="png" tile-width="8" tile-height="8" tileset-height="8"/>
+
+	<output file="../data/graphics.inc.h" type="mode13-extended" duplicate-tiles="keep">
+		<palette file="../data/palette2.png" var-name="graphicsPalette" maxColors="15" exportPalette="true"/>
+		<tiles var-name="graphicsTiles"/>
+
+		<maps pointers-size="8"> 
+			<map var-name="graphicsMap" left="0" top="8" width="32" height="28"/>
+		</maps>	
+
+	</output>
+	 
+</gfx-xform>

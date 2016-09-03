@@ -1,26 +1,30 @@
 /*
-	Copyright (c) 2009 Eric Anderton, Alec Bourque, David Etherton
+(The MIT License)
+
+Copyright (c) 2008-2016 by
+David Etherton, Eric Anderton, Alec Bourque (Uze), Filipe Rinaldi,
+Sandor Zsuga (Jubatian), Matt Pandina (Artcfox)
         
-	Permission is hereby granted, free of charge, to any person
-	obtaining a copy of this software and associated documentation
-	files (the "Software"), to deal in the Software without
-	restriction, including without limitation the rights to use,
-	copy, modify, merge, publish, distribute, sublicense, and/or
-	sell copies of the Software, and to permit persons to whom the
-	Software is furnished to do so, subject to the following
-	conditions:
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
 
-	The above copyright notice and this permission notice shall be
-	included in all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
 
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-	OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-	NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-	HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-	WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-	OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
 */
 #include "uzerom.h"
 #include <stdio.h>
@@ -93,20 +97,6 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
     return false;
 }
 
-//copy strings without end of lines special characters
-static void strcpy2(char* dest, char* src, int maxsize)
-{
-	u8 c;
-	int i=0;
-	while(i<maxsize){
-	//strcpy((char*)rom.header->name,line+5);
-		c=*src++;
-		if(c<32) break;
-		*dest++=c;
-		i++;
-	}
-}
-
 static inline int parse_hex_nibble(char s)
 {
 	if (s >= '0' && s <= '9')
@@ -132,7 +122,7 @@ static int parse_hex_word(const char *s)
 
 bool loadHex(const char *in_filename,unsigned char *buffer,unsigned int *bytesRead)
 {
-	
+	(void)bytesRead;
 	//http://en.wikipedia.org/wiki/.hex
 
 	//(I've added the spaces for clarity, they don't exist in the real files)

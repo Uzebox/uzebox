@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>Mode13ExtendedDemo</name>
+	<comment></comment>
+	<projects>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>org.eclipse.cdt.managedbuilder.core.genmakebuilder</name>
+			<triggers>clean,full,incremental,</triggers>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
+			<name>org.eclipse.cdt.managedbuilder.core.ScannerConfigBuilder</name>
+			<triggers>full,incremental,</triggers>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>org.eclipse.cdt.core.cnature</nature>
+		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
+		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
+		<nature>de.innot.avreclipse.core.avrnature</nature>
+	</natures>
+	<linkedResources>
+		<link>
+			<name>Mode13ExtendedDemo.lss</name>
+			<type>1</type>
+			<locationURI>PROJECT_LOC/default/Mode13ExtendedDemo.lss</locationURI>
+		</link>
+		<link>
+			<name>Mode13ExtendedDemo.map</name>
+			<type>1</type>
+			<locationURI>PROJECT_LOC/default/Mode13ExtendedDemo.map</locationURI>
+		</link>
+		<link>
+			<name>uzebox_linkscript.x</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/kernel/uzebox_linkscript.x</locationURI>
+		</link>
+	</linkedResources>
+</projectDescription>

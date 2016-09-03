@@ -32,7 +32,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 5
+#define VERSION_MIN 6
 void parseXml(TiXmlDocument* doc);
 bool process();
 unsigned char* loadRawImage();
@@ -53,6 +53,12 @@ struct TileMap {
 	int top;
 	int width;
 	int height;
+};
+
+struct TileDefine {
+	const char* defName;
+	int left;
+	int top;
 };
 
 struct Palette {
@@ -87,7 +93,10 @@ struct ConvertionDefinition {
 	int mapsPointersSize;
 	TileMap* maps;
 	int mapsCount;
-	
+
+	TileDefine* defines;
+	int definesCount;
+
 	Palette palette;
 };
 
@@ -313,7 +322,43 @@ bool process(){
 		}
 	}
 
-	//Export maps first
+	//Export tile defines first
+	if(xform.defines!=NULL){
+		for(int d=0; d<xform.definesCount; d++){
+			TileDefine def=xform.defines[d];
+
+			//validate tile define
+			if (def.defName==NULL) {
+				printf("Error: def-name not set for tile define\n");
+				return false;
+			}
+			else if(def.left>=horizontalTiles || def.top>=verticalTiles){
+				printf("Error: Position is are out of bound for tile define: %s\n",def.defName);
+				return false;
+			}
+
+			int index = -1;
+			unsigned char* tile=getTileAt(def.left,def.top,&image);
+			for(unsigned int i=0;i<uniqueTiles.size();i++){
+				unsigned char* b=uniqueTiles.at(i);
+				if(tilesEqual(tile,b,image.tileWidth*image.tileHeight)){
+					index=i;	//tile found in tile list
+					break;
+				}
+			}
+			free(tile);
+
+			if(index==-1){
+				printf("Define tile not found in tileset!\n");
+				return false;
+			}
+
+			fprintf(tf,"#define %s %i\n", toUpperCase(def.defName), index);
+		}
+		fprintf(tf,"\n");
+	}
+
+	//Export maps second
 	if(xform.maps!=NULL){
 
 		int index=0;
@@ -902,6 +947,32 @@ void parseXml(TiXmlDocument* doc){
 		xform.maps=NULL;
 	}
 
+	//tile defines
+	TiXmlElement* definesElem=output->FirstChildElement("defines");
+	if(definesElem!=NULL){
+		//count # of define sub-elements
+		const TiXmlNode* node;
+		int defineCount=0;
+		for(node=definesElem->FirstChild("define");node;node=node->NextSibling("define"))defineCount++;
+
+		TileDefine* defines=new TileDefine[defineCount];
+		xform.definesCount=defineCount;
+		defineCount=0;
+		for(node=definesElem->FirstChild("define");node;node=node->NextSibling("define")){
+			defines[defineCount].defName=node->ToElement()->Attribute("def-name");
+
+			node->ToElement()->QueryIntAttribute("top",&defines[defineCount].top);
+			node->ToElement()->QueryIntAttribute("left",&defines[defineCount].left);
+			defineCount++;
+		}
+		if(defineCount>0){
+			xform.defines=defines;
+		}else{
+			xform.defines=NULL;
+		}
+	}else{
+		xform.defines=NULL;
+	}
 }
 
 //load image in a byte arrays
