@@ -20,9 +20,9 @@
 
 ;***************************************************
 ; Video mode 9
-; 360x240, tiles only, 60x28 tiles, 6x8 pixels tile
 ; Real-time code generated tile data
-; 256 colors per pixel
+; Sub mode 1: 360x240, tiles only, 60x28 tiles, 6x8 pixels tile, 256 colors per pixel (-DRESOLUTION=60)
+; Sub mode 2: 480x240, tiles only, 80x28 tiles, 6x8 pixels, 2 colors per pixel (-DRESOLUTION=80)
 ; no scrolling, no sprites  
 ;***************************************************	
 

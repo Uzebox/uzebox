@@ -69,6 +69,7 @@ typedef struct{
 	u32 crc32;
 	u8 mouse;
 	u8 description[64];
+    u8 reserved[114];
 }RomHeader;
 
 union ROM{

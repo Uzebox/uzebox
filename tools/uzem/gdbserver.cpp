@@ -34,6 +34,7 @@ using namespace std;
 #include <signal.h>
 
 #include "gdbserver.h"
+#include "avr8.h"
 
 #define avr_new(type, count, flag)	((type *) do_avr_new(((unsigned) sizeof (type) * (count)), flag))
 static void *do_avr_new(size_t size, bool blank_it)
@@ -124,11 +125,16 @@ GdbServer::GdbServer(avr8 *c, int _port, int debug, int _waitForGdbConnection): 
 
     fprintf( stderr, "Waiting on port %d for gdb client to connect...\n", port );
 
+    logFile=fopen("gdb.log","w");
+    fprintf(logFile,"Opening GDB Session 2\n");
 }
 
 GdbServer::~GdbServer() {
     CLOSE_SOCK(conn);
     CLOSE_SOCK(sock);
+
+    fprintf(logFile,"Closing GDB Session\n");
+    fclose(logFile);
 #if defined(__WIN32__)
 	WSACleanup();
 #endif
@@ -175,9 +181,9 @@ void GdbServer::avr_core_insert_breakpoint(dword pc) {
     BP.push_back(pc);
 }
 
-int GdbServer::signal_has_occurred(int signo) {return 0;}
-void GdbServer::signal_watch_start(int signo){};
-void GdbServer::signal_watch_stop(int signo){};
+int GdbServer::signal_has_occurred(int signo) {(void)signo; return 0;}
+void GdbServer::signal_watch_start(int signo){(void)signo;}
+void GdbServer::signal_watch_stop(int signo){(void)signo;}
 
 
 static char HEX_DIGIT[] = "0123456789abcdef";
@@ -262,7 +268,7 @@ void GdbServer::gdb_write( const void *buf, size_t count )
     unsent bytes. */
 
     if ((unsigned int)res != count)
-        printf( "write only wrote %d of %d bytes", res, count );
+        printf( "write only wrote %d of %ld bytes", res, count );
 }
 
 /* Use a single function for storing/getting the last reply message.
@@ -669,6 +675,9 @@ void GdbServer::gdb_read_memory( char *pkt )
 
     buf = avr_new( byte, (len*2)+1, true );
 
+    //if(addr>=0x804000) addr&=0xffff;
+    fprintf(logFile,"%x:",addr);
+
     if ( (addr & MEM_SPACE_MASK) == EEPROM_OFFSET )
     {
         /* addressing eeprom */
@@ -692,7 +701,9 @@ void GdbServer::gdb_read_memory( char *pkt )
 
 	if (addr >= (SRAMBASE+sramSize))
 	{
-	    if (global_debug_on)
+	    fprintf(logFile,"invalid ram");
+
+		if (global_debug_on)
 	        printf("Sram address:%x invalid\n",addr);
             snprintf( (char*)buf, len*2, "E%02x", EIO );
 	}
@@ -773,6 +784,9 @@ void GdbServer::gdb_read_memory( char *pkt )
     {
         /* gdb asked for memory space which doesn't exist */
         printf( "Invalid memory address: 0x%x.\n", addr );
+
+        fprintf(logFile,"Invalid memory address: 0x%x.\n", addr);
+
         snprintf( (char*)buf, len*2, "E%02x", EIO );
     }
 
@@ -1047,7 +1061,10 @@ GDB_RET_OK otherwise. */
 
 int GdbServer::gdb_parse_packet( char *pkt )
 {
-    switch (*pkt++) {
+
+    fprintf(logFile,"\n%s:",pkt);
+
+	switch (*pkt++) {
         case '?':               /* last signal */
             gdb_send_reply( "S05" ); /* signal # 5 is SIGTRAP */
             break;
