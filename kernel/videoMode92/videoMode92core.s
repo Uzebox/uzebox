@@ -313,8 +313,8 @@ scl_0:
 	; Mode 90 rows
 
 	movw  XL,      r0      ; (1808)
-	subi  XL,      0x00    ; (1809) lo8(-vram) Ugly hack due to the incompetence of this stupid assembler...
-	sbci  XH,      0xFF    ; (1810) hi8(-vram) (Other video modes require vram at 0x0100, so OK)
+	subi  XL,      lo8(-(vram)) ; (1809)
+	sbci  XH,      hi8(-(vram)) ; (1810)
 	lds   r20,     m90_trows_lo ; (1812) Select tile row's render code
 	lds   r21,     m90_trows_hi ; (1814)
 	lsr   r21              ; (1815)
