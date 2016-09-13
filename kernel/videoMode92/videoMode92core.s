@@ -233,7 +233,7 @@
 	m90_exvram:
 	m90_exvram_lo: .space 1
 	m90_exvram_hi: .space 1
-	m90_split:
+	m90_split:     .space 1
 
 	; Locals
 
