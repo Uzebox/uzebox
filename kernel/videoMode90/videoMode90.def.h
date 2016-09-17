@@ -72,4 +72,4 @@
 /* Maximum free cycles usable by the hysnc and audio (Note: more than 230 has
 ** no use since the kernel has such limitation elsewhere) */
 
-#define HSYNC_USABLE_CYCLES 230
+#define HSYNC_USABLE_CYCLES 228

@@ -35,9 +35,13 @@
 			palette[i] = pgm_read_byte(&(m90_defpalette[i]));
 		}
 
-		m90_trows  = m90_deftilerows;
-		m90_exvram = &vram[0];
-		m90_split  = 0U;
+		m90_trows   = m90_deftilerows;
+		m90_exvram  = &vram[0];
+		m90_split   = 0U;
+		m90_palrel1 = 0xFFU;
+		m90_palrel2 = 0xFFU;
+		m90_pal1    = &palette[0];
+		m90_pal2    = &palette[0];
 
 		SetFontTilesIndex(0);
 

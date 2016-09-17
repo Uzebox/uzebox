@@ -27,7 +27,7 @@
 ;
 ; 360 pixels width (4 cycles / pixel)
 ; 6 pixels wide tiles, 60 tiles
-; 16 colors
+; 16 colors, option for using up to 2 vertical palette reloads
 ; Tiles have fixed colors selected from the 16 of the palette
 ; Tile size: 112 bytes (at 8 pixels tile height)
 ; No scrolling
@@ -58,8 +58,8 @@
 ; ...
 ; r17: Color 15 of palette
 ;
-; Entry happens at cycle 261 (the first instruction: the entry jump begins at
-; this cycle). Exit must happen at cycle 1742 (after the "ret").
+; Entry happens at cycle 277 (the first instruction: the entry jump begins at
+; this cycle). Exit must happen at cycle 1758 (after the "ret").
 ; In total (including the "jmp" and "ret") the code must use 1481 cycles.
 ;
 ; The palette registers have to be preserved.
@@ -133,6 +133,39 @@
 .global m90_trows
 
 ;
+; unsigned char* m90_pal1;
+;
+; The palette loaded when the row counter matches m90_palrel1. By default it
+; points to palette.
+;
+.global m90_pal1
+
+;
+; unsigned char m90_palrel1;
+;
+; The row where the palette pointed by m90_pal1 is loaded. By default it is
+; unused (0xFF). It has priority over m90_palrel2 (if the two happen on the
+; same row).
+;
+.global m90_palrel1
+
+;
+; unsigned char* m90_pal2;
+;
+; The palette loaded when the row counter matches m90_palrel2. By default it
+; points to palette.
+;
+.global m90_pal2
+
+;
+; unsigned char m90_palrel2;
+;
+; The row where the palette pointed by m90_pal2 is loaded. By default it is
+; unused (0xFF).
+;
+.global m90_palrel2
+
+;
 ; void ClearVram(void);
 ;
 ; Uzebox kernel function: clears the VRAM.
@@ -190,6 +223,14 @@
 	m90_trows:
 	m90_trows_lo:  .space 1
 	m90_trows_hi:  .space 1
+	m90_pal1:
+	m90_pal1_lo:   .space 1
+	m90_pal1_hi:   .space 1
+	m90_palrel1:   .space 1
+	m90_pal2:
+	m90_pal2_lo:   .space 1
+	m90_pal2_hi:   .space 1
+	m90_palrel2:   .space 1
 
 	; Locals
 
@@ -199,6 +240,8 @@
 	v_vrrow_hi:    .space 1
 	v_trow:        .space 1          ; Current row within tile
 	v_lcnt:        .space 1          ; Count of remaining lines
+	v_pal_lo:      .space 1          ; Current palette pointer, low
+	v_pal_hi:      .space 1          ; Current palette pointer, high
 
 .section .text
 
@@ -215,92 +258,138 @@ sub_video_mode90:
 ; Entry happens in cycle 467.
 ;
 
-	; Load the palette
+	; Load initial palette pointer
 
 	ldi   XL,      lo8(palette) ; ( 468)
 	ldi   XH,      hi8(palette) ; ( 469)
-	ld    r2,      X+      ; ( 471)
-	ld    r3,      X+      ; ( 473)
-	ld    r4,      X+      ; ( 475)
-	ld    r5,      X+      ; ( 477)
-	ld    r6,      X+      ; ( 479)
-	ld    r7,      X+      ; ( 481)
-	ld    r8,      X+      ; ( 483)
-	ld    r9,      X+      ; ( 485)
-	ld    r10,     X+      ; ( 487)
-	ld    r11,     X+      ; ( 489)
-	ld    r12,     X+      ; ( 491)
-	ld    r13,     X+      ; ( 493)
-	ld    r14,     X+      ; ( 495)
-	ld    r15,     X+      ; ( 497)
-	ld    r16,     X+      ; ( 499)
-	ld    r17,     X+      ; ( 501)
+	sts   v_pal_lo, XL     ; ( 471)
+	sts   v_pal_hi, XH     ; ( 473)
 
-	; Prepare scanline variables
+	; Prepare scanline variables. Upon entry an increment will be
+	; performed on the VRAM row, so adjust for that.
 
-	lds   r0,      render_lines_count ; ( 503)
-	sts   v_lcnt,  r0          ; ( 505) Count of scanlines to generate
-	ldi   XL,      lo8(vram)   ; ( 506)
-	sts   v_vrrow_lo, XL       ; ( 508)
-	ldi   XH,      hi8(vram)   ; ( 509)
-	sts   v_vrrow_hi, XH       ; ( 511)
+	ldi   r18,     0           ; ( 474)
+	sts   v_lcnt,  r18         ; ( 476)
+	ldi   r18,     (TILE_HEIGHT - 1) ; ( 477)
+	sts   v_trow,  r18         ; ( 479)
+	ldi   XL,      lo8(vram)   ; ( 480)
+	ldi   XH,      hi8(vram)   ; ( 481)
+	subi  XL,      lo8(VRAM_TILES_H) ; ( 482)
+	sbci  XH,      hi8(VRAM_TILES_H) ; ( 483)
+	sts   v_vrrow_lo, XL       ; ( 485)
+	sts   v_vrrow_hi, XH       ; ( 487)
 
 	; Wait until next line
 
-	WAIT  r18,     1291    ; (1802)
+	WAIT  r18,     1271    ; (1758)
+	rjmp  scl_0            ; (1760)
 
-scl_1:
+	; Spilled out parts of the render loop: palette split code
 
-	rjmp  .                ; (1804)
-	rjmp  .                ; (1806)
-	rjmp  scl_1e           ; (1808)
+scl_px:
+	lds   XL,      v_pal_lo     ; (1773)
+	lds   XH,      v_pal_hi     ; (1775)
+	nop                    ; (1776)
+	rjmp  scl_pe           ; (1778)
+scl_p1:
+	lds   XL,      m90_pal1_lo  ; (1769)
+	lds   XH,      m90_pal1_hi  ; (1771)
+	nop                    ; (1772)
+	rjmp  scl_ps           ; (1774)
+
+	; Loop entry point
 
 scl_0:
 
-	; At 1792 here. Prepare for line
+	; At 1760 here. Prepare for line
 
-	lds   XL,      v_vrrow_lo  ; (1794) Load VRAM row start address
-	lds   XH,      v_vrrow_hi  ; (1796)
-	lds   r18,     v_trow  ; (1798) Count tile rows
-	inc   r18              ; (1799)
-	cpi   r18,     TILE_HEIGHT ; (1800)
-	brne  scl_1            ; (1801 / 1802)
-	subi  XL,      lo8(-(VRAM_TILES_H)) ; (1802) When the tile row wraps,
-	sbci  XH,      hi8(-(VRAM_TILES_H)) ; (1803) advance VRAM row
-	sts   v_vrrow_lo, XL   ; (1805)
-	sts   v_vrrow_hi, XH   ; (1807)
-	clr   r18              ; (1808)
-scl_1e:
-	sts   v_trow,  r18     ; (1810)
-	lds   r20,     m90_trows_lo ; (1812) Select tile row's render code
-	lds   r21,     m90_trows_hi ; (1814)
-	lsr   r21              ; (1815)
-	ror   r20              ; (1816)
-	lsl   r18              ; (1817)
-	clr   r19              ; (1818)
-	add   r20,     r18     ; (1819)
-	adc   r21,     r19     ; (1820 = 0)
+	lds   r21,     v_lcnt  ; (1762) Current line to render
+
+	; Check palette splits
+
+	lds   r19,     m90_palrel1  ; (1764)
+	cp    r19,     r21          ; (1765)
+	breq  scl_p1                ; (1766 / 1767)
+	lds   r19,     m90_palrel2  ; (1768)
+	cp    r19,     r21          ; (1769)
+	brne  scl_px                ; (1770 / 1771)
+	lds   XL,      m90_pal2_lo  ; (1772)
+	lds   XH,      m90_pal2_hi  ; (1774)
+scl_ps:
+	sts   v_pal_lo, XL     ; (1776)
+	sts   v_pal_hi, XH     ; (1778)
+scl_pe:
+
+	; Palette pointer prepared, load the palette
+
+	ld    r2,      X+      ; (1780)
+	ld    r3,      X+      ; (1782)
+	ld    r4,      X+      ; (1784)
+	ld    r5,      X+      ; (1786)
+	ld    r6,      X+      ; (1788)
+	ld    r7,      X+      ; (1790)
+	ld    r8,      X+      ; (1792)
+	ld    r9,      X+      ; (1794)
+	ld    r10,     X+      ; (1796)
+	ld    r11,     X+      ; (1798)
+	ld    r12,     X+      ; (1800)
+	ld    r13,     X+      ; (1802)
+	ld    r14,     X+      ; (1804)
+	ld    r15,     X+      ; (1806)
+	ld    r16,     X+      ; (1808)
+	ld    r17,     X+      ; (1810)
+
+	; Prepare for line
+
+	lds   XL,      v_vrrow_lo   ; (1812) Load VRAM row start address
+	lds   XH,      v_vrrow_hi   ; (1814)
+	lds   r18,     v_trow       ; (1816) Count tile rows
+	lds   r20,     render_lines_count ; (1818)
+	inc   r18              ; (1819)
+	inc   r21              ; (1820 = 0)
 
 	; Audio and Alignment (at cycle 1820 = 0 here)
 	; The hsync_pulse routine clobbers r0, r1, Z and the T flag.
 
 	rcall hsync_pulse      ; (21 + AUDIO)
-	lds   r18,     v_lcnt  ; ( 2)
-	subi  r18,     1       ; ( 3)
-	brcs  scl_0e           ; ( 4 /  5) All lines drawn?
-	sts   v_lcnt,  r18     ; ( 6)
-	WAIT  r18,     HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
+	sts   v_lcnt,  r21     ; (  23)
+	cp    r20,     r21     ; (  24)
+	brcs  scl_0e           ; (  25 /   26) All lines drawn?
+	WAIT  r21,     HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 
-	; At 257 here (HSYNC_USABLE_CYCLES is 230), neglecting the
-	; CENTER_ADJUSTMENT
+	; Continue preparing for the line
 
-	movw  ZL,      r20     ; ( 258)
-	icall                  ; ( 261)
+	cpi   r18,     TILE_HEIGHT ; ( 254)
+	brne  scl_1            ; ( 255 /  256)
+	subi  XL,      lo8(-(VRAM_TILES_H)) ; ( 256) When the tile row wraps,
+	sbci  XH,      hi8(-(VRAM_TILES_H)) ; ( 257) advance VRAM row
+	sts   v_vrrow_lo, XL   ; ( 259)
+	sts   v_vrrow_hi, XH   ; ( 261)
+	clr   r18              ; ( 262)
+scl_1e:
+	sts   v_trow,  r18     ; ( 264)
+	lds   ZL,      m90_trows_lo ; ( 266) Select tile row's render code
+	lds   ZH,      m90_trows_hi ; ( 268)
+	lsr   ZH               ; ( 269)
+	ror   ZL               ; ( 270)
+	lsl   r18              ; ( 271)
+	clr   r19              ; ( 272)
+	add   ZL,      r18     ; ( 273)
+	adc   ZH,      r19     ; ( 274)
 
-	; At 1742 here. Complete CENTER_ADJUSTMENT and go on
+	; Enter code tile row
 
-	WAIT  r18,     48 - CENTER_ADJUSTMENT
-	rjmp  scl_0            ; (1792)
+	icall                  ; ( 277)
+
+	; At 1758 here.
+
+	rjmp  scl_0            ; (1760)
+
+scl_1:
+
+	rjmp  .                ; ( 258)
+	rjmp  .                ; ( 260)
+	rjmp  scl_1e           ; ( 262)
 
 scl_0e:
 

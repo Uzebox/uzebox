@@ -31,9 +31,13 @@
 
 /* Provided by VideoMode90.s */
 
-extern unsigned char vram[];
-extern unsigned char palette[];
+extern unsigned char  vram[];
+extern unsigned char  palette[];
 extern const unsigned int* m90_trows;
+extern unsigned char  m90_palrel1;
+extern unsigned char* m90_pal1;
+extern unsigned char  m90_palrel2;
+extern unsigned char* m90_pal2;
 
 /* Supplementary functions to complement the Uzebox kernel's set */
 

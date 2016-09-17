@@ -27,7 +27,7 @@
 ;
 ; 360 pixels width (4 cycles / pixel)
 ; 6 x 8 pixel tiles, 60 x 28 tiles (at full 224 pixels height)
-; 16 colors
+; 16 colors, option for using up to 2 vertical palette reloads
 ; Tiles have fixed colors selected from the 16 of the palette
 ; Tile size: 112 bytes
 ; No scrolling
@@ -80,8 +80,8 @@
 ; ...
 ; r17: Color 15 of palette
 ;
-; Entry happens at cycle 261 (the first instruction: the entry jump begins at
-; this cycle). Exit must happen at cycle 1742 (after the "ret").
+; Entry happens at cycle 277 (the first instruction: the entry jump begins at
+; this cycle). Exit must happen at cycle 1758 (after the "ret").
 ; In total (including the "jmp" and "ret") the code must use 1481 cycles.
 ; The blanking "out" must occur 9 cycles before the "ret".
 ;
@@ -154,6 +154,39 @@
 ; are possible.
 ;
 .global m90_trows
+
+;
+; unsigned char* m90_pal1;
+;
+; The palette loaded when the row counter matches m90_palrel1. By default it
+; points to palette.
+;
+.global m90_pal1
+
+;
+; unsigned char m90_palrel1;
+;
+; The row where the palette pointed by m90_pal1 is loaded. By default it is
+; unused (0xFF). It has priority over m90_palrel2 (if the two happen on the
+; same row).
+;
+.global m90_palrel1
+
+;
+; unsigned char* m90_pal2;
+;
+; The palette loaded when the row counter matches m90_palrel2. By default it
+; points to palette.
+;
+.global m90_pal2
+
+;
+; unsigned char m90_palrel2;
+;
+; The row where the palette pointed by m90_pal2 is loaded. By default it is
+; unused (0xFF).
+;
+.global m90_palrel2
 
 ;
 ; const unsigned char* m90_exvram;
@@ -234,11 +267,21 @@
 	m90_exvram_lo: .space 1
 	m90_exvram_hi: .space 1
 	m90_split:     .space 1
+	m90_pal1:
+	m90_pal1_lo:   .space 1
+	m90_pal1_hi:   .space 1
+	m90_palrel1:   .space 1
+	m90_pal2:
+	m90_pal2_lo:   .space 1
+	m90_pal2_hi:   .space 1
+	m90_palrel2:   .space 1
 
 	; Locals
 
 	v_fbase:       .space 1          ; Font base (for SetFontTilesIndex)
 	v_lcnt:        .space 1          ; Line counter
+	v_pal_lo:      .space 1          ; Current palette pointer, low
+	v_pal_hi:      .space 1          ; Current palette pointer, high
 
 .section .text
 
@@ -258,92 +301,127 @@ sub_video_mode90:
 ; Entry happens in cycle 467.
 ;
 
-	; Load the palette
+	; Load initial palette pointer
 
 	ldi   XL,      lo8(palette) ; ( 468)
 	ldi   XH,      hi8(palette) ; ( 469)
-	ld    r2,      X+      ; ( 471)
-	ld    r3,      X+      ; ( 473)
-	ld    r4,      X+      ; ( 475)
-	ld    r5,      X+      ; ( 477)
-	ld    r6,      X+      ; ( 479)
-	ld    r7,      X+      ; ( 481)
-	ld    r8,      X+      ; ( 483)
-	ld    r9,      X+      ; ( 485)
-	ld    r10,     X+      ; ( 487)
-	ld    r11,     X+      ; ( 489)
-	ld    r12,     X+      ; ( 491)
-	ld    r13,     X+      ; ( 493)
-	ld    r14,     X+      ; ( 495)
-	ld    r15,     X+      ; ( 497)
-	ld    r16,     X+      ; ( 499)
-	ld    r17,     X+      ; ( 501)
+	sts   v_pal_lo, XL     ; ( 471)
+	sts   v_pal_hi, XH     ; ( 473)
 
 	; Prepare scanline variables
 
-	clr   r0               ; ( 502)
-	sts   v_lcnt,  r0      ; ( 504)
+	clr   r0               ; ( 474)
+	sts   v_lcnt,  r0      ; ( 476)
 
 	; Wait until next line
 
-	WAIT  r18,     1288    ; (1792)
+	WAIT  r18,     1282    ; (1758)
+	rjmp  scl_0            ; (1760)
+
+	; Spilled out parts of the render loop: palette split code
+
+scl_px:
+	lds   XL,      v_pal_lo     ; (1773)
+	lds   XH,      v_pal_hi     ; (1775)
+	nop                    ; (1776)
+	rjmp  scl_pe           ; (1778)
+scl_p1:
+	lds   XL,      m90_pal1_lo  ; (1769)
+	lds   XH,      m90_pal1_hi  ; (1771)
+	nop                    ; (1772)
+	rjmp  scl_ps           ; (1774)
+
+	; Loop entry point
 
 scl_0:
 
-	; At 1792 here. Prepare for line
+	; At 1760 here. Prepare for line
+
+	lds   r18,     v_lcnt  ; (1762) Current line to render
+
+	; Check palette splits
+
+	lds   r19,     m90_palrel1  ; (1764)
+	cp    r19,     r18          ; (1765)
+	breq  scl_p1                ; (1766 / 1767)
+	lds   r19,     m90_palrel2  ; (1768)
+	cp    r19,     r18          ; (1769)
+	brne  scl_px                ; (1770 / 1771)
+	lds   XL,      m90_pal2_lo  ; (1772)
+	lds   XH,      m90_pal2_hi  ; (1774)
+scl_ps:
+	sts   v_pal_lo, XL     ; (1776)
+	sts   v_pal_hi, XH     ; (1778)
+scl_pe:
+
+	; Palette pointer prepared, load the palette
+
+	ld    r2,      X+      ; (1780)
+	ld    r3,      X+      ; (1782)
+	ld    r4,      X+      ; (1784)
+	ld    r5,      X+      ; (1786)
+	ld    r6,      X+      ; (1788)
+	ld    r7,      X+      ; (1790)
+	ld    r8,      X+      ; (1792)
+	ld    r9,      X+      ; (1794)
+	ld    r10,     X+      ; (1796)
+	ld    r11,     X+      ; (1798)
+	ld    r12,     X+      ; (1800)
+	ld    r13,     X+      ; (1802)
+	ld    r14,     X+      ; (1804)
+	ld    r15,     X+      ; (1806)
+	ld    r16,     X+      ; (1808)
+	ld    r17,     X+      ; (1810)
 
 	; Calculate VRAM base
 
-	lds   r18,     v_lcnt  ; (1794) Current line to render
-	mov   r19,     r18     ; (1795)
-	mov   r22,     r18     ; (1796)
-	andi  r18,     0x07    ; (1797) Row within tile
-	lsr   r22              ; (1798)
-	andi  r22,     0xFC    ; (1799)
-	ldi   r23,     15      ; (1800)
-	mul   r22,     r23     ; (1802) r1:r0: Byte offset in VRAM (60 bytes / row)
+	mov   r19,     r18     ; (1811) Line counter will remain in r19
+	mov   r22,     r18     ; (1812)
+	andi  r18,     0x07    ; (1813) Row within tile
+	lsr   r22              ; (1814)
+	andi  r22,     0xFC    ; (1815)
+	ldi   r23,     15      ; (1816) r22 * r23 will give the base
 
-	; Check tile row type
+	; Decide row type
 
-	lds   r22,     m90_split  ; (1804)
-	cp    r19,     r22     ; (1805)
-	inc   r19              ; (1806)
-	brcs  s2bpp            ; (1807 / 1808) Above the split, 2bpp framebuffer mode
-
-	; Mode 90 rows
-
-	movw  XL,      r0      ; (1808)
-	subi  XL,      lo8(-(vram)) ; (1809)
-	sbci  XH,      hi8(-(vram)) ; (1810)
-	lds   r20,     m90_trows_lo ; (1812) Select tile row's render code
-	lds   r21,     m90_trows_hi ; (1814)
-	lsr   r21              ; (1815)
-	ror   r20              ; (1816)
-	lsl   r18              ; (1817)
-	clr   r23              ; (1818)
-	add   r20,     r18     ; (1819)
-	adc   r21,     r23     ; (1820 = 0)
+	lds   XH,      render_lines_count ; (1818)
+	lds   XL,      m90_split    ; (1820 = 0)
 
 	; Audio and Alignment (at cycle 1820 = 0 here)
 	; The hsync_pulse routine clobbers r0, r1, Z and the T flag.
 
 	rcall hsync_pulse      ; (21 + AUDIO)
-	lds   r23,     render_lines_count ; ( 2)
-	cp    r23,     r19     ; ( 3)
-	brcs  scl_0e           ; ( 4 /  5) All lines drawn?
-	sts   v_lcnt,  r19     ; ( 6)
-	WAIT  r23,     HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
+	cp    r19,     XL      ; (  22)
+	inc   r19              ; (  23)
+	sts   v_lcnt,  r19     ; (  25)
+	brcs  s2bpp            ; (  26 /   27) Above the split, 2bpp framebuffer mode
+	cp    XH,      r19     ; (  27)
+	brcs  scl_0e           ; (  28 /   29) All lines drawn?
+	WAIT  XH,      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 
-	; At 257 here (HSYNC_USABLE_CYCLES is 230), neglecting the
-	; CENTER_ADJUSTMENT
+	; Mode 90 rows
 
-	movw  ZL,      r20     ; ( 258)
-	icall                  ; ( 261)
+	mul   r22,     r23     ; ( 260) r1:r0: Byte offset in VRAM (60 bytes / row)
+	movw  XL,      r0      ; ( 261)
+	subi  XL,      lo8(-(vram)) ; ( 262)
+	sbci  XH,      hi8(-(vram)) ; ( 263)
+	lds   ZL,      m90_trows_lo ; ( 265) Select tile row's render code
+	lds   ZH,      m90_trows_hi ; ( 267)
+	lsr   ZH               ; ( 268)
+	ror   ZL               ; ( 269)
+	lsl   r18              ; ( 270)
+	clr   r23              ; ( 271)
+	add   ZL,      r18     ; ( 272)
+	adc   ZH,      r23     ; ( 273)
+	nop                    ; ( 274)
 
-	; At 1742 here. Complete CENTER_ADJUSTMENT and go on
+	; Enter code tile row
 
-	WAIT  r18,     48 - CENTER_ADJUSTMENT
-	rjmp  scl_0            ; (1792)
+	icall                  ; ( 277)
+
+	; At 1758 here.
+
+	rjmp  scl_0            ; (1760)
 
 scl_0e:
 
@@ -365,91 +443,69 @@ scl_0e:
 	ret
 
 s2bppv:
-	ldi   XL,      lo8(vram)  ; (1812)
-	ldi   XH,      hi8(vram)  ; (1813)
-	rjmp  s2bppn              ; (1815)
+	ldi   XL,      lo8(vram)  ; ( 281)
+	ldi   XH,      hi8(vram)  ; ( 282)
+	rjmp  s2bppn              ; ( 284)
 
 s2bpp:
 
 	; 2bpp framebuffer mode
 
-	sbrs  r18,     1       ; (1809 / 1810)
-	rjmp  s2bppv           ; (1811)
-	lds   XL,      m90_exvram_lo ; (1812)
-	lds   XH,      m90_exvram_hi ; (1814)
-	nop                    ; (1815)
+	cp    XH,      r19     ; (  28)
+	brcs  scl_0e           ; (  29 /   30) All lines drawn?
+	WAIT  XH,      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES + 16
+
+	mul   r22,     r23     ; ( 277) r1:r0: Byte offset in VRAM (60 bytes / row)
+	sbrs  r18,     1       ; ( 278 /  279)
+	rjmp  s2bppv           ; ( 280)
+	lds   XL,      m90_exvram_lo ; ( 281)
+	lds   XH,      m90_exvram_hi ; ( 283)
+	nop                    ; ( 284)
 s2bppn:
-	add   XL,      r0      ; (1816)
-	adc   XH,      r1      ; (1817)
-	lpm   r23,     Z       ; (1820 = 0) Dummy load (nop)
-
-	; Audio and Alignment (at cycle 1820 = 0 here)
-	; The hsync_pulse routine clobbers r0, r1, Z and the T flag.
-
-	rcall hsync_pulse      ; (21 + AUDIO)
-	lds   r23,     render_lines_count ; ( 2)
-	cp    r23,     r19     ; ( 3)
-	brcs  scl_0e           ; ( 4 /  5) All lines drawn?
-	sts   v_lcnt,  r19     ; ( 6)
-	WAIT  r23,     HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
-
-	; At 257 here (HSYNC_USABLE_CYCLES is 230), neglecting the
-	; CENTER_ADJUSTMENT
-
-	sbrc  r18,     2       ; ( 258 /  259)
-	subi  XL,      0xE2    ; ( 259) Adds 30 for lower half of row
-	sbrc  r18,     2       ; ( 260 /  261)
-	sbci  XH,      0xFF    ; ( 261)
-	ldi   r18,     30      ; ( 262) Count of bytes to process into pixels
-	ldi   r20,     lo8(palette) ; ( 263)
-	ldi   r21,     hi8(palette) ; ( 264)
-	subi  r20,     0xF4    ; ( 265) Stupid assembler's stupid complexity issues...
-	sbci  r21,     0xFF    ; ( 266) (needed palette + 12)
-	clr   r0               ; ( 267)
-	clr   r1               ; ( 268)
-	clr   r23              ; ( 269) Initial pixel
-	lpm   r22,     Z       ; ( 272) Dummy load (nop)
-	rjmp  .                ; ( 274)
-	rjmp  .                ; ( 276)
+	add   XL,      r0      ; ( 285)
+	adc   XH,      r1      ; ( 286)
+	sbrc  r18,     2       ; ( 287 /  288)
+	subi  XL,      0xE2    ; ( 288) Adds 30 for lower half of row
+	sbrc  r18,     2       ; ( 289 /  290)
+	sbci  XH,      0xFF    ; ( 290)
+	ldi   r18,     30      ; ( 291) Count of bytes to process into pixels
+	clr   r23              ; ( 292) Initial pixel
 
 s2bppl:
-	out   PIXOUT,  r23     ; ( 277) In first iteration
+	out   PIXOUT,  r23     ; ( 293) In first iteration
 	ld    r19,     X+
+	clr   ZH
+	clr   ZL
 	bst   r19,     7
-	bld   r0,      1
+	bld   ZL,      1
 	bst   r19,     6
-	bld   r0,      0
-	movw  ZL,      r20
-	add   ZL,      r0
-	adc   ZH,      r1
+	bld   ZL,      0
+	subi  ZL,      0xF2
 	ld    r23,     Z
-	out   PIXOUT,  r23     ; ( 289) Mode 90, 1440 pixels output begins here
-	rjmp  .
+	out   PIXOUT,  r23     ; ( 305) Mode 90, 1440 pixels output begins here
+	lpm   ZL,      Z       ; Dummy load (nop)
+	clr   ZL
 	bst   r19,     5
-	bld   r0,      1
+	bld   ZL,      1
 	bst   r19,     4
-	bld   r0,      0
-	movw  ZL,      r20
-	add   ZL,      r0
-	adc   ZH,      r1
+	bld   ZL,      0
+	subi  ZL,      0xF2
 	ld    r23,     Z
 	out   PIXOUT,  r23
-	rjmp  .
+	lpm   ZL,      Z       ; Dummy load (nop)
+	clr   ZL
 	bst   r19,     3
-	bld   r0,      1
+	bld   ZL,      1
 	bst   r19,     2
-	bld   r0,      0
-	movw  ZL,      r20
-	add   ZL,      r0
-	adc   ZH,      r1
+	bld   ZL,      0
+	subi  ZL,      0xF2
 	ld    r23,     Z
 	out   PIXOUT,  r23
+	lpm   ZL,      Z       ; Dummy load (nop)
 	andi  r19,     0x03
-	movw  ZL,      r20
-	add   ZL,      r19
-	adc   ZH,      r1
+	mov   ZL,      r19
+	subi  ZL,      0xF2
 	ld    r23,     Z
-	rjmp  .
 	dec   r18
 	brne  s2bppl
 	nop
@@ -459,7 +515,7 @@ s2bppl:
 	rjmp  .
 	rjmp  .
 	clr   r23
-	out   PIXOUT,  r23     ; (1729)
+	out   PIXOUT,  r23     ; (1745)
 
 	lpm   r0,      Z       ; Dummy load (nop)
 	lpm   r0,      Z       ; Dummy load (nop)
@@ -467,10 +523,9 @@ s2bppl:
 	rjmp  .                ;
 	rjmp  .                ; Align with Mode 90 rows
 
-	; At 1742 here. Complete CENTER_ADJUSTMENT and go on
+	; At 1758 here.
 
-	WAIT  r18,     48 - CENTER_ADJUSTMENT
-	rjmp  scl_0            ; (1792)
+	rjmp  scl_0            ; (1760)
 
 
 
