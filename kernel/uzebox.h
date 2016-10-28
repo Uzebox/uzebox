@@ -50,7 +50,6 @@
 	extern void MapSprite2(unsigned char startSprite,const char *map,u8 spriteFlags);
 	extern void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height);
 	extern void Scroll(char sx,char sy);
-	extern void SetScrolling(char sx,char sy);
 
 	/**
 	 * Fills the entire VRAM with tile #0.
