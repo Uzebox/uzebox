@@ -42,7 +42,7 @@
 
 
 .section .bss
-	sector_buffer_ptr:	.word 1  ;pointer to sector buffer (at least 512 bytes)
+	sector_buffer_ptr:	.space 2  ;pointer to sector buffer (at least 512 bytes)
 	last_sector:		.space 4 ;used for caching
 
 .section .text

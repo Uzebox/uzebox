@@ -32,7 +32,7 @@
 #define SD_DATA_TOKEN 0xFE
 
 .section .bss
-    sd_512_byte_count:     .word 1
+    sd_512_byte_count:     .space 2
 
 .global sdDirectRead
 .global sdFindFileFirstSector
