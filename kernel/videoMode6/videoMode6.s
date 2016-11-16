@@ -45,7 +45,7 @@
 	shift_tbl_ram:	.space 8
 .align 1
 	vram: 	  		.space VRAM_SIZE 
-	ramTiles:		.space RAM_TILES_COUNT*TILE_HEIGHT ;8 pixels per spaces
+	ramTiles:		.space RAM_TILES_COUNT*TILE_HEIGHT ;8 pixels per bytes
 	nextFreeRamTile:.space 1
 	userRamTileIndex:.space 1
 	currentLine:	.space 1
