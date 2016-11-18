@@ -46,15 +46,15 @@
 .align 1
 	vram: 	  		.space VRAM_SIZE 
 	ramTiles:		.space RAM_TILES_COUNT*TILE_HEIGHT ;8 pixels per bytes
-	nextFreeRamTile:.byte 1
-	userRamTileIndex:.byte 1
-	currentLine:	.byte 1
-	fg_color:		.byte 1
-	bg_color:		.byte 1
-	tile_table_lo:			.byte 1
-	tile_table_hi:			.byte 1
-	font_tile_index:		.byte 1 
-	hsync_user_callback:  .word 1 ;pointer to function
+	nextFreeRamTile:.space 1
+	userRamTileIndex:.space 1
+	currentLine:	.space 1
+	fg_color:		.space 1
+	bg_color:		.space 1
+	tile_table_lo:			.space 1
+	tile_table_hi:			.space 1
+	font_tile_index:		.space 1
+	hsync_user_callback:  .space 2 ;pointer to function
 
 .section .text
 

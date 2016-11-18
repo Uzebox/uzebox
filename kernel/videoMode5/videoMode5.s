@@ -57,10 +57,10 @@
 
 .section .bss
 	vram: 	  		.space VRAM_SIZE	;allocate space for the video memory (VRAM)
-	tile_table_lo:	.byte 1
-	tile_table_hi:	.byte 1
-	font_tile_index:.byte 1 
-	
+	tile_table_lo:	.space 1
+	tile_table_hi:	.space 1
+	font_tile_index:.space 1
+
 .section .text
 
 sub_video_mode5:
