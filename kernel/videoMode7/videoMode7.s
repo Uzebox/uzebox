@@ -21,8 +21,8 @@
 	
 	vram: 	  		.space 1
 	line_buffer:	.space LINE_BUFFER_SIZE*2
-	render_start:	.byte 1
-	playback_start:	.byte 1
+	render_start:	.space 1
+	playback_start:	.space 1
 
 
 .section .text

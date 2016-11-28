@@ -106,19 +106,19 @@
 	ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
 
 	sprites_tile_banks: 	.space 8
-	tile_table_lo:			.byte 1
-	tile_table_hi:			.byte 1
-	font_tile_index:		.byte 1 
+	tile_table_lo:			.space 1
+	tile_table_hi:			.space 1
+	font_tile_index:		.space 1
 
-	
+
 	;ScreenType struct members
 	Screen:
-		overlay_height:			.byte 1
-		overlay_tile_table:		.word 1
+		overlay_height:			.space 1
+		overlay_tile_table:		.space 2
 	#if SCROLLING == 1
-		screen_scrollX:			.byte 1
-		screen_scrollY:			.byte 1
-		screen_scrollHeight:	.byte 1
+		screen_scrollX:			.space 1
+		screen_scrollY:			.space 1
+		screen_scrollHeight:	.space 1
 	#endif
 
 .section .text

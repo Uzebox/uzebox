@@ -43,18 +43,18 @@
 
 .section .bss
 	vram: 	  		.space VRAM_SIZE	;allocate space for the video memory (VRAM)
-	tile_table_lo:	.byte 1
-	tile_table_hi:	.byte 1
-	font_tile_index:.byte 1
+	tile_table_lo:	.space 1
+	tile_table_hi:	.space 1
+	font_tile_index:.space 1
 	backgroundColor:.space VRAM_TILES_V
-	foregroundColor:.byte 1
-	cursor_x:		.byte 1
-	cursor_y:		.byte 1
-	cursor_visible:	.byte 1
-	cursor_tile:	.byte 1
-	cursor_speed:	.byte 1
-	cursor_current_delay: .byte 1
-	cursor_state:	.byte 1
+	foregroundColor:.space 1
+	cursor_x:		.space 1
+	cursor_y:		.space 1
+	cursor_visible:	.space 1
+	cursor_tile:	.space 1
+	cursor_speed:	.space 1
+	cursor_current_delay: .space 1
+	cursor_state:	.space 1
 
 
 .section .text

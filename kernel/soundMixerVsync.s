@@ -61,58 +61,58 @@
 
 
 mix_buf: 	  .space MIX_BUF_SIZE
-mix_pos:	  .word 1
-mix_bank: 	  .byte 1 ;0=first half,1=second half
-mix_block:	  .byte 1
+mix_pos:	  .space 2
+mix_bank: 	  .space 1 ;0=first half,1=second half
+mix_block:	  .space 1
 
-sound_enabled:.byte 1
+sound_enabled:.space 1
 
 //struct MixerStruct -> soundEngine.h
-mixer:	
+mixer:
 mixerStruct:
 
 
-tr1_vol:		 .byte 1
-tr1_step_lo:	 .byte 1
-tr1_step_hi:	 .byte 1
-tr1_pos_frac:	 .byte 1
-tr1_pos_lo:		 .byte 1
-tr1_pos_hi:		 .byte 1
+tr1_vol:		 .space 1
+tr1_step_lo:	 .space 1
+tr1_step_hi:	 .space 1
+tr1_pos_frac:	 .space 1
+tr1_pos_lo:		 .space 1
+tr1_pos_hi:		 .space 1
 
-tr2_vol:		 .byte 1
-tr2_step_lo:	 .byte 1
-tr2_step_hi:	 .byte 1
-tr2_pos_frac:	 .byte 1
-tr2_pos_lo:		 .byte 1
-tr2_pos_hi:		 .byte 1
+tr2_vol:		 .space 1
+tr2_step_lo:	 .space 1
+tr2_step_hi:	 .space 1
+tr2_pos_frac:	 .space 1
+tr2_pos_lo:		 .space 1
+tr2_pos_hi:		 .space 1
 
-tr3_vol:		 .byte 1
-tr3_step_lo:	 .byte 1
-tr3_step_hi:	 .byte 1
-tr3_pos_frac:	 .byte 1
-tr3_pos_lo:		 .byte 1
-tr3_pos_hi:		 .byte 1
+tr3_vol:		 .space 1
+tr3_step_lo:	 .space 1
+tr3_step_hi:	 .space 1
+tr3_pos_frac:	 .space 1
+tr3_pos_lo:		 .space 1
+tr3_pos_hi:		 .space 1
 
 
 #if MIXER_CHAN4_TYPE == 0
-	tr4_vol:		 .byte 1
-	tr4_params:		 .byte 1 //bit0=>0=7,1=15 bits lfsr, b1:6=divider 
-	tr4_barrel_lo:	 .byte 1
-	tr4_barrel_hi:	 .byte 1
-	tr4_divider:	 .byte 1 ;current divider accumulator
-	tr4_reserved1:	 .byte 1
+	tr4_vol:		 .space 1
+	tr4_params:		 .space 1 //bit0=>0=7,1=15 bits lfsr, b1:6=divider
+	tr4_barrel_lo:	 .space 1
+	tr4_barrel_hi:	 .space 1
+	tr4_divider:	 .space 1 ;current divider accumulator
+	tr4_reserved1:	 .space 1
 
 #else
-	tr4_vol:		 .byte 1
-	tr4_step_lo:	 .byte 1
-	tr4_step_hi:	 .byte 1
-	tr4_pos_frac:	 .byte 1
-	tr4_pos_lo:		 .byte 1
-	tr4_pos_hi:		 .byte 1
-	tr4_loop_len_lo: .byte 1
-	tr4_loop_len_hi: .byte 1
-	tr4_loop_end_lo: .byte 1
-	tr4_loop_end_hi: .byte 1
+	tr4_vol:		 .space 1
+	tr4_step_lo:	 .space 1
+	tr4_step_hi:	 .space 1
+	tr4_pos_frac:	 .space 1
+	tr4_pos_lo:		 .space 1
+	tr4_pos_hi:		 .space 1
+	tr4_loop_len_lo: .space 1
+	tr4_loop_len_hi: .space 1
+	tr4_loop_end_lo: .space 1
+	tr4_loop_end_hi: .space 1
 
 #endif
 

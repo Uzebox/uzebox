@@ -70,17 +70,17 @@
 
 	sprites:			.space 32*SPRITE_STRUCT_SIZE ;|X|Y|TILE INDEX|	
 	screenSections:		.space SCREEN_SECTION_STRUCT_SIZE*SCREEN_SECTIONS_COUNT
-	spritesOptions:		.byte 1		;b0 overflow: 0=clip, 1=flick
+	spritesOptions:		.space 1		;b0 overflow: 0=clip, 1=flick
 	
-	sprites_tiletable_lo: .byte 1
-	sprites_tiletable_hi: .byte 1
+	sprites_tiletable_lo: .space 1
+	sprites_tiletable_hi: .space 1
 
 	sprites_per_lines:	.space (SCREEN_TILES_V)*TILE_HEIGHT*MAX_SPRITES_PER_LINE ;|Y-offset(3bits)|Sprite No(5bits)|
 	sprite_buf_erase:	.space MAX_SPRITES_PER_LINE; ;4x8 bit pointers
-	rotate_spr_no:		.byte 1	
-	//tile_table_lo:	.byte 1
-	//tile_table_hi:	.byte 1
-	font_tile_index:.byte 1 
+	rotate_spr_no:		.space 1
+	//tile_table_lo:	.space 1
+	//tile_table_hi:	.space 1
+	font_tile_index:.space 1
 .section .text
 
 ;***************************************************
