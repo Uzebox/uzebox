@@ -196,15 +196,15 @@
 
 #if (M74_RTLIST_PTRE != 0)
 	m74_rtlist:
-	m74_rtlist_lo: .byte 1 ; RAM tile allocation workspace pointer, low
-	m74_rtlist_hi: .byte 1 ; RAM tile allocation workspace pointer, high
+	m74_rtlist_lo: .space 1 ; RAM tile allocation workspace pointer, low
+	m74_rtlist_hi: .space 1 ; RAM tile allocation workspace pointer, high
 #endif
-	m74_rtmax:     .byte 1 ; Maximal number of RAM tiles allowed
+	m74_rtmax:     .space 1 ; Maximal number of RAM tiles allowed
 
 	; Locals
 
-	v_rtno:        .byte 1 ; Number of RAM tiles currently allocated
-	v_ramtoff_hi:  .byte 1 ; RAM tiles offset high (low is zero)
+	v_rtno:        .space 1 ; Number of RAM tiles currently allocated
+	v_ramtoff_hi:  .space 1 ; RAM tiles offset high (low is zero)
 
 .section .text
 

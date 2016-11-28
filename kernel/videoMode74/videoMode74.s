@@ -396,58 +396,58 @@
 
 	; Globals
 
-	m74_config:    .byte 1 ; Global configuration
+	m74_config:    .space 1 ; Global configuration
 #if (M74_ROWS_PTRE != 0)
 	m74_rows:
-	m74_rows_lo:   .byte 1 ; Row selector address, low
-	m74_rows_hi:   .byte 1 ; Row selector address, high
+	m74_rows_lo:   .space 1 ; Row selector address, low
+	m74_rows_hi:   .space 1 ; Row selector address, high
 #endif
 	m74_tdesc:
-	m74_tdesc_lo:  .byte 1 ; Tile row descriptor address, low
-	m74_tdesc_hi:  .byte 1 ; Tile row descriptor address, high
+	m74_tdesc_lo:  .space 1 ; Tile row descriptor address, low
+	m74_tdesc_hi:  .space 1 ; Tile row descriptor address, high
 	m74_tidx:
-	m74_tidx_lo:   .byte 1 ; Tile index source address list, low
-	m74_tidx_hi:   .byte 1 ; Tile index source address list, high
+	m74_tidx_lo:   .space 1 ; Tile index source address list, low
+	m74_tidx_hi:   .space 1 ; Tile index source address list, high
 #if (M74_PAL_PTRE != 0)
 	m74_pal:
-	m74_pal_lo:    .byte 1 ; Palette source, low
-	m74_pal_hi:    .byte 1 ; Palette source, high
+	m74_pal_lo:    .space 1 ; Palette source, low
+	m74_pal_hi:    .space 1 ; Palette source, high
 #endif
 #if (M74_RESET_ENABLE != 0)
 	m74_reset:
-	m74_reset_lo:  .byte 1 ; Reset vector, low
-	m74_reset_hi:  .byte 1 ; Reset vector, high
+	m74_reset_lo:  .space 1 ; Reset vector, low
+	m74_reset_hi:  .space 1 ; Reset vector, high
 #endif
 #if (M74_SD_ENABLE != 0)
-	m74_sdsec:             ; SD load base sector address (4 bytes)
-	m74_sdsec_0:   .byte 1
-	m74_sdsec_1:   .byte 1
-	m74_sdsec_2:   .byte 1
-	m74_sdsec_3:   .byte 1
-	m74_sdoff:             ; SD load byte offset to load from (4 bytes, even)
+	m74_sdsec:              ; SD load base sector address (4 bytes)
+	m74_sdsec_0:   .space 1
+	m74_sdsec_1:   .space 1
+	m74_sdsec_2:   .space 1
+	m74_sdsec_3:   .space 1
+	m74_sdoff:              ; SD load byte offset to load from (4 bytes, even)
 	m74_sdoff_0:
-	v_sstat:       .byte 1 ; SD load status
+	v_sstat:       .space 1 ; SD load status
 	m74_sdoff_1:
-	v_sreme:       .byte 1 ; SD load remaining 2 byte blocks until sector end
+	v_sreme:       .space 1 ; SD load remaining 2 byte blocks until sector end
 	m74_sdoff_2:
-	v_srems:       .byte 1 ; SD load remaining 2 byte blocks to skip
-	m74_sdoff_3:   .byte 1
-	m74_sdcnt:             ; SD load count of 2 byte blocks to load (0: 256)
-	v_sremc:       .byte 1 ; SD load remaining 2 byte blocks to load
-	m74_sddst:             ; SD load destination address (2 bytes)
-	m74_sddst_lo:  .byte 1
-	m74_sddst_hi:  .byte 1
+	v_srems:       .space 1 ; SD load remaining 2 byte blocks to skip
+	m74_sdoff_3:   .space 1
+	m74_sdcnt:              ; SD load count of 2 byte blocks to load (0: 256)
+	v_sremc:       .space 1 ; SD load remaining 2 byte blocks to load
+	m74_sddst:              ; SD load destination address (2 bytes)
+	m74_sddst_lo:  .space 1
+	m74_sddst_hi:  .space 1
 #endif
 
 	; Locals
 
-	v_rows_lo:     .byte 1 ; Row selector current address, low
-	v_rows_hi:     .byte 1 ; Row selector current address, high
-	v_reset_lo:    .byte 1 ; Stack restore address, low
-	v_reset_hi:    .byte 1 ; Stack restore address, high
+	v_rows_lo:     .space 1 ; Row selector current address, low
+	v_rows_hi:     .space 1 ; Row selector current address, high
+	v_reset_lo:    .space 1 ; Stack restore address, low
+	v_reset_hi:    .space 1 ; Stack restore address, high
 #if (M74_M3_ENABLE != 0)
-	v_m3ptr_lo:    .byte 1 ; Current location in multicolor framebuffer, low
-	v_m3ptr_hi:    .byte 1 ; Current location in multicolor framebuffer, high
+	v_m3ptr_lo:    .space 1 ; Current location in multicolor framebuffer, low
+	v_m3ptr_hi:    .space 1 ; Current location in multicolor framebuffer, high
 #endif
 
 .section .text
