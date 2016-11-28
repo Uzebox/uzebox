@@ -32,7 +32,7 @@
 #define SD_DATA_TOKEN 0xFE
 
 .section .bss
-    sd_512_byte_count:     .word 1        ; Counter for sector reading.  After every 512 bytes read from SD card
+    sd_512_byte_count:     .space 2        ; Counter for sector reading.  After every 512 bytes read from SD card
                                           ; in READ_MULTIPLE_BLOCK mode there are several non-data bytes.  These
                                           ; comprise of two CRC bytes, 0 or more stuff bytes and a data ready token
 
@@ -48,15 +48,15 @@
     .global SD_DEBUG_firstSector
 
     .section .bss
-        SD_DEBUG_bootRecordSector:        .long 1
-        SD_DEBUG_bytesPerSector:          .word 1
-        SD_DEBUG_sectorsPerCluster:       .byte 1
-        SD_DEBUG_reservedSectors:         .word 1
-        SD_DEBUG_maxRootDirectoryEntries: .word 1
-        SD_DEBUG_sectorsPerFat:           .word 1
-        SD_DEBUG_dirTableSector:          .long 1
-        SD_DEBUG_firstCluster:            .word 1
-        SD_DEBUG_firstSector:             .long 1
+        SD_DEBUG_bootRecordSector:        .space 4
+        SD_DEBUG_bytesPerSector:          .space 2
+        SD_DEBUG_sectorsPerCluster:       .space 1
+        SD_DEBUG_reservedSectors:         .space 2
+        SD_DEBUG_maxRootDirectoryEntries: .space 2
+        SD_DEBUG_sectorsPerFat:           .space 2
+        SD_DEBUG_dirTableSector:          .space 4
+        SD_DEBUG_firstCluster:            .space 2
+        SD_DEBUG_firstSector:             .space 4
 #endif
 
 

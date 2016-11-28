@@ -97,33 +97,33 @@
 .section .bss
 	.align 1
 
-	sync_phase:  .byte 1	;0=vsync, 1=hsync
-	sync_pulse:	 .byte 1	;scanline counter
-	sync_flags:  .byte 1	;b0: vsync flag, set at 60Hz when video frame rendered
+	sync_phase:  .space 1	;0=vsync, 1=hsync
+	sync_pulse:	 .space 1	;scanline counter
+	sync_flags:  .space 1	;b0: vsync flag, set at 60Hz when video frame rendered
 							;b1: current field (0=odd, 1=even)
 
-	pre_vsync_user_callback:  .word 1 ;pointer to function
-	post_vsync_user_callback: .word 1 ;pointer to function
+	pre_vsync_user_callback:  .space 2 ;pointer to function
+	post_vsync_user_callback: .space 2 ;pointer to function
 
-	first_render_line:		.byte 1
-	render_lines_count: 	.byte 1
+	first_render_line:		.space 1
+	render_lines_count: 	.space 1
 
 	
 	;last read results of joypads
-	joypad1_status_lo:	.byte 1
-						.byte 1
-	joypad1_status_hi:	.byte 1
-						.byte 1
+	joypad1_status_lo:	.space 1
+						.space 1
+	joypad1_status_hi:	.space 1
+						.space 1
 
-	joypad2_status_lo:	.byte 1
-						.byte 1
-	joypad2_status_hi:	.byte 1
-						.byte 1
+	joypad2_status_lo:	.space 1
+						.space 1
+	joypad2_status_hi:	.space 1
+						.space 1
 
-	vsync_counter:		.word 1
+	vsync_counter:		.space 2
 	
 #if TRUE_RANDOM_GEN == 1
-	random_value:			.word 1
+	random_value:			.space 2
 #endif
 
 .section .text
