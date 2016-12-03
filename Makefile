@@ -32,6 +32,7 @@ DEMOS += Bootloader
 DEMOS += chess4uzebox
 DEMOS += ControllerTester
 DEMOS += DrMario
+DEMOS += GameOfLife
 DEMOS += Maze
 DEMOS += Megatris
 DEMOS += Mode5Demo

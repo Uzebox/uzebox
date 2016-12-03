@@ -4,7 +4,7 @@
 
 ## General Flags
 PROJECT = GameOfLife
-GAME= gameoflife
+GAME= GameOfLife
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
@@ -87,7 +87,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../gameoflife.c
+$(GAME).o: ../$(PROJECT).c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
