@@ -38,6 +38,7 @@ DEMOS += Megatris
 DEMOS += MegaSokoban
 DEMOS += Mode5Demo
 DEMOS += Mode9Demo
+DEMOS += Mode13ExtendedDemo
 DEMOS += MusicDemo 	
 DEMOS += LodeRunner
 DEMOS += SDCardDemo
