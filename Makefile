@@ -35,6 +35,7 @@ DEMOS += DrMario
 DEMOS += GameOfLife
 DEMOS += Maze
 DEMOS += Megatris
+DEMOS += MegaSokoban
 DEMOS += Mode5Demo
 DEMOS += Mode9Demo
 DEMOS += MusicDemo 	
