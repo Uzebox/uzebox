@@ -47,6 +47,7 @@ DEMOS += Uzeamp
 DEMOS += VectorDemo
 DEMOS += VideoDemo
 DEMOS += Whack-a-Mole
+DEMOS += Zombienator
 
 ######################################
 # Disabled
