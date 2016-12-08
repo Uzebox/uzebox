@@ -65,10 +65,10 @@ all: ../data/font-6x8-full.inc ../data/tiles.inc $(TARGET) $(GAME).hex $(GAME).e
 
 ## Regenerate the graphics include file
 ../data/font-6x8-full.inc: ../data/font-6x8-full.png ../data/font-6x8.gconvert.xml
-	gconvert ../data/font-6x8.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/font-6x8.gconvert.xml
 
 ../data/tiles.inc: ../data/tiles.png ../data/tiles.gconvert.xml
-	gconvert ../data/tiles.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/tiles.gconvert.xml
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
