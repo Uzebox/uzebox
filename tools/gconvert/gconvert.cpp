@@ -1112,7 +1112,7 @@ unsigned char* loadImage(){
 
 	}else{
 		printf( "Unsupported input file type '%s'. Valid values: 'raw' and 'png' \n", xform.inputType );
-		return false;
+		return 0;
 	}
 
 	return buffer;
