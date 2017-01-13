@@ -19,7 +19,7 @@
 #ifndef MECHANICS_H_
 #define MECHANICS_H_
 
-#include "zombienator.h"
+#include "Zombienator.h"
 
 
 //Horrible attempt att minimizing the code, unreadable.

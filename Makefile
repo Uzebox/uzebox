@@ -32,10 +32,13 @@ DEMOS += Bootloader
 DEMOS += chess4uzebox
 DEMOS += ControllerTester
 DEMOS += DrMario
+DEMOS += GameOfLife
 DEMOS += Maze
 DEMOS += Megatris
+DEMOS += MegaSokoban
 DEMOS += Mode5Demo
 DEMOS += Mode9Demo
+DEMOS += Mode13ExtendedDemo
 DEMOS += MusicDemo 	
 DEMOS += LodeRunner
 DEMOS += SDCardDemo
@@ -47,6 +50,7 @@ DEMOS += Uzeamp
 DEMOS += VectorDemo
 DEMOS += VideoDemo
 DEMOS += Whack-a-Mole
+DEMOS += Zombienator
 
 ######################################
 # Disabled

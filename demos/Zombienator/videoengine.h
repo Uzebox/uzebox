@@ -19,7 +19,7 @@
 #ifndef VIDEOENGINE_H_
 #define VIDEOENGINE_H_
 
-#include "zombienator.h"
+#include "Zombienator.h"
 
 
 void fillmap(unsigned char x, unsigned char y, unsigned char width, unsigned char height);
