@@ -67,7 +67,7 @@ class Breakpoints: public vector<dword> {
 #define GET_BIG_ENDIAN16(byte1,byte2)		((byte2 << 8) | byte1)
 
 #ifdef USE_GDBSERVER_DEBUG
-	#define gdb_debug(fmt,...)	fprintf(stderr,"[GDB] "fmt, ##__VA_ARGS__)
+	#define gdb_debug(fmt,...)	fprintf(stderr,"[GDB] "/**/fmt, ##__VA_ARGS__)
 #else
 	#define gdb_debug(fmt,...)
 #endif

@@ -19,7 +19,7 @@
 #ifndef GUNS_H_
 #define GUNS_H_
 
-#include "zombienator.h"
+#include "Zombienator.h"
 
 void changegun(PlayerStruct* player);
 

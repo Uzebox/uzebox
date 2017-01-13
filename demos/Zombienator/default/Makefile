@@ -3,8 +3,8 @@
 ###############################################################################
 
 ## General Flags
-PROJECT = zombienator
-GAME= zombienator
+PROJECT = Zombienator
+GAME= Zombienator
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc

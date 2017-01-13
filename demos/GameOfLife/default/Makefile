@@ -4,7 +4,7 @@
 
 ## General Flags
 PROJECT = GameOfLife
-GAME= gameoflife
+GAME= GameOfLife
 MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
@@ -65,10 +65,10 @@ all: ../data/font-6x8-full.inc ../data/tiles.inc $(TARGET) $(GAME).hex $(GAME).e
 
 ## Regenerate the graphics include file
 ../data/font-6x8-full.inc: ../data/font-6x8-full.png ../data/font-6x8.gconvert.xml
-	gconvert ../data/font-6x8.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/font-6x8.gconvert.xml
 
 ../data/tiles.inc: ../data/tiles.png ../data/tiles.gconvert.xml
-	gconvert ../data/tiles.gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/tiles.gconvert.xml
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -87,7 +87,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../gameoflife.c
+$(GAME).o: ../$(PROJECT).c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
