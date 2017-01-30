@@ -124,6 +124,16 @@
 	#endif
 
 	/*
+	 * Wave table for the intro when using the "bling" sound (INTRO_LOGO == 1)
+	 * The default value corresponds to the default wavetables (see MIXER_WAVES)
+	 * You should set this if you use a custom wavetable with the intro
+	 * logo enabled.
+	 */
+	#ifndef INTRO_WAVETABLE
+		#define INTRO_WAVETABLE 8
+	#endif
+
+	/*
 	 * Joystick type used on the board.
 	 * Note: Will be read from EEPROM in a future release. 
 	 *
