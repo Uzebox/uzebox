@@ -44,7 +44,7 @@ public class MidiConvert {
 	private boolean includeChannelNoteOff[]=new boolean[5];
 	
 	public static void main (String [] args) throws Exception{
-		System.out.println("Uzebox (tm) MIDI converter 1.0");
+		System.out.println("Uzebox (tm) MIDI converter 1.1");
 		System.out.println("(c)2009 Alec Bourque. This tool is released under the GNU GPL V3.");
 		System.out.println("");
 		
@@ -129,7 +129,7 @@ public class MidiConvert {
 	private static void printHelp(Options options){
 		HelpFormatter formatter = new HelpFormatter();
 		formatter.printHelp("midiconv [options] inputfile outputfile", 
-							"Converts a MIDI song in format 0 to a Uzebox MIDI stream outputted as a C include file.\r\n",options,
+							"Converts a MIDI song in format 0 or 1 to a Uzebox MIDI stream outputted as a C include file.\r\n",options,
 							"Ex: midiconv -s32 -vmy_song -ls200 -le22340 c:\\mysong.mid c:\\mysong.inc \r\n" );			
 	}
 	
@@ -163,12 +163,21 @@ public class MidiConvert {
 		//File inFile=new File(path+filename);
 		
 		MidiFileFormat format=MidiSystem.getMidiFileFormat(inputFile);
-		
-		if(format.getType()!=0){
-			throw new RuntimeException("Unsupported file format "+format.getType()+". Only MIDI file format 0 (all events in one track) is supported.");
+
+		if(format.getType()!=0 && format.getType()!=1){
+			throw new RuntimeException("Unsupported file format "+format.getType()+". Only MIDI file formats 0 and 1 are supported.");
 		}
 		
 		Sequence inSequence=MidiSystem.getSequence(inputFile);		
+		if(format.getType()==1){
+			Track[] tracks = inSequence.getTracks();
+			for(int i = 1; i < tracks.length; i++){
+				for(int j = 0; j < tracks[i].size(); j++) {
+					tracks[0].add(tracks[i].get(j));
+				}
+				inSequence.deleteTrack(tracks[i]);
+			}
+		}
 		
 		Sequence seq=new Sequence(format.getDivisionType(),format.getResolution(),1);
 		Track outTrack=seq.getTracks()[0];
