@@ -6,11 +6,13 @@ import java.util.Map;
 
 import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiEvent;
+import javax.sound.midi.MidiMessage;
 import javax.sound.midi.MidiFileFormat;
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
+
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -185,6 +187,31 @@ public class MidiConvert {
 		long tempo=60000000/format.getResolution();
 
 		Track track=inSequence.getTracks()[0];
+
+
+
+		// Print track information, convert NOTE_OFF commands (0x80, w/ vol 64) into NOTE_ON commands (0x90, w/ vol 0)
+		Track[] itracks=inSequence.getTracks();
+		if(itracks!=null){
+			for(int i=0;i<itracks.length;i++){
+				logger.debug("Track "+i+":");
+				Track mtrack = itracks[i];
+				for(int j=0;j<mtrack.size();j++){
+					MidiEvent event=mtrack.get(j);
+					MidiMessage message = event.getMessage();
+					if(message instanceof ShortMessage){
+						ShortMessage m=(ShortMessage)message;
+						if(m.getCommand()==ShortMessage.NOTE_OFF){
+							int channel=m.getChannel();
+							int pitch=m.getData1();
+							int vel=m.getData2();
+							m.setMessage(ShortMessage.NOTE_ON,channel,pitch,0);
+						}
+					}
+					logger.debug(" tick "+event.getTick()+", "+MessageInfo.toString(event.getMessage()));
+				}
+			}
+		}
 
 		for(int e=0;e<track.size();e++){
 			MidiEvent event=track.get(e);				
