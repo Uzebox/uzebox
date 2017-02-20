@@ -27,7 +27,7 @@ public class AudioHelper {
 		str.append("// CPU=28.63636Mhz,");
 		str.append("// Mixing Freqency="+(1/mixingPeriod)+" Hz\r\n\r\n");
 		
-		//f = 212k/12 × 440 Hz = 2k × 440 Hz
+		//f = 212k/12 Ã— 440 Hz = 2k Ã— 440 Hz
 		//freq = 440 * 2^((n-69)/12)
 		
 		double a4Freq=440;
