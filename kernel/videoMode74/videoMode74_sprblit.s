@@ -73,7 +73,7 @@ m74_blitspritept:
 	add   r14,     r23
 	adc   r15,     r1      ; Set up mask source
 #endif
-	brts  .+10             ; Y location positive (move down?)
+	brts  .+8              ; Y location positive (move down?)
 	mov   r0,      r23     ; If positive, calculate offset on target
 	lsl   r0               ; Destination increment is 4 bytes / row
 	lsl   r0
