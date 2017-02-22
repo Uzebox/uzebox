@@ -485,7 +485,7 @@ SpiRamSeqReadU8:
 	out   SR_DR,   r25
 	ret                    ; ( 4)
 	rjmp  .                ; (13)
-	rjmp  .-10             ; (15)
+	rjmp  .-12             ; (15)
 
 
 
@@ -632,7 +632,7 @@ SpiRamSeqReadEnd:
 	ret                    ; ( 4)
 	rjmp  .                ; (13)
 	rjmp  .                ; (15)
-	rjmp  .-8              ; (17)
+	rjmp  .-10             ; (17)
 
 
 
@@ -685,7 +685,7 @@ SpiRamSeqWriteU8:
 	ret                    ; ( 4)
 	rjmp  .                ; (13)
 	rjmp  .                ; (15)
-	rjmp  .-8              ; (17)
+	rjmp  .-10             ; (17)
 
 
 
