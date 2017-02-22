@@ -1,6 +1,6 @@
 /*
  *  Uzebox Kernel - Video Mode 74
- *  Copyright (C) 2015 Sandor Zsuga (Jubatian)
+ *  Copyright (C) 2015 - 2017 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -361,7 +361,7 @@
 
 /* ROM mask pool's address. At most 224 x 8 bytes (depends on used masks).
 ** If no actual masks are used, or only RAM masks are used, this may be left
-** zero. */
+** zero. This has to be aligned at a 8 byte boundary. */
 
 #ifndef M74_ROMMASK_OFF
 	#define M74_ROMMASK_OFF    0
@@ -369,7 +369,7 @@
 
 /* RAM mask pool's address. At most 14 x 8 bytes (depends on used masks).
 ** If no actual masks are used, or only ROM masks are used, this may be left
-** zero. */
+** zero. This has to be aligned at a 8 byte boundary. */
 
 #ifndef M74_RAMMASK_OFF
 	#define M74_RAMMASK_OFF    0
@@ -402,6 +402,29 @@
 #ifndef M74_RTLIST_OFF
 	#if ((M74_SPR_ENABLE != 0) && (M74_RTLIST_PTRE == 0))
 		#error "A RAM tile list offset (M74_RTLIST_OFF) has to be defined for the sprite system!"
+	#endif
+#endif
+
+
+
+/* Enable SPI RAM sprites. If enabled, the sprite blitter (M74_BlitSprite and
+** M74_BlitSpriteCol) will work using the SPI RAM. The M74_SPR_RAM flag if set
+** requests using the high 64K of the SPI RAM. The SPI RAM blitter only works
+** with M74_REC_SLOW enabled, and it is somewhat slower than that blitter. It
+** is not possible to use ROM or RAM sourced sprites along with SPI RAM
+** sourced sprites. */
+
+#ifndef M74_SPIRAM_SPRITES
+	#define M74_SPIRAM_SPRITES 0
+#else
+	#if (M74_SPIRAM_SPRITES != 0)
+		#ifndef M74_REC_SLOW
+			#define M74_REC_SLOW 1
+		#else
+			#if (M74_REC_SLOW == 0)
+				#error "SPI RAM sourced sprites can only work with M74_REC_SLOW enabled"
+			#endif
+		#endif
 	#endif
 #endif
 
