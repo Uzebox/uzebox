@@ -1,6 +1,6 @@
 ;
 ; Uzebox Kernel - Video Mode 74 sprite output
-; Copyright (C) 2015 Sandor Zsuga (Jubatian)
+; Copyright (C) 2015 - 2017 Sandor Zsuga (Jubatian)
 ;
 ; This program is free software: you can redistribute it and/or modify
 ; it under the terms of the GNU General Public License as published by
@@ -196,15 +196,15 @@
 
 #if (M74_RTLIST_PTRE != 0)
 	m74_rtlist:
-	m74_rtlist_lo: .space 1 ; RAM tile allocation workspace pointer, low
-	m74_rtlist_hi: .space 1 ; RAM tile allocation workspace pointer, high
+	m74_rtlist_lo: .byte 1 ; RAM tile allocation workspace pointer, low
+	m74_rtlist_hi: .byte 1 ; RAM tile allocation workspace pointer, high
 #endif
-	m74_rtmax:     .space 1 ; Maximal number of RAM tiles allowed
+	m74_rtmax:     .byte 1 ; Maximal number of RAM tiles allowed
 
 	; Locals
 
-	v_rtno:        .space 1 ; Number of RAM tiles currently allocated
-	v_ramtoff_hi:  .space 1 ; RAM tiles offset high (low is zero)
+	v_rtno:        .byte 1 ; Number of RAM tiles currently allocated
+	v_ramtoff_hi:  .byte 1 ; RAM tiles offset high (low is zero)
 
 .section .text
 
@@ -502,6 +502,13 @@ m74_blitsprite_entry:
 	push  r17
 	push  YL
 	push  YH
+
+	; Make sure SPI is deselected (useful if a frame reset hit the sprite
+	; blitter)
+
+#if (M74_SPIRAM_SPRITES != 0)
+	sbi   _SFR_IO_ADDR(PORTA), PA4
+#endif
 
 	; Load tile descriptor first row which will determine what to use as
 	; tile sources.
@@ -1311,4 +1318,8 @@ rtaanm:
 ;
 ; Add the blitter, to the same section
 ;
+#if (M74_SPIRAM_SPRITES != 0)
+#include "videoMode74/videoMode74_sprb_sr.s"
+#else
 #include "videoMode74/videoMode74_sprblit.s"
+#endif
