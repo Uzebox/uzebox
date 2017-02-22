@@ -173,6 +173,9 @@ void convertSong(const string& infile, const string& outfile)
           newmidi[track].append(*mev);
         }
       } else {
+        if (mev->getChannel() == 9)
+          mev->setChannel(3);
+
         if (mev->isController()) {
           if ((*mev)[1] == CONTROLLER_VOL ||
               (*mev)[1] == CONTROLLER_EXPRESSION ||
