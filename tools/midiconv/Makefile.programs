@@ -164,8 +164,7 @@ ifeq ($(wildcard $(LIBDIR)),)
 	$(MAKE) -f Makefile.library
 endif
 	@echo [CC] $@
-	@$(COMPILER) $(PREFLAGS) -o $@ $< $(POSTFLAGS) \
-		&& strip $@$(EXTEN)
+	@$(COMPILER) $(PREFLAGS) -o $@ $< $(POSTFLAGS)
 
 
 % : $(notdir %.cpp) $(LIBPATH)
@@ -176,8 +175,7 @@ ifeq ($(wildcard $(LIBDIR)),)
 	$(MAKE) -f Makefile.library
 endif
 	@echo [CC] $@
-	@$(COMPILER) $(PREFLAGS) -o $(TARGDIR)/$@ $< $(POSTFLAGS) \
-		&& strip $(TARGDIR)/$@$(EXTEN)
+	@$(COMPILER) $(PREFLAGS) -o $(TARGDIR)/$@ $< $(POSTFLAGS)
 
 
 
