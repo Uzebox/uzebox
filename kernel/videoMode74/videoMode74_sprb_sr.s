@@ -78,59 +78,27 @@ m74_blitspritept:
 	push  r8
 	push  r9               ; Will be used for loading from SPI RAM
 
-	; Calculate target offset including mask (which belongs / aligns with
-	; the target), and the number of lines to output.
-
-	ldi   r20,     8
-	mov   r12,     r20     ; Normally 8 lines are generated
-	bst   r23,     7       ; T: Set if Y location negative, clear otherwise
-#if (M74_MSK_ENABLE != 0)
-	brts  .+4              ; Y location positive (move down?)
-	add   r14,     r23
-	adc   r15,     r1      ; Set up mask source
-#endif
-	brts  .+12             ; Y location positive (move down?)
-	mov   r0,      r23     ; If positive, calculate offset on target
-	lsl   r0               ; Destination increment is 4 bytes / row
-	lsl   r0
-	add   YL,      r0
-	sub   r12,     r23     ; Positive Y location: subtract from line count
-	rjmp  .+2
-	add   r12,     r23     ; Negative Y location: add to line count
-
 	; SPI RAM address, highest byte: bank selection
 
+	rjmp  .
+	rjmp  .
 	mov   XL,      r16
 	lsr   XL
 	andi  XL,      1
 	out   SR_DR,   XL
 
-	; Calculate source start offset (depends on Y location & Y flip)
+	; Calculate source start offset
 
 	movw  r6,      r24     ; Source offset (in SPI RAM)
 	sbrs  r16,     2
 	rjmp  spbs0            ; No vertical flipping
-	mov   r21,     r12
-	dec   r21
-	ldi   XL,      0xFC    ; Add to destination (Offset within RAM tile)
-#if (M74_MSK_ENABLE != 0)
-	ldi   XH,      0xFF    ; Add to mask (if any)
-	add   r14,     r21     ; First mask line when flipped
-#endif
-	lsl   r21
-	lsl   r21
-	add   YL,      r21     ; First dest. line when flipped
-	brts  spbs2            ; Y loc. negative: Source address OK
-	mov   r21,     r23
+	sbrc  r23,     7
+	rjmp  spbs2            ; Y loc. negative: Source address OK
+	mov   r21,     r23     ; Number of lines to adjust source
 	rjmp  spbs1
 spbs0:
-	ldi   XL,      0x04    ; Add to destination (Offset within RAM tile)
-#if (M74_MSK_ENABLE != 0)
-	ldi   XH,      0x01    ; Add to mask (if any)
-#endif
-	rjmp  .
-	rjmp  .                ; Padding to even paths for SPI RAM cycles
-	brtc  spbs2            ; Y loc. positive: Source address OK
+	sbrs  r23,     7
+	rjmp  spbs3            ; Y loc. positive: Source address OK
 	mov   r21,     r23
 	neg   r21              ; Number of lines to adjust source
 spbs1:
@@ -138,18 +106,99 @@ spbs1:
 	lsl   r21
 	add   r6,      r21
 	adc   r7,      r1
-	rjmp  spbs3
+	rjmp  spbs4            ; (14)
 spbs2:
-	rjmp  .
-	rjmp  .
-	rjmp  .                ; Padding to even paths for SPI RAM cycles
+	nop
 spbs3:
+	nop
+	rjmp  .
+	rjmp  .
+	rjmp  .                ; (14) Padding to even paths for SPI RAM cycles
+spbs4:
 
 	; Send source start offset to the SPI RAM
 
+	rjmp  .
+	nop
 	out   SR_DR,   r7
 	rcall splw17
 	out   SR_DR,   r6
+
+	; Calculate no. of lines to generate
+
+	ldi   r20,     8       ; Normally 8 lines are generated
+	mov   r12,     r20
+	sbrs  r23,     7
+	sub   r12,     r23     ; Positive Y location: subtract from line count
+	sbrc  r23,     7
+	add   r12,     r23     ; Negative Y location: add to line count
+
+	; Send dummy byte to SPI RAM (to begin fetching first data byte)
+
+	rcall splw11
+	out   SR_DR,   r6
+
+	; Calculate destination & mask start offsets
+
+	sbrs  r23,     7
+	rjmp  spbd0            ; Y location positive (moving down)
+	rjmp  .                ; Y location negative: do nothing
+	rjmp  .
+	rjmp  spbd1            ; ( 8)
+spbd0:
+#if (M74_MSK_ENABLE != 0)
+	add   r14,     r23     ; Add to mask source
+#else
+	nop
+#endif
+	add   YL,      r23     ; Add to destination location
+	add   YL,      r23
+	add   YL,      r23
+	add   YL,      r23     ; ( 8) Destination is 4 bytes / row
+spbd1:
+
+	; Fetch first row data byte 0 from SPI RAM
+
+	rcall splw8
+	in    r6,      SR_DR
+	out   SR_DR,   r6
+
+	; Adjust for vertical flipping
+
+	sbrc  r16,     2
+	rjmp  spbd2            ; Vertical flipping present
+	ldi   XL,      0x04    ; Add to destination (Offset within RAM tile)
+#if (M74_MSK_ENABLE != 0)
+	ldi   XH,      0x01    ; Add to mask (if any)
+	nop
+#else
+	rjmp  .
+#endif
+	rjmp  .
+	rjmp  .
+	rjmp  spbd3            ; (11)
+spbd2:
+	mov   r21,     r12     ; Get no. of lines to draw - 1
+	dec   r21
+	ldi   XL,      0xFC    ; Add to destination (Offset within RAM tile)
+#if (M74_MSK_ENABLE != 0)
+	ldi   XH,      0xFF    ; Add to mask (if any)
+	add   r14,     r21     ; First mask line when flipped
+#else
+	rjmp  .
+#endif
+	lsl   r21
+	lsl   r21
+	add   YL,      r21     ; (11) First dest. line when flipped
+spbd3:
+
+	; Fetch first row data byte 1 from SPI RAM
+
+	rjmp  .
+	rjmp  .
+	nop
+	in    r7,      SR_DR
+	out   SR_DR,   r7
 
 	; Calculate jump target by X alignment into r1:r0
 
@@ -160,22 +209,13 @@ spbs3:
 	subi  r22,     0xF1    ; Cheat: Add 15 to reach flipped jump table (spljtaf)
 	add   r20,     r22
 	adc   r21,     r1
-	movw  r0,      r20     ; From now r1 is not zero
+	movw  r0,      r20     ; ( 8) From now r1 is not zero
 
-	; Load first row (as much of it as necessary to start)
+	; Fetch first row data byte 2 from SPI RAM
 
-	rcall splw9
-	out   SR_DR,   r6      ; Dummy to get first input byte
-	rcall splw16
-	in    r6,      SR_DR
-	out   SR_DR,   r6
-	rcall splw16
-	in    r7,      SR_DR
-	out   SR_DR,   r7
-	rcall splw16
+	rcall splw8
 	in    r8,      SR_DR
 	out   SR_DR,   r8
-	rcall splw8
 
 	; Render the sprite part (two separate loops: one with masking and
 	; one without)
@@ -183,6 +223,11 @@ spbs3:
 #if (M74_MSK_ENABLE != 0)
 	sbrc  r16,     4       ; Has mask?
 	rjmp  spbml            ; Enter render loop with mask
+	rjmp  .
+	rjmp  .
+	rjmp  .
+#else
+	rcall splw8
 #endif
 	clr   r17              ; Use zero for mask
 	rjmp  spbl             ; No mask, enter maskless render loop
@@ -331,17 +376,16 @@ splr7c:
 	swap  r20
 	sbrc  r17,     7       ; Process mask
 	andi  r20,     0x0F
-	clr   r21
-	clr   r22
-	clr   r23
-	nop
+	rjmp  .
+	rjmp  .
 	in    r6,      SR_DR   ; SPI, byte 0
 	out   SR_DR,   r6      ; SPI, byte 0
 	rcall splw16
 	in    r7,      SR_DR   ; SPI, byte 1
 	out   SR_DR,   r7      ; SPI, byte 1
-	rcall splw13
-	rjmp  splpxe8
+	rjmp  .
+	rjmp  .
+	rjmp  splpxre
 
 	; SS000000
 
@@ -376,16 +420,12 @@ splr6c:
 	andi  r20,     0x0F
 	sbrc  r17,     6
 	andi  r20,     0xF0
-	clr   r21
-	clr   r22
-	clr   r23
-	rjmp  .
-	rjmp  .
-	nop
+	rcall splw8
 	in    r7,      SR_DR   ; SPI, byte 1
 	out   SR_DR,   r7      ; SPI, byte 1
-	rcall splw13
-	rjmp  splpxe8
+	rjmp  .
+	rjmp  .
+	rjmp  splpxre
 
 	; SSS00000
 
@@ -1154,16 +1194,12 @@ spll6c:
 	andi  r23,     0x0F
 	sbrc  r17,     0
 	andi  r23,     0xF0
-	clr   r20
-	clr   r21
-	clr   r22
-	rjmp  .
-	rjmp  .
-	nop
+	rcall splw8
 	in    r7,      SR_DR   ; SPI, byte 1
 	out   SR_DR,   r7      ; SPI, byte 1
-	rcall splw13
-	rjmp  splpxe8
+	rjmp  .
+	rjmp  .
+	rjmp  splpxle
 
 	; 0000000S
 
@@ -1186,17 +1222,16 @@ spll7c:
 	lpm   r23,     Z
 	sbrc  r17,     0       ; Process mask
 	andi  r23,     0xF0
-	clr   r20
-	clr   r21
-	clr   r22
-	nop
+	rjmp  .
+	rjmp  .
 	in    r6,      SR_DR   ; SPI, byte 0
 	out   SR_DR,   r6      ; SPI, byte 0
 	rcall splw16
 	in    r7,      SR_DR   ; SPI, byte 1
 	out   SR_DR,   r7      ; SPI, byte 1
-	rcall splw13
-	rjmp  splpxe8
+	rjmp  .
+	rjmp  .
+	rjmp  splpxle
 
 
 	; Waits (for SPI timing), to be called with rcall
@@ -1346,3 +1381,96 @@ splpx0l:
 #else
 	rjmp  spblret          ; No mask return
 #endif
+
+
+
+	; Pixel blitting for the S0000000 and SS000000 cases.
+	; The blitter paths are equalized to interleave better with SPI loads,
+	; optimizing for best usage on the worst case path. Only r20 might
+	; contain valid (nonzero) pixels here.
+	;
+	; Assuming an rjmp is used to enter, 4 cycles are needed after
+	; fetching SPI, byte 1 before the "rjmp splpxre".
+
+splpxre:
+	cpi   r20,     0x01
+	brcs  splpxrx          ; ( 2 /  3)
+	brhs  splpxrl          ; ( 3 /  4)
+	cpi   r20,     0x10
+	brcc  splpxrf          ; ( 5 /  6)
+	nop
+	ldd   r18,     Y + 0
+	andi  r18,     0xF0
+	or    r20,     r18     ; (10)
+splpxrw:
+	std   Y + 0,   r20     ; (12)
+	in    r8,      SR_DR   ; SPI, byte 2
+	out   SR_DR,   r8      ; SPI, byte 2
+#if (M74_MSK_ENABLE != 0)
+	sbrc  r16,     4       ; ( 1 / 2) Has mask?
+	rjmp  spbmlret         ; ( 3) Has mask return
+	rjmp  splpxee          ; ( 4)
+splpxee:
+	rjmp  .                ; ( 6)
+	rjmp  spblret          ; ( 8) No mask return
+#else
+	rjmp  splpxee          ; ( 2)
+splpxee:
+	rjmp  .
+	rjmp  .
+	rjmp  spblret          ; ( 8) No mask return
+#endif
+splpxrl:
+	ldd   r18,     Y + 0
+	andi  r18,     0x0F
+	or    r20,     r18
+	rjmp  splpxrw          ; (10)
+splpxrx:
+	nop
+	ldd   r20,     Y + 0
+splpxrf:
+	rjmp  .
+	rjmp  splpxrw          ; (10)
+
+
+
+	; Pixel blitting for the 000000SS and 0000000S cases.
+	; The blitter paths are equalized to interleave better with SPI loads,
+	; optimizing for best usage on the worst case path. Only r23 might
+	; contain valid (nonzero) pixels here.
+	;
+	; Assuming an rjmp is used to enter, 4 cycles are needed after
+	; fetching SPI, byte 1 before the "rjmp splpxle".
+
+splpxle:
+	cpi   r23,     0x01
+	brcs  splpxlx          ; ( 2 /  3)
+	brhs  splpxll          ; ( 3 /  4)
+	cpi   r23,     0x10
+	brcc  splpxlf          ; ( 5 /  6)
+	nop
+	ldd   r18,     Y + 3
+	andi  r18,     0xF0
+	or    r23,     r18     ; (10)
+splpxlw:
+	std   Y + 3,   r23     ; (12)
+	in    r8,      SR_DR   ; SPI, byte 2
+	out   SR_DR,   r8      ; SPI, byte 2
+#if (M74_MSK_ENABLE != 0)
+	sbrc  r16,     4       ; ( 1 / 2) Has mask?
+	rjmp  spbmlret         ; ( 3) Has mask return
+	rjmp  splpxee          ; ( 4)
+#else
+	rjmp  splpxee          ; ( 2)
+#endif
+splpxll:
+	ldd   r18,     Y + 3
+	andi  r18,     0x0F
+	or    r23,     r18
+	rjmp  splpxlw          ; (10)
+splpxlx:
+	nop
+	ldd   r23,     Y + 3
+splpxlf:
+	rjmp  .
+	rjmp  splpxlw          ; (10)
