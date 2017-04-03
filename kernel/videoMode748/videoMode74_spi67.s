@@ -430,7 +430,7 @@ spi67:
 	out   SR_DR,   r0      ; ( 2)
 	bst   r18,     0       ; ( 3) Into T to select between attr (0) and no-attr (1)
 	ldi   r24,     5       ; ( 4) Code block size
-	brts  spi6_na_prep     ; ( 5 /  6)
+	brtc  spi6_na_prep     ; ( 5 /  6)
 	mov   YL,      r10     ; ( 6) Tile descriptor, byte 1 (fg:bg colors)
 	ld    r5,      Y       ; ( 8)
 	swap  YL               ; ( 9)

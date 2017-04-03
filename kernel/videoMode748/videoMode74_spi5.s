@@ -104,12 +104,12 @@ spi5tl:
 	out   PIXOUT,  r1      ; Tile pixel 5
 	in    ZL,      SR_DR
 	out   SR_DR,   ZL
+	andi  XL,      0x77
 	ld    r0,      X
 	swap  XL
-	ld    r1,      X
-	nop
 	out   PIXOUT,  r0      ; Tile pixel 6
 	nop
+	ld    r1,      X
 spi5te:
 	bst   ZL,      7
 	bld   XL,      6
@@ -148,7 +148,7 @@ spi5te:
 	ld    r1,      Y
 	dec   r20              ; Count of "tiles" (8px units)
 	brne  spi5tl
-	nop
+	andi  XL,      0x77
 	out   PIXOUT,  r1      ; (1677) Pixel 189
 	ld    r0,      X
 	swap  XL
