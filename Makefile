@@ -58,6 +58,7 @@ DEMOS += VectorDemo
 DEMOS += VideoDemo
 DEMOS += Whack-a-Mole
 DEMOS += Zombienator
+DEMOS += sdspiram
 
 ######################################
 # Disabled
