@@ -1,6 +1,6 @@
 /*
  *  Mode 74 Multicolor tests
- *  Copyright (C) 2015 Sandor Zsuga (Jubatian)
+ *  Copyright (C) 2015 - 2017 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 #include <avr/io.h>
 #include <avr/pgmspace.h>
-#include "m74cfg.h"
+#include "kconf.h"
 
 
 

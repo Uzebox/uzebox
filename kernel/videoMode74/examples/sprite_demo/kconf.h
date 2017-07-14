@@ -1,6 +1,6 @@
 /*
- *  Mode 74 configuration
- *  Copyright (C) 2015 Sandor Zsuga (Jubatian)
+ *  Kernel & Mode 74 configuration
+ *  Copyright (C) 2015 - 2017 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,11 +17,12 @@
 */
 
 
-#ifndef M74CFG_H
-#define M74CFG_H
+#ifndef KCONF_H
+#define KCONF_H
 
 
-/* Where the tile & similar aligned data is placed (not Mode 74 specific) */
+/* Where the tile & similar aligned data is placed (not Mode 74 specific)
+** This must match the .tiles section location in the Makefile */
 #define TILES_SECT         0x4900
 
 /* Resource locations (not Mode 74 specific) */
@@ -29,6 +30,11 @@
 #define RES_PAL_00_OFF     (TILES_SECT + 0x00E0U)
 #define RES_TILES_00_OFF   (TILES_SECT + 0x0100U)
 #define RES_SPRITES_00_OFF (TILES_SECT + 0x1900U)
+
+/* Kernel */
+#define VIDEO_MODE         74
+#define INTRO_LOGO         1
+#define SOUND_MIXER        MIXER_TYPE_INLINE
 
 /* Mode 74 specifics */
 #define M74_VRAM_OFF       0x0400
