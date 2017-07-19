@@ -47,7 +47,7 @@ Overall key features of the frame renderer are as follows:
   RAM tiles. Each 64 tile bank may be located independently of others within
   ROM or RAM respectively. This row mode is available for the sprite engine.
 
-- 215 cycles are available for the inline mixer. This allows for having five
+- 234 cycles are available for the inline mixer. This allows for having five
   channels audio, of four channels and UART.
 
 Overall key features of the sprite engine are as follows:
