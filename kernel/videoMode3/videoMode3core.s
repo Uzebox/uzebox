@@ -1294,11 +1294,9 @@ x_diff_end:
 
 	ldi   r19,     TRANSLUCENT_COLOR
 
-	inc   r20              ; xspan
-	mov   r0,      r20
+	mov   r0,      r20     ; xspan
 	lsr   r20
-	brcs  x_loop1
-	subi  r20,     1
+	brcc  x_loop1
 	breq  x_loopx
 
 x_loop0:
@@ -1330,8 +1328,7 @@ x_loopx:
 
 	mov   r20,     r0      ; xspan
 	lsr   r20
-	brcs  x_loop1
-	subi  r20,     1
+	brcc  x_loop1
 	brne  x_loop0
 	rjmp  x_loopx
 
