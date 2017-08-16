@@ -1085,8 +1085,6 @@ CopyRamTile:
 ;************************************
 BlitSprite:
 
-	push  YL
-
 	; src = sprites_tiletable_lo + (sprites[i].tileIndex * TILE_HEIGHT * TILE_WIDTH)
 
 	ldi   r25,     SPRITE_STRUCT_SIZE
@@ -1110,14 +1108,14 @@ BlitSprite:
 	ld    ZL,      X+
 	ld    ZH,      X+
 
-	ldi   YL,      TILE_WIDTH * TILE_HEIGHT
-	mul   r24,     YL
+	ldi   r25,     TILE_WIDTH * TILE_HEIGHT
+	mul   r24,     r25
 	add   ZL,      r0      ; Tile data src
 	adc   ZH,      r1
 
 	; dest = ram_tiles + (bt * TILE_HEIGHT * TILE_WIDTH)
 
-	mul   r22,     YL
+	mul   r22,     r25
 	movw  XL,      r0
 	subi  XL,      lo8(-(ram_tiles))
 	sbci  XH,      hi8(-(ram_tiles))
@@ -1196,8 +1194,8 @@ x_check_end:
 	*/
 
 	ldi   r22,     TILE_WIDTH
-	ldi   YL,      TILE_HEIGHT
-	sub   YL,      r19     ; yspan = (TILE_HEIGHT - dy)
+	ldi   r18,     TILE_HEIGHT
+	sub   r18,     r19     ; temp = (TILE_HEIGHT - dy)
 
 	sbrc  r21,     0
 	rjmp  y_2nd_tile
@@ -1211,19 +1209,21 @@ x_check_end:
 	sbrc  r23,     SPRITE_FLIP_Y_BIT
 	sbci  ZH,      hi8(-(TILE_WIDTH * (TILE_HEIGHT - 1)))
 
-	rjmp y_check_end
+	mov   r1,      r18     ; yspan = temp
+
+	rjmp  y_check_end
 
 y_2nd_tile:
 
 	mov   r1,      r19     ; temp = dy - 1
 	dec   r1
 	sbrs  r23,     SPRITE_FLIP_Y_BIT
-	mov   r1,      YL      ; temp = TILE_HEIGHT - dy
+	mov   r1,      r18     ; temp = TILE_HEIGHT - dy
 	mul   r22,     r1      ; src += (temp * TILE_WIDTH)
 	add   ZL,      r0
 	adc   ZH,      r1
 
-	mov   YL,      r19     ; yspan = dy
+	mov   r1,      r19     ; yspan = dy
 
 y_check_end:
 
@@ -1238,26 +1238,28 @@ y_check_end:
 
 	/*
 	if ((flags & SPRITE_FLIP_X) == 0U){
-		destXdiff = TILE_WIDTH - xspan;
+		destXdiff = TILE_WIDTH - (xspan - 1);
 		step = 1;
 	}else{
-		destXdiff = TILE_WIDTH + xspan;
+		destXdiff = TILE_WIDTH + (xspan - 1);
 		step = -1;
 	}
+	; destXdiff is calculated negated for an optimization in the loop
 	*/
 
-	ldi   r21,     TILE_WIDTH ; destXdiff = TILE_WIDTH
 	sbrc  r23,     SPRITE_FLIP_X_BIT
 	rjmp  x_diff_xf
 
-	sub   r21,     r20     ; destXdiff -= xspan
+	ldi   r21,     -(TILE_WIDTH + 1) ; destXdiff = -(TILE_WIDTH + 1)
+	add   r21,     r20     ; destXdiff += xspan
 	ldi   r23,     0x00
 	ldi   r22,     0x01    ; step = 1
 	rjmp  x_diff_end
 
 x_diff_xf:
 
-	add   r21,     r20     ; destXdiff += xspan
+	ldi   r21,     -(TILE_WIDTH - 1) ; destXdiff = -(TILE_WIDTH - 1)
+	sub   r21,     r20     ; destXdiff -= xspan
 	ldi   r23,     0xFF
 	ldi   r22,     0xFF    ; step = -1
 
@@ -1278,23 +1280,26 @@ x_diff_end:
 	}
 	*/
 	;     r19 = translucent color
-	;  YL:r20 = yspan:xspan
+	;  r1:r20 = yspan:xspan
 	; r23:r22 = step
-	;     r21 = destXdiff
+	;     r21 = destXdiff (negated)
 	;       X = dest
 	; r25:r24 = srcXdiff
 	;       Z = src
+	;
+	; dest += step; is omitted for the last X iteration, compensated with
+	; destXdiff.
+	; destXdiff is negated to allow for using sub instead of add, so subi
+	; can be used to subtract high byte.
 
-	clr   r1
 	ldi   r19,     TRANSLUCENT_COLOR
 
-	mov   r0,      r20     ; xspan
-	inc   r0
-
-y_loop:
-	mov   r20,     r0      ; xspan
+	inc   r20              ; xspan
+	mov   r0,      r20
 	lsr   r20
-	brcc  x_loop1
+	brcs  x_loop1
+	subi  r20,     1
+	breq  x_loopx
 
 x_loop0:
 	lpm   r18,     Z+      ; px = pgm_read_byte(src); src ++;
@@ -1310,16 +1315,29 @@ x_loop1:
 	adc   XH,      r23
 	subi  r20,     1
 	brne  x_loop0
+x_loopx:
+	lpm   r18,     Z+      ; px = pgm_read_byte(src); src ++;
+	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
+	st    X,       r18     ; *dest = px
+
+	dec   r1
+	breq  loop_e
 
 	add   ZL,      r24     ; src += srcXdiff
 	adc   ZH,      r25
-	add   XL,      r21     ; dest += destXdiff
-	adc   XH,      r1
-	dec   YL
-	brne  y_loop
+	sub   XL,      r21     ; dest += destXdiff (negated)
+	sbci  XH,      0xFF
 
-	pop   YL
-	ret
+	mov   r20,     r0      ; xspan
+	lsr   r20
+	brcs  x_loop1
+	subi  r20,     1
+	brne  x_loop0
+	rjmp  x_loopx
+
+loop_e:
+
+	ret                    ; r1 is zero at this point
 
 
 
