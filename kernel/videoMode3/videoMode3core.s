@@ -1086,7 +1086,6 @@ CopyRamTile:
 BlitSprite:
 
 	push  YL
-	push  YH
 
 	; src = sprites_tiletable_lo + (sprites[i].tileIndex * TILE_HEIGHT * TILE_WIDTH)
 
@@ -1098,31 +1097,27 @@ BlitSprite:
 	sbci  ZH,      hi8(-(sprites))
 
 	ldd   r23,     Z + sprFlags
-
-	; 8x16 multiply
-
 	ldd   r24,     Z + sprTileIndex
-	ldi   ZL,      TILE_WIDTH * TILE_HEIGHT
-	mul   r24,     ZL
-	movw  XL,      r0
 
 	; Get tile bank addr
 
 	ldi   r25,     4 * 2
 	mul   r23,     r25
-	mov   YL,      r1
-	clr   YH
-	subi  YL,      lo8(-(sprites_tile_banks))
-	sbci  YH,      hi8(-(sprites_tile_banks))
-	ldd   ZL,      Y + 0
-	ldd   ZH,      Y + 1
-	add   ZL,      XL      ; Tile data src
-	adc   ZH,      XH
+	mov   XL,      r1
+	clr   XH
+	subi  XL,      lo8(-(sprites_tile_banks))
+	sbci  XH,      hi8(-(sprites_tile_banks))
+	ld    ZL,      X+
+	ld    ZH,      X+
+
+	ldi   YL,      TILE_WIDTH * TILE_HEIGHT
+	mul   r24,     YL
+	add   ZL,      r0      ; Tile data src
+	adc   ZH,      r1
 
 	; dest = ram_tiles + (bt * TILE_HEIGHT * TILE_WIDTH)
 
-	ldi   r25,     TILE_WIDTH * TILE_HEIGHT
-	mul   r22,     r25
+	mul   r22,     YL
 	movw  XL,      r0
 	subi  XL,      lo8(-(ram_tiles))
 	sbci  XH,      hi8(-(ram_tiles))
@@ -1135,7 +1130,7 @@ BlitSprite:
 			dest += dx;
 		}else{
 			dest += (TILE_WIDTH - 1U);
-			src  += (TILE_WIDTH - xspan);
+			src  += srcXdiff;
 		}
 	}else{
 		srcXdiff = TILE_WIDTH - dx;
@@ -1143,80 +1138,73 @@ BlitSprite:
 		if ((flags & SPRITE_FLIP_X) == 0U){
 			src  += srcXdiff;
 		}else{
-			dest += (xspan - 1U);
+			dest += (dx - 1U);
 		}
 	}
 	*/
 
-	clr   r1
-	clr   YH               ; srcXdiff high byte
+	ldi   r25,     0       ; srcXdiff high byte & used for zero
 	sbrc  r20,     0
 	rjmp  x_2nd_tile
 
-	mov   YL,      r18     ; srcXdiff = dx
+	mov   r24,     r18     ; srcXdiff = dx
 	ldi   r20,     TILE_WIDTH
 	sub   r20,     r18     ; xspan = TILE_WIDTH - dx
-	sbrc  r23,     SPRITE_FLIP_X_BIT
-	rjmp  x_1st_tile_xf
+	sbrs  r23,     SPRITE_FLIP_X_BIT
+	rjmp  x_1st_tile_nxf
 
-	add   XL,      r18
-	adc   XH,      r1      ; dest += dx
-	rjmp  x_check_end
+	adiw  XL,      TILE_WIDTH - 1 ; dest += (TILE_WIDTH - 1)
 
-x_1st_tile_xf:
+x_2nd_tile_nxf:
 
-	adiw  XL,      TILE_WIDTH - 1 ; dest += (TILE_WIDTH - 1U)
-	adiw  ZL,      TILE_WIDTH
-	sub   ZL,      r20
-	sbc   ZH,      r1      ; src += (TILE_WIDTH - xspan)
+	add   ZL,      r24
+	adc   ZH,      r25     ; src += srcXdiff
 	rjmp  x_check_end
 
 x_2nd_tile:
 
-	ldi   YL,      TILE_WIDTH
-	sub   YL,      r18     ; srcXdiff = TILE_WIDTH - dx
+	ldi   r24,     TILE_WIDTH
+	sub   r24,     r18     ; srcXdiff = TILE_WIDTH - dx
 	mov   r20,     r18     ; xspan = dx;
-	sbrc  r23,     SPRITE_FLIP_X_BIT
-	rjmp  x_2nd_tile_xf
+	sbrs  r23,     SPRITE_FLIP_X_BIT
+	rjmp  x_2nd_tile_nxf
 
-	add   ZL,      YL
-	adc   ZH,      r1      ; src += srcXdiff
-	rjmp  x_check_end
+	sbiw  XL,      1       ; dest -= 1
 
-x_2nd_tile_xf:
+x_1st_tile_nxf:
 
-	add   XL,      r20
-	adc   XH,      r1
-	sbiw  XL,      1       ; dest += (xspan - 1U)
+	add   XL,      r18
+	adc   XH,      r25     ; dest += dx
 
 x_check_end:
 
 	/*
 	if ((yx & 0x0100U) == 0U){
+		yspan = (TILE_HEIGHT - dy);
 		dest += (dy * TILE_WIDTH);
-		ydiff = dy;
 		if ((flags & SPRITE_FLIP_Y) != 0U){
 			src += (TILE_WIDTH * (TILE_HEIGHT - 1U));
 		}
 	}else{
-		ydiff = (TILE_HEIGHT - dy);
+		yspan = dy;
 		if ((flags & SPRITE_FLIP_Y) != 0U){
-			src += ((dy - 1) * TILE_WIDTH);
+			src += (TILE_WIDTH * (dy - 1));
 		}else{
-			src += (ydiff * TILE_WIDTH);
+			src += (TILE_WIDTH * (TILE_HEIGHT - dy));
 		}
 	}
 	*/
 
-	cpi   r21,     0
-	brne  y_2nd_tile
+	ldi   r22,     TILE_WIDTH
+	ldi   YL,      TILE_HEIGHT
+	sub   YL,      r19     ; yspan = (TILE_HEIGHT - dy)
 
-	ldi   r25,     TILE_WIDTH ; dest += (dy * TILE_WIDTH)
-	mul   r25,     r19
+	sbrc  r21,     0
+	rjmp  y_2nd_tile
+
+	mul   r22,     r19
 	add   XL,      r0
-	adc   XH,      r1
-
-	mov   r25,     r19        ; ydiff = dy
+	adc   XH,      r1      ; dest += (dy * TILE_WIDTH)
 
 	sbrc  r23,     SPRITE_FLIP_Y_BIT
 	subi  ZL,      lo8(-(TILE_WIDTH * (TILE_HEIGHT - 1)))
@@ -1227,18 +1215,15 @@ x_check_end:
 
 y_2nd_tile:
 
-	ldi   r25,     TILE_HEIGHT ; ydiff = (TILE_HEIGHT - dy)
-	sub   r25,     r19
-
-	mov   r1,      r19         ; temp = dy - 1
+	mov   r1,      r19     ; temp = dy - 1
 	dec   r1
 	sbrs  r23,     SPRITE_FLIP_Y_BIT
-	mov   r1,      r25         ; temp = ydiff
-
-	ldi   r21,     TILE_WIDTH  ; src += (temp * TILE_WIDTH)
-	mul   r21,     r1
+	mov   r1,      YL      ; temp = TILE_HEIGHT - dy
+	mul   r22,     r1      ; src += (temp * TILE_WIDTH)
 	add   ZL,      r0
 	adc   ZH,      r1
+
+	mov   YL,      r19     ; yspan = dy
 
 y_check_end:
 
@@ -1249,7 +1234,7 @@ y_check_end:
 	*/
 
 	sbrc  r23,     SPRITE_FLIP_Y_BIT
-	sbiw  YL,      (TILE_WIDTH * 2)
+	sbiw  r24,     (TILE_WIDTH * 2)
 
 	/*
 	if ((flags & SPRITE_FLIP_X) == 0U){
@@ -1261,51 +1246,48 @@ y_check_end:
 	}
 	*/
 
-	ldi   r24,     TILE_WIDTH ; destXdiff = TILE_WIDTH
+	ldi   r21,     TILE_WIDTH ; destXdiff = TILE_WIDTH
 	sbrc  r23,     SPRITE_FLIP_X_BIT
 	rjmp  x_diff_xf
 
-	sub   r24,     r20     ; destXdiff -= xspan
+	sub   r21,     r20     ; destXdiff -= xspan
 	ldi   r23,     0x00
 	ldi   r22,     0x01    ; step = 1
 	rjmp  x_diff_end
 
 x_diff_xf:
 
-	add   r24,     r20     ; destXdiff += xspan
+	add   r21,     r20     ; destXdiff += xspan
 	ldi   r23,     0xFF
 	ldi   r22,     0xFF    ; step = -1
 
 x_diff_end:
 
 	/*
-	for (y2 = 0U; y2 < (TILE_HEIGHT - ydiff); y2++){
-		for (x2 = 0U; x2 < (TILE_WIDTH - destXdiff); x2++){
+	for (y2 = 0U; y2 < yspan; y2++){
+		for (x2 = 0U; x2 < xspan; x2++){
 			px = pgm_read_byte(src);
+			src ++;
 			if(px != TRANSLUCENT_COLOR){
 				*dest = px;
 			}
 			dest += step;
-			src ++;
 		}
 		src += srcXdiff;
 		dest += destXdiff;
 	}
 	*/
 	;     r19 = translucent color
-	; r21:r20 = yspan:xspan
+	;  YL:r20 = yspan:xspan
 	; r23:r22 = step
-	;     r24 = destXdiff
-	;     r25 = ydiff
+	;     r21 = destXdiff
 	;       X = dest
-	;       Y = srcXdiff
+	; r25:r24 = srcXdiff
 	;       Z = src
 
 	clr   r1
 	ldi   r19,     TRANSLUCENT_COLOR
 
-	ldi   r21,     TILE_HEIGHT
-	sub   r21,     r25     ; yspan = (TILE_HEIGHT - ydiff)
 	mov   r0,      r20     ; xspan
 	inc   r0
 
@@ -1329,14 +1311,13 @@ x_loop1:
 	subi  r20,     1
 	brne  x_loop0
 
-	add   ZL,      YL      ; src += srcXdiff
-	adc   ZH,      YH
-	add   XL,      r24     ; dest += destXdiff
+	add   ZL,      r24     ; src += srcXdiff
+	adc   ZH,      r25
+	add   XL,      r21     ; dest += destXdiff
 	adc   XH,      r1
-	dec   r21
+	dec   YL
 	brne  y_loop
 
-	pop   YH
 	pop   YL
 	ret
 
