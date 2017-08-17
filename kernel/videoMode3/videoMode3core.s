@@ -1105,33 +1105,28 @@ RestoreBackground:
 	; end before free_tile_index (the first unused RAM tile).
 
 	lds   ZL,      user_ram_tiles_c
-	mov   ZH,      ZL
+	mov   r24,     ZL
 	add   ZL,      ZL
-	add   ZL,      ZH      ; Multiplied by 3
+	add   ZL,      r24     ; Multiply by 3
 	clr   ZH
 	subi  ZL,      lo8(-(ram_tiles_restore))
 	sbci  ZH,      hi8(-(ram_tiles_restore))
 
-	lds   r24,     free_tile_index
-	mov   r25,     r24
-	add   r24,     r24
-	add   r24,     r25     ; Multiplied by 3
-	clr   r25
-	subi  r24,     lo8(-(ram_tiles_restore))
-	sbci  r25,     hi8(-(ram_tiles_restore))
+	lds   r0,      free_tile_index
+	sub   r24,     r0
+	brcc  rbg_exit
 
 	; Restore loop
 
-	rjmp  rbg_loop_e
 rbg_loop:
 	ld    XL,      Z+      ; VRAM address low
 	ld    XH,      Z+      ; VRAM address high
-	ld    r18,     Z+      ; Tile index to restore
-	st    X,       r18
-rbg_loop_e:
-	cp    ZL,      r24
-	cpc   ZH,      r25
-	brcs  rbg_loop
+	ld    r0,      Z+      ; Tile index to restore
+	st    X,       r0
+	inc   r24
+	brne  rbg_loop
+
+rbg_exit:
 
 	ret
 
