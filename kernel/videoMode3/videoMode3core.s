@@ -36,6 +36,9 @@
 .global vram
 .global ram_tiles
 .global ram_tiles_restore
+.global free_tile_index
+.global user_ram_tiles_c
+.global user_ram_tiles_c_tmp
 .global sprites
 .global overlay_vram
 .global sprites_tile_banks
@@ -49,6 +52,7 @@
 .global SetFontTilesIndex
 .global SetTileTable
 .global SetTile
+.global RestoreBackground
 .global BlitSprite
 .global SetFont
 .global GetTile
@@ -101,15 +105,30 @@
 	#endif
 
 .section .bss
-	.align 1
-	sprites:				.space SPRITE_STRUCT_SIZE*MAX_SPRITES
-	ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
-	ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
 
-	sprites_tile_banks: 	.space 8
-	tile_table_lo:			.space 1
-	tile_table_hi:			.space 1
-	font_tile_index:		.space 1
+.align 1
+
+sprites:
+	.space SPRITE_STRUCT_SIZE * MAX_SPRITES
+ram_tiles:
+	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
+ram_tiles_restore:
+	.space RAM_TILES_COUNT * 3 ; 2 bytes VRAM addr; 1 byte Tile
+free_tile_index:
+	.space 1               ; Next free tile index
+user_ram_tiles_c:
+	.space 1               ; User RAM tiles count
+user_ram_tiles_c_tmp:
+	.space 1               ; User RAM tiles count, user supplied value
+
+sprites_tile_banks:
+	.space 8
+tile_table_lo:
+	.space 1
+tile_table_hi:
+	.space 1
+font_tile_index:
+	.space 1
 
 
 	;ScreenType struct members
@@ -143,7 +162,7 @@
 		;This has to be done because the main
 		;program may have altered the VRAM
 		;after vsync and the rendering interrupt.
-		lds r16,userRamTilesCount
+		lds r16,user_ram_tiles_c
 
 		ldi ZL,lo8(ram_tiles_restore);
 		ldi ZH,hi8(ram_tiles_restore);
@@ -696,7 +715,7 @@ no_ramtiles:
 		;This has to be done because the main
 		;program may have altered the VRAM
 		;after vsync and the rendering interrupt.
-		lds r16,userRamTilesCount
+		lds r16,user_ram_tiles_c
 
 		ldi ZL,lo8(ram_tiles_restore);
 		ldi ZH,hi8(ram_tiles_restore);
@@ -1072,6 +1091,48 @@ CopyRamTile:
 	st X+,r1
 .endr
 	clr r1
+	ret
+
+
+
+;***********************************
+; Restore background (VRAM)
+; C-callable
+;************************************
+RestoreBackground:
+
+	; Restore list: Begin at user_ram_tiles_c (above the user RAM tiles),
+	; end before free_tile_index (the first unused RAM tile).
+
+	lds   ZL,      user_ram_tiles_c
+	mov   ZH,      ZL
+	add   ZL,      ZL
+	add   ZL,      ZH      ; Multiplied by 3
+	clr   ZH
+	subi  ZL,      lo8(-(ram_tiles_restore))
+	sbci  ZH,      hi8(-(ram_tiles_restore))
+
+	lds   r24,     free_tile_index
+	mov   r25,     r24
+	add   r24,     r24
+	add   r24,     r25     ; Multiplied by 3
+	clr   r25
+	subi  r24,     lo8(-(ram_tiles_restore))
+	sbci  r25,     hi8(-(ram_tiles_restore))
+
+	; Restore loop
+
+	rjmp  rbg_loop_e
+rbg_loop:
+	ld    XL,      Z+      ; VRAM address low
+	ld    XH,      Z+      ; VRAM address high
+	ld    r18,     Z+      ; Tile index to restore
+	st    X,       r18
+rbg_loop_e:
+	cp    ZL,      r24
+	cpc   ZH,      r25
+	brcs  rbg_loop
+
 	ret
 
 

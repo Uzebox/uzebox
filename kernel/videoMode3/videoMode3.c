@@ -41,30 +41,25 @@
 	extern unsigned char *tile_table_lo;
 	extern struct BgRestoreStruct ram_tiles_restore[];
 
-	extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
+extern u8 free_tile_index;
+extern u8 user_ram_tiles_c;
+extern u8 user_ram_tiles_c_tmp;
+extern void RestoreBackground(void);
+extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
 
-	unsigned char free_tile_index, userRamTilesCount=0,userRamTilesCount_tmp=0;
-	bool spritesOn=true;
+static bool sprites_on = true;
 
-	void RestoreBackground(){
-		unsigned char i;
-		for(i=userRamTilesCount;i<free_tile_index;i++){
-			//vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
-			*ram_tiles_restore[i].addr=ram_tiles_restore[i].tileIndex;
-		}	
-	}
+void SetUserRamTilesCount(u8 count){
+	user_ram_tiles_c_tmp = count;
+}
 
-	void SetUserRamTilesCount(u8 count){
-		userRamTilesCount_tmp=count;		
-	}
+u8* GetUserRamTile(u8 index){
+	return ram_tiles + (index * TILE_HEIGHT * TILE_WIDTH);
+}
 
-	u8* GetUserRamTile(u8 index){
-		return ram_tiles+(index*TILE_HEIGHT*TILE_WIDTH);
-	}
-
-	void SetSpriteVisibility(bool visible){
-		spritesOn=visible;
-	}
+void SetSpriteVisibility(bool visible){
+	sprites_on = visible;
+}
 
 void ProcessSprites(){
 
@@ -88,10 +83,10 @@ void ProcessSprites(){
 	u8  ssy;
 	#endif
 
-	if (!spritesOn){ return; }
+	if (!sprites_on){ return; }
 
-	userRamTilesCount = userRamTilesCount_tmp;
-	free_tile_index = userRamTilesCount;
+	user_ram_tiles_c = user_ram_tiles_c_tmp;
+	free_tile_index = user_ram_tiles_c;
 
 	for (i = 0U; i < MAX_SPRITES; i++){
 
@@ -171,13 +166,13 @@ void ProcessSprites(){
 					bt = vram[ramPtr];
 
 					if ( ( (bt >= RAM_TILES_COUNT) |
-					       (bt < userRamTilesCount)) &&
+					       (bt < user_ram_tiles_c)) &&
 					     (free_tile_index < RAM_TILES_COUNT) ){ /* if no ram free ignore tile */
 
 						if (bt >= RAM_TILES_COUNT){
 							/* tile is mapped to flash. Copy it to next free RAM tile. */
 							CopyFlashTile(bt - RAM_TILES_COUNT, free_tile_index);
-						}else if (bt < userRamTilesCount){
+						}else if (bt < user_ram_tiles_c){
 							/* tile is a user ram tile. Copy it to next free RAM tile. */
 							CopyRamTile(bt, free_tile_index);
 						}
@@ -190,7 +185,7 @@ void ProcessSprites(){
 					}
 
 					if ( (bt < RAM_TILES_COUNT) &&
-					     (bt >= userRamTilesCount) ){
+					     (bt >= user_ram_tiles_c) ){
 						BlitSprite(i, bt, (y << 8) + x, (dy << 8) + dx);
 					}
 
@@ -376,6 +371,9 @@ void ProcessSprites(){
 			Screen.scrollHeight=VRAM_TILES_V;
 			Screen.overlayHeight=0;
 		#endif
+
+		free_tile_index      = 0U;
+		user_ram_tiles_c_tmp = 0U;
 
 		//set defaults for main screen section
 		/*
