@@ -1,6 +1,7 @@
 /*
  *  Uzebox Kernel - Mode 3
- *  Copyright (C) 2009  Alec Bourque
+ *  Copyright (C) 2009 Alec Bourque
+ *                2017 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
