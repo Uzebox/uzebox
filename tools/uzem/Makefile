@@ -159,6 +159,23 @@ RM := rm -rf
 MTOOLS = 
 endif
 
+## Haiku #############################
+ifeq ($(UNAME),Haiku)
+OS := HAIKU
+PLATFORM := Unix
+ifeq ($(EMSCRIPTEN_BUILD),1)
+    SDL_FLAGS :=
+    CC := emcc
+else
+    SDL_FLAGS := $(shell sdl2-config --cflags)
+    LDFLAGS += $(shell sdl2-config --libs) -lnetwork
+    CC := g++
+endif
+MKDIR := mkdir -p
+RM := rm -rf
+MTOOLS = 
+endif
+
 ## Windows ###########################
 #
 # IMPORTANT: To build under MinGW, you will need file "SDL_platform.h" from SDL2 2.0.4 (currently a snapshot)
