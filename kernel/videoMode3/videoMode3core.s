@@ -39,7 +39,9 @@
 .global free_tile_index
 .global user_ram_tiles_c
 .global user_ram_tiles_c_tmp
+#if (SPRITES_AUTO_PROCESS != 0)
 .global sprites
+#endif
 .global overlay_vram
 .global sprites_tile_banks
 .global Screen
@@ -53,7 +55,7 @@
 .global SetTileTable
 .global SetTile
 .global RestoreBackground
-.global BlitSprite
+.global BlitSpritePart
 .global SetFont
 .global GetTile
 
@@ -73,12 +75,6 @@
 #define vramRenderAdressHi	12
 #define vramWrapAdressLo	13
 #define vramWrapAdressHi	14
-
-;Sprites Struct offsets
-#define sprPosX  0
-#define sprPosY  1
-#define sprTileIndex 2
-#define sprFlags 3
 
 
 
@@ -108,8 +104,10 @@
 
 .align 1
 
+#if (SPRITES_AUTO_PROCESS != 0)
 sprites:
 	.space SPRITE_STRUCT_SIZE * MAX_SPRITES
+#endif
 ram_tiles:
 	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
 ram_tiles_restore:
@@ -1140,6 +1138,12 @@ rbg_loop:
 
 rbg_exit:
 
+#if (SPRITES_AUTO_PROCESS == 0)
+	lds   r0,      user_ram_tiles_c_tmp
+	sts   user_ram_tiles_c, r0
+	sts   free_tile_index, r0
+#endif
+
 	ret
 
 
@@ -1147,24 +1151,12 @@ rbg_exit:
 ;***********************************
 ; SET TILE 8bit mode
 ; C-callable
-;     r24: SpriteNo
-;     r22: RAM tile index (bt)
+;     r24: RAM tile index (bt)
+; r23:r22: Sprite flags : Sprite tile index
 ; r21:r20: Y:X (0 or 1, location of 8x8 sprite fragment on 2x2 tile container)
 ; r19:r18: DY:DX (0 to 7, offset of sprite relative to 0:0 of container)
 ;************************************
-BlitSprite:
-
-	; src = sprites_tiletable_lo + (sprites[i].tileIndex * TILE_HEIGHT * TILE_WIDTH)
-
-	ldi   r25,     SPRITE_STRUCT_SIZE
-	mul   r24,     r25
-
-	movw  ZL,      r0
-	subi  ZL,      lo8(-(sprites))
-	sbci  ZH,      hi8(-(sprites))
-
-	ldd   r23,     Z + sprFlags
-	ldd   r24,     Z + sprTileIndex
+BlitSpritePart:
 
 	; Get tile bank addr
 
@@ -1178,13 +1170,13 @@ BlitSprite:
 	ld    ZH,      X+
 
 	ldi   r25,     TILE_WIDTH * TILE_HEIGHT
-	mul   r24,     r25
+	mul   r22,     r25
 	add   ZL,      r0      ; Tile data src
 	adc   ZH,      r1
 
 	; dest = ram_tiles + (bt * TILE_HEIGHT * TILE_WIDTH)
 
-	mul   r22,     r25
+	mul   r24,     r25
 	movw  XL,      r0
 	subi  XL,      lo8(-(ram_tiles))
 	sbci  XH,      hi8(-(ram_tiles))

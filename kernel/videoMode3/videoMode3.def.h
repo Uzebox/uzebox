@@ -106,6 +106,20 @@
 
 
 /*
+** If clear, the ProcessSprites() function and the associated sprite structure
+** array is removed, instead you can directly blit sprite tiles using
+** BlitSprite. This is useful for writing own sprite managers. Automatic VSync
+** sprite processing is not available when this is clear.
+*/
+#ifndef SPRITES_AUTO_PROCESS
+	#define SPRITES_AUTO_PROCESS 1
+#endif
+#if (SPRITES_AUTO_PROCESS == 0)
+	#define SPRITES_VSYNC_PROCESS 0
+#endif
+
+
+/*
 ** If clear, the ProcessSprites() function will no longer be called from
 ** VSync, and RestoreBackground() has to be called manually before working
 ** with the background or calling ProcessSprites() again. Use WaitVsync(1) to
