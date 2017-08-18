@@ -1,6 +1,7 @@
 /*
  *  Uzebox Kernel - Mode 3
- *  Copyright (C) 2008  Alec Bourque
+ *  Copyright (C) 2008 Alec Bourque
+ *                2017 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,215 +41,167 @@
 	extern unsigned char *tile_table_lo;
 	extern struct BgRestoreStruct ram_tiles_restore[];
 
-	extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
+extern u8 free_tile_index;
+extern u8 user_ram_tiles_c;
+extern u8 user_ram_tiles_c_tmp;
+extern void RestoreBackground(void);
+extern void BlitSprite(unsigned char spriteNo,unsigned char ramTileNo,unsigned int xy,unsigned int dxdy);
 
-	unsigned char free_tile_index, userRamTilesCount=0,userRamTilesCount_tmp=0;
-	bool spritesOn=true;
+static bool sprites_on = true;
 
-	void RestoreBackground(){
-		unsigned char i;
-		for(i=userRamTilesCount;i<free_tile_index;i++){
-			//vram[ram_tiles_restore[i].addr]=ram_tiles_restore[i].tileIndex;
-			*ram_tiles_restore[i].addr=ram_tiles_restore[i].tileIndex;
-		}	
-	}
+void SetUserRamTilesCount(u8 count){
+	user_ram_tiles_c_tmp = count;
+}
 
-	void SetUserRamTilesCount(u8 count){
-		userRamTilesCount_tmp=count;		
-	}
+u8* GetUserRamTile(u8 index){
+	return ram_tiles + (index * TILE_HEIGHT * TILE_WIDTH);
+}
 
-	u8* GetUserRamTile(u8 index){
-		return ram_tiles+(index*TILE_HEIGHT*TILE_WIDTH);
-	}
+void SetSpriteVisibility(bool visible){
+	sprites_on = visible;
+}
 
-	void SetSpriteVisibility(bool visible){
-		spritesOn=visible;
-	}
+void ProcessSprites(){
 
-	/*
-	//
-	// This C function is the direct equivalent of the assembly
-	// function of the same same.
-	//
-	void BlitSprite(u8 sprNo,u8 ramTileIndex,u16 yx,u16 dydx){
-		u8 dy=dydx>>8;
-		u8 dx=dydx &0xff;
-		u8 flags=sprites[sprNo].flags;
-		u8 destXdiff,ydiff,px,x2,y2;
-		s8 step=1,srcXdiff;
+	u8  i;
+	u8  bx;
+	u8  by;
+	u8  dx;
+	u8  dy;
+	u8  bt;
+	u8  x;
+	u8  y;
+	u8  tx;
+	u8  ty;
+	u8  wx;
+	u8  wy;
+	u16 ramPtr;
+	u8  ssx;
+	#if (SCROLLING != 0)
+	u16 ssy;
+	#else
+	u8  ssy;
+	#endif
 
-		u16 src=(sprites[sprNo].tileIndex*TILE_HEIGHT*TILE_WIDTH)
-				+sprites_tile_banks[flags>>6];	//add bank adress		
+	if (!sprites_on){ return; }
 
-		u8* dest=&ram_tiles[ramTileIndex*TILE_HEIGHT*TILE_WIDTH];
-	
-		if((yx&1)==0){
-			dest+=dx;	
-			destXdiff=dx;
-			srcXdiff=dx;
-					
-			if(flags&SPRITE_FLIP_X){
-				src+=(TILE_WIDTH-1);
-				srcXdiff=((TILE_WIDTH*2)-dx);
-			}
-		}else{
-			destXdiff=(TILE_WIDTH-dx);
+	user_ram_tiles_c = user_ram_tiles_c_tmp;
+	free_tile_index = user_ram_tiles_c;
 
-			if(flags&SPRITE_FLIP_X){
-				srcXdiff=TILE_WIDTH+dx;
-				src+=dx;
-				src--;
+	for (i = 0U; i < MAX_SPRITES; i++){
+
+		bx = sprites[i].x;
+		by = sprites[i].y;
+
+		/* get tile's screen section offsets */
+
+		#if (SCROLLING != 0)
+		ssx = bx + Screen.scrollX;
+		ssy = by + Screen.scrollY;
+		#else
+		ssx = bx;
+		ssy = by;
+		#endif
+
+		tx = 1U;
+		ty = 1U;
+
+		/* get the BG tiles that are overlapped by the sprite,
+		** supporting wrapping (so sprites located just below zero X
+		** or Y would clip on the left). In a scrolling config. only
+		** TILE_WIDTH = 8 is really supported due to the "weird" VRAM
+		** layout, VRAM_TILES_H is also fixed 32 this case. */
+
+		#if (SCROLLING == 0)
+		bx = (((ssx + TILE_WIDTH) & 0xFFU) / TILE_WIDTH) - 1U;
+		#else
+		bx = ssx / TILE_WIDTH;
+		#endif
+		dx = ssx % TILE_WIDTH;
+		if (dx != 0U){ tx++; }
+
+		#if (SCROLLING == 0)
+		by = (((ssy + TILE_HEIGHT) & 0xFFU) / TILE_HEIGHT) - 1U;
+		#else
+		by = ssy / TILE_HEIGHT;
+		#endif
+		dy = ssy % TILE_HEIGHT;
+		if (dy != 0U){ ty++; }
+
+		/* Output sprite tiles */
+
+		for (y = 0U; y < ty; y++){
+
+			wy = by + y;
+			#if (SCROLLING != 0)
+			if (Screen.scrollHeight == 0U){
+				wy = 0U;
 			}else{
-				srcXdiff=destXdiff;
-				src+=destXdiff;
-			}
-		}
-	
-
-		if((yx&0x0100)==0){
-			dest+=(dy*TILE_WIDTH);
-			ydiff=dy;
-			if(flags&SPRITE_FLIP_Y){
-				src+=(TILE_WIDTH*(TILE_HEIGHT-1));
-			}
-		}else{			
-			ydiff=(TILE_HEIGHT-dy);
-			if(flags&SPRITE_FLIP_Y){
-				src+=((dy-1)*TILE_WIDTH); 
-			}else{
-				src+=(ydiff*TILE_WIDTH);
-			}
-		}
-
-		if(flags&SPRITE_FLIP_X){
-			step=-1;
-		}
-		
-		if(flags&SPRITE_FLIP_Y){
-			srcXdiff-=(TILE_WIDTH*2);
-		}
-
-		for(y2=0;y2<(TILE_HEIGHT-ydiff);y2++){
-			for(x2=0;x2<(TILE_WIDTH-destXdiff);x2++){
-							
-				px=pgm_read_byte(src);
-				if(px!=TRANSLUCENT_COLOR){
-					*dest=px;
+				while (wy >= Screen.scrollHeight){
+					wy -= Screen.scrollHeight;
 				}
-				dest++;
-				src+=step;
-			}		
-			src+=srcXdiff;
-			dest+=destXdiff;
-		}
+			}
+			#endif
 
-	}
-	*/
+			for (x = 0U; x < tx; x++){
 
-	void ProcessSprites(){
-	
-		unsigned char i,bx,by,dx,dy,bt,x,y,tx=1,ty=1,wx,wy;
-		unsigned int ramPtr,ssx,ssy;
+				wx = bx + x;
 
-		if(!spritesOn) return;
-
-		userRamTilesCount=userRamTilesCount_tmp;
-		free_tile_index=userRamTilesCount;
-	
-		for(i=0;i<MAX_SPRITES;i++){
-			bx=sprites[i].x;
-
-			if(bx!=(SCREEN_TILES_H*TILE_WIDTH)){
-				//get tile's screen section offsets
-				
-				#if SCROLLING == 1
-					ssx=sprites[i].x+Screen.scrollX;
-					ssy=sprites[i].y+Screen.scrollY;
-   				#else
-					ssx=sprites[i].x;
-					ssy=sprites[i].y;
+				#if (SCROLLING == 0)
+				if ( (wx < VRAM_TILES_H) &&
+				     (wy < VRAM_TILES_V) ){
+				#else
+				wx = wx % VRAM_TILES_H;
+				{
 				#endif
 
-				tx=1;
-				ty=1;
+					#if (SCROLLING == 0)
+					ramPtr = (wy * VRAM_TILES_H) +
+					         wx;
+					#else
+					ramPtr = ((u16)(wy >> 3) * 256U) +
+					         (wx * 8U) + (wy & 0x07U);
+					#endif
 
-				//get the BG tiles that are overlapped by the sprite
-				bx=ssx>>3;
-				dx=ssx&0x7;
-				if(dx>0) tx++;
+					bt = vram[ramPtr];
 
-				//by=ssy>>3;
-				//dy=ssy&0x7;
-				by=ssy/TILE_HEIGHT;
-				dy=ssy%TILE_HEIGHT;
-				if(dy>0) ty++;			
+					if ( ( (bt >= RAM_TILES_COUNT) |
+					       (bt < user_ram_tiles_c)) &&
+					     (free_tile_index < RAM_TILES_COUNT) ){ /* if no ram free ignore tile */
 
-				for(y=0;y<ty;y++){
+						if (bt >= RAM_TILES_COUNT){
+							/* tile is mapped to flash. Copy it to next free RAM tile. */
+							CopyFlashTile(bt - RAM_TILES_COUNT, free_tile_index);
+						}else if (bt < user_ram_tiles_c){
+							/* tile is a user ram tile. Copy it to next free RAM tile. */
+							CopyRamTile(bt, free_tile_index);
+						}
+						ram_tiles_restore[free_tile_index].addr = (&vram[ramPtr]);
+						ram_tiles_restore[free_tile_index].tileIndex = bt;
+						vram[ramPtr] = free_tile_index;
+						bt = free_tile_index;
+						free_tile_index++;
 
-					for(x=0;x<tx;x++){
-						wy=by+y;
-						wx=bx+x;
+					}
 
-						//if( (wx-(Screen.scrollX/8))>0 ) {
+					if ( (bt < RAM_TILES_COUNT) &&
+					     (bt >= user_ram_tiles_c) ){
+						BlitSprite(i, bt, (y << 8) + x, (dy << 8) + dx);
+					}
 
-							//process X-Y wrapping
-                            #if SCROLLING == 0
-							    if(wy>=(VRAM_TILES_V*2)){
-								    wy-=(VRAM_TILES_V*2);
-							    }else if(wy>=VRAM_TILES_V){
-							    	wy-=VRAM_TILES_V;
-							    }
-                            #else
-                                if(wy>=(Screen.scrollHeight*2)){
-								    wy-=(Screen.scrollHeight*2);
-							    }else if(wy>=Screen.scrollHeight){
-							    	wy-=Screen.scrollHeight;
-							    }
-                            #endif
-							if(wx>=VRAM_TILES_H)wx-=VRAM_TILES_H; //should always be 32
+				}
 
-							#if SCROLLING == 0
-								ramPtr=(wy*VRAM_TILES_H)+wx;
-							#else
+			} /* end for X */
 
-								ramPtr=((wy>>3)*256)+(wx*8)+(wy&7);	
-
-							#endif
-
-							bt=vram[ramPtr];						
-
-							if( ((bt>=RAM_TILES_COUNT) | (bt<userRamTilesCount)) && (free_tile_index < RAM_TILES_COUNT) ){ //if no ram free ignore tile
-								if( bt>=RAM_TILES_COUNT ){
-									//tile is mapped to flash. Copy it to next free RAM tile.
-									CopyFlashTile(bt-RAM_TILES_COUNT,free_tile_index);
-								}else if(bt<userRamTilesCount){
-									//tile is a user ram tile. Copy it to next free RAM tile.
-									CopyRamTile(bt,free_tile_index);
-								}
-								ram_tiles_restore[free_tile_index].addr=(&vram[ramPtr]);
-								ram_tiles_restore[free_tile_index].tileIndex=bt;
-								vram[ramPtr]=free_tile_index;
-								bt=free_tile_index;
-								free_tile_index++;
-							}
-				
-							if(bt<RAM_TILES_COUNT){				
-								BlitSprite(i,bt,(y<<8)+x,(dy<<8)+dx);						
-							}
-
-					//	}
-
-					}//end for X
-				}//end for Y
-	
-			}//	if(bx<(SCREEN_TILES_H*TILE_WIDTH))		
-		}
-
-
-		//restore BG tiles
-		RestoreBackground();
+		} /* end for Y */
 
 	}
+
+	/* restore BG tiles */
+
+	RestoreBackground();
+
+}
 
 	#if SCROLLING == 1
 		//Scroll the screen by the relative amount specified (+/-)
@@ -418,6 +371,9 @@
 			Screen.scrollHeight=VRAM_TILES_V;
 			Screen.overlayHeight=0;
 		#endif
+
+		free_tile_index      = 0U;
+		user_ram_tiles_c_tmp = 0U;
 
 		//set defaults for main screen section
 		/*
