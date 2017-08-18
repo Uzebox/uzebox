@@ -187,7 +187,11 @@ upd_loop:
 		ld XL,Z+	;load vram offset of ramtile
 		ld XH,Z+
 
+#if (SPRITES_VSYNC_PROCESS == 0)
+		ld    r17,     Z       ; When user processing is done, this needs to be dummy (VRAM has sprite RAM tiles)
+#else
 		ld r17,X	;get latest VRAM tile that may have been modified my
+#endif
 		st Z+,r17	;the main program and store it in the restore buffer
 		st X,r16	;write the ramtile index back to vram
 
@@ -379,8 +383,10 @@ no_ramtiles:
 
 		rcall hsync_pulse ;145
 	
+#if (SPRITES_VSYNC_PROCESS != 0)
 		clr r1
 		call RestoreBackground
+#endif
 
 		;set vsync flag & flip field
 		lds ZL,sync_flags
@@ -740,7 +746,11 @@ upd_loop:
 		ld XL,Z+	;load vram offset of ramtile
 		ld XH,Z+
 
+#if (SPRITES_VSYNC_PROCESS == 0)
+		ld    r17,     Z       ; When user processing is done, this needs to be dummy (VRAM has sprite RAM tiles)
+#else
 		ld r17,X	;get latest VRAM tile that may have been modified my
+#endif
 		st Z+,r17	;the main program and store it in the restore buffer
 		st X,r16	;write the ramtile index back to vram
 
@@ -854,8 +864,10 @@ no_ramtiles:
 
 		rcall hsync_pulse ;145
 	
+#if (SPRITES_VSYNC_PROCESS != 0)
 		clr r1
 		call RestoreBackground
+#endif
 
 		;set vsync flag & flip field
 		lds ZL,sync_flags

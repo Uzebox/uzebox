@@ -105,6 +105,20 @@
 #endif
 
 
+/*
+** If clear, the ProcessSprites() function will no longer be called from
+** VSync, and RestoreBackground() has to be called manually before working
+** with the background or calling ProcessSprites() again. Use WaitVsync(1) to
+** synchronize to the end of the video frame, then if you want to alter video
+** contents for the next frame, call RestoreBackground(), do your work with
+** the VRAM (Scrolling and tile updates), finally call ProcessSprites() to
+** render the sprites.
+*/
+#ifndef SPRITES_VSYNC_PROCESS
+	#define SPRITES_VSYNC_PROCESS 1
+#endif
+
+
 //Sprite flags
 #define SPRITE_FLIP_X 1
 #define SPRITE_FLIP_Y 2

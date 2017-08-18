@@ -199,7 +199,9 @@ void ProcessSprites(){
 
 	/* restore BG tiles */
 
+	#if (SPRITES_VSYNC_PROCESS != 0)
 	RestoreBackground();
+	#endif
 
 }
 
@@ -394,10 +396,15 @@ void ProcessSprites(){
 
 	}
 
-	//Callback invoked during hsync
-	void VideoModeVsync(){
-		
-		ProcessFading();
-		ProcessSprites();
 
-	}
+/*
+** Callback invoked during hsync
+*/
+void VideoModeVsync(){
+
+	ProcessFading();
+	#if (SPRITES_VSYNC_PROCESS != 0)
+	ProcessSprites();
+	#endif
+
+}

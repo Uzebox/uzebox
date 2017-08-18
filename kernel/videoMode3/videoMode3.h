@@ -79,3 +79,17 @@ extern void CopyFlashTile(u8 srcTile,u8 destTile);
 /*Copy srcTile ramtile to destTile ramtile*/
 extern void CopyRamTile(u8 srcTile,u8 destTile);
 
+#if (SPRITES_VSYNC_PROCESS == 0)
+
+/* Render sprites. Call at the end of a frame in which graphics is prepared.
+** After calling this, the VRAM is prepared for video display, no longer
+** suitable for direct manipulation. RestoreBackground() has to be called
+** before this at some point. */
+void ProcessSprites(void);
+
+/* Restore the VRAM. Call this at the beginning of a frame (ideally after a
+** WaitVsync(1)) to enable working with the VRAM directly (scrolling, updating
+** tile indices). */
+void RestoreBackground(void);
+
+#endif
