@@ -1,0 +1,53 @@
+* Polyphony the cheap (and a bit lengthy) way *
+
+This Python script converts a midi file containing a polyphonic track into a multitrack one (one voice per track).
+This can be useful if you need to render polyphony with an outboard mono synth.
+
+---------------------------------------------------------
+Installation:
+
+- get python if not already present (try "python" at command line) 
+http://www.python.org/download/
+I used python 2.7, chances are it may work with others, likely not 3.X though.
+
+- get this mighty library from pichenettes' git 
+https://raw.github.com/pichenettes/avril-firmware_tools/master/midi/midifile.py
+(save as midifile.py)
+
+- get the converter script  
+https://raw.github.com/zblack/p2m/master/p2m.py
+(save as p2m.py)
+
+put the two saved files in a proper folder where you plan to do conversions.
+
+---------------------------------------------------------
+Simple Usage (for Uzebox):
+
+$ python p2m.py -i midisong.mid
+
+Will create a new file called midisong_multi.mid in the same directory
+as midisong.mid that has multiple tracks with no polyphony.
+
+---------------------------------------------------------
+Original usage instructions (with optional splitnote argument):
+
+Usage: python p2m.py -i inputfilename -s splitnote
+
+Example: python p2m.py -i somefilename.mid -s C#4
+
+it will create a new file called somefilename_multi.mid
+splitnote: format noteletter+octave number, if specified, notes belonging to separated split zones
+will be allocated into separated track groups ("A","B").
+
+---------------------------------------------------------
+Typical workflow:
+
+- MIDI export the track you want to convert from your DAW software in the conversion folder
+- execute the script
+- reimport the new "multi" midi file into the DAW software, if asked to merge tracks say no because it will make this procedure perfectly useless.
+- create as many mono audio tracks as the midi tracks you just imported.
+- one track at a time render the midi using the outboard gear (solo and play one midi track while recording to a soloed audio track at a time).
+- when using split parameter, tracks of A group might be rendered with a different instrument than B.
+- optional: route the audio tracks generated to a submix fader using some panning to give spatiality.
+
+Not thoroughly tested.

@@ -57,53 +57,53 @@
 
 .section .bss
 
-	sound_enabled:.byte 1
+	sound_enabled:.space 1
 
 	//struct MixerStruct -> soundEngine.h
-	mixer:	
+	mixer:
 	mixerStruct:
 
-	tr1_vol:		 .byte 1
-	tr1_step_lo:	 .byte 1
-	tr1_step_hi:	 .byte 1
-	tr1_pos_frac:	 .byte 1
-	tr1_pos_lo:		 .byte 1
-	tr1_pos_hi:		 .byte 1
+	tr1_vol:		 .space 1
+	tr1_step_lo:	 .space 1
+	tr1_step_hi:	 .space 1
+	tr1_pos_frac:	 .space 1
+	tr1_pos_lo:		 .space 1
+	tr1_pos_hi:		 .space 1
 
-	tr2_vol:		 .byte 1
-	tr2_step_lo:	 .byte 1
-	tr2_step_hi:	 .byte 1
-	tr2_pos_frac:	 .byte 1
-	tr2_pos_lo:		 .byte 1
-	tr2_pos_hi:		 .byte 1
+	tr2_vol:		 .space 1
+	tr2_step_lo:	 .space 1
+	tr2_step_hi:	 .space 1
+	tr2_pos_frac:	 .space 1
+	tr2_pos_lo:		 .space 1
+	tr2_pos_hi:		 .space 1
 
-	tr3_vol:		 .byte 1
-	tr3_step_lo:	 .byte 1
-	tr3_step_hi:	 .byte 1
-	tr3_pos_frac:	 .byte 1
-	tr3_pos_lo:		 .byte 1
-	tr3_pos_hi:		 .byte 1
+	tr3_vol:		 .space 1
+	tr3_step_lo:	 .space 1
+	tr3_step_hi:	 .space 1
+	tr3_pos_frac:	 .space 1
+	tr3_pos_lo:		 .space 1
+	tr3_pos_hi:		 .space 1
 
-	tr4_vol:		 .byte 1
-	tr4_params:		 .byte 1 //bit0=>0=7,1=15 bits lfsr, b1:6=divider 
-	tr4_barrel_lo:	 .byte 1
-	tr4_barrel_hi:	 .byte 1
-	tr4_divider:	 .byte 1 ;current divider accumulator
-	tr4_reserved1:	 .byte 1
+	tr4_vol:		 .space 1
+	tr4_params:		 .space 1 //bit0=>0=7,1=15 bits lfsr, b1:6=divider 
+	tr4_barrel_lo:	 .space 1
+	tr4_barrel_hi:	 .space 1
+	tr4_divider:	 .space 1 ;current divider accumulator
+	tr4_reserved1:	 .space 1
 
 #if SOUND_CHANNEL_5_ENABLE==1
-	tr5_vol:		 .byte 1
-	tr5_step_lo:	 .byte 1
-	tr5_step_hi:	 .byte 1
-	tr5_pos_frac:	 .byte 1
-	tr5_pos_lo:		 .byte 1
-	tr5_pos_hi:		 .byte 1
-;	tr5_loop_start_lo: .byte 1
-;	tr5_loop_start_hi: .byte 1
-	tr5_loop_len_lo: .byte 1
-	tr5_loop_len_hi: .byte 1
-	tr5_loop_end_lo: .byte 1
-	tr5_loop_end_hi: .byte 1
+	tr5_vol:		 .space 1
+	tr5_step_lo:	 .space 1
+	tr5_step_hi:	 .space 1
+	tr5_pos_frac:	 .space 1
+	tr5_pos_lo:		 .space 1
+	tr5_pos_hi:		 .space 1
+;	tr5_loop_start_lo: .space 1
+;	tr5_loop_start_hi: .space 1
+	tr5_loop_len_lo: .space 1
+	tr5_loop_len_hi: .space 1
+	tr5_loop_end_lo: .space 1
+	tr5_loop_end_hi: .space 1
 #endif
 
 .section .text

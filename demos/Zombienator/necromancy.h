@@ -19,7 +19,7 @@
 #ifndef NECROMANCY_H_
 #define NECROMANCY_H_
 
-#include "zombienator.h"
+#include "Zombienator.h"
 
 
 

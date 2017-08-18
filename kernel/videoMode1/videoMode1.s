@@ -68,10 +68,10 @@
 
 .section .bss
 	vram: 	  		.space VRAM_SIZE	;allocate space for the video memory (VRAM)
-	font_table_lo:	.byte 1			;pointer to user font table
-	font_table_hi:	.byte 1	
-	tile_table_lo:	.byte 1
-	tile_table_hi:	.byte 1
+	font_table_lo:	.space 1			;pointer to user font table
+	font_table_hi:	.space 1
+	tile_table_lo:	.space 1
+	tile_table_hi:	.space 1
 	
 .section .text
 

@@ -37,7 +37,7 @@
 	vram: 	  				.space VRAM_SIZE
 	palette:				.space 4	;palette must be aligned to 4 bytes
 
-.section .data	
+.section .text	
 	write_masks:		
 			.byte 0b00111111,64;~(3<<6)
 			.byte 0b11001111,16	;~(3<<4)
@@ -214,8 +214,8 @@ PutPixel:
 
 	ld r22,X	;load byte (4 pixels)
 
-	ld r24,Z+	;load byte mask
-	ld r25,Z	;load shift multiplier
+	lpm r24,Z+	;load byte mask
+	lpm r25,Z	;load shift multiplier
 
 	and r22,r24	;mask byte
 	mul r20,r25	;*shift multiplier (*1,*4,*16,*64)
@@ -264,8 +264,8 @@ GetPixel:
 
 	ld r24,X	;load byte (4 pixels)
 
-	ld r22,Z+	;load byte mask
-	ld r23,Z	;load shift multiplier
+	lpm r22,Z+	;load byte mask
+	lpm r23,Z	;load shift multiplier
 		
 	and r24,r22	;mask byte
 	cpi r23,1

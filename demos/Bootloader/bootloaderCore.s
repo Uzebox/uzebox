@@ -138,23 +138,23 @@
 	fontram:	.space FONT_SIZE*8 ;unpacked size
 
 
-	sync_phase:  .byte 1 ;0=pre-eq, 1=eq, 2=post-eq, 3=hsync, 4=vsync
-	sync_pulse:	 .byte 1
-	vsync_flag:	 .byte 1	;set 30 hz
-	curr_field:	 .byte 1	;0 or 1, changes at 60hz
+	sync_phase:  .space 1 ;0=pre-eq, 1=eq, 2=post-eq, 3=hsync, 4=vsync
+	sync_pulse:	 .space 1
+	vsync_flag:	 .space 1	;set 30 hz
+	curr_field:	 .space 1	;0 or 1, changes at 60hz
 
-	first_render_line:	.byte 1
-	screen_tiles_v: 	.byte 1
+	first_render_line:	.space 1
+	screen_tiles_v: 	.space 1
 
-	first_render_line_tmp:	.byte 1
-	screen_tiles_v_tmp: 	.byte 1
+	first_render_line_tmp:	.space 1
+	screen_tiles_v_tmp: 	.space 1
 
 	;last read results of joypads	
-	joypad_status:		.word 1
+	joypad_status:		.space 2
 
-	wave_pos:		.byte 1
-	wave_vol:		.byte 1
-	wave_vol_frac:	.byte 1
+	wave_pos:		.space 1
+	wave_vol:		.space 1
+	wave_vol_frac:	.space 1
 
 .section .init8
 	call InitVideo

@@ -157,7 +157,7 @@ typedef struct MapStruct
 } MapStruct;
 
 struct SpriteStruct sprites[32]; // create the sprites
-extern const MapStruct* graveyard_map[MAP_MEGA_WIDTH][MAP_MEGA_HEIGHT];
+extern const MapStruct* const graveyard_map[MAP_MEGA_WIDTH][MAP_MEGA_HEIGHT];
 extern const MapStruct graveyard_array[];
 
 #endif

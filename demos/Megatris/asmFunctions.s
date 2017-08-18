@@ -30,8 +30,8 @@
 .global RestoreTile
 
 .section .bss
-	tile_map_lo:	.byte 1
-	tile_map_hi:	.byte 1
+	tile_map_lo:	.space 1
+	tile_map_hi:	.space 1
 
 ;*****************************
 ; Defines a tile map

@@ -6,11 +6,13 @@ import java.util.Map;
 
 import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiEvent;
+import javax.sound.midi.MidiMessage;
 import javax.sound.midi.MidiFileFormat;
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
+
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -44,7 +46,7 @@ public class MidiConvert {
 	private boolean includeChannelNoteOff[]=new boolean[5];
 	
 	public static void main (String [] args) throws Exception{
-		System.out.println("Uzebox (tm) MIDI converter 1.0");
+		System.out.println("Uzebox (tm) MIDI converter 1.1");
 		System.out.println("(c)2009 Alec Bourque. This tool is released under the GNU GPL V3.");
 		System.out.println("");
 		
@@ -129,7 +131,7 @@ public class MidiConvert {
 	private static void printHelp(Options options){
 		HelpFormatter formatter = new HelpFormatter();
 		formatter.printHelp("midiconv [options] inputfile outputfile", 
-							"Converts a MIDI song in format 0 to a Uzebox MIDI stream outputted as a C include file.\r\n",options,
+							"Converts a MIDI song in format 0 or 1 to a Uzebox MIDI stream outputted as a C include file.\r\n",options,
 							"Ex: midiconv -s32 -vmy_song -ls200 -le22340 c:\\mysong.mid c:\\mysong.inc \r\n" );			
 	}
 	
@@ -163,12 +165,21 @@ public class MidiConvert {
 		//File inFile=new File(path+filename);
 		
 		MidiFileFormat format=MidiSystem.getMidiFileFormat(inputFile);
-		
-		if(format.getType()!=0){
-			throw new RuntimeException("Unsupported file format "+format.getType()+". Only MIDI file format 0 (all events in one track) is supported.");
+
+		if(format.getType()!=0 && format.getType()!=1){
+			throw new RuntimeException("Unsupported file format "+format.getType()+". Only MIDI file formats 0 and 1 are supported.");
 		}
 		
 		Sequence inSequence=MidiSystem.getSequence(inputFile);		
+		if(format.getType()==1){
+			Track[] tracks = inSequence.getTracks();
+			for(int i = 1; i < tracks.length; i++){
+				for(int j = 0; j < tracks[i].size(); j++) {
+					tracks[0].add(tracks[i].get(j));
+				}
+				inSequence.deleteTrack(tracks[i]);
+			}
+		}
 		
 		Sequence seq=new Sequence(format.getDivisionType(),format.getResolution(),1);
 		Track outTrack=seq.getTracks()[0];
@@ -176,6 +187,31 @@ public class MidiConvert {
 		long tempo=60000000/format.getResolution();
 
 		Track track=inSequence.getTracks()[0];
+
+
+
+		// Print track information, convert NOTE_OFF commands (0x80, w/ vol 64) into NOTE_ON commands (0x90, w/ vol 0)
+		Track[] itracks=inSequence.getTracks();
+		if(itracks!=null){
+			for(int i=0;i<itracks.length;i++){
+				logger.debug("Track "+i+":");
+				Track mtrack = itracks[i];
+				for(int j=0;j<mtrack.size();j++){
+					MidiEvent event=mtrack.get(j);
+					MidiMessage message = event.getMessage();
+					if(message instanceof ShortMessage){
+						ShortMessage m=(ShortMessage)message;
+						if(m.getCommand()==ShortMessage.NOTE_OFF){
+							int channel=m.getChannel();
+							int pitch=m.getData1();
+							int vel=m.getData2();
+							m.setMessage(ShortMessage.NOTE_ON,channel,pitch,0);
+						}
+					}
+					logger.debug(" tick "+event.getTick()+", "+MessageInfo.toString(event.getMessage()));
+				}
+			}
+		}
 
 		for(int e=0;e<track.size();e++){
 			MidiEvent event=track.get(e);				

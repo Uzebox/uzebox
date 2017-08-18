@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "zombienator.h"
+#include "Zombienator.h"
 
 
 const char singlestr[] PROGMEM = "ONE PLAYER";

@@ -25,7 +25,7 @@
 
 	//Logo "kling" sound
 	const char initPatch[] PROGMEM ={	
-	0,PC_WAVE,8,
+	0,PC_WAVE,INTRO_WAVETABLE,
 	0,PC_PITCH,85,
 	4,PC_PITCH,90,
 	0,PC_ENV_SPEED,-8,   
