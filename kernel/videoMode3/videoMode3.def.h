@@ -1,7 +1,8 @@
 /*
  *  Uzebox(tm) Video Mode 3
- *  Copyright (C) 2008  Alec Bourque
- *  
+ *  Copyright (C) 2008 Alec Bourque
+ *                2017 Sandor Zsuga (Jubatian)
+ *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
@@ -130,6 +131,18 @@
 */
 #ifndef SPRITES_VSYNC_PROCESS
 	#define SPRITES_VSYNC_PROCESS 1
+#endif
+
+
+/*
+** If clear, removes the RAM tile restore list. This case the VRAM has to be
+** completely rebuilt for rendering a new video frame as there is no
+** information to restore it after blitting sprites. This may be useful for
+** games rebuilding the VRAM anyway or not using sprites at all (only user RAM
+** tiles).
+*/
+#ifndef RTLIST_ENABLE
+	#define RTLIST_ENABLE 1
 #endif
 
 

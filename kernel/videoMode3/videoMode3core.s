@@ -35,7 +35,9 @@
 
 .global vram
 .global ram_tiles
+#if (RTLIST_ENABLE != 0)
 .global ram_tiles_restore
+#endif
 .global free_tile_index
 .global user_ram_tiles_c
 .global user_ram_tiles_c_tmp
@@ -110,8 +112,10 @@ sprites:
 #endif
 ram_tiles:
 	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
+#if (RTLIST_ENABLE != 0)
 ram_tiles_restore:
 	.space RAM_TILES_COUNT * 3 ; 2 bytes VRAM addr; 1 byte Tile
+#endif
 free_tile_index:
 	.space 1               ; Next free tile index
 user_ram_tiles_c:
@@ -155,6 +159,8 @@ font_tile_index:
 
 		;wait cycles to align with next hsync
 		WAIT r26,183+241
+
+#if (RTLIST_ENABLE != 0)
 
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
@@ -207,6 +213,11 @@ no_ramtiles:
 		dec r19
 		brne 1b
 
+#else
+
+		WAIT  r17,     19 + MAX_RAMTILES * 14 - 1
+
+#endif
 
 
 		;**********************
@@ -715,6 +726,8 @@ no_ramtiles:
 		;wait cycles to align with next hsync
 		WAIT r16,465 //30-3+340+98
 
+#if (RTLIST_ENABLE != 0)
+
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
 		;program may have altered the VRAM
@@ -765,6 +778,12 @@ no_ramtiles:
 		rjmp .
 		dec r19
 		brne 1b
+
+#else
+
+		WAIT  r17,     19 + MAX_RAMTILES * 14 - 1
+
+#endif
 
 
 		lds r2,overlay_tile_table
@@ -1111,6 +1130,8 @@ CopyRamTile:
 ;************************************
 RestoreBackground:
 
+#if (RTLIST_ENABLE != 0)
+
 	; Restore list: Begin at user_ram_tiles_c (above the user RAM tiles),
 	; end before free_tile_index (the first unused RAM tile).
 
@@ -1137,6 +1158,8 @@ rbg_loop:
 	brne  rbg_loop
 
 rbg_exit:
+
+#endif
 
 #if (SPRITES_AUTO_PROCESS == 0)
 	lds   r0,      user_ram_tiles_c_tmp

@@ -1,7 +1,8 @@
 /*
  *  Uzebox(tm) Video Mode 3
- *  Copyright (C) 2008  Alec Bourque
- *  
+ *  Copyright (C) 2008 Alec Bourque
+ *                2017 Sandor Zsuga (Jubatian)
+ *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or

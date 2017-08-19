@@ -41,7 +41,9 @@
 	extern unsigned char *sprites_tiletable_lo;
 	extern unsigned int sprites_tile_banks[];
 	extern unsigned char *tile_table_lo;
+#if (RTLIST_ENABLE != 0)
 	extern struct BgRestoreStruct ram_tiles_restore[];
+#endif
 
 extern u8 free_tile_index;
 extern u8 user_ram_tiles_c;
@@ -172,8 +174,10 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 						/* tile is a user ram tile. Copy it to next free RAM tile. */
 						CopyRamTile(bt, free_tile_index);
 					}
+					#if (RTLIST_ENABLE != 0)
 					ram_tiles_restore[free_tile_index].addr = (&vram[ramPtr]);
 					ram_tiles_restore[free_tile_index].tileIndex = bt;
+					#endif
 					vram[ramPtr] = free_tile_index;
 					bt = free_tile_index;
 					free_tile_index++;
