@@ -37,7 +37,7 @@ THE SOFTWARE.
 #if defined(__WIN32__)
     #include <windows.h> // Win32 memory mapped I/O
     #include <winioctl.h>
-#elif defined(LINUX) || defined(__APPLE__)
+#elif defined(LINUX) || defined(__APPLE__) || defined(__HAIKU__)
     #include <sys/mman.h> // Linux memory mapped I/O
 #else
     #include <sys/mmap.h> // Unix memory mapped I/O
