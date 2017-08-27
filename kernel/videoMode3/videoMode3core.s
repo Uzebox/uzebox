@@ -80,38 +80,67 @@
 
 
 
-#if SCROLLING == 1
-	.section .noinit
+#if ((SCROLLING != 0) || (RT_ALIGNED != 0))
+.section .noinit
 #else
-	.section .bss
-#endif 
+.section .bss
+#endif
+#if (SCROLLING != 0)
+.balign 256
+#else
+.balign 32
+#endif
 
-	.align 5
-	;VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
-	;To align vram to a 32/256 byte boundary without wasting ram, 
-	;add the following to your makefile's linker section and adjust 
-	;the .data section start to make room for the vram size (including the overlay ram).
-	;By default the vram is 32x32 so 1k is required.
-	;
-	;LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
-	;
-	vram: 	  				.space VRAM_SIZE 
-	
-	overlay_vram:
-	#if SCROLLING == 0 && OVERLAY_LINES >0
-							.space VRAM_TILES_H*OVERLAY_LINES
-	#endif
+;
+; VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
+; To align vram to a 32 / 256 byte boundary without wasting ram, add the
+; following to your makefile's linker section and adjust the .data section
+; start to make room for the vram size (including the overlay ram). By
+; default the vram is 32x32 so 1k is required.
+;
+; LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
+;
+; If you are using aligned ramtiles (RT_ALIGNED is set nonzero), you also need
+; to calculate the data start including their size aligned at the nearest 64
+; byte boundary after the top of the VRAM + OverlayVRAM (this only matters for
+; the non-scrolling Mode 3 at odd heights).
+;
+; Example: If you have 32 aligned RAM tiles with scrolling (1K VRAM) Mode 3:
+;
+; LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800D00
+;
+; Note: A possible linker bug or misunderstood feature exists: the linker for
+; some reason reports the size of the section padded to the largest alignment
+; used in it. So in the case of the scrolling Mode 3, you will get the .noinit
+; section's size padded to the next 256 byte boundary. Keep this in mind when
+; using a RAM tile count not being a multiple of 4.
+;
+
+vram:
+	.space VRAM_SIZE
+
+overlay_vram:
+#if ((SCROLLING == 0) && (OVERLAY_LINES != 0))
+	.space VRAM_TILES_H * OVERLAY_LINES
+#endif
+
+#if (RT_ALIGNED != 0)
+.balign 64
+ram_tiles:
+	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
+#endif
 
 .section .bss
-
-.align 1
+.balign 1
 
 #if (SPRITES_AUTO_PROCESS != 0)
 sprites:
 	.space SPRITE_STRUCT_SIZE * MAX_SPRITES
 #endif
+#if (RT_ALIGNED == 0)
 ram_tiles:
 	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
+#endif
 #if (RTLIST_ENABLE != 0)
 ram_tiles_restore:
 	.space RAM_TILES_COUNT * 3 ; 2 bytes VRAM addr; 1 byte Tile
@@ -1336,7 +1365,9 @@ y_check_end:
 
 	ldi   r21,     -(TILE_WIDTH + 1) ; destXdiff = -(TILE_WIDTH + 1)
 	add   r21,     r20     ; destXdiff += xspan
+#if (RT_ALIGNED == 0)
 	ldi   r23,     0x00
+#endif
 	ldi   r22,     0x01    ; step = 1
 	rjmp  x_diff_end
 
@@ -1344,7 +1375,9 @@ x_diff_xf:
 
 	ldi   r21,     -(TILE_WIDTH - 1) ; destXdiff = -(TILE_WIDTH - 1)
 	sub   r21,     r20     ; destXdiff -= xspan
+#if (RT_ALIGNED == 0)
 	ldi   r23,     0xFF
+#endif
 	ldi   r22,     0xFF    ; step = -1
 
 x_diff_end:
@@ -1388,13 +1421,17 @@ x_loop0:
 	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
 	st    X,       r18     ; *dest = px
 	add   XL,      r22     ; dest += step;
+#if (RT_ALIGNED == 0)
 	adc   XH,      r23
+#endif
 x_loop1:
 	lpm   r18,     Z+      ; px = pgm_read_byte(src); src ++;
 	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
 	st    X,       r18     ; *dest = px
 	add   XL,      r22     ; dest += step;
+#if (RT_ALIGNED == 0)
 	adc   XH,      r23
+#endif
 	subi  r20,     1
 	brne  x_loop0
 x_loopx:
@@ -1408,7 +1445,9 @@ x_loopx:
 	add   ZL,      r24     ; src += srcXdiff
 	adc   ZH,      r25
 	sub   XL,      r21     ; dest += destXdiff (negated)
+#if (RT_ALIGNED == 0)
 	sbci  XH,      0xFF
+#endif
 
 	mov   r20,     r0      ; xspan
 	lsr   r20
