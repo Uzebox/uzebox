@@ -43,8 +43,20 @@
     <xs:complexType>
       <xs:sequence>
         <xs:element minOccurs="1" maxOccurs="unbounded" ref="map"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="mega-maps"/>
       </xs:sequence>
       <xs:attribute name="pointers-size" use="required" type="PointerSizeType"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="mega-maps">
+    <xs:complexType>
+      <xs:attribute name="mega-tile-width" use="required" type="xs:integer"/>
+      <xs:attribute name="mega-tile-height" use="required" type="xs:integer"/>
+      <xs:attribute name="var-name" use="required" type="xs:NCName"/>
+      <xs:sequence>
+        <xs:element minOccurs="1" maxOccurs="unbounded" ref="map"/>
+      </xs:sequence>
     </xs:complexType>
   </xs:element>
 
