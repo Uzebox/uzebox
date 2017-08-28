@@ -146,6 +146,27 @@
 #endif
 
 
+/*
+** If set, aligns RAM tiles to 64 byte boundary (can only be enabled for 8 x 8
+** pixel tiles). This will allocate VRAM and RAM tiles in the .noinit section,
+** you should pass linker options to locate these at the beginning og the RAM
+** (so you wouldn't waste memory by padding). When the RAM tiles are aligned,
+** sprite blitting is faster.
+**
+** Example: If you have 32 aligned RAM tiles with scrolling (1K VRAM) Mode 3:
+**
+** LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800D00
+*/
+#ifndef RT_ALIGNED
+	#define RT_ALIGNED 0
+#endif
+#if (RT_ALIGNED != 0)
+	#if ((TILE_HEIGHT != 8) || (TILE_WIDTH != 8))
+		#error Aligned RAM tiles (RT_ALIGNED) can only be used with 8x8 tiles!
+	#endif
+#endif
+
+
 //Sprite flags
 #define SPRITE_FLIP_X 1
 #define SPRITE_FLIP_Y 2
