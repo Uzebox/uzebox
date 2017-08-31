@@ -310,9 +310,9 @@ same_section:
 frame_end:
 
 	; restore timer1 to the value it should normally have at this point
-	ldi   r16,     hi8(62)
+	ldi   r16,     hi8(62 - TIMER1_DISPLACE)
 	sts   _SFR_MEM_ADDR(TCNT1H), r16
-	ldi   r16,     lo8(62)
+	ldi   r16,     lo8(62 - TIMER1_DISPLACE)
 	sts   _SFR_MEM_ADDR(TCNT1L), r16
 
 	WAIT  r16,     39
@@ -814,7 +814,13 @@ next_tile_row:
 
 frame_end:
 
-	WAIT r19,18
+	; restore timer1 to the value it should normally have at this point
+	ldi   r16,     hi8(89 - TIMER1_DISPLACE)
+	sts   _SFR_MEM_ADDR(TCNT1H), r16
+	ldi   r16,     lo8(89 - TIMER1_DISPLACE)
+	sts   _SFR_MEM_ADDR(TCNT1L), r16
+
+	WAIT  r16,     12
 
 	rcall hsync_pulse ;145
 
@@ -976,10 +982,14 @@ TIMER1_OVF_vect:
 	pop YH
 	pop YL
 
+	nop
+	rjmp  .
+	rjmp  .
+
 	;restore timer1 to the value it should normally have at this point
-	ldi r16,lo8(0x0029)
-	sts _SFR_MEM_ADDR(TCNT1H),r2
-	sts _SFR_MEM_ADDR(TCNT1L),r16
+;	ldi r16,lo8(0x0029)
+;	sts _SFR_MEM_ADDR(TCNT1H),r2
+;	sts _SFR_MEM_ADDR(TCNT1L),r16
 
 	ret	;TCNT1 must be equal to 0x0029
 

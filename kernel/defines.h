@@ -490,6 +490,13 @@
 	#define HDRIVE_CL_TWICE 909
 	#define SYNC_HSYNC_PULSES 253
 
+	// Used to identify Timer1 value displacement relative to original
+	// kernel. Use to restore Timer1 in video modes which use it for their
+	// video frame code (scanline termination with Timer1 overflow), so
+	// they remain compatible with different kernel versions. Subtract it
+	// from the value you are normally programming Timer1 when restoring.
+	#define TIMER1_DISPLACE 57
+
 	#define SYNC_PRE_EQ_PULSES 6
 	#define SYNC_EQ_PULSES 6
 	#define SYNC_POST_EQ_PULSES 6
