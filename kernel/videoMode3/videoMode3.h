@@ -1,7 +1,8 @@
 /*
  *  Uzebox(tm) Video Mode 3
- *  Copyright (C) 2008  Alec Bourque
- *  
+ *  Copyright (C) 2008 Alec Bourque
+ *                2017 Sandor Zsuga (Jubatian)
+ *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
@@ -79,3 +80,27 @@ extern void CopyFlashTile(u8 srcTile,u8 destTile);
 /*Copy srcTile ramtile to destTile ramtile*/
 extern void CopyRamTile(u8 srcTile,u8 destTile);
 
+#if (SPRITES_VSYNC_PROCESS == 0)
+
+#if (SPRITES_AUTO_PROCESS != 0)
+
+/* Render sprites. Call at the end of a frame in which graphics is prepared.
+** After calling this, the VRAM is prepared for video display, no longer
+** suitable for direct manipulation. RestoreBackground() has to be called
+** before this at some point. */
+void ProcessSprites(void);
+
+#else
+
+/* Blit sprite. Start calling these after a RestoreBackground() and doing all
+** necessary work on the VRAM to build up the sprite content. */
+void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos);
+
+#endif
+
+/* Restore the VRAM. Call this at the beginning of a frame (ideally after a
+** WaitVsync(1)) to enable working with the VRAM directly (scrolling, updating
+** tile indices). */
+void RestoreBackground(void);
+
+#endif

@@ -15,6 +15,13 @@ MAKEFLAGS += --no-print-directory
 TOOLS += uzem
 TOOLS += packrom
 TOOLS += gconvert
+TOOLS += bin2hex
+
+# Builds out-of-the-box on Linux, OS X, and Windows
+# but requires C++11 support, so you may need to
+# upgrade to the latest version of MinGW on Windows
+# if you are running a pre-2013 version.
+TOOLS += midiconv
 
 ######################################
 # Tools used to build demos
@@ -51,6 +58,7 @@ DEMOS += VectorDemo
 DEMOS += VideoDemo
 DEMOS += Whack-a-Mole
 DEMOS += Zombienator
+DEMOS += sdspiram
 
 ######################################
 # Disabled

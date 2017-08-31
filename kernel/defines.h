@@ -124,6 +124,16 @@
 	#endif
 
 	/*
+	 * Wave table for the intro when using the "bling" sound (INTRO_LOGO == 1)
+	 * The default value corresponds to the default wavetables (see MIXER_WAVES)
+	 * You should set this if you use a custom wavetable with the intro
+	 * logo enabled.
+	 */
+	#ifndef INTRO_WAVETABLE
+		#define INTRO_WAVETABLE 8
+	#endif
+
+	/*
 	 * Joystick type used on the board.
 	 * Note: Will be read from EEPROM in a future release. 
 	 *
@@ -542,9 +552,15 @@
 		#include "videoMode13/videoMode13.def.h"
 	#elif VIDEO_MODE == 14
 		#include "videoMode14/videoMode14.def.h"
+	#elif VIDEO_MODE == 74
+		#include "videoMode74/videoMode74.def.h"
+	#elif VIDEO_MODE == 90
+		#include "videoMode90/videoMode90.def.h"
+	#elif VIDEO_MODE == 92
+		#include "videoMode92/videoMode92.def.h"
 	#elif VIDEO_MODE == 0
-	    //custom user defined video mode
-	    #include QUOTE(VIDEO_MODE_PATH/videoMode.def.h)
+		//custom user defined video mode
+		#include QUOTE(VIDEO_MODE_PATH/videoMode.def.h)
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif

@@ -1,6 +1,7 @@
 /*
  *  Uzebox Kernel - Mode 3
- *  Copyright (C) 2009  Alec Bourque
+ *  Copyright (C) 2009 Alec Bourque
+ *                2017 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -34,8 +35,15 @@
 
 .global vram
 .global ram_tiles
+#if (RTLIST_ENABLE != 0)
 .global ram_tiles_restore
+#endif
+.global free_tile_index
+.global user_ram_tiles_c
+.global user_ram_tiles_c_tmp
+#if (SPRITES_AUTO_PROCESS != 0)
 .global sprites
+#endif
 .global overlay_vram
 .global sprites_tile_banks
 .global Screen
@@ -48,7 +56,8 @@
 .global SetFontTilesIndex
 .global SetTileTable
 .global SetTile
-.global BlitSprite
+.global RestoreBackground
+.global BlitSpritePart
 .global SetFont
 .global GetTile
 
@@ -69,46 +78,88 @@
 #define vramWrapAdressLo	13
 #define vramWrapAdressHi	14
 
-;Sprites Struct offsets
-#define sprPosX  0
-#define sprPosY  1
-#define sprTileIndex 2
-#define sprFlags 3
 
 
-
-#if SCROLLING == 1
-	.section .noinit
+#if ((SCROLLING != 0) || (RT_ALIGNED != 0))
+.section .noinit
 #else
-	.section .bss
-#endif 
+.section .bss
+#endif
+#if (SCROLLING != 0)
+.balign 256
+#else
+.balign 32
+#endif
 
-	.align 5
-	;VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
-	;To align vram to a 32/256 byte boundary without wasting ram, 
-	;add the following to your makefile's linker section and adjust 
-	;the .data section start to make room for the vram size (including the overlay ram).
-	;By default the vram is 32x32 so 1k is required.
-	;
-	;LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
-	;
-	vram: 	  				.space VRAM_SIZE 
-	
-	overlay_vram:
-	#if SCROLLING == 0 && OVERLAY_LINES >0
-							.space VRAM_TILES_H*OVERLAY_LINES
-	#endif
+;
+; VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
+; To align vram to a 32 / 256 byte boundary without wasting ram, add the
+; following to your makefile's linker section and adjust the .data section
+; start to make room for the vram size (including the overlay ram). By
+; default the vram is 32x32 so 1k is required.
+;
+; LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
+;
+; If you are using aligned ramtiles (RT_ALIGNED is set nonzero), you also need
+; to calculate the data start including their size aligned at the nearest 64
+; byte boundary after the top of the VRAM + OverlayVRAM (this only matters for
+; the non-scrolling Mode 3 at odd heights).
+;
+; Example: If you have 32 aligned RAM tiles with scrolling (1K VRAM) Mode 3:
+;
+; LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800D00
+;
+; Note: A possible linker bug or misunderstood feature exists: the linker for
+; some reason reports the size of the section padded to the largest alignment
+; used in it. So in the case of the scrolling Mode 3, you will get the .noinit
+; section's size padded to the next 256 byte boundary. Keep this in mind when
+; using a RAM tile count not being a multiple of 4.
+;
+
+vram:
+	.space VRAM_SIZE
+
+overlay_vram:
+#if ((SCROLLING == 0) && (OVERLAY_LINES != 0))
+	.space VRAM_TILES_H * OVERLAY_LINES
+#endif
+
+#if (RT_ALIGNED != 0)
+.balign 64
+ram_tiles:
+	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
+#endif
 
 .section .bss
-	.align 1
-	sprites:				.space SPRITE_STRUCT_SIZE*MAX_SPRITES
-	ram_tiles:				.space RAM_TILES_COUNT*TILE_HEIGHT*TILE_WIDTH
-	ram_tiles_restore:  	.space RAM_TILES_COUNT*3 ;vram addr|Tile
+.balign 1
 
-	sprites_tile_banks: 	.space 8
-	tile_table_lo:			.space 1
-	tile_table_hi:			.space 1
-	font_tile_index:		.space 1
+#if (SPRITES_AUTO_PROCESS != 0)
+sprites:
+	.space SPRITE_STRUCT_SIZE * MAX_SPRITES
+#endif
+#if (RT_ALIGNED == 0)
+ram_tiles:
+	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
+#endif
+#if (RTLIST_ENABLE != 0)
+ram_tiles_restore:
+	.space RAM_TILES_COUNT * 3 ; 2 bytes VRAM addr; 1 byte Tile
+#endif
+free_tile_index:
+	.space 1               ; Next free tile index
+user_ram_tiles_c:
+	.space 1               ; User RAM tiles count
+user_ram_tiles_c_tmp:
+	.space 1               ; User RAM tiles count, user supplied value
+
+sprites_tile_banks:
+	.space 8
+tile_table_lo:
+	.space 1
+tile_table_hi:
+	.space 1
+font_tile_index:
+	.space 1
 
 
 	;ScreenType struct members
@@ -138,11 +189,13 @@
 		;wait cycles to align with next hsync
 		WAIT r26,183+241
 
+#if (RTLIST_ENABLE != 0)
+
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
 		;program may have altered the VRAM
 		;after vsync and the rendering interrupt.
-		lds r16,userRamTilesCount
+		lds r16,user_ram_tiles_c
 
 		ldi ZL,lo8(ram_tiles_restore);
 		ldi ZH,hi8(ram_tiles_restore);
@@ -167,7 +220,11 @@ upd_loop:
 		ld XL,Z+	;load vram offset of ramtile
 		ld XH,Z+
 
+#if (SPRITES_VSYNC_PROCESS == 0)
+		ld    r17,     Z       ; When user processing is done, this needs to be dummy (VRAM has sprite RAM tiles)
+#else
 		ld r17,X	;get latest VRAM tile that may have been modified my
+#endif
 		st Z+,r17	;the main program and store it in the restore buffer
 		st X,r16	;write the ramtile index back to vram
 
@@ -185,6 +242,11 @@ no_ramtiles:
 		dec r19
 		brne 1b
 
+#else
+
+		WAIT  r17,     19 + MAX_RAMTILES * 14 - 1
+
+#endif
 
 
 		;**********************
@@ -359,8 +421,10 @@ no_ramtiles:
 
 		rcall hsync_pulse ;145
 	
+#if (SPRITES_VSYNC_PROCESS != 0)
 		clr r1
 		call RestoreBackground
+#endif
 
 		;set vsync flag & flip field
 		lds ZL,sync_flags
@@ -691,11 +755,13 @@ no_ramtiles:
 		;wait cycles to align with next hsync
 		WAIT r16,465 //30-3+340+98
 
+#if (RTLIST_ENABLE != 0)
+
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
 		;program may have altered the VRAM
 		;after vsync and the rendering interrupt.
-		lds r16,userRamTilesCount
+		lds r16,user_ram_tiles_c
 
 		ldi ZL,lo8(ram_tiles_restore);
 		ldi ZH,hi8(ram_tiles_restore);
@@ -720,7 +786,11 @@ upd_loop:
 		ld XL,Z+	;load vram offset of ramtile
 		ld XH,Z+
 
+#if (SPRITES_VSYNC_PROCESS == 0)
+		ld    r17,     Z       ; When user processing is done, this needs to be dummy (VRAM has sprite RAM tiles)
+#else
 		ld r17,X	;get latest VRAM tile that may have been modified my
+#endif
 		st Z+,r17	;the main program and store it in the restore buffer
 		st X,r16	;write the ramtile index back to vram
 
@@ -737,6 +807,12 @@ no_ramtiles:
 		rjmp .
 		dec r19
 		brne 1b
+
+#else
+
+		WAIT  r17,     19 + MAX_RAMTILES * 14 - 1
+
+#endif
 
 
 		lds r2,overlay_tile_table
@@ -834,8 +910,10 @@ no_ramtiles:
 
 		rcall hsync_pulse ;145
 	
+#if (SPRITES_VSYNC_PROCESS != 0)
 		clr r1
 		call RestoreBackground
+#endif
 
 		;set vsync flag & flip field
 		lds ZL,sync_flags
@@ -1076,454 +1154,311 @@ CopyRamTile:
 
 
 ;***********************************
-; SET TILE 8bit mode
+; Restore background (VRAM)
 ; C-callable
-; r24=SpriteNo
-; r22=RAM tile index (bt)
-; r21:r20=Y:X
-; r19:r18=DY:DX
 ;************************************
-BlitSprite:
-	push r16
-	push r17
-	push YL
-	push YH
+RestoreBackground:
 
-	;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
-	ldi r25,SPRITE_STRUCT_SIZE
-	mul r24,r25
+#if (RTLIST_ENABLE != 0)
 
-	ldi ZL,lo8(sprites)	
-	ldi ZH,hi8(sprites)	
-	add ZL,r0
-	adc ZH,r1
+	; Restore list: Begin at user_ram_tiles_c (above the user RAM tiles),
+	; end before free_tile_index (the first unused RAM tile).
 
-	ldd r16,Z+sprFlags
+	lds   ZL,      user_ram_tiles_c
+	mov   r24,     ZL
+	add   ZL,      ZL
+	add   ZL,      r24     ; Multiply by 3
+	clr   ZH
+	subi  ZL,      lo8(-(ram_tiles_restore))
+	sbci  ZH,      hi8(-(ram_tiles_restore))
 
-	;8x16 multiply
-	ldd r24,Z+sprTileIndex
-	ldi r30,TILE_WIDTH*TILE_HEIGHT
-	mul r24,r30
-	movw r26,r0
-	
-	;get tile bank addr
-	ldi r25,4*2
-	mul r16,r25
-	ldi YL,lo8(sprites_tile_banks)	
-	ldi YH,hi8(sprites_tile_banks)	
-	clr r0
-	add YL,r1
-	adc YH,r0		
-	ldd ZL,Y+0
-	ldd ZH,Y+1
-	add ZL,r26	;tile data src
-	adc ZH,r27
-	
-	;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
-	ldi XL,lo8(ram_tiles)	
-	ldi XH,hi8(ram_tiles)
-	ldi r25,TILE_WIDTH*TILE_HEIGHT
-	mul r22,r25
-	add XL,r0
-	adc XH,r1
+	lds   r0,      free_tile_index
+	sub   r24,     r0
+	brcc  rbg_exit
 
-	/*
-	if((yx&1)==0){
-		dest+=dx;	
-		destXdiff=dx;
-		srcXdiff=dx;
-				
-		if(flags&SPRITE_FLIP_X){
-			src+=(TILE_WIDTH-1);
-			srcXdiff=((TILE_WIDTH*2)-dx);
-		}
-	}else{
-		destXdiff=(TILE_WIDTH-dx);
+	; Restore loop
 
-		if(flags&SPRITE_FLIP_X){
-			srcXdiff=TILE_WIDTH+dx;
-			src+=dx;
-			src--;
-		}else{
-			srcXdiff=destXdiff;
-			src+=destXdiff;
-		}
-	}
-	*/
-	clr r1
-	clr YH		;hi8(srcXdiff)
+rbg_loop:
+	ld    XL,      Z+      ; VRAM address low
+	ld    XH,      Z+      ; VRAM address high
+	ld    r0,      Z+      ; Tile index to restore
+	st    X,       r0
+	inc   r24
+	brne  rbg_loop
 
-	cpi r20,0	
-	brne x_2nd_tile
-	
-	add XL,r18	;dest+=dx
-	adc XH,r1
-	mov r24,r18	;destXdiff=dx
-	mov YL,r18	;srcXdiff=dx
+rbg_exit:
 
-	sbrs r16,SPRITE_FLIP_X_BIT
-	rjmp x_check_end
+#endif
 
-	adiw ZL,(TILE_WIDTH-1)	;src+=7
-	ldi YL,TILE_WIDTH*2		;srcXdiff=((TILE_WIDTH*2)-dx);
-	sub YL,r18	
-	rjmp x_check_end
+#if (SPRITES_AUTO_PROCESS == 0)
+	lds   r0,      user_ram_tiles_c_tmp
+	sts   user_ram_tiles_c, r0
+	sts   free_tile_index, r0
+#endif
 
-x_2nd_tile:
-	ldi r24,TILE_WIDTH
-	sub r24,r18		;8-DX = xdiff for dest
-
-	sbrc r16,SPRITE_FLIP_X_BIT
-	rjmp x2_flip_x
-
-	mov YL,r24		;srcXdiff=destXdiff;
-	add ZL,r24		;src+=destXdiff;
-	adc ZH,r1	
-	rjmp x_check_end
-
-x2_flip_x:
-	ldi YL,TILE_WIDTH
-	add YL,r18		;srcXdiff=TILE_WIDTH+dx;	
-	add ZL,r18		;src+=dx;
-	adc ZH,r1
-	sbiw ZL,1		;src--;
-
-x_check_end:
-
-
-
-	/*
-	if((yx&0x0100)==0){
-		dest+=(dy*TILE_WIDTH);
-		ydiff=dy;
-		if(flags&SPRITE_FLIP_Y){
-			src+=(TILE_WIDTH*(TILE_HEIGHT-1));
-		}
-	}else{			
-		ydiff=(TILE_HEIGHT-dy);
-		if(flags&SPRITE_FLIP_Y){
-			src+=((dy-1)*TILE_WIDTH); 
-		}else{
-			src+=(ydiff*TILE_WIDTH);
-		}
-	}
-	*/
-	cpi r21,0
-	brne y_2nd_tile
-
-	ldi r25,TILE_WIDTH	;dest+=(dy*TILE_WIDTH)
-	mul r25,r19			
-	add XL,r0
-	adc XH,r1
-
-	mov r25,r19			;ydiff=dy
-
-	//sbrc r16,SPRITE_FLIP_Y_BIT
-	//adiw ZL,(TILE_WIDTH*(TILE_HEIGHT-1))
-
-	sbrc r16,SPRITE_FLIP_Y_BIT
-	subi ZL,lo8(-(TILE_WIDTH*(TILE_HEIGHT-1)));src+=(TILE_WIDTH*(TILE_HEIGHT-1));
-	sbrc r16,SPRITE_FLIP_Y_BIT
-	sbci ZH,hi8(-(TILE_WIDTH*(TILE_HEIGHT-1)))
-
-
-	rjmp y_check_end
-
-y_2nd_tile:
-	ldi r25,TILE_HEIGHT	;ydiff=(TILE_HEIGHT-dy)
-	sub r25,r19	
-	
-	mov r22,r19			;temp=dy-1
-	dec r22
-	sbrs r16,SPRITE_FLIP_Y_BIT
-	mov r22,r25			;temp=ydiff
-
-	ldi r21,TILE_WIDTH	;src+=(temp*TILE_WIDTH);
-	mul r21,r22
-	add ZL,r0
-	adc ZH,r1	
-y_check_end:	
-	
-	//if(flags&SPRITE_FLIP_X){
-	//	step=-1;
-	//}
-	ser r22		;step=-1
-	ser r23
-	sbrs r16,SPRITE_FLIP_X_BIT
-	ldi r22,1	;step=1
-	sbrs r16,SPRITE_FLIP_X_BIT
-	clr r23
-
-	//if(flags&SPRITE_FLIP_Y){
-	//	srcXdiff-=(TILE_WIDTH*2);
-	//}
-	sbrc r16,SPRITE_FLIP_Y_BIT
-	sbiw YL,(TILE_WIDTH*2)
-
-	/*
-	for(y2=0;y2<(TILE_HEIGHT-ydiff);y2++){
-		for(x2=0;x2<(TILE_WIDTH-destXdiff);x2++){
-						
-			px=pgm_read_byte(src);
-			if(px!=TRANSLUCENT_COLOR){
-				*dest=px;
-			}
-			dest++;
-			src+=step;
-		}		
-		src+=srcXdiff;
-		dest+=destXdiff;
-	}
-	*/
-	;r19 	= translucent color
-	;r20:r21= xspan:yspan
-	;r22:r23= step
-	;r24	= destXdiff
-	;r25	= ydiff
-	;X		= dest
-	;Y		= srcXdiff
-	;Z		= src
-	clr r1
-	ldi r19,TRANSLUCENT_COLOR
-
-	ldi r21,TILE_HEIGHT
-	sub r21,r25 	;yspan=(TILE_HEIGHT-ydiff)
-
-y_loop:
-	ldi r20,TILE_WIDTH
-	sub r20,r24 	;xspan=(TILE_WIDTH-destXdiff)
-
-x_loop:
-	lpm r18,Z		;px=pgm_read_byte(src);
-	cpse r18,r19	;if(px!=TRANSLUCENT_COLOR)
-	st X,r18		;*dest=px;
-	adiw XL,1
-	add ZL,r22		;src+=step;
-	adc ZH,r23
-	dec r20
-	brne x_loop
-
-	add ZL,YL		;src+=srcXdiff
-	adc ZH,YH
-	add XL,r24		;dest+=destXdiff
-	adc XH,r1
-	dec r21
-	brne y_loop
-
-
-	pop YH
-	pop YL
-	pop r17
-	pop r16
 	ret
 
 
 
-
-
-/*
 ;***********************************
 ; SET TILE 8bit mode
 ; C-callable
-; r24=SpriteNo
-; r22=RAM tile index (bt)
-; r21:r20=Y:X
-; r19:r18=DY:DX
+;     r24: RAM tile index (bt)
+; r23:r22: Sprite flags : Sprite tile index
+; r21:r20: Y:X (0 or 1, location of 8x8 sprite fragment on 2x2 tile container)
+; r19:r18: DY:DX (0 to 7, offset of sprite relative to 0:0 of container)
 ;************************************
-BlitSprite:
-	push r16
-	push r17
+BlitSpritePart:
 
-	;src=sprites_tiletable_lo+(sprites[i].tileIndex*TILE_HEIGHT*TILE_WIDTH)
-	ldi r25,SPRITE_STRUCT_SIZE
-	mul r24,r25
+	; Get tile bank addr
 
-	ldi ZL,lo8(sprites)	
-	ldi ZH,hi8(sprites)	
-	add ZL,r0
-	adc ZH,r1
+	ldi   r25,     4 * 2
+	mul   r23,     r25
+	mov   XL,      r1
+	clr   XH
+	subi  XL,      lo8(-(sprites_tile_banks))
+	sbci  XH,      hi8(-(sprites_tile_banks))
+	ld    ZL,      X+
+	ld    ZH,      X+
 
-	ldd r16,Z+sprFlags
+	ldi   r25,     TILE_WIDTH * TILE_HEIGHT
+	mul   r22,     r25
+	add   ZL,      r0      ; Tile data src
+	adc   ZH,      r1
 
-	;8x16 multiply
-	ldd r24,Z+sprTileIndex
-	;clr r25
-	ldi r30,TILE_WIDTH*TILE_HEIGHT
-	mul r24,r30
-	movw r26,r0
-	;mul r25,r30
-	;add r27,r0
-	
-	;get tile bank addr
-	ldi r25,4*2
-	mul r16,r25
-	ldi ZL,lo8(sprites_tile_banks)	
-	ldi ZH,hi8(sprites_tile_banks)	
-	clr r0
-	add ZL,r1
-	adc ZH,r0		
-	ldd r0,Z+0
-	ldd r1,Z+1
-	movw ZL,r0
+	; dest = ram_tiles + (bt * TILE_HEIGHT * TILE_WIDTH)
 
-	//lds ZL,sprites_tile_banks
-	//lds ZH,sprites_tile_banks+1
-	add ZL,r26	;tile data src
-	adc ZH,r27
-	
-	;dest=ram_tiles+(bt*TILE_HEIGHT*TILE_WIDTH)
-	ldi XL,lo8(ram_tiles)	
-	ldi XH,hi8(ram_tiles)
-	ldi r25,TILE_WIDTH*TILE_HEIGHT
-	mul r22,r25
-	add XL,r0
-	adc XH,r1
+	mul   r24,     r25
+	movw  XL,      r0
+	subi  XL,      lo8(-(ram_tiles))
+	sbci  XH,      hi8(-(ram_tiles))
 
-	;if(x==0){
-	;	dest+=dx;
-	;	xdiff=dx;
-	;}else{
-	;	src+=(8-dx);
-	;	xdiff=(8-dx);
-	;}	
-	clr r1
+	/*
+	if ((yx & 1U) == 0U){
+		srcXdiff = dx;
+		xspan    = TILE_WIDTH - dx;
+		if ((flags & SPRITE_FLIP_X) == 0U){
+			dest += dx;
+		}else{
+			dest += (TILE_WIDTH - 1U);
+			src  += srcXdiff;
+		}
+	}else{
+		srcXdiff = TILE_WIDTH - dx;
+		xspan    = dx;
+		if ((flags & SPRITE_FLIP_X) == 0U){
+			src  += srcXdiff;
+		}else{
+			dest += (dx - 1U);
+		}
+	}
+	*/
 
-	cpi r20,0
-	brne x_2nd_tile
-	
-	add XL,r18
-	adc XH,r1
-	mov r24,r18	;xdiff for dest
-	mov r17,r18	;xdiff for src
+	ldi   r25,     0       ; srcXdiff high byte & used for zero
+	sbrc  r20,     0
+	rjmp  x_2nd_tile
 
-	sbrs r16,SPRITE_FLIP_X_BIT
-	rjmp x_check_end
+	mov   r24,     r18     ; srcXdiff = dx
+	ldi   r20,     TILE_WIDTH
+	sub   r20,     r18     ; xspan = TILE_WIDTH - dx
+	sbrs  r23,     SPRITE_FLIP_X_BIT
+	rjmp  x_1st_tile_nxf
 
-	adiw ZL,(TILE_WIDTH-1);7
-	ldi r17,16
-	sub r17,r18	;xdiff for src
-	rjmp x_check_end
+	adiw  XL,      TILE_WIDTH - 1 ; dest += (TILE_WIDTH - 1)
 
+x_2nd_tile_nxf:
+
+	add   ZL,      r24
+	adc   ZH,      r25     ; src += srcXdiff
+	rjmp  x_check_end
 
 x_2nd_tile:
-	ldi r24,TILE_WIDTH
-	sub r24,r18	;8-DX = xdiff for dest
 
-	sbrc r16,SPRITE_FLIP_X_BIT
-	rjmp x2_flip_x
+	ldi   r24,     TILE_WIDTH
+	sub   r24,     r18     ; srcXdiff = TILE_WIDTH - dx
+	mov   r20,     r18     ; xspan = dx;
+	sbrs  r23,     SPRITE_FLIP_X_BIT
+	rjmp  x_2nd_tile_nxf
 
-	mov r17,r24	;xdiff for src
-	add ZL,r24
-	adc ZH,r1	
-	rjmp x_check_end
+	sbiw  XL,      1       ; dest -= 1
 
-x2_flip_x:
-	ldi r17,TILE_WIDTH
-	add r17,r18	;xdiff for src
-	
-	add ZL,r18
-	adc ZH,r1
-	sbiw ZL,1
+x_1st_tile_nxf:
+
+	add   XL,      r18
+	adc   XH,      r25     ; dest += dx
 
 x_check_end:
 
+	/*
+	if ((yx & 0x0100U) == 0U){
+		yspan = (TILE_HEIGHT - dy);
+		dest += (dy * TILE_WIDTH);
+		if ((flags & SPRITE_FLIP_Y) != 0U){
+			src += (TILE_WIDTH * (TILE_HEIGHT - 1U));
+		}
+	}else{
+		yspan = dy;
+		if ((flags & SPRITE_FLIP_Y) != 0U){
+			src += (TILE_WIDTH * (dy - 1));
+		}else{
+			src += (TILE_WIDTH * (TILE_HEIGHT - dy));
+		}
+	}
+	*/
 
+	ldi   r22,     TILE_WIDTH
+	ldi   r18,     TILE_HEIGHT
+	sub   r18,     r19     ; temp = (TILE_HEIGHT - dy)
 
+	sbrc  r21,     0
+	rjmp  y_2nd_tile
 
+	mul   r22,     r19
+	add   XL,      r0
+	adc   XH,      r1      ; dest += (dy * TILE_WIDTH)
 
-	;if(y==0){
-	;	dest+=(dy*TILE_WIDTH);
-	;	ydiff=dy;
-	;}else{
-	;	src+=((8-dy)*TILE_WIDTH);
-	;	ydiff=(8-dy);
-	;}
-	cpi r21,0
-	brne y_2nd_tile
-	ldi r25,TILE_WIDTH
-	mul r25,r19
-	add XL,r0
-	adc XH,r1
-	mov r25,r19	;ydiff
-	rjmp y_check_end
+	sbrc  r23,     SPRITE_FLIP_Y_BIT
+	subi  ZL,      lo8(-(TILE_WIDTH * (TILE_HEIGHT - 1)))
+	sbrc  r23,     SPRITE_FLIP_Y_BIT
+	sbci  ZH,      hi8(-(TILE_WIDTH * (TILE_HEIGHT - 1)))
+
+	mov   r1,      r18     ; yspan = temp
+
+	rjmp  y_check_end
+
 y_2nd_tile:
-	ldi r25,TILE_HEIGHT
-	sub r25,r19	;ydiff
-	ldi r21,TILE_WIDTH
-	mul r21,r25
-	add ZL,r0
-	adc ZH,r1	
-y_check_end:	
 
+	mov   r1,      r19     ; temp = dy - 1
+	dec   r1
+	sbrs  r23,     SPRITE_FLIP_Y_BIT
+	mov   r1,      r18     ; temp = TILE_HEIGHT - dy
+	mul   r22,     r1      ; src += (temp * TILE_WIDTH)
+	add   ZL,      r0
+	adc   ZH,      r1
 
-//	for(y2=ydiff;y2<TILE_HEIGHT;y2++){
-//		for(x2=xdiff;x2<TILE_WIDTH;x2++){
-//							
-//			px=pgm_read_byte(src++);
-//			if(px!=TRANSLUCENT_COLOR){
-//				*dest=px;
-//			}
-//			dest++;
-//
-//		}		
-//		src+=xdiff;
-//		dest+=xdiff;
-//
-//	}
+	mov   r1,      r19     ; yspan = dy
 
-	clr r1
-	ldi r19,TRANSLUCENT_COLOR
+y_check_end:
 
-	clt
-	sbrc r16,SPRITE_FLIP_X_BIT
-	set
+	/*
+	if ((flags & SPRITE_FLIP_Y) != 0U){
+		srcXdiff -= (TILE_WIDTH * 2);
+	}
+	*/
 
-	ldi r21,TILE_HEIGHT ;8
-	sub r21,r25 ;y2
+	sbrc  r23,     SPRITE_FLIP_Y_BIT
+	sbiw  r24,     (TILE_WIDTH * 2)
 
-y2_loop:
-	ldi r20,TILE_WIDTH ;8
-	sub r20,r24 ;x2
+	/*
+	if ((flags & SPRITE_FLIP_X) == 0U){
+		destXdiff = TILE_WIDTH - (xspan - 1);
+		step = 1;
+	}else{
+		destXdiff = TILE_WIDTH + (xspan - 1);
+		step = -1;
+	}
+	; destXdiff is calculated negated for an optimization in the loop
+	*/
 
-	brts x2_loop_flip
+	sbrc  r23,     SPRITE_FLIP_X_BIT
+	rjmp  x_diff_xf
 
-	;normal X loop (11 cycles)
-x2_loop:
-	lpm r18,Z+
-	cpse r18,r19
-	st X,r18
-	adiw XL,1
-	dec r20
-	brne x2_loop
-	rjmp x2_loop_end
+	ldi   r21,     -(TILE_WIDTH + 1) ; destXdiff = -(TILE_WIDTH + 1)
+	add   r21,     r20     ; destXdiff += xspan
+#if (RT_ALIGNED == 0)
+	ldi   r23,     0x00
+#endif
+	ldi   r22,     0x01    ; step = 1
+	rjmp  x_diff_end
 
-	;flipped X loop (13 cycles)
-x2_loop_flip:
-	lpm r18,Z
-	sbiw ZL,1
-	cpse r18,r19
-	st X,r18
-	adiw XL,1
-	dec r20
-	brne x2_loop_flip
+x_diff_xf:
 
-x2_loop_end:
-	add ZL,r17
-	adc ZH,r1
-	add XL,r24
-	adc XH,r1
-	dec r21
-	brne y2_loop
+	ldi   r21,     -(TILE_WIDTH - 1) ; destXdiff = -(TILE_WIDTH - 1)
+	sub   r21,     r20     ; destXdiff -= xspan
+#if (RT_ALIGNED == 0)
+	ldi   r23,     0xFF
+#endif
+	ldi   r22,     0xFF    ; step = -1
 
+x_diff_end:
 
+	/*
+	for (y2 = 0U; y2 < yspan; y2++){
+		for (x2 = 0U; x2 < xspan; x2++){
+			px = pgm_read_byte(src);
+			src ++;
+			if(px != TRANSLUCENT_COLOR){
+				*dest = px;
+			}
+			dest += step;
+		}
+		src += srcXdiff;
+		dest += destXdiff;
+	}
+	*/
+	;     r19 = translucent color
+	;  r1:r20 = yspan:xspan
+	; r23:r22 = step
+	;     r21 = destXdiff (negated)
+	;       X = dest
+	; r25:r24 = srcXdiff
+	;       Z = src
+	;
+	; dest += step; is omitted for the last X iteration, compensated with
+	; destXdiff.
+	; destXdiff is negated to allow for using sub instead of add, so subi
+	; can be used to subtract high byte.
 
+	ldi   r19,     TRANSLUCENT_COLOR
 
-	clr r1
+	mov   r0,      r20     ; xspan
+	lsr   r20
+	brcc  x_loop1
+	breq  x_loopx
 
-	pop r17
-	pop r16
-	ret
-*/
+x_loop0:
+	lpm   r18,     Z+      ; px = pgm_read_byte(src); src ++;
+	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
+	st    X,       r18     ; *dest = px
+	add   XL,      r22     ; dest += step;
+#if (RT_ALIGNED == 0)
+	adc   XH,      r23
+#endif
+x_loop1:
+	lpm   r18,     Z+      ; px = pgm_read_byte(src); src ++;
+	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
+	st    X,       r18     ; *dest = px
+	add   XL,      r22     ; dest += step;
+#if (RT_ALIGNED == 0)
+	adc   XH,      r23
+#endif
+	subi  r20,     1
+	brne  x_loop0
+x_loopx:
+	lpm   r18,     Z+      ; px = pgm_read_byte(src); src ++;
+	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
+	st    X,       r18     ; *dest = px
+
+	dec   r1
+	breq  loop_e
+
+	add   ZL,      r24     ; src += srcXdiff
+	adc   ZH,      r25
+	sub   XL,      r21     ; dest += destXdiff (negated)
+#if (RT_ALIGNED == 0)
+	sbci  XH,      0xFF
+#endif
+
+	mov   r20,     r0      ; xspan
+	lsr   r20
+	brcc  x_loop1
+	brne  x_loop0
+	rjmp  x_loopx
+
+loop_e:
+
+	ret                    ; r1 is zero at this point
+
 
 
 

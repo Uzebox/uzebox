@@ -58,7 +58,9 @@
 	#define FILL_DELAY ((CYCLES_PER_PIXELS*TILE_WIDTH)*(30-VRAM_TILES_H))/2 //use to generate filler cycles when VRAM_TILES_H<30
 #else
 	#define VRAM_TILES_H 32
-	#define SCREEN_TILES_H 28
+	#ifndef SCREEN_TILES_H
+		#define SCREEN_TILES_H 28
+	#endif
 	#define FILL_DELAY 0
 #endif
 
