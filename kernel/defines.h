@@ -495,6 +495,7 @@
 	// video frame code (scanline termination with Timer1 overflow), so
 	// they remain compatible with different kernel versions. Subtract it
 	// from the value you are normally programming Timer1 when restoring.
+	// See frame_end: in Mode 13's videoMode13core.s as example.
 	#define TIMER1_DISPLACE 57
 
 	#define SYNC_PRE_EQ_PULSES 6

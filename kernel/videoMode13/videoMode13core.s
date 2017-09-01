@@ -309,13 +309,13 @@ same_section:
 
 frame_end:
 
-	; restore timer1 to the value it should normally have at this point
-	ldi   r16,     hi8(62 - TIMER1_DISPLACE)
-	sts   _SFR_MEM_ADDR(TCNT1H), r16
-	ldi   r16,     lo8(62 - TIMER1_DISPLACE)
-	sts   _SFR_MEM_ADDR(TCNT1L), r16
-
 	WAIT  r16,     39
+
+	; restore timer1 to the value it should normally have at this point
+	ldi   r16,     hi8(101 - TIMER1_DISPLACE)
+	sts   _SFR_MEM_ADDR(TCNT1H), r16
+	ldi   r16,     lo8(101 - TIMER1_DISPLACE)
+	sts   _SFR_MEM_ADDR(TCNT1L), r16
 
 	rcall hsync_pulse      ; 145
 
@@ -814,13 +814,13 @@ next_tile_row:
 
 frame_end:
 
-	; restore timer1 to the value it should normally have at this point
-	ldi   r16,     hi8(89 - TIMER1_DISPLACE)
-	sts   _SFR_MEM_ADDR(TCNT1H), r16
-	ldi   r16,     lo8(89 - TIMER1_DISPLACE)
-	sts   _SFR_MEM_ADDR(TCNT1L), r16
-
 	WAIT  r16,     12
+
+	; restore timer1 to the value it should normally have at this point
+	ldi   r16,     hi8(101 - TIMER1_DISPLACE)
+	sts   _SFR_MEM_ADDR(TCNT1H), r16
+	ldi   r16,     lo8(101 - TIMER1_DISPLACE)
+	sts   _SFR_MEM_ADDR(TCNT1L), r16
 
 	rcall hsync_pulse ;145
 
