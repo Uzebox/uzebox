@@ -33,6 +33,7 @@
 ;
 ;***************************************************	
 
+.global TIMER1_OVF_vect
 .global vram
 .global ram_tiles
 #if (RTLIST_ENABLE != 0)
@@ -188,7 +189,8 @@ font_tile_index:
 		sts _SFR_MEM_ADDR(TIMSK1),ZL
 
 		;wait cycles to align with next hsync
-		WAIT r26,183+241
+;		WAIT r26,183+241
+		WAIT r26,183+241 - 9 - 29
 
 #if (RTLIST_ENABLE != 0)
 
@@ -342,6 +344,18 @@ no_ramtiles:
 		//mov r8,r16
 		lds r8,render_lines_count ;total scanlines to draw
 
+	; Prepare Timer1 to use it for terminating scanlines
+
+	ldi   r16,     (1 << OCF1B) + (1 << OCF1A) + (1 << TOV1)
+	sts   _SFR_MEM_ADDR(TIFR1), r16  ; Clear any pending timer int
+
+	ldi   r16,     (0 << WGM12) + (1 << CS10)
+	sts   _SFR_MEM_ADDR(TCCR1B), r16 ; Switch to timer1 normal mode (mode 0)
+
+	ldi   r16,     (1 << TOIE1)
+	sts   _SFR_MEM_ADDR(TIMSK1), r16 ; Enable Overflow interrupt
+
+
 
 
 ;*************************************************************
@@ -367,13 +381,141 @@ no_ramtiles:
 
 next_tile_line:
 
+	; Get tile row offset
+
+	ldi   r16,     TILE_WIDTH ; Tile width in pixels
+	mul   r22,     r16     ; r1:r0: Row offset within tile
+
+	; Compute base adresses for ROM and RAM tiles
+
+	in    r16,     _SFR_IO_ADDR(GPIOR1) ; tile_table_lo
+	in    r17,     _SFR_IO_ADDR(GPIOR2) ; tile_table_hi
+	subi  r16,     lo8(RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH)
+	sbci  r17,     hi8(RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH)
+	add   r16,     r0
+	adc   r17,     r1
+	movw  r2,      r16     ; r3:r2: ROM tiles row adress
+
+	ldi   r16,     lo8(ram_tiles)
+	ldi   r17,     hi8(ram_tiles)
+	add   r16,     r0
+	adc   r17,     r1
+	movw  r4,      r16     ; r5:r4: RAM tiles row adress
+
+	ldi   r16,     TILE_HEIGHT * TILE_WIDTH
+	mov   r14,     r16     ; 14 cycles
+
+	; Prepare Timer1 OVF interrupt location
+
+#if (RESOLUTION_EXT == 0)
+	ldi   r16,     lo8(0xFFFF - (48 * SCREEN_TILES_H) - 44)
+	ldi   r17,     hi8(0xFFFF - (48 * SCREEN_TILES_H) - 44)
+#else
+	ldi   r16,     lo8(0xFFFF - (44 * SCREEN_TILES_H) - 44)
+	ldi   r17,     hi8(0xFFFF - (44 * SCREEN_TILES_H) - 44)
+#endif
+
+	; Save current VRAM location (left column)
+
+	push  YL
+	push  YH
+
+	; Fetch first two tiles to prepare for scrolling output
+
+	ld    r21,     Y       ; Tile 0 ID from VRAM
+	subi  YL,      0xF8
+	ld    r20,     Y       ; Tile 1 ID from VRAM
+	subi  YL,      0xF8    ; 6 cycles
+
+	; Enter next scanline including left alignment waits
+
 	rcall hsync_pulse
 
 	WAIT  r18,     HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 
-	call  render_tile_line
+#if (RESOLUTION_EXT == 0)
+	WAIT  r18,     0  + ((30 - SCREEN_TILES_H) * 24)
+#else
+	WAIT  r18,     38 + ((31 - SCREEN_TILES_H) * 22)
+#endif
 
-	WAIT  r18,     58
+	; Set up Timer 1
+
+	sts   _SFR_MEM_ADDR(TCNT1H), r17
+	sts   _SFR_MEM_ADDR(TCNT1L), r16
+	sei                    ; 7 cycles
+
+	; Prepare first two tile addresses
+
+	clr   r16
+
+	mul   r21,     r14     ; r1:r0: Tile address
+	cpi   r21,     RAM_TILES_COUNT
+	movw  ZL,      r2      ; ROM tile address
+	brcc  .+2
+	movw  ZL,      r4      ; RAM tile address
+	rol   r16              ; r16.0: Tile0 RAM if set
+	add   ZL,      r0
+	adc   ZH,      r1      ; ZH:ZL: Tile 0 address to start with
+
+	mov   r18,     r9
+	andi  r18,     0x07    ; Low 7 bits: 0-7 px visible of last tile
+	clr   r1
+	add   ZL,      r18
+	adc   ZH,      r1      ; ZH:ZL: Skipped non-visible left pixels
+
+	mul   r20,     r14     ; r1:r0: Tile address
+	cpi   r20,     RAM_TILES_COUNT
+	movw  r20,     r2      ; ROM tile address
+	brcc  .+2
+	movw  r20,     r4      ; RAM tile address
+	rol   r16              ; r16.0: Tile1 RAM if set; r16.1: Tile0 RAM if set
+	add   r20,     r0      ; r21:r20: Tile 1 address to start with
+	adc   r21,     r1      ; 24 cycles
+
+	; Select entry point
+
+	ldi   r17,     26
+	mul   r16,     r17     ; Select entry block
+	mov   r16,     r0
+	ldi   r17,     3
+	mul   r18,     r17     ; Select entry point within block
+	clr   r17
+	subi  r16,     lo8(-(pm(romrom_e)))
+	sbci  r17,     hi8(-(pm(romrom_e)))
+	add   r0,      r16
+	adc   r1,      r17     ; 12 cycles
+
+	; Enter scanline loop
+
+	clr   r17              ; End of scanline zero pixel
+	push  r0
+	push  r1
+	ret                    ; 9 cycles
+
+	; End of scanline using Timer1 overflow
+
+TIMER1_OVF_vect:
+
+	out   PIXOUT,  r17     ; Zero pixel terminating the line
+
+	pop   r0               ; pop & discard OVF interrupt return address
+	pop   r0               ; pop & discard OVF interrupt return address
+
+	; Restore VRAM address (left column)
+
+	pop   YH
+	pop   YL
+
+	; Right alignment wait
+
+#if (RESOLUTION_EXT == 0)
+	WAIT  r16,     8  + ((30 - SCREEN_TILES_H) * 24)
+#else
+	WAIT  r16,     46 + ((31 - SCREEN_TILES_H) * 22)
+#endif
+
+	; Next line & row logic
 
 	inc   r22              ; Line counter within tile row
 	dec   r8               ; Total remaining scanlines counter
@@ -426,7 +568,14 @@ next_tile_row:
 
 text_frame_end:
 
-	WAIT  r18,     28
+	WAIT  r18,     51
+
+	; Restore Timer1 to the value it should normally have at this point
+
+	ldi   r16,     hi8(101)
+	sts   _SFR_MEM_ADDR(TCNT1H), r16
+	ldi   r16,     lo8(101)
+	sts   _SFR_MEM_ADDR(TCNT1L), r16
 
 	rcall hsync_pulse      ; 145
 
@@ -443,312 +592,368 @@ text_frame_end:
 	eor   ZL,      r20
 	sts   sync_flags, ZL
 
-	cli
+	; Restore Timer 1's operation mode
 
-	; Re-activate sync timer interrupts
-	ldi   ZL,      (1 << OCIE1A)
-	sts   _SFR_MEM_ADDR(TIMSK1), ZL
+	ldi   r16,     (1 << OCF1B) + (1 << OCF1A) + (1 << TOV1)
+	sts   _SFR_MEM_ADDR(TIFR1), r16  ; Clear any pending timer int
 
-	; Clear any pending timer int
-	ldi   ZL,      (1 << OCF1A)
-	sts   _SFR_MEM_ADDR(TIFR1), ZL
+	ldi   r16,     (1 << WGM12) + (1 << CS10)
+	sts   _SFR_MEM_ADDR(TCCR1B), r16 ; Switch back to timer1 CTC mode (mode 4)
+
+	ldi   r16,     (1 << OCIE1A)
+	sts   _SFR_MEM_ADDR(TIMSK1), r16 ; Restore ints on compare match
 
 	ret
 
 
 
-;*************************************************
-; RENDER TILE LINE
-;
-; Must preserve registers used for Rendering main loop
-;
-; cycles  = 1495
-;*************************************************
 
-render_tile_line:
+	; Left side entry blocks for 1-8 pixels. Each pixel is 3 words, and a
+	; complete block is 26 words (8 * 3 + 2 words). Entry is performed by
+	; a ret (pushing the appropriate entry address on stack).
 
-	push  YL
-	push  YH
-	push  r23
-	push  r22
-	push  r19
-	push  r13
-	push  r12
-	push  r9
-	push  r7
-	push  r6
+romrom_e:
+	rjmp  .
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 0
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 1
+	rjmp  .
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 2
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 3
+	rjmp  .
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 4
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 5
+	rjmp  .
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 6
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
+	lpm   r16,     Z+
+	movw  ZL,      r20
+	out   PIXOUT,  r16     ; Pixel 7
+	rjmp  romloop_px0
+#if (RESOLUTION_EXT != 0)
+	nop
+#endif
 
-	; Get tile row offset
+romram_e:
+	rjmp  .
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 0
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 1
+	rjmp  .
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 2
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 3
+	rjmp  .
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 4
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 5
+	rjmp  .
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 6
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
+	lpm   r16,     Z+
+	movw  ZL,      r20
+	out   PIXOUT,  r16     ; Pixel 7
+	rjmp  ramloop_px0
+#if (RESOLUTION_EXT != 0)
+	nop
+#endif
 
-	ldi   r23,     TILE_WIDTH ; Tile width in pixels
-	mul   r22,     r23     ; r1:r0: Row offset within tile
+ramrom_e:
+	lpm   r16,     Z       ; Dummy load (nop)
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 0
+#if (RESOLUTION_EXT == 0)
+	lpm   r16,     Z       ; Dummy load (nop)
+#else
+	rjmp  .
+#endif
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 1
+	lpm   r16,     Z       ; Dummy load (nop)
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 2
+#if (RESOLUTION_EXT == 0)
+	lpm   r16,     Z       ; Dummy load (nop)
+#else
+	rjmp  .
+#endif
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 3
+	lpm   r16,     Z       ; Dummy load (nop)
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 4
+#if (RESOLUTION_EXT == 0)
+	lpm   r16,     Z       ; Dummy load (nop)
+#else
+	rjmp  .
+#endif
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 5
+	lpm   r16,     Z       ; Dummy load (nop)
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 6
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+	ld    r16,     Z+
+	movw  ZL,      r20
+	out   PIXOUT,  r16     ; Pixel 7
+	rjmp  romloop_px0
 
-	; Compute base adresses for ROM and RAM tiles
-
-	in    r16,     _SFR_IO_ADDR(GPIOR1) ; tile_table_lo
-	in    r17,     _SFR_IO_ADDR(GPIOR2) ; tile_table_hi
-	subi  r16,     lo8(RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH)
-	sbci  r17,     hi8(RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH)
-	add   r16,     r0
-	adc   r17,     r1
-	movw  r2,      r16     ; r3:r2: ROM tiles row adress
-
-	ldi   r16,     lo8(ram_tiles)
-	ldi   r17,     hi8(ram_tiles)
-	add   r16,     r0
-	adc   r17,     r1
-	movw  r4,      r16     ; r5:r4: RAM tiles row adress
-
-	ldi   r19,     TILE_HEIGHT * TILE_WIDTH
-	ldi   r17,     SCREEN_TILES_H - 1 ; Main loop tile counter
-
-
-		;handle fine scroll offset
-		;lds r22,screenSections+scrollX
-		mov r22,r9
-		andi r22,0x7		
-		mov r14,r22	;pixels to draw on last tile	
-		cli			;no trailing pixel to draw (hack, see end: )
-		breq .+2
-		sei			;some trailing pixel to draw (hack, see end: )
-
-		;get first pixel of last tile in ROM (for ROM tiles fine scroll)
-		;and adress of next pixel
-		movw ZL,YL
-		subi ZL,-(SCREEN_TILES_H*8)
-		ld r18,Z
-		mul r18,r19 	;tile*width*height
-	    add r0,r2    ;add ROM title table address +row offset
-	    adc r1,r3
-		movw ZL,r0
-		lpm r9,Z+	;hold first pixel until end 
-		movw r12,ZL ;hold second pixel adress until end
-
-
-		;compute first tile adress
-	    ld r18,Y     	;load next tile # from VRAM
-		subi YL,-8
-		cpi r18,RAM_TILES_COUNT
-		in r16,_SFR_IO_ADDR(SREG)	;save the carry flag for later	
-		mul r18,r19 	;tile*width*height
-		movw r20,r2		;rom tiles	
-		sbrc r16,SREG_C
-		movw r20,r4		;ram tiles
-	    add r0,r20    ;add title table address +row offset
-	    adc r1,r21
-		movw XL,r0
+ramram_e:
+	lpm   r16,     Z       ; Dummy load (nop)
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 0
+#if (RESOLUTION_EXT == 0)
+	lpm   r16,     Z       ; Dummy load (nop)
+#else
+	rjmp  .
+#endif
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 1
+	lpm   r16,     Z       ; Dummy load (nop)
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 2
+#if (RESOLUTION_EXT == 0)
+	lpm   r16,     Z       ; Dummy load (nop)
+#else
+	rjmp  .
+#endif
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 3
+	lpm   r16,     Z       ; Dummy load (nop)
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 4
+#if (RESOLUTION_EXT == 0)
+	lpm   r16,     Z       ; Dummy load (nop)
+#else
+	rjmp  .
+#endif
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 5
+	lpm   r16,     Z       ; Dummy load (nop)
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 6
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+	ld    r16,     Z+
+	movw  ZL,      r20
+	out   PIXOUT,  r16     ; Pixel 7
+	rjmp  ramloop_px0
 
 
-		;compute second tile adress
-	    ld r18,Y     	;load next tile # from VRAM
-		subi YL,-8
-		cpi r18,RAM_TILES_COUNT
-		in r7,_SFR_IO_ADDR(SREG)	;save the carry flag for later
-		bst r7,SREG_C
-		mul r18,r19 	;tile*width*height
-		movw r20,r2		;rom tiles
-		brtc .+2
-		movw r20,r4		;ram tiles
-	    add r0,r20      ;add title table address +row offset
-	    adc r1,r21
-		movw ZL,r0
-		movw r6,ZL		;push Z
 
 
-	do_fine_scroll:
-		;output 1st tile with fine scroll offset 
-		clr r0
-		add XL,r22	;add fine offset
-		adc XH,r0
-
-		;compute jump offset
-		ldi r23,3
-		mul r22,r23 ;3 instructions
-	
-		sbrs r16,SREG_C
-		rjmp rom_fine_scroll
-
-	/***FINE SCROLL RAM LOOP***/
-	ram_fine_scroll:
-		rjmp .
-		ldi r22,lo8(pm(ram_fine_scroll_loop))
-		ldi r23,hi8(pm(ram_fine_scroll_loop))
-		add r22,r0
-		adc r23,r1
-		push r22
-		push r23	
-		ret ;jump into ram_fine_scroll_loop
-	ram_fine_scroll_loop:
-		.rept 8
-			ld r16,X+
-			lpm
-			out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 
-		.endr
-
-		;branch to tile #2
-		brtc romloop
-		rjmp ramloop
-
-	/***FINE SCROLL ROM LOOP***/
-	rom_fine_scroll:
-		movw ZL,XL
-		ldi r22,lo8(pm(rom_fine_scroll_loop))	
-		ldi r23,hi8(pm(rom_fine_scroll_loop))
-		add r22,r0
-		adc r23,r1
-		push r22
-		push r23	
-		ret
-	rom_fine_scroll_loop:
-		.rept 8
-			lpm r16,Z+
-			rjmp .
-			out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 
-		.endr 
-	
-		movw ZL,r6		;restore Z for tile #2
-
-		;branch to tile #2
-		brts ramloop
-
+	; Timer1 terminated main scanline loop for either 6 cycles / pixel or
+	; 5.5 cycles / pixel. When using 5.5 cy/px, the interval between Pixel
+	; 0 and Pixel 1 is 5 cycles, so when there is no X scroll, a 6 cycle
+	; interval will be turned into 7 for termination (3 cycles IT latency
+	; and 3 cycles JMP in the generated interrupt entry table before the
+	; zero pixel output).
 
 romloop:
 	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 6
+	add   r0,      r2      ; Add tile table address + row offset lsb
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
+
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 7, Timer1 OVF IT hits after this when no scrolling
+	adc   r1,      r3      ; Add tile table address + row offset msb
+	movw  ZL,      r0      ; Next tile (ROM)
+
+romloop_px0:
+	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 0
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+
+	lpm   r16,     Z+
 	out   PIXOUT,  r16     ; Pixel 1
-	ld    r18,     Y       ; Load next tile ID from VRAM
+#if (SCROLLING == 0)
+	ld    r20,     Y+      ; Load next tile ID from VRAM
+#else
+	ld    r20,     Y       ; Load next tile ID from VRAM
+#endif
 
 	lpm   r16,     Z+
 	out   PIXOUT,  r16     ; Pixel 2
-	mul   r18,     r19     ; r19 = Width * Height
+#if (SCROLLING == 0)
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
+#else
+	subi  YL,      0xF8    ; Add 8 to VRAM address low
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
+#endif
 
 	lpm   r16,     Z+
 	out   PIXOUT,  r16     ; Pixel 3
-	subi  YL,      0xF8    ; Add 8 to VRAM address low
-	cpi   r18,     RAM_TILES_COUNT ; Is tile in RAM or ROM? (RAM tiles have indexes < RAM_TILES_COUNT)
+	mul   r20,     r14     ; r14 = Width * Height
 
 	lpm   r16,     Z+
 	out   PIXOUT,  r16     ; Pixel 4
-	brcc  .+2              ; Skip if next tile is in ROM
-	movw  r20,     r4      ; Load RAM title table address + row offset
+	cpi   r20,     RAM_TILES_COUNT ; Is tile in RAM or ROM? (RAM tiles have indexes < RAM_TILES_COUNT)
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
 
 	lpm   r16,     Z+
 	out   PIXOUT,  r16     ; Pixel 5
-	add   r0,      r20     ; Add tile table address + row offset lsb
-	adc   r1,      r21     ; Add title table address + row offset msb
+	brcc  romloop          ; ROM tiles: stay in ROM loop
+	nop
 
 	lpm   r16,     Z+
 	out   PIXOUT,  r16     ; Pixel 6
-	cpi   r18,     RAM_TILES_COUNT
-	dec   r17              ; Decrement tiles to draw on line (does not affect carry)
+	add   r0,      r4      ; Add tile table address + row offset lsb
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
 
 	lpm   r16,     Z+
-	out   PIXOUT,  r16     ; Pixel 7
-	lpm   r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 7, Timer1 OVF IT hits after this when no scrolling
+	adc   r1,      r5      ; Add tile table address + row offset msb
+	movw  ZL,      r0      ; Next tile (RAM)
 
-	breq  end
-	movw  ZL,      r0      ; Copy next tile adress
+ramloop_px0:
+	nop
 
-	out   PIXOUT,  r16     ; Pixel 8
-	brcc  romloop
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 0
+#if (SCROLLING == 0)
+	ld    r20,     Y+      ; Load next tile ID from VRAM
+#else
+	ld    r20,     Y       ; Load next tile ID from VRAM
+#endif
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
 
-	rjmp .
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 1
+#if (SCROLLING == 0)
+	nop
+#else
+	subi  YL,      0xF8    ; Add 8 to VRAM address low
+#endif
+	mul   r20,     r14     ; r14 = Width * Height
 
-ramloop:
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 2
+#if (RESOLUTION_EXT == 0)
+	lpm   r16,     Z       ; Dummy load (nop)
+#else
+	rjmp  .
+#endif
 
-	    ld r16,Z+
-	    out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 1
-	    ld r18,Y     ;load next tile # from VRAM
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 3
+	lpm   r16,     Z       ; Dummy load (nop)
 
-	    ld r16,Z+ 
-		subi YL,-8   		
-		out _SFR_IO_ADDR(DATA_PORT),r16 		;pixel 2
-		mul r18,r19 ;tile*width*height
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 4
+	cpi   r20,     RAM_TILES_COUNT ; Is tile in RAM or ROM? (RAM tiles have indexes < RAM_TILES_COUNT)
+#if (RESOLUTION_EXT == 0)
+	rjmp  .
+#else
+	nop
+#endif
 
-	    ld r16,Z+
-		nop
-		out _SFR_IO_ADDR(DATA_PORT),r16         ;pixel 3
-		cpi r18,RAM_TILES_COUNT
-		rjmp .
-   
-	    ld r16,Z+
-		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 4
-		brcs .+2 
-		movw r20,r2 	;ROM title table address +row offset	
-   
-   
-	    ld r16,Z+
-	    add r0,r20    ;add title table address +row offset
-		out _SFR_IO_ADDR(DATA_PORT),r16       ;pixel 5
-	    adc r1,r21
-		rjmp .
-    
-		ld r16,Z+		
-		out _SFR_IO_ADDR(DATA_PORT),r16       ;pixel 6
-		ld r7,Z+
-	    ld r16,Z+	
-	
-		movw ZL,r0
-		out _SFR_IO_ADDR(DATA_PORT),r7      ;pixel 7   
-		nop
-		cpi r18,RAM_TILES_COUNT	
-	    dec r17
-	    breq end
-	
-		nop
-		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 8   
-	
-	    brcc romloop
-		rjmp ramloop
-	
-	end:
-		out _SFR_IO_ADDR(DATA_PORT),r16  	;pixel 8
-		brid end_fine_scroll				;hack: interrupt flag=0 => no fine offset pixel to draw
-		brcc end_rom_fine_scroll_loop
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 5
+	brcc  ramloop_tr       ; ROM tiles: transfer to ROM loop
+	nop
+	add   r0,      r4      ; Add tile table address + row offset lsb
 
-	/***END RAM LOOP***/
-		movw ZL,r0
-	end_ram_fine_scroll_loop:
-		ld r16,Z+
-		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 
-		dec r14
-		brne end_ram_fine_scroll_loop
-		rjmp end_fine_scroll_ram
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 6
+	adc   r1,      r5      ; Add tile table address + row offset msb
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
 
-	/***END ROM LOOP***/
-	end_rom_fine_scroll_loop:
-		movw ZL,r12
-		nop
-		out _SFR_IO_ADDR(DATA_PORT),r9        ;output saved 1st pixel
-		dec r14
-		breq end_fine_scroll_rom
-	
-	.rept 6
-		lpm r16,Z+		
-		out _SFR_IO_ADDR(DATA_PORT),r16        ;pixel 
-		dec r14
-		breq end_fine_scroll_rom
-	.endr
+	ld    r16,     Z+
+	movw  ZL,      r0      ; Next tile (RAM)
+	out   PIXOUT,  r16     ; Pixel 7, Timer1 OVF IT hits after this when no scrolling
+	rjmp  ramloop_px0
 
-	end_fine_scroll:	
-		nop
-	end_fine_scroll_rom:
-		nop
-	end_fine_scroll_ram:
-		clr r16	
-		out _SFR_IO_ADDR(DATA_PORT),r16   
+ramloop_tr:
+	add   r0,      r2      ; Add tile table address + row offset lsb
 
-		pop r6
-		pop r7
-		pop r9
-		pop r12
-		pop r13
-		pop r19
-		pop r22
-		pop r23
-		pop YH
-		pop YL
+	ld    r16,     Z+
+	out   PIXOUT,  r16     ; Pixel 6
+	adc   r1,      r3      ; Add tile table address + row offset msb
+#if (RESOLUTION_EXT == 0)
+	nop
+#endif
 
-		ret
+	ld    r16,     Z+
+	movw  ZL,      r0      ; Next tile (ROM)
+	out   PIXOUT,  r16     ; Pixel 7, Timer1 OVF IT hits after this when no scrolling
+	rjmp  romloop_px0
+
+
+
+
+
 
 #else
 

@@ -41,7 +41,7 @@
 	#define TILE_HEIGHT 8
 #endif
 
-#ifndef	TILE_WIDTH
+#ifndef TILE_WIDTH
 	#define TILE_WIDTH 8
 #endif
 
@@ -55,11 +55,13 @@
 	#ifndef VRAM_TILES_H
 		#define VRAM_TILES_H 30
 	#endif
-	#define SCREEN_TILES_H VRAM_TILES_H 
+	#define SCREEN_TILES_H VRAM_TILES_H
 	#define FILL_DELAY ((CYCLES_PER_PIXELS*TILE_WIDTH)*(30-VRAM_TILES_H))/2
 #else
 	#define VRAM_TILES_H 32
-	#define SCREEN_TILES_H 28
+	#ifndef SCREEN_TILES_H
+		#define SCREEN_TILES_H 28
+	#endif
 #endif
 
 #ifndef SCREEN_TILES_V
@@ -68,11 +70,11 @@
 
 #if SCROLLING == 0
 	#ifndef VRAM_TILES_V
-		#define VRAM_TILES_V SCREEN_TILES_V		
+		#define VRAM_TILES_V SCREEN_TILES_V
 	#endif
 #else
 	#ifndef VRAM_TILES_V
-		#define VRAM_TILES_V 32	
+		#define VRAM_TILES_V 32
 	#endif
 
 	#if SCROLLING == 1 && (VRAM_TILES_V!=32 && VRAM_TILES_V!=24 && VRAM_TILES_V!=16)
@@ -163,6 +165,31 @@
 #if (RT_ALIGNED != 0)
 	#if ((TILE_HEIGHT != 8) || (TILE_WIDTH != 8))
 		#error Aligned RAM tiles (RT_ALIGNED) can only be used with 8x8 tiles!
+	#endif
+#endif
+
+
+/*
+** If set, the mode's resolution is changed from 6 cycles / pixel to 5.5
+** cycles per pixel, which allows for up to 32 tiles (256 pixels) displayed
+** (31 when scrolling due to the VRAM layout).
+*/
+#ifndef RESOLUTION_EXT
+	#define RESOLUTION_EXT 0
+#endif
+#if (RESOLUTION_EXT == 0)
+	#if (SCREEN_TILES_H > 30)
+		#error SCREEN_TILES_H is too large for the current settings!
+	#endif
+#else
+	#if (SCROLLING != 0)
+		#if (SCREEN_TILES_H > 31)
+			#error SCREEN_TILES_H is too large for the current settings!
+		#endif
+	#else
+		#if (SCREEN_TILES_H > 32)
+			#error SCREEN_TILES_H is too large for the current settings!
+		#endif
 	#endif
 #endif
 
