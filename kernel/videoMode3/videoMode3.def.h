@@ -175,21 +175,15 @@
 ** (31 when scrolling due to the VRAM layout).
 */
 #ifndef RESOLUTION_EXT
-	#define RESOLUTION_EXT 0
+	#define RESOLUTION_EXT 1
 #endif
 #if (RESOLUTION_EXT == 0)
 	#if (SCREEN_TILES_H > 30)
 		#error SCREEN_TILES_H is too large for the current settings!
 	#endif
 #else
-	#if (SCROLLING != 0)
-		#if (SCREEN_TILES_H > 31)
-			#error SCREEN_TILES_H is too large for the current settings!
-		#endif
-	#else
-		#if (SCREEN_TILES_H > 32)
-			#error SCREEN_TILES_H is too large for the current settings!
-		#endif
+	#if (SCREEN_TILES_H > 32)
+		#error SCREEN_TILES_H is too large for the current settings!
 	#endif
 #endif
 

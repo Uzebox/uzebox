@@ -356,40 +356,42 @@ void ProcessSprites(){
 
 
 
-	//Callback invoked by UzeboxCore.Initialize()
-	void DisplayLogo(){
-	
-		#if INTRO_LOGO !=0
-			#define LOGO_X_POS 12
-			
-			InitMusicPlayer(logoInitPatches);
-			SetTileTable(logo_tileset);
-			
-			//draw logo
-			ClearVram();
-			WaitVsync(15);		
+/*
+** Callback invoked by UzeboxCore.Initialize()
+*/
+void DisplayLogo(){
 
+#if (INTRO_LOGO != 0)
+#define LOGO_X_POS ((SCREEN_TILES_H / 2U) - 2U)
 
-			#if INTRO_LOGO == 1 
-				TriggerFx(0,0xff,true);
-			#endif
+	InitMusicPlayer(logoInitPatches);
+	SetTileTable(logo_tileset);
 
-			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo);
-			WaitVsync(3);
-			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo2);
-			WaitVsync(2);
-			DrawMap2(LOGO_X_POS,12,map_uzeboxlogo);
+	/* Draw logo */
+	ClearVram();
+	WaitVsync(15U);
 
-			#if INTRO_LOGO == 2
-				SetMasterVolume(0xc0);
-				TriggerNote(3,0,16,0xff);
-			#endif 
-		
-			WaitVsync(65);
-			ClearVram();
-			WaitVsync(20);
-		#endif	
-	}
+#if (INTRO_LOGO == 1)
+	TriggerFx(0U, 0xFFU, true);
+#endif
+
+	DrawMap2(LOGO_X_POS, 12U, map_uzeboxlogo);
+	WaitVsync(3);
+	DrawMap2(LOGO_X_POS, 12U, map_uzeboxlogo2);
+	WaitVsync(2);
+	DrawMap2(LOGO_X_POS, 12U, map_uzeboxlogo);
+
+#if (INTRO_LOGO == 2)
+	SetMasterVolume(0xC0U);
+	TriggerNote(3U, 0U, 16U, 0xFFU);
+#endif
+
+	WaitVsync(65U);
+	ClearVram();
+	WaitVsync(20U);
+#endif
+
+}
 
 
 	//Callback invoked by UzeboxCore.Initialize()
