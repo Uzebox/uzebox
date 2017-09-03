@@ -175,7 +175,7 @@
 ** (31 when scrolling due to the VRAM layout).
 */
 #ifndef RESOLUTION_EXT
-	#define RESOLUTION_EXT 1
+	#define RESOLUTION_EXT 0
 #endif
 #if (RESOLUTION_EXT == 0)
 	#if (SCREEN_TILES_H > 30)
