@@ -189,7 +189,7 @@ font_tile_index:
 		;wait cycles to align with next hsync
 		WAIT r26,183+241
 
-#if (RTLIST_ENABLE != 0)
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
@@ -220,11 +220,7 @@ upd_loop:
 		ld XL,Z+	;load vram offset of ramtile
 		ld XH,Z+
 
-#if (SPRITES_VSYNC_PROCESS == 0)
-		ld    r17,     Z       ; When user processing is done, this needs to be dummy (VRAM has sprite RAM tiles)
-#else
 		ld r17,X	;get latest VRAM tile that may have been modified my
-#endif
 		st Z+,r17	;the main program and store it in the restore buffer
 		st X,r16	;write the ramtile index back to vram
 
@@ -421,7 +417,7 @@ no_ramtiles:
 
 		rcall hsync_pulse ;145
 	
-#if (SPRITES_VSYNC_PROCESS != 0)
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 		clr r1
 		call RestoreBackground
 #endif
@@ -755,7 +751,7 @@ no_ramtiles:
 		;wait cycles to align with next hsync
 		WAIT r16,465 //30-3+340+98
 
-#if (RTLIST_ENABLE != 0)
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
@@ -786,11 +782,7 @@ upd_loop:
 		ld XL,Z+	;load vram offset of ramtile
 		ld XH,Z+
 
-#if (SPRITES_VSYNC_PROCESS == 0)
-		ld    r17,     Z       ; When user processing is done, this needs to be dummy (VRAM has sprite RAM tiles)
-#else
 		ld r17,X	;get latest VRAM tile that may have been modified my
-#endif
 		st Z+,r17	;the main program and store it in the restore buffer
 		st X,r16	;write the ramtile index back to vram
 
@@ -910,7 +902,7 @@ no_ramtiles:
 
 		rcall hsync_pulse ;145
 	
-#if (SPRITES_VSYNC_PROCESS != 0)
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 		clr r1
 		call RestoreBackground
 #endif
