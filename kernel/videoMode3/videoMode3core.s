@@ -239,7 +239,7 @@ no_ramtiles:
 
 #else
 
-	WAIT  r17,     19 + (MAX_RAMTILES * 14) - 1
+	WAIT  r17,     18 + (MAX_RAMTILES * 14) - 2
 
 #endif
 
