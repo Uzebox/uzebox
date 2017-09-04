@@ -191,7 +191,7 @@ sub_video_mode3:
 	WAIT  r16,     395
 
 
-#if (RTLIST_ENABLE != 0)
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 
 	; Refresh ramtiles indexes in VRAM. This has to be done because the
 	; main program may have altered the VRAM after vsync and the rendering
@@ -219,11 +219,7 @@ upd_loop:
 	ld    XL,      Z+      ; Load vram offset of ramtile
 	ld    XH,      Z+
 
-#if (SPRITES_VSYNC_PROCESS == 0)
-	ld    r17,     Z       ; When user processing is done, this needs to be dummy (VRAM has sprite RAM tiles)
-#else
 	ld    r17,     X       ; Get latest VRAM tile that may have been modified my
-#endif
 	st    Z+,      r17     ; The main program and store it in the restore buffer
 	st    X,       r16     ; Write the ramtile index back to vram
 
@@ -651,7 +647,7 @@ text_frame_end:
 
 	rcall hsync_pulse      ; 145
 
-#if (SPRITES_VSYNC_PROCESS != 0)
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 	clr   r1
 	call  RestoreBackground
 #endif
