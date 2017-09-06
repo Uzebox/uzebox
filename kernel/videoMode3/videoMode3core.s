@@ -640,9 +640,9 @@ text_frame_end:
 
 	; Restore Timer1 to the value it should normally have at this point
 
-	ldi   r16,     hi8(101)
+	ldi   r16,     hi8(101 - TIMER1_DISPLACE)
 	sts   _SFR_MEM_ADDR(TCNT1H), r16
-	ldi   r16,     lo8(101)
+	ldi   r16,     lo8(101 - TIMER1_DISPLACE)
 	sts   _SFR_MEM_ADDR(TCNT1L), r16
 
 	rcall hsync_pulse      ; 145
