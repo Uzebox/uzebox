@@ -134,30 +134,29 @@
 ; Main Video sync interrupt
 ;***************************************************************************
 TIMER1_COMPA_vect:
-	push r0
-	push r1
-	push ZL;2
-	push ZH;2
-	
-	;save flags & status register
-	in ZL,_SFR_IO_ADDR(SREG);1
-	push ZL ;2		
 
-	;Read timer offset since rollover to remove cycles 
-	;and conpensate for interrupt latency.
-	;This is nessesary to eliminate frame jitter.
-	lds ZL,_SFR_MEM_ADDR(TCNT1L)
-	subi ZL,0x12 ;MIN_INT_LATENCY
+	; (3 cy IT entry latency)
+	; (3 cy JMP)
 
-	ldi ZH,1
-latency_loop:
-	cp ZL,ZH
-	brlo .		;advance PC to next instruction	
-	inc ZH
-	cpi ZH,10
-	brlo latency_loop
-	jmp .
-	
+	push  r0
+	push  r1
+	push  ZL
+	push  ZH
+	in    ZH,      _SFR_IO_ADDR(SREG)
+	lds   ZL,      _SFR_MEM_ADDR(TCNT1L) ; 0x10 - 0x15 (5 cy jitter)
+	push  ZH
+
+	sbrc  ZL,      2
+	rjmp  .+8              ; 0x15 ( 5) or 0x14 ( 6)
+	sbrc  ZL,      1
+	rjmp  .+4              ; 0x13 ( 7) or 0x12 ( 8)
+	nop
+	rjmp  .                ; 0x11 ( 9) or 0x10 (10)
+	sbrs  ZL,      0
+	rjmp  .
+
+	; An lds of TCNT1L here would result 0x1E
+
 	;decrement sync pulse counter
 	lds ZL,sync_pulse
 	dec ZL
@@ -241,43 +240,30 @@ sync_eq_skip:
 ; Interrupt that set the sync signal back to .3v
 ; during VSYNC EQ pulses to recover ~5000 cycles per field
 ; with interrupt latency conpensation
-; 37 cycles
-;**********************************************************	
+;**********************************************************
 TIMER1_COMPB_vect:
-	push ZL
-	;save flags & status register
-	in ZL,_SFR_IO_ADDR(SREG);1
-	push ZL ;2		
+	push  ZL
 
-	lds ZL,_SFR_MEM_ADDR(TCNT1L)
-	subi ZL,62+31 ;0x5D ;MIN_INT_LATENCY
+	lds   ZL,      _SFR_MEM_ADDR(TCNT1L) ; 0x28 - 0x2D (5 cy jitter)
 
-	cpi ZL,1
-	brlo .		;advance PC to next instruction
+	sbrc  ZL,      2
+	rjmp  .+8              ; 0x2D ( 5) or 0x2C ( 6)
+	sbrc  ZL,      1
+	rjmp  .+4              ; 0x2B ( 7) or 0x2A ( 8)
+	nop
+	rjmp  .                ; 0x29 ( 9) or 0x28 (10)
+	sbrs  ZL,      0
+	rjmp  .
 
-	cpi ZL,2
-	brlo .		;advance PC to next instruction
+	ldi   ZL,      (1 << OCIE1A) ; Disable OCIE1B
+	nop
+	sbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; 68
+	sts   _SFR_MEM_ADDR(TIMSK1), ZL ; Stop generate interrupt on match
 
-	cpi ZL,3
-	brlo .		;advance PC to next instruction
-
-	cpi ZL,4
-	brlo .		;advance PC to next instruction
-
-	cpi ZL,5
-	brlo .		;advance PC to next instruction
-
- 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
-	ldi ZL,(1<<OCIE1A) ; disable OCIE1B 
-	sts _SFR_MEM_ADDR(TIMSK1),ZL ;stop generate interrupt on match
-	
-	;restore flags
-	pop ZL
-	out _SFR_IO_ADDR(SREG),ZL	
-	pop ZL
+	pop   ZL
 	reti
-	
-	
+
+
 ;***************************************************
 ; SYNC POST EQ pulse generation
 ; Note: TCNT1 should be equal to 
