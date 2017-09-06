@@ -27,39 +27,51 @@
 #include <avr/io.h>
 #include "defines.h"
 
-;Global assembly delay macro for 0 to 1275 (old:767) cycles
-;Parameters: reg=Registerto use in inner loop (will be destroyed)
-;            clocks=CPU clocks to wait
-.macro WAIT reg,clocks	
-	.if (\clocks) > 767
-	 	ldi	\reg, (\clocks)/6    
-	 	dec	\reg
-		jmp . 
-	 	brne .-8
-		.if ((\clocks) % 6) == 1
-			nop
-		.elseif ((\clocks) % 6) == 2
-			rjmp .
-		.elseif ((\clocks) % 6) == 3
-			jmp .
-		.elseif ((\clocks) % 6) == 4
-			rjmp .
-			rjmp .
-		.elseif ((\clocks) % 6) == 5
-			rjmp .
-			jmp .
-		.endif
-	.else
-		.if (\clocks) > 2
-		 	ldi	\reg, (\clocks)/3    
-		 	dec	\reg                    
-		 	brne   .-4
-		.endif
-		.rept (\clocks) % 3
-		 	nop
-		.endr
-	.endif
-.endm 
+;
+; Global assembly delay macro for 0 to 1535 cycles
+; Parameters: reg = Registerto use in inner loop (will be destroyed)
+;             clocks = CPU clocks to wait
+;
+.macro WAIT reg, clocks
+.if     (\clocks) >= 768
+	ldi   \reg,    0
+	dec   \reg
+	brne  .-4
+.endif
+.if     ((\clocks) % 768) >= 9
+	ldi   \reg,    ((\clocks) % 768) / 3
+	dec   \reg
+	brne  .-4
+.if     ((\clocks) % 3) == 2
+	rjmp  .
+.elseif ((\clocks) % 3) == 1
+	nop
+.endif
+.elseif ((\clocks) % 768) == 8
+	lpm   \reg,    Z
+	lpm   \reg,    Z
+	rjmp  .
+.elseif ((\clocks) % 768) == 7
+	lpm   \reg,    Z
+	rjmp  .
+	rjmp  .
+.elseif ((\clocks) % 768) == 6
+	lpm   \reg,    Z
+	lpm   \reg,    Z
+.elseif ((\clocks) % 768) == 5
+	lpm   \reg,    Z
+	rjmp  .
+.elseif ((\clocks) % 768) == 4
+	rjmp  .
+	rjmp  .
+.elseif ((\clocks) % 768) == 3
+	lpm   \reg,    Z
+.elseif ((\clocks) % 768) == 2
+	rjmp  .
+.elseif ((\clocks) % 768) == 1
+	nop
+.endif
+.endm
 
 ;Public methods
 .global TIMER1_COMPA_vect
