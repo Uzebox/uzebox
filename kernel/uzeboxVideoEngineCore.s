@@ -27,39 +27,51 @@
 #include <avr/io.h>
 #include "defines.h"
 
-;Global assembly delay macro for 0 to 1275 (old:767) cycles
-;Parameters: reg=Registerto use in inner loop (will be destroyed)
-;            clocks=CPU clocks to wait
-.macro WAIT reg,clocks	
-	.if (\clocks) > 767
-	 	ldi	\reg, (\clocks)/6    
-	 	dec	\reg
-		jmp . 
-	 	brne .-8
-		.if ((\clocks) % 6) == 1
-			nop
-		.elseif ((\clocks) % 6) == 2
-			rjmp .
-		.elseif ((\clocks) % 6) == 3
-			jmp .
-		.elseif ((\clocks) % 6) == 4
-			rjmp .
-			rjmp .
-		.elseif ((\clocks) % 6) == 5
-			rjmp .
-			jmp .
-		.endif
-	.else
-		.if (\clocks) > 2
-		 	ldi	\reg, (\clocks)/3    
-		 	dec	\reg                    
-		 	brne   .-4
-		.endif
-		.rept (\clocks) % 3
-		 	nop
-		.endr
-	.endif
-.endm 
+;
+; Global assembly delay macro for 0 to 1535 cycles
+; Parameters: reg = Registerto use in inner loop (will be destroyed)
+;             clocks = CPU clocks to wait
+;
+.macro WAIT reg, clocks
+.if     (\clocks) >= 768
+	ldi   \reg,    0
+	dec   \reg
+	brne  .-4
+.endif
+.if     ((\clocks) % 768) >= 9
+	ldi   \reg,    ((\clocks) % 768) / 3
+	dec   \reg
+	brne  .-4
+.if     ((\clocks) % 3) == 2
+	rjmp  .
+.elseif ((\clocks) % 3) == 1
+	nop
+.endif
+.elseif ((\clocks) % 768) == 8
+	lpm   \reg,    Z
+	lpm   \reg,    Z
+	rjmp  .
+.elseif ((\clocks) % 768) == 7
+	lpm   \reg,    Z
+	rjmp  .
+	rjmp  .
+.elseif ((\clocks) % 768) == 6
+	lpm   \reg,    Z
+	lpm   \reg,    Z
+.elseif ((\clocks) % 768) == 5
+	lpm   \reg,    Z
+	rjmp  .
+.elseif ((\clocks) % 768) == 4
+	rjmp  .
+	rjmp  .
+.elseif ((\clocks) % 768) == 3
+	lpm   \reg,    Z
+.elseif ((\clocks) % 768) == 2
+	rjmp  .
+.elseif ((\clocks) % 768) == 1
+	nop
+.endif
+.endm
 
 ;Public methods
 .global TIMER1_COMPA_vect
@@ -134,52 +146,28 @@
 ; Main Video sync interrupt
 ;***************************************************************************
 TIMER1_COMPA_vect:
-	push r0
-	push r1
-	push ZL;2
-	push ZH;2
-	
-	;save flags & status register
-	in ZL,_SFR_IO_ADDR(SREG);1
-	push ZL ;2		
 
-	;Read timer offset since rollover to remove cycles 
-	;and conpensate for interrupt latency.
-	;This is nessesary to eliminate frame jitter.
-;	lds ZL,_SFR_MEM_ADDR(TCNT1L)
-;	subi ZL,0x12 ;MIN_INT_LATENCY
-;
-;	ldi ZH,1
-;latency_loop:
-;	cp ZL,ZH
-;	brlo .		;advance PC to next instruction	
-;	inc ZH
-;	cpi ZH,10
-;	brlo latency_loop
-;	jmp .
+	; (3 cy IT entry latency)
+	; (3 cy JMP)
 
+	push  r0
+	push  r1
+	push  ZL
+	push  ZH
+	in    ZH,      _SFR_IO_ADDR(SREG)
+	lds   ZL,      _SFR_MEM_ADDR(TCNT1L) ; 0x10 - 0x15 (5 cy jitter)
+	push  ZH
 
-	; *** Kernel boost hack ***
-	;
-	; Use an alternate way to shave off 5 cycles jitter faster. It shifts
-	; all timing 57 cycles "down", so every Timer related comment and code
-	; should subtract 57 to align with this (Notes: Everything works as
-	; normal except video modes using the Timer to terminate the line).
+	sbrc  ZL,      2
+	rjmp  .+8              ; 0x15 ( 5) or 0x14 ( 6)
+	sbrc  ZL,      1
+	rjmp  .+4              ; 0x13 ( 7) or 0x12 ( 8)
+	nop
+	rjmp  .                ; 0x11 ( 9) or 0x10 (10)
+	sbrs  ZL,      0
+	rjmp  .
 
-	lds   ZL,      _SFR_MEM_ADDR(TCNT1L) ; 0x12 - 0x17 (5 cy jitter)
-
-	cpi   ZL,      0x16    ; ( 1)
-	breq  .                ; ( 2) +1 (6: cpi - rjmp - rjmp - nop)
-	brcc  .+10             ; ( 4) +0 (5: cpi - nop - rjmp - nop)
-	cpi   ZL,      0x14    ; ()
-	breq  .                ; ()   +3 (8: cpi - 2x nop - cpi - rjmp - rjmp)
-	brcc  .+6              ; ()   +2 (7: cpi - 2x nop - cpi - nop - rjmp)
-	cpi   ZL,      0x12    ; ()
-	breq  .                ; ()   +5 / +4 (10 / 9)
-	nop                    ; ( 5) Timer at 0x1C
-
-;	WAIT  ZL,      57      ; Realigns with original kernel
-
+	; An lds of TCNT1L here would result 0x1E
 
 	;decrement sync pulse counter
 	lds ZL,sync_pulse
@@ -264,79 +252,30 @@ sync_eq_skip:
 ; Interrupt that set the sync signal back to .3v
 ; during VSYNC EQ pulses to recover ~5000 cycles per field
 ; with interrupt latency conpensation
-; 37 cycles
-;**********************************************************	
+;**********************************************************
 TIMER1_COMPB_vect:
-	push ZL
-	;save flags & status register
-	in ZL,_SFR_IO_ADDR(SREG);1
-	push ZL ;2		
+	push  ZL
 
-;	lds ZL,_SFR_MEM_ADDR(TCNT1L)
-;	subi ZL,62+31 ;0x5D ;MIN_INT_LATENCY
-;
-;	cpi ZL,1
-;	brlo .		;advance PC to next instruction
-;
-;	cpi ZL,2
-;	brlo .		;advance PC to next instruction
-;
-;	cpi ZL,3
-;	brlo .		;advance PC to next instruction
-;
-;	cpi ZL,4
-;	brlo .		;advance PC to next instruction
-;
-;	cpi ZL,5
-;	brlo .		;advance PC to next instruction
+	lds   ZL,      _SFR_MEM_ADDR(TCNT1L) ; 0x28 - 0x2D (5 cy jitter)
 
+	sbrc  ZL,      2
+	rjmp  .+8              ; 0x2D ( 5) or 0x2C ( 6)
+	sbrc  ZL,      1
+	rjmp  .+4              ; 0x2B ( 7) or 0x2A ( 8)
+	nop
+	rjmp  .                ; 0x29 ( 9) or 0x28 (10)
+	sbrs  ZL,      0
+	rjmp  .
 
-	; *** Kernel boost hack ***
-	;
-	; Use an alternate way to shave off 5 cycles jitter faster. The
-	; commented block works with the original COMPB value, the enabled
-	; code with the value aligned with the HSync code.
+	ldi   ZL,      (1 << OCIE1A) ; Disable OCIE1B
+	nop
+	sbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; 68
+	sts   _SFR_MEM_ADDR(TIMSK1), ZL ; Stop generate interrupt on match
 
-;	lds   ZL,      _SFR_MEM_ADDR(TCNT1L) ; 0x5D - 0x62 (5 cy jitter)
-
-;	cpi   ZL,      0x61    ; ( 1)
-;	breq  .                ; ( 2) +1 (6: cpi - rjmp - rjmp - nop)
-;	brcc  .+10             ; ( 4) +0 (5: cpi - nop - rjmp - nop)
-;	cpi   ZL,      0x5F    ; ()
-;	breq  .                ; ()   +3 (8: cpi - 2x nop - cpi - rjmp - rjmp)
-;	brcc  .+6              ; ()   +2 (7: cpi - 2x nop - cpi - nop - rjmp)
-;	cpi   ZL,      0x5D    ; ()
-;	breq  .                ; ()   +5 / +4 (10 / 9)
-;	nop                    ; ( 5) Timer at 0x67
-
-;	WAIT  ZL,      6       ; Realigns with original kernel
-
-	lds   ZL,      _SFR_MEM_ADDR(TCNT1L) ; 0x2A - 0x2F (5 cy jitter)
-
-	cpi   ZL,      0x2E    ; ( 1)
-	breq  .                ; ( 2) +1 (6: cpi - rjmp - rjmp - nop)
-	brcc  .+10             ; ( 4) +0 (5: cpi - nop - rjmp - nop)
-	cpi   ZL,      0x2C    ; ()
-	breq  .                ; ()   +3 (8: cpi - 2x nop - cpi - rjmp - rjmp)
-	brcc  .+6              ; ()   +2 (7: cpi - 2x nop - cpi - nop - rjmp)
-	cpi   ZL,      0x2A    ; ()
-	breq  .                ; ()   +5 / +4 (10 / 9)
-	nop                    ; ( 5) Timer at 0x34
-
-;	WAIT  ZL,      57      ; Realigns with original kernel
-
-
- 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN ;68
-	ldi ZL,(1<<OCIE1A) ; disable OCIE1B 
-	sts _SFR_MEM_ADDR(TIMSK1),ZL ;stop generate interrupt on match
-	
-	;restore flags
-	pop ZL
-	out _SFR_IO_ADDR(SREG),ZL	
-	pop ZL
+	pop   ZL
 	reti
-	
-	
+
+
 ;***************************************************
 ; SYNC POST EQ pulse generation
 ; Note: TCNT1 should be equal to 

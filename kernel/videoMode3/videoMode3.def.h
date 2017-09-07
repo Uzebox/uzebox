@@ -1,7 +1,8 @@
 /*
  *  Uzebox(tm) Video Mode 3
- *  Copyright (C) 2008  Alec Bourque
- *  
+ *  Copyright (C) 2008 Alec Bourque
+ *                2017 Sandor Zsuga (Jubatian)
+ *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
@@ -102,6 +103,67 @@
 
 #if RAM_TILES_COUNT==0 && MAX_SPRITES>0
 	#error Sprites are used (MAX_SPRITES>0) but RAM_TILES_COUNT==0 or is undefined.
+#endif
+
+
+/*
+** If clear, the ProcessSprites() function and the associated sprite structure
+** array is removed, instead you can directly blit sprite tiles using
+** BlitSprite. This is useful for writing own sprite managers. Automatic VSync
+** sprite processing is not available when this is clear.
+*/
+#ifndef SPRITES_AUTO_PROCESS
+	#define SPRITES_AUTO_PROCESS 1
+#endif
+#if (SPRITES_AUTO_PROCESS == 0)
+	#define SPRITES_VSYNC_PROCESS 0
+#endif
+
+
+/*
+** If clear, the ProcessSprites() function will no longer be called from
+** VSync, and RestoreBackground() has to be called manually before working
+** with the background or calling ProcessSprites() again. Use WaitVsync(1) to
+** synchronize to the end of the video frame, then if you want to alter video
+** contents for the next frame, call RestoreBackground(), do your work with
+** the VRAM (Scrolling and tile updates), finally call ProcessSprites() to
+** render the sprites.
+*/
+#ifndef SPRITES_VSYNC_PROCESS
+	#define SPRITES_VSYNC_PROCESS 1
+#endif
+
+
+/*
+** If clear, removes the RAM tile restore list. This case the VRAM has to be
+** completely rebuilt for rendering a new video frame as there is no
+** information to restore it after blitting sprites. This may be useful for
+** games rebuilding the VRAM anyway or not using sprites at all (only user RAM
+** tiles).
+*/
+#ifndef RTLIST_ENABLE
+	#define RTLIST_ENABLE 1
+#endif
+
+
+/*
+** If set, aligns RAM tiles to 64 byte boundary (can only be enabled for 8 x 8
+** pixel tiles). This will allocate VRAM and RAM tiles in the .noinit section,
+** you should pass linker options to locate these at the beginning og the RAM
+** (so you wouldn't waste memory by padding). When the RAM tiles are aligned,
+** sprite blitting is faster.
+**
+** Example: If you have 32 aligned RAM tiles with scrolling (1K VRAM) Mode 3:
+**
+** LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800D00
+*/
+#ifndef RT_ALIGNED
+	#define RT_ALIGNED 0
+#endif
+#if (RT_ALIGNED != 0)
+	#if ((TILE_HEIGHT != 8) || (TILE_WIDTH != 8))
+		#error Aligned RAM tiles (RT_ALIGNED) can only be used with 8x8 tiles!
+	#endif
 #endif
 
 

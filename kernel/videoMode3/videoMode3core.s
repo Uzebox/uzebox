@@ -35,11 +35,15 @@
 
 .global vram
 .global ram_tiles
+#if (RTLIST_ENABLE != 0)
 .global ram_tiles_restore
+#endif
 .global free_tile_index
 .global user_ram_tiles_c
 .global user_ram_tiles_c_tmp
+#if (SPRITES_AUTO_PROCESS != 0)
 .global sprites
+#endif
 .global overlay_vram
 .global sprites_tile_banks
 .global Screen
@@ -53,7 +57,7 @@
 .global SetTileTable
 .global SetTile
 .global RestoreBackground
-.global BlitSprite
+.global BlitSpritePart
 .global SetFont
 .global GetTile
 
@@ -74,46 +78,73 @@
 #define vramWrapAdressLo	13
 #define vramWrapAdressHi	14
 
-;Sprites Struct offsets
-#define sprPosX  0
-#define sprPosY  1
-#define sprTileIndex 2
-#define sprFlags 3
 
 
-
-#if SCROLLING == 1
-	.section .noinit
+#if ((SCROLLING != 0) || (RT_ALIGNED != 0))
+.section .noinit
 #else
-	.section .bss
-#endif 
-
-	.align 5
-	;VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
-	;To align vram to a 32/256 byte boundary without wasting ram, 
-	;add the following to your makefile's linker section and adjust 
-	;the .data section start to make room for the vram size (including the overlay ram).
-	;By default the vram is 32x32 so 1k is required.
-	;
-	;LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
-	;
-	vram: 	  				.space VRAM_SIZE 
-	
-	overlay_vram:
-	#if SCROLLING == 0 && OVERLAY_LINES >0
-							.space VRAM_TILES_H*OVERLAY_LINES
-	#endif
-
 .section .bss
+#endif
+#if (SCROLLING != 0)
+.balign 256
+#else
+.balign 32
+#endif
 
-.align 1
+;
+; VRAM MUST be aligned to 32 bytes for no scrolling and 256 with scrolling.
+; To align vram to a 32 / 256 byte boundary without wasting ram, add the
+; following to your makefile's linker section and adjust the .data section
+; start to make room for the vram size (including the overlay ram). By
+; default the vram is 32x32 so 1k is required.
+;
+; LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
+;
+; If you are using aligned ramtiles (RT_ALIGNED is set nonzero), you also need
+; to calculate the data start including their size aligned at the nearest 64
+; byte boundary after the top of the VRAM + OverlayVRAM (this only matters for
+; the non-scrolling Mode 3 at odd heights).
+;
+; Example: If you have 32 aligned RAM tiles with scrolling (1K VRAM) Mode 3:
+;
+; LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800D00
+;
+; Note: A possible linker bug or misunderstood feature exists: the linker for
+; some reason reports the size of the section padded to the largest alignment
+; used in it. So in the case of the scrolling Mode 3, you will get the .noinit
+; section's size padded to the next 256 byte boundary. Keep this in mind when
+; using a RAM tile count not being a multiple of 4.
+;
 
-sprites:
-	.space SPRITE_STRUCT_SIZE * MAX_SPRITES
+vram:
+	.space VRAM_SIZE
+
+overlay_vram:
+#if ((SCROLLING == 0) && (OVERLAY_LINES != 0))
+	.space VRAM_TILES_H * OVERLAY_LINES
+#endif
+
+#if (RT_ALIGNED != 0)
+.balign 64
 ram_tiles:
 	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
+#endif
+
+.section .bss
+.balign 1
+
+#if (SPRITES_AUTO_PROCESS != 0)
+sprites:
+	.space SPRITE_STRUCT_SIZE * MAX_SPRITES
+#endif
+#if (RT_ALIGNED == 0)
+ram_tiles:
+	.space RAM_TILES_COUNT * TILE_HEIGHT * TILE_WIDTH
+#endif
+#if (RTLIST_ENABLE != 0)
 ram_tiles_restore:
 	.space RAM_TILES_COUNT * 3 ; 2 bytes VRAM addr; 1 byte Tile
+#endif
 free_tile_index:
 	.space 1               ; Next free tile index
 user_ram_tiles_c:
@@ -157,6 +188,8 @@ font_tile_index:
 
 		;wait cycles to align with next hsync
 		WAIT r26,183+241
+
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
@@ -205,6 +238,11 @@ no_ramtiles:
 		dec r19
 		brne 1b
 
+#else
+
+		WAIT  r17,     19 + MAX_RAMTILES * 14 - 1
+
+#endif
 
 
 		;**********************
@@ -379,8 +417,10 @@ no_ramtiles:
 
 		rcall hsync_pulse ;145
 	
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 		clr r1
 		call RestoreBackground
+#endif
 
 		;set vsync flag & flip field
 		lds ZL,sync_flags
@@ -711,6 +751,8 @@ no_ramtiles:
 		;wait cycles to align with next hsync
 		WAIT r16,465 //30-3+340+98
 
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
+
 		;Refresh ramtiles indexes in VRAM
 		;This has to be done because the main
 		;program may have altered the VRAM
@@ -757,6 +799,12 @@ no_ramtiles:
 		rjmp .
 		dec r19
 		brne 1b
+
+#else
+
+		WAIT  r17,     19 + MAX_RAMTILES * 14 - 1
+
+#endif
 
 
 		lds r2,overlay_tile_table
@@ -854,8 +902,10 @@ no_ramtiles:
 
 		rcall hsync_pulse ;145
 	
+#if ((RTLIST_ENABLE != 0) && (SPRITES_VSYNC_PROCESS != 0))
 		clr r1
 		call RestoreBackground
+#endif
 
 		;set vsync flag & flip field
 		lds ZL,sync_flags
@@ -1101,6 +1151,8 @@ CopyRamTile:
 ;************************************
 RestoreBackground:
 
+#if (RTLIST_ENABLE != 0)
+
 	; Restore list: Begin at user_ram_tiles_c (above the user RAM tiles),
 	; end before free_tile_index (the first unused RAM tile).
 
@@ -1128,6 +1180,14 @@ rbg_loop:
 
 rbg_exit:
 
+#endif
+
+#if (SPRITES_AUTO_PROCESS == 0)
+	lds   r0,      user_ram_tiles_c_tmp
+	sts   user_ram_tiles_c, r0
+	sts   free_tile_index, r0
+#endif
+
 	ret
 
 
@@ -1135,24 +1195,12 @@ rbg_exit:
 ;***********************************
 ; SET TILE 8bit mode
 ; C-callable
-;     r24: SpriteNo
-;     r22: RAM tile index (bt)
+;     r24: RAM tile index (bt)
+; r23:r22: Sprite flags : Sprite tile index
 ; r21:r20: Y:X (0 or 1, location of 8x8 sprite fragment on 2x2 tile container)
 ; r19:r18: DY:DX (0 to 7, offset of sprite relative to 0:0 of container)
 ;************************************
-BlitSprite:
-
-	; src = sprites_tiletable_lo + (sprites[i].tileIndex * TILE_HEIGHT * TILE_WIDTH)
-
-	ldi   r25,     SPRITE_STRUCT_SIZE
-	mul   r24,     r25
-
-	movw  ZL,      r0
-	subi  ZL,      lo8(-(sprites))
-	sbci  ZH,      hi8(-(sprites))
-
-	ldd   r23,     Z + sprFlags
-	ldd   r24,     Z + sprTileIndex
+BlitSpritePart:
 
 	; Get tile bank addr
 
@@ -1166,13 +1214,13 @@ BlitSprite:
 	ld    ZH,      X+
 
 	ldi   r25,     TILE_WIDTH * TILE_HEIGHT
-	mul   r24,     r25
+	mul   r22,     r25
 	add   ZL,      r0      ; Tile data src
 	adc   ZH,      r1
 
 	; dest = ram_tiles + (bt * TILE_HEIGHT * TILE_WIDTH)
 
-	mul   r22,     r25
+	mul   r24,     r25
 	movw  XL,      r0
 	subi  XL,      lo8(-(ram_tiles))
 	sbci  XH,      hi8(-(ram_tiles))
@@ -1309,7 +1357,9 @@ y_check_end:
 
 	ldi   r21,     -(TILE_WIDTH + 1) ; destXdiff = -(TILE_WIDTH + 1)
 	add   r21,     r20     ; destXdiff += xspan
+#if (RT_ALIGNED == 0)
 	ldi   r23,     0x00
+#endif
 	ldi   r22,     0x01    ; step = 1
 	rjmp  x_diff_end
 
@@ -1317,7 +1367,9 @@ x_diff_xf:
 
 	ldi   r21,     -(TILE_WIDTH - 1) ; destXdiff = -(TILE_WIDTH - 1)
 	sub   r21,     r20     ; destXdiff -= xspan
+#if (RT_ALIGNED == 0)
 	ldi   r23,     0xFF
+#endif
 	ldi   r22,     0xFF    ; step = -1
 
 x_diff_end:
@@ -1361,13 +1413,17 @@ x_loop0:
 	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
 	st    X,       r18     ; *dest = px
 	add   XL,      r22     ; dest += step;
+#if (RT_ALIGNED == 0)
 	adc   XH,      r23
+#endif
 x_loop1:
 	lpm   r18,     Z+      ; px = pgm_read_byte(src); src ++;
 	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
 	st    X,       r18     ; *dest = px
 	add   XL,      r22     ; dest += step;
+#if (RT_ALIGNED == 0)
 	adc   XH,      r23
+#endif
 	subi  r20,     1
 	brne  x_loop0
 x_loopx:
@@ -1381,7 +1437,9 @@ x_loopx:
 	add   ZL,      r24     ; src += srcXdiff
 	adc   ZH,      r25
 	sub   XL,      r21     ; dest += destXdiff (negated)
+#if (RT_ALIGNED == 0)
 	sbci  XH,      0xFF
+#endif
 
 	mov   r20,     r0      ; xspan
 	lsr   r20
