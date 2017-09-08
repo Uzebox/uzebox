@@ -198,6 +198,11 @@
 #define SPRITE_BANK2 2<<6
 #define SPRITE_BANK3 3<<6
 
-#define OFF_SCREEN SCREEN_TILES_H*TILE_WIDTH
+
 #define MAX_RAMTILES 60
 #define HSYNC_USABLE_CYCLES 225 //Maximum free cycles usable by the hysnc and audio
+
+/* Note: This is only provided for compatibility with older games. You should
+** use the Y coordinate to move a sprite off-screen (when 32 tiles are visible
+** horizontally, there is no off screen location by X). */
+#define OFF_SCREEN (SCREEN_TILES_H * TILE_WIDTH)

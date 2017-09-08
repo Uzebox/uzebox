@@ -150,7 +150,11 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 			     (wy < VRAM_TILES_V) ){
 			#else
 			wx = wx % VRAM_TILES_H;
+			#if (SCREEN_TILES_H < 32U)
+			if (((xpos + 7U + (x << 3) - dx) & 0xFFU) < (((SCREEN_TILES_H + 1U) << 3) - 1U)){
+			#else
 			{
+			#endif
 			#endif
 
 				#if (SCROLLING == 0)
@@ -394,45 +398,31 @@ void DisplayLogo(){
 }
 
 
-	//Callback invoked by UzeboxCore.Initialize()
-	void InitializeVideoMode(){
+/*
+** Callback invoked by UzeboxCore.Initialize()
+*/
+void InitializeVideoMode(){
 
-		//disable sprites
-		#if (SPRITES_AUTO_PROCESS != 0)
-		for(int i=0;i<MAX_SPRITES;i++){
-			sprites[i].x=(SCREEN_TILES_H*TILE_WIDTH);		
-		}
-		#endif
-		
-		#if SCROLLING == 1
-		//	for(int i=0;i<(OVERLAY_LINES*VRAM_TILES_H);i++){
-		//		overlay_vram[i]=RAM_TILES_COUNT;
-		//	}
-			Screen.scrollHeight=VRAM_TILES_V;
-			Screen.overlayHeight=0;
-		#endif
+	u8 i;
 
-		free_tile_index      = 0U;
-		user_ram_tiles_c_tmp = 0U;
+	/* Disable sprites */
 
-		//set defaults for main screen section
-		/*
-		for(i=0;i<SCREEN_SECTIONS_COUNT;i++){
-			screenSections[i].scrollX=0;
-			screenSections[i].scrollY=0;
-		
-			if(i==0){
-				screenSections[i].height=SCREEN_TILES_V*TILE_HEIGHT;
-			}else{
-				screenSections[i].height=0;
-			}
-			screenSections[i].vramBaseAdress=vram;
-			screenSections[i].wrapLine=0;
-			screenSections[i].flags=SCT_PRIORITY_SPR;
-		}
-		*/
-
+#if (SPRITES_AUTO_PROCESS != 0)
+	for(i = 0U; i < MAX_SPRITES; i++){
+		sprites[i].x = (SCREEN_TILES_H * TILE_WIDTH);
+		sprites[i].y = (SCREEN_TILES_V * TILE_HEIGHT);
 	}
+#endif
+
+#if (SCROLLING == 1)
+	Screen.scrollHeight  = VRAM_TILES_V;
+	Screen.overlayHeight = 0U;
+#endif
+
+	free_tile_index      = 0U;
+	user_ram_tiles_c_tmp = 0U;
+
+}
 
 
 /*
