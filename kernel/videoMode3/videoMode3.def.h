@@ -188,6 +188,15 @@
 #endif
 
 
+/*
+** If set, enables RAM sourced sprites (SPRITE_RAM flag), slightly increasing
+** the code size of the blitter. RAM sprites are sourced from User RAM tiles.
+*/
+#ifndef SPRITE_RAM_ENABLE
+	#define SPRITE_RAM_ENABLE 0
+#endif
+
+
 //Sprite flags
 #define SPRITE_FLIP_X 1
 #define SPRITE_FLIP_Y 2

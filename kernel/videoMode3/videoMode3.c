@@ -100,7 +100,9 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 	#if (SCROLLING != 0)
 	ssx = xpos + Screen.scrollX;
 	ssy = ypos + Screen.scrollY;
-	if (ypos >= (Screen.scrollHeight << 3)){ ssy += 0xFF00U; } /* Sprite should clip on top */
+	if (ypos > (u8)((Screen.scrollHeight << 3) - 1U)){
+		ssy += 0xFF00U; /* Sprite should clip on top */
+	}
 	#else
 	ssx = xpos;
 	ssy = ypos;
@@ -116,7 +118,7 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 	** layout, VRAM_TILES_H is also fixed 32 this case. */
 
 	#if ((SCROLLING == 0) && (SCREEN_TILES_H < 32))
-	bx = (((ssx + TILE_WIDTH) & 0xFFU) / TILE_WIDTH) - 1U;
+	bx = ((u8)((ssx + TILE_WIDTH) & 0xFFU) / TILE_WIDTH) - 1U;
 	#else
 	bx = ssx / TILE_WIDTH;
 	#endif
@@ -124,7 +126,7 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 	if (dx != 0U){ tx++; }
 
 	#if (SCROLLING == 0)
-	by = (((ssy + TILE_HEIGHT) & 0xFFU) / TILE_HEIGHT) - 1U;
+	by = ((u8)((ssy + TILE_HEIGHT) & 0xFFU) / TILE_HEIGHT) - 1U;
 	#else
 	by = ssy / TILE_HEIGHT;
 	#endif
@@ -140,7 +142,7 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 		if (wy < VRAM_TILES_V){
 		#else
 		if ( (Screen.scrollHeight != 0U) &&
-		     (((ypos + 7U + (y << 3) - dy) & 0xFFU) < (((Screen.scrollHeight) << 3) - 1U)) ){
+		     ((u8)((ypos + 7U + (y << 3) - dy) & 0xFFU) < (u8)((Screen.scrollHeight << 3) - 1U)) ){
 
 			while (wy >= Screen.scrollHeight){
 				wy -= Screen.scrollHeight;
@@ -156,7 +158,7 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 				#else
 				wx = wx % VRAM_TILES_H;
 				#if (SCREEN_TILES_H < 32U)
-				if (((xpos + 7U + (x << 3) - dx) & 0xFFU) < (((SCREEN_TILES_H + 1U) << 3) - 1U)){
+				if ((u8)((xpos + 7U + (x << 3) - dx) & 0xFFU) < (((SCREEN_TILES_H + 1U) << 3) - 1U)){
 				#else
 				{
 				#endif
@@ -167,7 +169,7 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 					         wx;
 					#else
 					ramPtr = ((u16)(wy >> 3) * 256U) +
-					         (wx * 8U) + (wy & 0x07U);
+					         (u8)(wx * 8U) + (u8)(wy & 0x07U);
 					#endif
 
 					bt = vram[ramPtr];
