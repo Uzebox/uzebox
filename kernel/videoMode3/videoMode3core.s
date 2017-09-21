@@ -1149,8 +1149,21 @@ rbg_exit:
 ;************************************
 BlitSpritePart:
 
-	; Get tile bank addr
+	; Get tile bank addr or User RAM tiles base depending on sprite source
 
+#if (SPRITE_RAM_ENABLE != 0)
+	sbrs  r23,     SPRITE_RAM_BIT
+	rjmp  bsp_srom
+
+	set                    ; T flag: RAM sprite if set
+	ldi   ZL,      lo8(ram_tiles)
+	ldi   ZH,      hi8(ram_tiles)
+	rjmp  bsp_send
+
+bsp_srom:
+
+	clt
+#endif
 	ldi   r25,     4 * 2
 	mul   r23,     r25
 	mov   XL,      r1
@@ -1159,6 +1172,8 @@ BlitSpritePart:
 	sbci  XH,      hi8(-(sprites_tile_banks))
 	ld    ZL,      X+
 	ld    ZH,      X+
+
+bsp_send:
 
 	ldi   r25,     TILE_WIDTH * TILE_HEIGHT
 	mul   r22,     r25
@@ -1352,7 +1367,10 @@ x_diff_end:
 
 	mov   r0,      r20     ; xspan
 	lsr   r20
-	brcc  x_loop1
+#if (SPRITE_RAM_ENABLE != 0)
+	brts  bsp_ramloop      ; T flag set: RAM loop, clear: ROM loop
+#endif
+	brcc  x_loop1          ; ROM sprite loop entry
 	breq  x_loopx
 
 x_loop0:
@@ -1398,6 +1416,51 @@ loop_e:
 
 	ret                    ; r1 is zero at this point
 
+#if (SPRITE_RAM_ENABLE != 0)
+bsp_ramloop:
+
+	brcc  r_loop1          ; RAM sprite loop entry
+	breq  r_loopx
+
+r_loop0:
+	ld    r18,     Z+      ; px = *src; src ++;
+	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
+	st    X,       r18     ; *dest = px
+	add   XL,      r22     ; dest += step;
+#if (RT_ALIGNED == 0)
+	adc   XH,      r23
+#endif
+r_loop1:
+	ld    r18,     Z+      ; px = *src; src ++;
+	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
+	st    X,       r18     ; *dest = px
+	add   XL,      r22     ; dest += step;
+#if (RT_ALIGNED == 0)
+	adc   XH,      r23
+#endif
+	subi  r20,     1
+	brne  r_loop0
+r_loopx:
+	ld    r18,     Z+      ; px = *src; src ++;
+	cpse  r18,     r19     ; if (px != TRANSLUCENT_COLOR)
+	st    X,       r18     ; *dest = px
+
+	dec   r1
+	breq  loop_e
+
+	add   ZL,      r24     ; src += srcXdiff
+	adc   ZH,      r25
+	sub   XL,      r21     ; dest += destXdiff (negated)
+#if (RT_ALIGNED == 0)
+	sbci  XH,      0xFF
+#endif
+
+	mov   r20,     r0      ; xspan
+	lsr   r20
+	brcc  r_loop1
+	brne  r_loop0
+	rjmp  r_loopx
+#endif
 
 
 

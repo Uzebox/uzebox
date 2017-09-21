@@ -91,11 +91,18 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 	u8  ssy;
 	#endif
 
+	/* if sprite is off, then don't draw it */
+
+	if ((flags & SPRITE_OFF) != 0U){ return; }
+
 	/* get tile's screen section offsets */
 
 	#if (SCROLLING != 0)
 	ssx = xpos + Screen.scrollX;
 	ssy = ypos + Screen.scrollY;
+	if (ypos > (u8)((Screen.scrollHeight << 3) - 1U)){
+		ssy += 0xFF00U; /* Sprite should clip on top */
+	}
 	#else
 	ssx = xpos;
 	ssy = ypos;
@@ -110,8 +117,8 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 	** TILE_WIDTH = 8 is really supported due to the "weird" VRAM
 	** layout, VRAM_TILES_H is also fixed 32 this case. */
 
-	#if (SCROLLING == 0)
-	bx = (((ssx + TILE_WIDTH) & 0xFFU) / TILE_WIDTH) - 1U;
+	#if ((SCROLLING == 0) && (SCREEN_TILES_H < 32))
+	bx = ((u8)((ssx + TILE_WIDTH) & 0xFFU) / TILE_WIDTH) - 1U;
 	#else
 	bx = ssx / TILE_WIDTH;
 	#endif
@@ -119,7 +126,7 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 	if (dx != 0U){ tx++; }
 
 	#if (SCROLLING == 0)
-	by = (((ssy + TILE_HEIGHT) & 0xFFU) / TILE_HEIGHT) - 1U;
+	by = ((u8)((ssy + TILE_HEIGHT) & 0xFFU) / TILE_HEIGHT) - 1U;
 	#else
 	by = ssy / TILE_HEIGHT;
 	#endif
@@ -131,70 +138,76 @@ void BlitSprite(u8 flags, u8 sprindex, u8 xpos, u8 ypos)
 	for (y = 0U; y < ty; y++){
 
 		wy = by + y;
-		#if (SCROLLING != 0)
-		if (Screen.scrollHeight == 0U){
-			wy = 0U;
-		}else{
+		#if (SCROLLING == 0)
+		if (wy < VRAM_TILES_V){
+		#else
+		if ( (Screen.scrollHeight != 0U) &&
+		     ((u8)((ypos + 7U + (y << 3) - dy) & 0xFFU) < (u8)((Screen.scrollHeight << 3) - 1U)) ){
+
 			while (wy >= Screen.scrollHeight){
 				wy -= Screen.scrollHeight;
 			}
-		}
 		#endif
 
-		for (x = 0U; x < tx; x++){
+			for (x = 0U; x < tx; x++){
 
-			wx = bx + x;
-
-			#if (SCROLLING == 0)
-			if ( (wx < VRAM_TILES_H) &&
-			     (wy < VRAM_TILES_V) ){
-			#else
-			wx = wx % VRAM_TILES_H;
-			{
-			#endif
+				wx = bx + x;
 
 				#if (SCROLLING == 0)
-				ramPtr = (wy * VRAM_TILES_H) +
-				         wx;
+				if (wx < VRAM_TILES_H){
 				#else
-				ramPtr = ((u16)(wy >> 3) * 256U) +
-				         (wx * 8U) + (wy & 0x07U);
+				wx = wx % VRAM_TILES_H;
+				#if (SCREEN_TILES_H < 32U)
+				if ((u8)((xpos + 7U + (x << 3) - dx) & 0xFFU) < (((SCREEN_TILES_H + 1U) << 3) - 1U)){
+				#else
+				{
+				#endif
 				#endif
 
-				bt = vram[ramPtr];
-
-				if ( ( (bt >= RAM_TILES_COUNT) |
-				       (bt < user_ram_tiles_c)) &&
-				     (free_tile_index < RAM_TILES_COUNT) ){ /* if no ram free ignore tile */
-
-					if (bt >= RAM_TILES_COUNT){
-						/* tile is mapped to flash. Copy it to next free RAM tile. */
-						CopyFlashTile(bt - RAM_TILES_COUNT, free_tile_index);
-					}else if (bt < user_ram_tiles_c){
-						/* tile is a user ram tile. Copy it to next free RAM tile. */
-						CopyRamTile(bt, free_tile_index);
-					}
-					#if (RTLIST_ENABLE != 0)
-					ram_tiles_restore[free_tile_index].addr = (&vram[ramPtr]);
-					ram_tiles_restore[free_tile_index].tileIndex = bt;
+					#if (SCROLLING == 0)
+					ramPtr = (wy * VRAM_TILES_H) +
+					         wx;
+					#else
+					ramPtr = ((u16)(wy >> 3) * 256U) +
+					         (u8)(wx * 8U) + (u8)(wy & 0x07U);
 					#endif
-					vram[ramPtr] = free_tile_index;
-					bt = free_tile_index;
-					free_tile_index++;
+
+					bt = vram[ramPtr];
+
+					if ( ( (bt >= RAM_TILES_COUNT) |
+					       (bt < user_ram_tiles_c)) &&
+					     (free_tile_index < RAM_TILES_COUNT) ){ /* if no ram free ignore tile */
+
+						if (bt >= RAM_TILES_COUNT){
+							/* tile is mapped to flash. Copy it to next free RAM tile. */
+							CopyFlashTile(bt - RAM_TILES_COUNT, free_tile_index);
+						}else if (bt < user_ram_tiles_c){
+							/* tile is a user ram tile. Copy it to next free RAM tile. */
+							CopyRamTile(bt, free_tile_index);
+						}
+						#if (RTLIST_ENABLE != 0)
+						ram_tiles_restore[free_tile_index].addr = (&vram[ramPtr]);
+						ram_tiles_restore[free_tile_index].tileIndex = bt;
+						#endif
+						vram[ramPtr] = free_tile_index;
+						bt = free_tile_index;
+						free_tile_index++;
+
+					}
+
+					if ( (bt < RAM_TILES_COUNT) &&
+					     (bt >= user_ram_tiles_c) ){
+						BlitSpritePart(bt,
+						               ((u16)(flags) << 8) + sprindex,
+						               ((u16)(y)     << 8) + x,
+						               ((u16)(dy)    << 8) + dx);
+					}
 
 				}
 
-				if ( (bt < RAM_TILES_COUNT) &&
-				     (bt >= user_ram_tiles_c) ){
-					BlitSpritePart(bt,
-					               ((u16)(flags) << 8) + sprindex,
-					               ((u16)(y)     << 8) + x,
-					               ((u16)(dy)    << 8) + dx);
-				}
+			} /* end for X */
 
-			}
-
-		} /* end for X */
+		}
 
 	} /* end for Y */
 
@@ -232,41 +245,49 @@ void ProcessSprites(){
 
 
 
-	#if SCROLLING == 1
-		//Scroll the screen by the relative amount specified (+/-)
-		//This function handles screen wrapping on the Y axis if VRAM_TILES_V is less than 32
-		void Scroll(char dx,char dy){
-		Screen.scrollY+=dy;
-		Screen.scrollX+=dx;
+#if SCROLLING == 1
 
-		if(Screen.scrollHeight<32){
+/*
+** Scroll the screen by the relative amount specified (+/-)
+** This function handles screen wrapping on the Y axis if VRAM_TILES_V is less than 32
+*/
+void Scroll(char dx, char dy){
 
-			if(Screen.scrollY>=(Screen.scrollHeight*TILE_HEIGHT)){
-				if(dy>=0){	
-					Screen.scrollY=(Screen.scrollY-(Screen.scrollHeight*TILE_HEIGHT));
-				}else{
-					Screen.scrollY=((Screen.scrollHeight*TILE_HEIGHT)-1)-(0xff-Screen.scrollY);
-				}			
-			}
-	
+	/* Handles case with TILE_HEIGHT = 8 and scrollHeight = 32 correctly
+	** (this will be zero, so zero will add / subtract) */
+	u8 scmax = (u8)(Screen.scrollHeight * TILE_HEIGHT);
+
+	Screen.scrollY += (u8)(dy);
+	Screen.scrollX += (u8)(dx);
+
+	if (Screen.scrollY >= scmax){
+		if((s8)(dy) >= 0){
+			Screen.scrollY -= scmax;
+		}else{
+			Screen.scrollY += scmax;
 		}
+	}
 
-		}
+}
 
-		//position the scrolling is absolute value
-		void SetScrolling(char sx,char sy){
 
-			Screen.scrollX=sx;
+/*
+** Position the scrolling is absolute value
+** Note: This function have no interface in the kernel, so there is no header
+** file containing its definition. The parameter signature is "smelly" (char's
+** signedness is implementation defined). It should not be used.
+*/
+void SetScrolling(char sx, char sy){
 
-			if(Screen.scrollHeight<32){
-				if(sy<(Screen.scrollHeight*TILE_HEIGHT)){
-					Screen.scrollY=sy;
-				}
-			}else{
-				Screen.scrollY=sy;
-			}
-		}
-	#endif
+	Screen.scrollX = (u8)(sx);
+
+	if((u8)(sy) < ((u16)(Screen.scrollHeight) * TILE_HEIGHT)){
+		Screen.scrollY = (u8)(sy);
+	}
+
+}
+
+#endif
 
 
 
@@ -323,34 +344,23 @@ void ProcessSprites(){
 	}
 
 
-	void MoveSprite(unsigned char startSprite,unsigned char x,unsigned char y,unsigned char width,unsigned char height){
+void MoveSprite(unsigned char startSprite, unsigned char x, unsigned char y, unsigned char width, unsigned char height){
 
-		for(unsigned char dy=0;dy<height;dy++){
-			for(unsigned char dx=0;dx<width;dx++){
-			
-				sprites[startSprite].x=x+(TILE_WIDTH*dx);
-			
-				#if SCROLLING == 1
-					if((Screen.scrollHeight<32) && (y+(TILE_HEIGHT*dy))>(Screen.scrollHeight*TILE_HEIGHT)){
-						unsigned char tmp=(y+(TILE_HEIGHT*dy))-(Screen.scrollHeight*TILE_HEIGHT);
-						sprites[startSprite].y=tmp;
-					}else{
-						sprites[startSprite].y=y+(TILE_HEIGHT*dy);
-					}
-				#else
-					if((VRAM_TILES_V<32) && (y+(TILE_HEIGHT*dy))>(VRAM_TILES_V*TILE_HEIGHT)){
-						unsigned char tmp=(y+(TILE_HEIGHT*dy))-(VRAM_TILES_V*TILE_HEIGHT);
-						sprites[startSprite].y=tmp;
-					}else{
-						sprites[startSprite].y=y+(TILE_HEIGHT*dy);
-					}
-				#endif
+	u8 dy;
+	u8 dx;
 
-				startSprite++;
-			}
-		}	
+	for (dy = 0U; dy < height; dy++){
+		for (dx = 0U; dx < width; dx++){
 
+			sprites[startSprite].x = x + (TILE_WIDTH  * dx);
+			sprites[startSprite].y = y + (TILE_HEIGHT * dy);
+
+			startSprite++;
+
+		}
 	}
+
+}
 
 #endif
 
@@ -361,8 +371,8 @@ void ProcessSprites(){
 */
 void DisplayLogo(){
 
-#if (INTRO_LOGO != 0)
-#define LOGO_X_POS ((SCREEN_TILES_H / 2U) - 2U)
+	#if (INTRO_LOGO != 0)
+	#define LOGO_X_POS ((SCREEN_TILES_H / 2U) - 2U)
 
 	InitMusicPlayer(logoInitPatches);
 	SetTileTable(logo_tileset);
@@ -371,9 +381,9 @@ void DisplayLogo(){
 	ClearVram();
 	WaitVsync(15U);
 
-#if (INTRO_LOGO == 1)
+	#if (INTRO_LOGO == 1)
 	TriggerFx(0U, 0xFFU, true);
-#endif
+	#endif
 
 	DrawMap2(LOGO_X_POS, 12U, map_uzeboxlogo);
 	WaitVsync(3);
@@ -381,58 +391,44 @@ void DisplayLogo(){
 	WaitVsync(2);
 	DrawMap2(LOGO_X_POS, 12U, map_uzeboxlogo);
 
-#if (INTRO_LOGO == 2)
+	#if (INTRO_LOGO == 2)
 	SetMasterVolume(0xC0U);
 	TriggerNote(3U, 0U, 16U, 0xFFU);
-#endif
+	#endif
 
 	WaitVsync(65U);
 	ClearVram();
 	WaitVsync(20U);
-#endif
+	#endif
 
 }
 
 
-	//Callback invoked by UzeboxCore.Initialize()
-	void InitializeVideoMode(){
+/*
+** Callback invoked by UzeboxCore.Initialize()
+*/
+void InitializeVideoMode(){
 
-		//disable sprites
-		#if (SPRITES_AUTO_PROCESS != 0)
-		for(int i=0;i<MAX_SPRITES;i++){
-			sprites[i].x=(SCREEN_TILES_H*TILE_WIDTH);		
-		}
-		#endif
-		
-		#if SCROLLING == 1
-		//	for(int i=0;i<(OVERLAY_LINES*VRAM_TILES_H);i++){
-		//		overlay_vram[i]=RAM_TILES_COUNT;
-		//	}
-			Screen.scrollHeight=VRAM_TILES_V;
-			Screen.overlayHeight=0;
-		#endif
+	u8 i;
 
-		free_tile_index      = 0U;
-		user_ram_tiles_c_tmp = 0U;
+	/* Disable sprites */
 
-		//set defaults for main screen section
-		/*
-		for(i=0;i<SCREEN_SECTIONS_COUNT;i++){
-			screenSections[i].scrollX=0;
-			screenSections[i].scrollY=0;
-		
-			if(i==0){
-				screenSections[i].height=SCREEN_TILES_V*TILE_HEIGHT;
-			}else{
-				screenSections[i].height=0;
-			}
-			screenSections[i].vramBaseAdress=vram;
-			screenSections[i].wrapLine=0;
-			screenSections[i].flags=SCT_PRIORITY_SPR;
-		}
-		*/
-
+	#if (SPRITES_AUTO_PROCESS != 0)
+	for(i = 0U; i < MAX_SPRITES; i++){
+		sprites[i].x = (SCREEN_TILES_H * TILE_WIDTH);
+		sprites[i].y = (SCREEN_TILES_V * TILE_HEIGHT);
 	}
+	#endif
+
+	#if (SCROLLING == 1)
+	Screen.scrollHeight  = VRAM_TILES_V;
+	Screen.overlayHeight = 0U;
+	#endif
+
+	free_tile_index      = 0U;
+	user_ram_tiles_c_tmp = 0U;
+
+}
 
 
 /*

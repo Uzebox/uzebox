@@ -32,7 +32,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 6
+#define VERSION_MIN 7
 void parseXml(TiXmlDocument* doc);
 bool process();
 unsigned char* loadRawImage();
