@@ -80,6 +80,7 @@
 .global ClearVsyncFlag
 .global ReadJoypad
 .global ReadJoypadExt
+.global SoftReset
 .global WriteEeprom
 .global ReadEeprom
 .global WaitUs
@@ -594,6 +595,32 @@ rj_p2m:
 	lds r25,joypad2_status_hi+1	
 	ret
 #endif
+	
+;*****************************
+; Performs a soft-reset
+; C-callable
+;*****************************
+.section .text.SoftReset
+SoftReset:
+
+	; First check whether the watchdog is already running, if so, return.
+	; This may happen if the soft reset is called from interrupt, which
+	; happens if CONTROLLERS_VSYNC_READ is set nonzero.
+	; Note that no "wdr" is used, it is unnecessary. If the watchdog
+	; resets right when it was enabled, that's all right.
+	
+	ldi  ZL,       lo8(_SFR_MEM_ADDR(WDTCSR))
+	ldi  ZH,       hi8(_SFR_MEM_ADDR(WDTCSR))
+	ld   r24,      Z
+	sbrc r24,      WDE     ; Watchdog already enabled?
+	ret                    ; If so, return doing nothing (let it time out)
+	ldi  r24,      (1 << WDCE) | (1 << WDE)
+	ldi  r25,      (1 << WDE) ; Enable Watchdog, 16ms timeout
+	cli
+	st   Z,        r24
+	st   Z,        r25
+	sei
+	rjmp .-2               ; Halt user program
 	
 ;****************************
 ; Wait for n microseconds

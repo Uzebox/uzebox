@@ -92,14 +92,6 @@ void wdt_init(void)
 }
 
 /**
- * Performs a software reset
- */
-void SoftReset(void){        
-	wdt_enable(WDTO_15MS);  
-	while(1);
-}
-
-/**
  * Dynamically sets the rasterizer parameters:
  * firstScanlineToRender = First scanline to render
  * scanlinesToRender     = Total number of vertical lines to render. 
