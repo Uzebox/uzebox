@@ -156,12 +156,14 @@ SetMixerWave:
 	clr r25
 	clr r23
 
+#if (INCLUDE_DEFAULT_WAVES != 0)
 	ldi ZL,lo8(mixerStruct)
 	ldi ZH,hi8(mixerStruct)
 	ldi r18,CHANNEL_STRUCT_SIZE
 	mul r18,r24	
 	add ZL,r0
 	adc ZH,r1
+#endif
 
 #if MIXER_CHAN4_TYPE == 0
 	cpi r22,0xfe	;7bit lfsr
@@ -180,9 +182,11 @@ smw1:
 smw2:
 #endif
 
+#if (INCLUDE_DEFAULT_WAVES != 0)
 	ldi r23,hi8(waves)
 	add r23,r22
 	std Z+samplepos_hi,r23 ;store path No
+#endif
 
 esmw:
 	clr r1	
@@ -264,15 +268,18 @@ init_snd_loop:
 	ret 
 */
 
+.section .text.steptable
 steptable:
 #include "data/steptable.inc"
 
+#if (INCLUDE_DEFAULT_WAVES != 0)
+.section .text.waves
 .align 8
 waves:
-#if INCLUDE_DEFAULT_WAVES == 1
 	#include MIXER_WAVES
 #endif
 
+.section .text
 
 
 

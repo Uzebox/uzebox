@@ -41,7 +41,7 @@
 	#define TILE_HEIGHT 8
 #endif
 
-#ifndef	TILE_WIDTH
+#ifndef TILE_WIDTH
 	#define TILE_WIDTH 8
 #endif
 
@@ -55,11 +55,13 @@
 	#ifndef VRAM_TILES_H
 		#define VRAM_TILES_H 30
 	#endif
-	#define SCREEN_TILES_H VRAM_TILES_H 
+	#define SCREEN_TILES_H VRAM_TILES_H
 	#define FILL_DELAY ((CYCLES_PER_PIXELS*TILE_WIDTH)*(30-VRAM_TILES_H))/2
 #else
 	#define VRAM_TILES_H 32
-	#define SCREEN_TILES_H 28
+	#ifndef SCREEN_TILES_H
+		#define SCREEN_TILES_H 28
+	#endif
 #endif
 
 #ifndef SCREEN_TILES_V
@@ -68,11 +70,11 @@
 
 #if SCROLLING == 0
 	#ifndef VRAM_TILES_V
-		#define VRAM_TILES_V SCREEN_TILES_V		
+		#define VRAM_TILES_V SCREEN_TILES_V
 	#endif
 #else
 	#ifndef VRAM_TILES_V
-		#define VRAM_TILES_V 32	
+		#define VRAM_TILES_V 32
 	#endif
 
 	#if SCROLLING == 1 && (VRAM_TILES_V!=32 && VRAM_TILES_V!=24 && VRAM_TILES_V!=16)
@@ -167,16 +169,53 @@
 #endif
 
 
+/*
+** If set, the mode's resolution is changed from 6 cycles / pixel to 5.5
+** cycles per pixel, which allows for up to 32 tiles (256 pixels) displayed
+** (31 when scrolling due to the VRAM layout).
+*/
+#ifndef RESOLUTION_EXT
+	#define RESOLUTION_EXT 0
+#endif
+#if (RESOLUTION_EXT == 0)
+	#if (SCREEN_TILES_H > 30)
+		#error SCREEN_TILES_H is too large for the current settings!
+	#endif
+#else
+	#if (SCREEN_TILES_H > 32)
+		#error SCREEN_TILES_H is too large for the current settings!
+	#endif
+#endif
+
+
+/*
+** If set, enables RAM sourced sprites (SPRITE_RAM flag), slightly increasing
+** the code size of the blitter. RAM sprites are sourced from User RAM tiles.
+*/
+#ifndef SPRITE_RAM_ENABLE
+	#define SPRITE_RAM_ENABLE 0
+#endif
+
+
 //Sprite flags
 #define SPRITE_FLIP_X 1
 #define SPRITE_FLIP_Y 2
+#define SPRITE_OFF    4
+#define SPRITE_RAM    8
 #define SPRITE_FLIP_X_BIT 0
 #define SPRITE_FLIP_Y_BIT 1
+#define SPRITE_OFF_BIT    2
+#define SPRITE_RAM_BIT    3
 #define SPRITE_BANK0 0<<6
 #define SPRITE_BANK1 1<<6
 #define SPRITE_BANK2 2<<6
 #define SPRITE_BANK3 3<<6
 
-#define OFF_SCREEN SCREEN_TILES_H*TILE_WIDTH
+
 #define MAX_RAMTILES 60
 #define HSYNC_USABLE_CYCLES 225 //Maximum free cycles usable by the hysnc and audio
+
+/* Note: This is only provided for compatibility with older games. You should
+** use the Y coordinate to move a sprite off-screen (when 32 tiles are visible
+** horizontally, there is no off screen location by X). */
+#define OFF_SCREEN (SCREEN_TILES_H * TILE_WIDTH)
