@@ -92,14 +92,6 @@ void wdt_init(void)
 }
 
 /**
- * Performs a software reset
- */
-void SoftReset(void){        
-	wdt_enable(WDTO_15MS);  
-	while(1);
-}
-
-/**
  * Dynamically sets the rasterizer parameters:
  * firstScanlineToRender = First scanline to render
  * scanlinesToRender     = Total number of vertical lines to render. 
@@ -122,14 +114,14 @@ const u16 io_table[] PROGMEM ={
 	io_set(TCCR1B,0x00),	//stop timers
 	io_set(TCCR0B,0x00),
 	io_set(DDRC,0xff), 		//video dac
-	io_set(DDRB,0xff),		//h-sync for ad725
-	io_set(DDRD,(1<<PD7)+(1<<PD4)), //audio-out + led 
-	io_set(PORTD,(1<<PD4)+(1<<PD3)+(1<<PD2)), //turn on led & activate pull-ups for soft-power switches
+
+	io_set(DDRD,   (1 << PD7) | (1 << PD6) | (1 << PD4) | (1 << PD1)), // Audio-out, Chip Select, LED, UART TX
+	io_set(PORTD,  (1 << PD6) | (1 << PD4) | (1 << PD5) | (1 << PD3) | (1 << PD2) | (1 << PD0)), // Set CS high, LED on, pull-up for all inputs (PD3, PD2 are buttons)
 
 	//setup port A for joypads
 
-	io_set(DDRA,0b00001100), 	//set only control lines as outputs
-	io_set(PORTA,0b11111011),  //activate pullups on the data lines
+	io_set(DDRA,   0x0C), // Set only control lines (CLK, Latch) as outputs
+	io_set(PORTA,  0xFB), // Activate pullups on the data lines and unused pins
 
 #if MIDI_IN == 1
 	io_set(UCSR0B,(1<<RXEN0)), //set UART for MIDI in
@@ -158,10 +150,13 @@ const u16 io_table[] PROGMEM ={
 	io_set(TCCR2A,(1<<COM2A1)+(1<<WGM21)+(1<<WGM20)), //Fast PWM	
 	io_set(OCR2A,0), //duty cycle (amplitude)
 	io_set(TCCR2B,(1<<CS20)),  //enable timer, no pre-scaler	
-	io_set(SYNC_PORT,(1<<SYNC_PIN)|(1<<VIDEOCE_PIN)), //set sync & chip enable line to hi
 	
-	io_set(OCR1BL,0x4f),		//lo8(0x36e-31) eq pulse pulse restore
-	io_set(OCR1BH,0x03)			//hi8(0x36e-31)	
+	io_set(DDRB,   (1 << SYNC_PIN) | (1 << VIDEOCE_PIN) | (1 << PB3) | (1 << PB7) | (1 << PB5)), // 4FSC, SCK, MOSI
+	io_set(PORTB,  (1 << SYNC_PIN) | (1 << VIDEOCE_PIN) | (1 << PB6) | (1 << PB2) | (1 << PB1)), // Set sync & chip enable line to hi, MISO and unused pins pull-up
+	
+	//set sync generator counter, COMPB for Vsync on TIMER1
+	io_set(OCR1BL,0x1D),
+	io_set(OCR1BH,0x03)
 };
 
 

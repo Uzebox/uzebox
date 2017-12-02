@@ -835,8 +835,12 @@ void ProcessMusic(void){
 				uVol=(uVol*masterVolume)+0x100;
 				uVol>>=8;
 
-				if(track->tremoloLevel>0){					
-					tmp=pgm_read_byte(&(waves[track->tremoloPos]));
+				if(track->tremoloLevel>0){
+					#if (INCLUDE_DEFAULT_WAVES != 0)
+						tmp=pgm_read_byte(&(waves[track->tremoloPos]));
+					#else
+						tmp=0;
+					#endif
 					tmp-=128; //convert to unsigned
 
 					tVol=(track->tremoloLevel*tmp)+0x100;

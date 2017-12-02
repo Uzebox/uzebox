@@ -32,7 +32,7 @@
 using namespace std;
 
 #define VERSION_MAJ 1
-#define VERSION_MIN 6
+#define VERSION_MIN 7
 void parseXml(TiXmlDocument* doc);
 bool process();
 unsigned char* loadRawImage();
@@ -53,6 +53,29 @@ struct TileMap {
 	int top;
 	int width;
 	int height;
+};
+
+struct MegaTileMap {
+   struct TileMap* maps;
+   int mapsCount;
+   const char* varName;
+   int megaTileWidth;
+   int megaTileHeight; 
+};
+
+struct MegaMapContainer {
+    vector<int> data;
+    int size;
+    const char* varName;
+    int megaTileWidth;
+    int megaTileHeight;
+};
+
+struct MapContainer {
+    vector<int> data;
+    const char* varName;
+    int width;
+    int height;
 };
 
 struct TileDefine {
@@ -92,7 +115,9 @@ struct ConvertionDefinition {
 
 	int mapsPointersSize;
 	TileMap* maps;
+    MegaTileMap* megaMaps;
 	int mapsCount;
+    int megaMapsCount;
 
 	TileDefine* defines;
 	int definesCount;
@@ -193,6 +218,133 @@ bool tilesEqual(unsigned char* tile1,unsigned char* tile2,int lenght){
 	}
 }
 
+int findMegaMapIndex(MegaMapContainer* megaMapContainer, vector<int>* megaTileCandidate) {
+    /**
+    * Find the index in the mega map where the mega tile candidate is located. Return -1 if not found.
+    **/
+    int index = 0;
+    bool match_found = true;
+
+    while (index < megaMapContainer->data.size()){
+        match_found = true;
+        for (int i = 0; i < megaTileCandidate->size(); i++) {
+            if (megaTileCandidate->at(i) != megaMapContainer->data.at(index)){
+                index += megaTileCandidate->size() - i;    
+                match_found = false;
+                break;
+            }
+            index++;
+        }
+        if (match_found) return (index - megaTileCandidate->size()) / (megaMapContainer->megaTileWidth*megaMapContainer->megaTileHeight);
+    }
+    return -1;
+}
+
+int addMegaMapBlock(MegaMapContainer* megaMapContainer, vector<int>* megaTileCandidate) {
+    /**
+    * Add the mega tile at the end of the mega map. Return the index of the newly added block
+    **/
+    for (int i = 0; i < megaTileCandidate->size(); i++) {
+        megaMapContainer->data.push_back(megaTileCandidate->at(i));
+    }
+    megaMapContainer->size++;
+    return megaMapContainer->size-1;
+}
+
+bool processMegaMap(FILE* tf, MegaMapContainer* megaMapContainer, vector<MapContainer*>* mapsVector){
+    /**
+    *   Compress maps in mapsVector using mega-tile compression.
+    *   Indexed Mega tiles are stored in the megaMapContainer
+    **/
+    vector<int> megaTileCandidate;
+    int candidateSize = megaMapContainer->megaTileWidth*megaMapContainer->megaTileHeight;
+    int counter = 0;
+    int index = -1;
+
+    for (int i = 0; i < mapsVector->size(); i++){
+        if (mapsVector->at(i)->width % megaMapContainer->megaTileWidth != 0){
+            printf("Map of width %d cannot be divided into mega tiles of width %d\n", mapsVector->at(i)->width, megaMapContainer->megaTileWidth);
+            return false;
+        }
+        if (mapsVector->at(i)->height % megaMapContainer->megaTileHeight != 0){
+            printf("Map of height %d cannot be divided into mega tiles of height %d\n", mapsVector->at(i)->height, megaMapContainer->megaTileHeight);
+            return false;
+        }
+        fprintf(tf,"#define %s_WIDTH %i\n",toUpperCase(mapsVector->at(i)->varName),mapsVector->at(i)->width/megaMapContainer->megaTileWidth);
+        fprintf(tf,"#define %s_HEIGHT %i\n",toUpperCase(mapsVector->at(i)->varName),mapsVector->at(i)->height/megaMapContainer->megaTileHeight);
+        if(xform.mapsPointersSize==8){
+            fprintf(tf,"const char %s[] PROGMEM ={\n",mapsVector->at(i)->varName);
+        }else{
+            fprintf(tf,"const int %s[] PROGMEM ={\n",mapsVector->at(i)->varName);
+        }
+        fprintf(tf,"%i,%i", mapsVector->at(i)->width/megaMapContainer->megaTileWidth, mapsVector->at(i)->height/megaMapContainer->megaTileHeight);
+
+        int c = 0;
+        int x = 0, originX = 0;
+        int y = 0, originY = 0;
+        int mapWidth = mapsVector->at(i)->width;
+        for (int j = 0; j < mapsVector->at(i)->data.size(); j++){
+            megaTileCandidate.push_back(mapsVector->at(i)->data.at(y*mapWidth+x));
+            x++;
+            if (x % megaMapContainer->megaTileWidth == 0){
+                x = originX;
+                y++;
+            }
+            
+            // Next mega tile candidate
+            if (++counter == candidateSize){
+                if (c % 20 == 0) fprintf(tf,"\n"); //wrap line
+                fprintf(tf,",");
+
+                index = findMegaMapIndex(megaMapContainer, &megaTileCandidate); 
+                if (index == -1){
+                    index = addMegaMapBlock(megaMapContainer, &megaTileCandidate);
+                }  
+                if (xform.mapsPointersSize==8 && index>0xff){
+                    printf("Mega map can't contain more than 256 blocks.\n");
+		            return false;
+		        }
+                megaTileCandidate.clear();
+                counter = 0;
+                fprintf(tf, "0x%x", index);
+                c++;
+                originX += megaMapContainer->megaTileWidth;
+                if (originX == mapWidth){
+                    originX = 0;
+                    originY += megaMapContainer->megaTileHeight;
+                } 
+                x = originX;
+                y = originY;
+            }
+        }
+        fprintf(tf,"};\n\n");
+    }
+
+    // Write mega map to file
+    fprintf(tf,"#define %s_MEGA_TILE_WIDTH %i\n",toUpperCase(megaMapContainer->varName),megaMapContainer->megaTileWidth);
+    fprintf(tf,"#define %s_MEGA_TILE_HEIGHT %i\n",toUpperCase(megaMapContainer->varName),megaMapContainer->megaTileHeight);
+    fprintf(tf,"#define %s_MEGA_TILE_COUNT %i\n",toUpperCase(megaMapContainer->varName),megaMapContainer->size);
+    if(xform.mapsPointersSize==8){
+        fprintf(tf,"const char %s[] PROGMEM ={",megaMapContainer->varName);
+    }else{
+        fprintf(tf,"const int %s[] PROGMEM ={",megaMapContainer->varName);
+    }
+    int c = 0;
+    for (int i = 0; i < megaMapContainer->data.size(); i++){
+        if (c % (megaMapContainer->megaTileWidth*megaMapContainer->megaTileHeight) == 0){
+            fprintf(tf, "\n");
+        }
+        fprintf(tf, "0x%x", megaMapContainer->data.at(i));
+        if (i != megaMapContainer->data.size()-1){
+            fprintf(tf, ",");
+        }
+        c++;
+    }
+    fprintf(tf,"};\n\n");
+
+    return true;
+}
+
 bool process(){
 
 	Image image;
@@ -256,6 +408,9 @@ bool process(){
 		printf("Maps pointers size: %i\n",xform.mapsPointersSize);
 		printf("Map elements: %i\n",xform.mapsCount);
 	}
+    if(xform.megaMaps!=NULL){
+        printf("Mega-Maps: %i\n",xform.megaMapsCount);
+    }
 	if(xform.palette.filename != NULL){
 		printf("Input palette: %s\n", xform.palette.filename);
 		printf("Palette variable name: %s\n", xform.palette.varName);
@@ -358,7 +513,71 @@ bool process(){
 		fprintf(tf,"\n");
 	}
 
-	//Export maps second
+    //Export mega maps second
+    MegaMapContainer megaMapContainer;
+    vector<MapContainer*> mapsVector;
+    MapContainer* mapContainer;
+    MegaTileMap megaMap;
+    TileMap map;
+    if (xform.megaMaps!=NULL){
+        int index = 0;
+
+        for(int mm=0; mm<xform.megaMapsCount; mm++){
+            megaMap=xform.megaMaps[mm]; 
+            megaMapContainer.size = 0;
+            megaMapContainer.varName = megaMap.varName;
+            megaMapContainer.megaTileWidth = megaMap.megaTileWidth;
+            megaMapContainer.megaTileHeight = megaMap.megaTileHeight;
+            megaMapContainer.data.clear();
+            mapsVector.clear();
+
+            for(int m=0; m<megaMap.mapsCount; m++){
+                map=megaMap.maps[m];
+                mapContainer = new MapContainer();
+                mapContainer->varName = map.varName;
+                mapContainer->width = map.width;
+                mapContainer->height = map.height;
+                mapContainer->data.clear();
+                mapsVector.push_back(mapContainer);
+
+                //validate map
+                if(map.left>horizontalTiles || map.left+map.width>horizontalTiles || map.top>verticalTiles || map.top+map.height >verticalTiles){
+                    printf("Error: Positions or sizes are out of bound for map: %s\n",map.varName);
+                    return false;
+                }
+               
+                for(int y=map.top;y<(map.top+map.height);y++){
+                    for(int x=map.left;x<(map.left+map.width);x++){
+
+                        //check for first tile that match pixels at the current map position
+                        unsigned char* tile=getTileAt(x,y,&image);
+                        index=-1;
+                        for(unsigned int i=0;i<uniqueTiles.size();i++){
+                            unsigned char* b=uniqueTiles.at(i);
+                            if(tilesEqual(tile,b,image.tileWidth*image.tileHeight)){
+                                index=i;    //tile found in tile list
+                                break;
+                            }
+                        }
+                        free(tile);
+
+                        if(index==-1){
+                            printf("Map tile not found in tilset!\n");
+                            return false;
+                        }
+                       mapContainer->data.push_back(index); 
+
+                    }
+                }
+            }
+            if (!processMegaMap(tf, &megaMapContainer, &mapsVector)){
+                printf("Error processing mega maps\n");
+                return false;
+            }
+        }
+    }
+
+	//Export maps third
 	if(xform.maps!=NULL){
 
 		int index=0;
@@ -427,7 +646,7 @@ bool process(){
 	if(xform.outputType==NULL || strcmp(xform.outputType,"8bpp")==0){
 
 		/*Export tileset in 8 bits per pixel format*/
-	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
 
 		int c=0,t=0;
@@ -454,7 +673,7 @@ bool process(){
 		else{
 			bool invalidColor=false;
 			/*Export tileset in 3 bits per pixel format*/
-		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
 
 			if(xform.isBackgroundTiles){
 			    fprintf(tf,"const char vector_table_filler[144] __attribute__ ((section (\".uze_progmem_origin\")))={};\n");
@@ -519,7 +738,7 @@ bool process(){
 		else{
 			bool invalidColor=false;
 			/*Export tileset in 4 bits per pixel format*/
-		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
 			fprintf(tf,"const char %s[] PROGMEM ={\n",xform.tilesVarName);
 	
 			int c=0,t=0;
@@ -577,7 +796,7 @@ bool process(){
 			bool invalidColor=false;
 			
 			/*Export tileset in palette extended pixel format*/
-		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());			
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());			
 		    fprintf(tf,"const char vector_table_filler[144] __attribute__ ((section (\".uze_progmem_origin\")))={};\n");
 		    fprintf(tf,"const char %s[] __attribute__ ((section (\".uze_progmem_origin\")))={\n",xform.tilesVarName);
 	
@@ -623,7 +842,7 @@ bool process(){
 	}else if(strcmp(xform.outputType,"1bpp")==0){
 
 		/*Export tileset in 1 bits per pixel format*/
-	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
 
 		int c=0,t=0;
@@ -654,7 +873,7 @@ bool process(){
 
 		/*export "code tiles"*/
 		fprintf(tf,"#if !(VIDEO_MODE==9 && RESOLUTION==60) \r\n#error The included code-tiles data is only compatible with video mode 9 with 60 columns.\r\n#endif\r\n");
-	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (4))) ={\n",xform.tilesVarName);
 
 		int c=0,t=0;
@@ -744,7 +963,7 @@ bool process(){
 
 		/*export "code tiles"*/
 		fprintf(tf,"#if !(VIDEO_MODE==9 && RESOLUTION==80) \r\n#error The included code-tiles data is only compatible with video mode 9 with 80 columns.\r\n#endif\r\n");
-	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),uniqueTiles.size());
+	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM __attribute__ ((aligned (2))) ={\n",xform.tilesVarName);
 
 		int c=0,t=0;
@@ -864,7 +1083,7 @@ bool process(){
 	
 	fclose(tf);
 	free(image.buffer);
-	printf("File exported successfully!\nUnique tiles found: %i\nTotal size (tiles + maps): %i bytes\n",uniqueTiles.size(),totalSize);
+	printf("File exported successfully!\nUnique tiles found: %i\nTotal size (tiles + maps): %i bytes\n",(int)uniqueTiles.size(),totalSize);
 
 
 	return true;
@@ -923,11 +1142,19 @@ void parseXml(TiXmlDocument* doc){
 
 		//count # of map sub-elements
 		const TiXmlNode* node;
+        const TiXmlNode* subNode;
 		int mapCount=0;
 		for(node=mapsElem->FirstChild("map");node;node=node->NextSibling("map"))mapCount++;
 
+        //count # of mega-map sub-elements
+        int megaMapCount=0;
+        for(node=mapsElem->FirstChild("mega-map");node;node=node->NextSibling("mega-map"))megaMapCount++;
+
 		TileMap* maps=new TileMap[mapCount];
+        MegaTileMap* megaMaps=new MegaTileMap[megaMapCount];
+
 		xform.mapsCount=mapCount;
+        xform.megaMapsCount=megaMapCount;
 		mapCount=0;
 		for(node=mapsElem->FirstChild("map");node;node=node->NextSibling("map")){
 			maps[mapCount].varName=node->ToElement()->Attribute("var-name");
@@ -943,6 +1170,45 @@ void parseXml(TiXmlDocument* doc){
 		}else{
 			xform.maps=NULL;
 		}
+
+        megaMapCount=0;
+        for(node=mapsElem->FirstChild("mega-map");node;node=node->NextSibling("mega-map")){
+            megaMaps[megaMapCount].varName=node->ToElement()->Attribute("var-name");
+
+            node->ToElement()->QueryIntAttribute("mega-tile-width",&megaMaps[megaMapCount].megaTileWidth);
+            node->ToElement()->QueryIntAttribute("mega-tile-height",&megaMaps[megaMapCount].megaTileHeight);
+
+            // ########## mega-map child maps ############
+
+            //count # of map sub-elements
+            mapCount=0;
+            for(subNode=node->FirstChild("map");subNode;subNode=subNode->NextSibling("map"))mapCount++;
+
+            if (mapCount > 0){
+                megaMaps[megaMapCount].maps=new TileMap[mapCount];
+            }else{
+                megaMaps[megaMapCount].maps=NULL;
+            }
+
+            megaMaps[megaMapCount].mapsCount=mapCount;
+            mapCount=0;
+            for(subNode=node->FirstChild("map");subNode;subNode=subNode->NextSibling("map")){
+                megaMaps[megaMapCount].maps[mapCount].varName=subNode->ToElement()->Attribute("var-name");
+
+                subNode->ToElement()->QueryIntAttribute("top",&megaMaps[megaMapCount].maps[mapCount].top);
+                subNode->ToElement()->QueryIntAttribute("left",&megaMaps[megaMapCount].maps[mapCount].left);
+                subNode->ToElement()->QueryIntAttribute("width",&megaMaps[megaMapCount].maps[mapCount].width);
+                subNode->ToElement()->QueryIntAttribute("height",&megaMaps[megaMapCount].maps[mapCount].height);
+                mapCount++;
+            }
+            megaMapCount++;
+            // #####################
+        }
+        if(megaMapCount>0){
+            xform.megaMaps=megaMaps;
+        }else{
+            xform.megaMaps=NULL;
+        }
 	}else{
 		xform.maps=NULL;
 	}
@@ -994,7 +1260,7 @@ unsigned char* loadRawImage(){
 	ret=fread(buffer,1,fileSize,inputFile);
 	fclose(inputFile);
 	if(ret != fileSize) {
-		printf("Error: File size does not match input parameters. Expected=%i, Read=%i.\n", fileSize,ret);
+		printf("Error: File size does not match input parameters. Expected=%i, Read=%i.\n", fileSize,(int)ret);
 		return NULL;
 	}
 

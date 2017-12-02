@@ -571,11 +571,11 @@ void OptionsMenu(){
 			}else if(option==1){
 				TriggerFx(1,0x90,true);
 				if(fields[0].useGhostBlock==true){
-					Print(12+13,14,strNo);
+					Print(11+13,14,strNo);
 					fields[0].useGhostBlock=false;
 					fields[1].useGhostBlock=false;
 				}else{
-					Print(12+13,14,strYes);
+					Print(11+13,14,strYes);
 					fields[0].useGhostBlock=true;
 					fields[1].useGhostBlock=true;
 				}				
