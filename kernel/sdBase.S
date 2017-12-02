@@ -683,6 +683,8 @@ sd_card_send_byte_ff:
     ldi     r24,0xff
 sdCardSendByte:
 sd_card_send_byte:
+    in      r1, _SFR_IO_ADDR(SPSR)     ; Read SPIF so it clears on the out
+    clr     r1                         ; (using r1 since that's only used as zero otherwise)
     out     _SFR_IO_ADDR(SPDR),r24
 sd_card_send_byte_wait:
     in      r24,_SFR_IO_ADDR(SPSR)

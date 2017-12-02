@@ -476,6 +476,7 @@ sub1:
 ; C-callable
 ; C-prototype: void ClearVram(void)
 ;************************************
+.section .text.ClearVram
 ClearVram:
 	lds XL,vram_ptr
 	lds XH,vram_ptr+1
@@ -521,6 +522,7 @@ SetPalette:
 
 
 ;Nothing to do in this mode
+.section .text
 DisplayLogo:
 VideoModeVsync:
 InitializeVideoMode:

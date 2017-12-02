@@ -34,8 +34,6 @@
 #define  SR_PORT _SFR_IO_ADDR(PORTA)
 #define  SR_PIN  PA4
 #define  SR_DR   _SFR_IO_ADDR(SPDR)
-#define  SR_STAT _SFR_IO_ADDR(SPSR)
-#define  SR_TRAN SPIF
 
 
 
@@ -283,8 +281,7 @@ spiramreadu32_w16:
 	rjmp  .
 spiramreadu32_w12:
 	rjmp  .
-	rjmp  .
-	nop
+	lpm   r25,     Z
 	ret                    ; (16) With rcall
 
 
@@ -315,15 +312,15 @@ SpiRamWriteU32:
 	out   SR_DR,   r25     ; Send write command
 	call  spiram_address
 	ldi   r25,     2       ; ( 5)
-	rcall spiramwriteu16_wxx
+	rcall spiramwriteu32_wxx
 	out   SR_DR,   r18
-	rcall spiramwriteu16_w17
+	rcall spiramwriteu32_w17
 	out   SR_DR,   r19
-	rcall spiramwriteu16_w17
+	rcall spiramwriteu32_w17
 	out   SR_DR,   r20
-	rcall spiramwriteu16_w17
+	rcall spiramwriteu32_w17
 	out   SR_DR,   r21
-	rcall spiramwriteu16_w17
+	rcall spiramwriteu32_w17
 	sbi   SR_PORT, SR_PIN  ; Deselect SPI RAM
 	ret
 
@@ -378,9 +375,8 @@ spiramri_loop:
 	st    X+,      r24     ; ( 2)
 	rjmp  spiramri_loop    ; ( 4)
 spiramri_endl:
-	rjmp  .                ; (10)
-	rjmp  .                ; (12)
-	rjmp  .                ; (14)
+	lpm   r24,     Z       ; (11)
+	lpm   r24,     Z       ; (14)
 	rjmp  .                ; (16)
 	in    r24,     SR_DR   ; (17)
 	st    X+,      r24     ;
@@ -477,10 +473,10 @@ SpiRamSeqReadS8:
 .section .text.SpiRamSeqReadU8
 SpiRamSeqReadU8:
 
-	in    r25,     SR_STAT
-	sbrs  r25,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
-	ldi   r25,     0x00    ; Dummy for the read & return value
+	ldi   r25,     2       ; ( 9) (assume ret + call before)
+	dec   r25
+	brne  .-4              ; (14)
+	rjmp  .                ; (16)
 	in    r24,     SR_DR
 	out   SR_DR,   r25
 	ret                    ; ( 4)
@@ -506,18 +502,21 @@ SpiRamSeqReadS16:
 .section .text.SpiRamSeqReadU16
 SpiRamSeqReadU16:
 
-	in    r25,     SR_STAT
-	sbrs  r25,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
+	ldi   r25,     0       ; ( 9) (assume ret + call before)
+	rcall spiramsr16_w7    ; (16)
 	in    r24,     SR_DR
 	out   SR_DR,   r25
-	ldi   r25,     5
-	dec   r25
-	brne  .-4              ; (15)
-	nop                    ; (16)
+	rcall spiramsr16_w16
 	in    r25,     SR_DR   ; (17)
 	out   SR_DR,   r25
 	ret                    ; ( 4)
+
+spiramsr16_w16:
+	ldi   r25,     3
+	dec   r25
+	brne  .-4
+spiramsr16_w7:
+	ret                    ; (16) With rcall
 
 
 
@@ -540,9 +539,8 @@ SpiRamSeqReadS32:
 .section .text.SpiRamSeqReadU32
 SpiRamSeqReadU32:
 
-	in    r25,     SR_STAT
-	sbrs  r25,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
+	ldi   r25,     0       ; ( 9) (assume ret + call before)
+	rcall spiramsr32_w7    ; (16)
 	in    r22,     SR_DR
 	out   SR_DR,   r25
 	rcall spiramsr32_w16
@@ -557,9 +555,10 @@ SpiRamSeqReadU32:
 	ret                    ; ( 4)
 
 spiramsr32_w16:
-	ldi   r21,     3
-	dec   r21
+	ldi   r25,     3
+	dec   r25
 	brne  .-4
+spiramsr32_w7:
 	ret                    ; (16) With rcall
 
 
@@ -579,24 +578,22 @@ spiramsr32_w16:
 .section .text.SpiRamSeqReadInto
 SpiRamSeqReadInto:
 
-	movw  XL,      r24
-	in    r25,     SR_STAT
-	sbrs  r25,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
+	movw  XL,      r24     ; ( 9) (assume ret + call before)
+	ldi   r25,     0       ; (10)
+	rjmp  spiramsri_w      ; (12)
 spiramsri_loop:
+	subi  r22,     1       ; (15)
+	sbci  r23,     0       ; (16)
 	in    r24,     SR_DR   ; (17)
 	out   SR_DR,   r25     ; (18 = 0)
 	st    X+,      r24     ; ( 2)
-	subi  r22,     1       ; ( 3)
-	sbci  r23,     0       ; ( 4)
-	brne  .+2              ; ( 5 /  6)
-	ret                    ; ( 9)
-	rjmp  .                ; ( 8)
-	rjmp  .                ; (10)
+	brne  .+2              ; ( 3 /  4)
+	ret                    ; ( 7)
+	lpm   r24,     Z       ; ( 7)
+	lpm   r24,     Z       ; (10)
 	rjmp  .                ; (12)
 spiramsri_w:
-	rjmp  .                ; (14)
-	rjmp  spiramsri_loop   ; (16)
+	rjmp  spiramsri_loop   ; (14)
 
 
 
@@ -612,10 +609,9 @@ spiramsri_w:
 .section .text.SpiRamSeqReadEnd
 SpiRamSeqReadEnd:
 
-	in    r25,     SR_STAT
-	sbrs  r25,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
-	nop                    ; Padding since in cycle 14 after out, the flag is already set
+	ldi   r25,     3       ; ( 9) (assume ret + call before)
+	dec   r25
+	brne  .-4              ; (17) Last out should be completed at this point
 	sbi   SR_PORT, SR_PIN  ; Deselect SPI RAM
 	ret                    ; ( 4)
 
@@ -663,10 +659,9 @@ SpiRamSeqWriteS8:
 .section .text.SpiRamSeqWriteU8
 SpiRamSeqWriteU8:
 
-	in    r25,     SR_STAT
-	sbrs  r25,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
-	nop                    ; Padding since in cycle 14 after out, the flag is already set
+	ldi   r25,     3       ; ( 9) (assume ret + call before)
+	dec   r25
+	brne  .-4              ; (17)
 	out   SR_DR,   r24
 	ret                    ; ( 4)
 
@@ -691,13 +686,12 @@ SpiRamSeqWriteS16:
 .section .text.SpiRamSeqWriteU16
 SpiRamSeqWriteU16:
 
-	in    r23,     SR_STAT
-	sbrs  r23,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
-	nop                    ; Padding since in cycle 14 after out, the flag is already set
+	ldi   r23,     3       ; ( 9) (assume ret + call before)
+	dec   r23
+	brne  .-4              ; (17)
 	out   SR_DR,   r24
-	ldi   r25,     5
-	dec   r25
+	ldi   r23,     5
+	dec   r23
 	brne  .-4              ; (15)
 	rjmp  .                ; (17)
 	out   SR_DR,   r25
@@ -724,10 +718,8 @@ SpiRamSeqWriteS32:
 .section .text.SpiRamSeqWriteU32
 SpiRamSeqWriteU32:
 
-	in    r21,     SR_STAT
-	sbrs  r21,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
-	nop                    ; Padding since in cycle 14 after out, the flag is already set
+	nop                    ; ( 9) (assume ret + call before)
+	rcall spiramsw32_w8
 	out   SR_DR,   r22
 	rcall spiramsw32_w17
 	out   SR_DR,   r23
@@ -738,10 +730,11 @@ SpiRamSeqWriteU32:
 	ret                    ; ( 4)
 
 spiramsw32_w17:
-	nop
 	ldi   r21,     3
 	dec   r21
 	brne  .-4
+spiramsw32_w8:
+	nop
 	ret                    ; (17) With rcall
 
 
@@ -761,21 +754,21 @@ spiramsw32_w17:
 .section .text.SpiRamSeqWriteFrom
 SpiRamSeqWriteFrom:
 
-	movw  XL,      r24
-	in    r25,     SR_STAT
-	sbrs  r25,     SR_TRAN ; Wait for completion of transmission
-	rjmp  .-6
+	movw  XL,      r24     ; ( 9) (assume ret + call before)
+	rjmp  .                ; (11)
+	rjmp  spiramswf_w      ; (13)
 spiramswf_loop:
+	subi  r22,     1       ; (14)
+	sbci  r23,     0       ; (15)
 	ld    r24,     X+      ; (17)
 	out   SR_DR,   r24     ; (18 = 0)
-	subi  r22,     1       ; ( 1)
-	sbci  r23,     0       ; ( 2)
-	brne  .+2              ; ( 3 /  4)
-	ret                    ; ( 7)
-	ldi   r24,     3       ; ( 5)
+	brne  .+2              ; ( 1 /  2)
+	ret                    ; ( 5)
+	ldi   r24,     3       ; ( 3)
 	dec   r24
-	brne  .-6              ; (13)
-	rjmp  spiramsri_loop   ; (15)
+	brne  .-4              ; (11)
+spiramswf_w:
+	rjmp  spiramswf_loop   ; (13)
 
 
 
@@ -802,6 +795,8 @@ SpiRamSeqWriteEnd:
 ** Inputs:
 **     r24: Bank (low bit used to select low / high 64K)
 ** r23:r22: Address
+** Clobbers:
+** r25
 */
 .section .text.spiram_address
 spiram_address:

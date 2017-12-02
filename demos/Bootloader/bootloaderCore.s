@@ -179,16 +179,13 @@ io_table:
 
 	//set port directions 
 	io_set(DDRC,0xff)
-	io_set(DDRB,0xff)      //h-sync for ad725
 
-
-	//io_set(DDRD,0x80)  
-	io_set(DDRD,(1<<PD7)+(1<<PD4))       		//audio-out, LED pins as output
-	io_set(PORTD,(1<<PD4)+(1<<PD3)+(1<<PD2))		//turn on led & activate power switch pull-ups
+	io_set(DDRD,   (1 << PD7) | (1 << PD6) | (1 << PD4) | (1 << PD1)) // Audio-out, Chip Select, LED, UART TX
+	io_set(PORTD,  (1 << PD6) | (1 << PD4) | (1 << PD5) | (1 << PD3) | (1 << PD2) | (1 << PD0)) // Set CS high, LED on, pull-up for all inputs (PD3, PD2 are buttons)
 
 	//setup port A for joypads
-	io_set(DDRA,0b00001100) 	//set only control lines as outputs
-	io_set(PORTA,0b11111011)  //activate pullups on the data lines
+	io_set(DDRA,   0x0C) // Set only control lines (CLK, Latch) as outputs
+	io_set(PORTA,  0xFB) // Activate pullups on the data lines and unused pins
 
 	//clear counters
 	io_set(TCNT1H,0x00)
@@ -216,7 +213,8 @@ io_table:
 
 	io_set(TCCR2B, (1<<CS20))  //enable timer, no pre-scaler
 
-	io_set(SYNC_PORT, (1<<SYNC_PIN) +(1<<VIDEOCE_PIN) ) //set sync line to hi
+	io_set(DDRB,   (1 << SYNC_PIN) | (1 << VIDEOCE_PIN) | (1 << PB3) | (1 << PB7) | (1 << PB5)) // 4FSC, SCK, MOSI
+	io_set(PORTB,  (1 << SYNC_PIN) | (1 << VIDEOCE_PIN) | (1 << PB6) | (1 << PB2) | (1 << PB1)) // Set sync & chip enable line to hi, MISO and unused pins pull-up
 
 	//io_set(EIMSK,(1<<INT1) +(1<<INT0)) //soft-power buttons interrupt
 
