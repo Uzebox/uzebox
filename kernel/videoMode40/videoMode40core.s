@@ -140,6 +140,22 @@
 ;
 .global SetBorderColor
 
+;
+; void PutPixel(unsigned char x, unsigned char y, unsigned char color);
+;
+; Puts a pixel at the given X:Y location. This is only valid for the 1bpp and
+; the 3bpp row modes, in other row modes the call is ignored.
+;
+.global PutPixel
+
+;
+; unsigned char GetPixel(unsigned char x, unsigned char y);
+;
+; Gets a pixel from the given X:Y location. This is only valid for the 1bpp
+; and the 3bpp row modes, in other row modes it returns zero.
+;
+.global GetPixel
+
 
 
 #define PIXOUT VIDEO_PORT
@@ -1264,4 +1280,231 @@ SetTileTableRow:
 SetBorderColor:
 
 	sts   v_border, r24
+	ret
+
+
+
+;
+; void PutPixel(unsigned char x, unsigned char y, unsigned char color);
+;
+; Puts a pixel at the given X:Y location. This is only valid for the 1bpp and
+; the 3bpp row modes, in other row modes the call is ignored.
+;
+.section .text.PutPixel
+PutPixel:
+
+	mov   r23,     r22
+	andi  r22,     0x03    ; Line select within tile row
+	lsr   r23
+	lsr   r23              ; Tile row select
+	cpi   r23,     VRAM_TILES_V
+	brcc  pp_exit
+
+	; Precalculate VRAM & ARAM rows
+
+	ldi   r21,     40
+	mul   r23,     r21
+	movw  XL,      r0      ; VRAM position
+	clr   r1
+	ldi   ZL,      lo8(v_tbase)
+	ldi   ZH,      hi8(v_tbase)
+	add   ZL,      r23
+	adc   ZH,      r1
+	ld    r25,     Z       ; Tile row type
+	movw  ZL,      XL
+	lsl   ZL
+	rol   ZH               ; ARAM position
+	subi  ZL,      lo8(-(aram))
+	sbci  ZH,      hi8(-(aram))
+
+	; Select row type
+
+	cpi   r25,     0xFE
+	breq  pp_3bpp
+	brcs  pp_exit          ; < 0xFE: Character row, ignore
+
+	; 1bpp mode: 160 pixels wide
+
+	cpi   r24,     160
+	brcc  pp_exit
+	ldi   r21,     1       ; Pixel mask
+	lsr   r24
+	brcc  .+2
+	lsl   r21
+	lsr   r24              ; 0 - 39, X tile position
+	brcc  .+4
+	lsl   r21
+	lsl   r21
+	sbrc  r22,     0
+	swap  r21
+	sbrc  r22,     1
+	adiw  ZL,      1
+	lsl   r24
+	add   ZL,      r24
+	adc   ZH,      r1      ; Position of pixel got
+	ld    r22,     Z
+	sbrc  r20,     0
+	or    r22,     r21
+	com   r21
+	sbrs  r20,     0
+	and   r22,     r21
+	st    Z,       r22
+
+pp_exit:
+
+	ret
+
+pp_3bpp:
+
+	; 3bpp mode: 80 pixels wide
+
+	cpi   r24,     80
+	brcc  pp_exit
+	subi  XL,      lo8(-(vram))
+	sbci  XH,      hi8(-(vram))
+	ldi   r21,     1       ; Pixel mask
+	lsr   r24
+	brcc  .+2
+	lsl   r21
+	lsr   r22
+	brcc  .+4
+	lsl   r21
+	lsl   r21
+	sbrc  r22,     0
+	swap  r21
+	add   XL,      r24
+	adc   XH,      r1
+	lsl   r24
+	add   ZL,      r24
+	adc   ZH,      r1      ; Poisition of pixel got
+	mov   r25,     r21
+	com   r25              ; AND mask
+	ld    r22,     Z
+	sbrs  r20,     0
+	and   r22,     r25
+	sbrc  r20,     0
+	or    r22,     r21
+	st    Z+,      r22     ; Plane 0
+	ld    r22,     Z
+	sbrs  r20,     1
+	and   r22,     r25
+	sbrc  r20,     1
+	or    r22,     r21
+	st    Z,       r22     ; Plane 1
+	ld    r22,     X
+	sbrs  r20,     2
+	and   r22,     r25
+	sbrc  r20,     2
+	or    r22,     r21
+	st    X,       r22     ; Plane 2
+	ret
+
+
+
+;
+; unsigned char GetPixel(unsigned char x, unsigned char y);
+;
+; Gets a pixel from the given X:Y location. This is only valid for the 1bpp
+; and the 3bpp row modes, in other row modes it returns zero.
+;
+.section .text.GetPixel
+GetPixel:
+
+	mov   r23,     r22
+	andi  r22,     0x03    ; Line select within tile row
+	lsr   r23
+	lsr   r23              ; Tile row select
+	cpi   r23,     VRAM_TILES_V
+	brcc  gp_exit
+
+	; Precalculate VRAM & ARAM rows
+
+	ldi   r21,     40
+	mul   r23,     r21
+	movw  XL,      r0      ; VRAM position
+	clr   r1
+	ldi   ZL,      lo8(v_tbase)
+	ldi   ZH,      hi8(v_tbase)
+	add   ZL,      r23
+	adc   ZH,      r1
+	ld    r25,     Z       ; Tile row type
+	movw  ZL,      XL
+	lsl   ZL
+	rol   ZH               ; ARAM position
+	subi  ZL,      lo8(-(aram))
+	sbci  ZH,      hi8(-(aram))
+
+	; Select row type
+
+	cpi   r25,     0xFE
+	breq  gp_3bpp
+	brcs  gp_exit          ; < 0xFE: Character row, ignore
+
+	; 1bpp mode: 160 pixels wide
+
+	cpi   r24,     160
+	brcc  gp_exit
+	ldi   r21,     1       ; Pixel mask
+	lsr   r24
+	brcc  .+2
+	lsl   r21
+	lsr   r24              ; 0 - 39, X tile position
+	brcc  .+4
+	lsl   r21
+	lsl   r21
+	sbrc  r22,     0
+	swap  r21
+	sbrc  r22,     1
+	adiw  ZL,      1
+	lsl   r24
+	add   ZL,      r24
+	adc   ZH,      r1      ; Position of pixel got
+	ldi   r24,     0
+	ld    r22,     Z
+	and   r22,     r21
+	breq  .+2
+	ori   r24,     1
+	ret
+
+gp_exit:
+
+	ldi   r24,     0
+	ret
+
+gp_3bpp:
+
+	; 3bpp mode: 80 pixels wide
+
+	cpi   r24,     80
+	brcc  gp_exit
+	subi  XL,      lo8(-(vram))
+	sbci  XH,      hi8(-(vram))
+	ldi   r21,     1       ; Pixel mask
+	lsr   r24
+	brcc  .+2
+	lsl   r21
+	lsr   r22
+	brcc  .+4
+	lsl   r21
+	lsl   r21
+	sbrc  r22,     0
+	swap  r21
+	add   XL,      r24
+	adc   XH,      r1
+	lsl   r24
+	add   ZL,      r24
+	adc   ZH,      r1      ; Poisition of pixel got
+	ldi   r24,     0
+	ld    r22,     Z+
+	and   r22,     r21
+	breq  .+2
+	ori   r24,     1
+	ld    r22,     Z
+	and   r22,     r21
+	breq  .+2
+	ori   r24,     2
+	ld    r22,     X
+	and   r22,     r21
+	breq  .+2
+	ori   r24,     4
 	ret

@@ -27,6 +27,7 @@
 int main(){
 
 	unsigned int i;
+	unsigned int j;
 
 	ClearVram();
 	SetBorderColor(0xBFU);
@@ -62,6 +63,13 @@ int main(){
 	SetTileTableRow(M40_TILEROW_1BPP, 13U);
 	SetTileTableRow(M40_TILEROW_1BPP, 14U);
 	SetTileTableRow(M40_TILEROW_1BPP, 15U);
+
+	for (j = 0U; j < 16U; j ++){
+		for (i = 0U; i < 32U; i ++){
+			PutPixel(i + (j << 1) + 0U, i + 32U, j);
+			PutPixel(i + (j << 1) + 1U, i + 32U, j);
+		}
+	}
 
 	while(1);
 

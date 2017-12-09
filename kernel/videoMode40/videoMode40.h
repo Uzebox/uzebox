@@ -43,6 +43,8 @@ unsigned char GetFont(char x, char y);
 
 void SetTileTableRow(char const* data, unsigned char row);
 void SetBorderColor(unsigned char col);
+void PutPixel(unsigned char x, unsigned char y, unsigned char col);
+unsigned char GetPixel(unsigned char x, unsigned char y);
 
 /* Special tile rows */
 
