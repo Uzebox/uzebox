@@ -37,9 +37,10 @@
 
 /*
 ** Initializes SPI RAM. It is necessary to call it even after an SD Card init
-** to set up the SPI RAM's Chip Select.
+** to set up the SPI RAM's Chip Select. Returns 1 on success (128K SPI RAM is
+** available), 0 on failure.
 */
-void SpiRamInit(void);
+u8 SpiRamInit(void);
 
 
 
