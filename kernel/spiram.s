@@ -41,14 +41,17 @@
 ** void SpiRamInit(void);
 **
 ** Initializes SPI RAM. It is necessary to call it even after an SD Card init
-** to set up the SPI RAM's Chip Select.
+** to set up the SPI RAM's Chip Select. Returns 1 on success (128K SPI RAM is
+** available), 0 on failure.
 **
 ** Clobbers:
-** r25
+** r19, r20, r21, r22, r23, r24, r25
 */
 .global SpiRamInit
 .section .text.SpiRamInit
 SpiRamInit:
+
+	; Set up SPI, max speed for SPI RAM.
 
 	ldi   r25,     (1 << SPE) | (1 << MSTR) ; SPI Master mode
 	out   _SFR_IO_ADDR(SPCR), r25
@@ -58,6 +61,42 @@ SpiRamInit:
 	sbi   _SFR_IO_ADDR(DDRB), PB5
 	sbi   _SFR_IO_ADDR(PORTA), PA4
 	sbi   _SFR_IO_ADDR(DDRA), PA4 ; SPI RAM CS pin
+
+	; Check SPI RAM presence by a quick addressing test.
+
+	ldi   r20,     0
+	ldi   r21,     0
+	ldi   r19,     0       ; Start address
+iwlp:
+	movw  r22,     r20
+	mov   r24,     r19
+	call  SpiRamWriteU8    ; r20: Address low is written
+	subi  r20,     lo8(-(3989))
+	sbci  r21,     hi8(-(3989)) ; (This is prime)
+	sbci  r19,     0xFF
+	sbrs  r19,     1
+	rjmp  iwlp             ; Reaching beyond 128K ends
+
+	ldi   r20,     0
+	ldi   r21,     0
+	ldi   r19,     0       ; Start address
+irlp:
+	movw  r22,     r20
+	mov   r24,     r19
+	call  SpiRamReadU8
+	cpse  r24,     r20     ; Match?
+	rjmp  ifail
+	subi  r20,     lo8(-(3989))
+	sbci  r21,     hi8(-(3989)) ; (This is prime)
+	sbci  r19,     0xFF
+	sbrs  r19,     1
+	rjmp  irlp             ; Reaching beyond 128K ends
+
+	ldi   r24,     1
+	ret
+
+ifail:
+	ldi   r24,     0
 	ret
 
 
