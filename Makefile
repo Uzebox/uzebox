@@ -36,6 +36,7 @@ DEMOS += Arkanoid
 DEMOS += Atomix
 DEMOS += BitmapDemo
 DEMOS += Bootloader
+DEMOS += Bootloader5
 DEMOS += chess4uzebox
 DEMOS += ControllerTester
 DEMOS += DrMario
