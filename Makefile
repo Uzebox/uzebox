@@ -35,6 +35,7 @@ TOOLS_DEP += gconvert
 DEMOS += Arkanoid
 DEMOS += Atomix
 DEMOS += BitmapDemo
+DEMOS += BootDemo
 DEMOS += Bootloader
 DEMOS += Bootloader5
 DEMOS += chess4uzebox
