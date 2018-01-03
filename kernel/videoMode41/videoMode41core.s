@@ -1223,7 +1223,7 @@ GetFont:
 	sbci  XH,      hi8(-(vram))
 	lds   r0,      v_fbase
 	ld    r24,     X
-	add   r24,     r0
+	sub   r24,     r0
 	clr   r25
 	ret
 
