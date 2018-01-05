@@ -1,0 +1,4 @@
+Customized kernel for the bootloader
+
+Assembler only. Video mode 0 is a normal video mode, can be used with the
+normal kernel if desired.

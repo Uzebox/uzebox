@@ -57,7 +57,7 @@ void InitializeVideoMode(){
 		aram[i16 + 1U] = 0xFFU;
 	}
 
-	SetFontTilesIndex(0);
+	SetFontTilesIndex(0x20U);
 
 #if (M40_MATTEL != 0)
 	SetTileTable(m40_mattel);
