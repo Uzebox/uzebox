@@ -442,22 +442,22 @@
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
 			
 			#if UART == 1
-				#define AUDIO_OUT_HSYNC_CYCLES 258 
-				#define AUDIO_OUT_VSYNC_CYCLES 258 
+				#define AUDIO_OUT_HSYNC_CYCLES (232)
+				#define AUDIO_OUT_VSYNC_CYCLES (232)
 			#else
-				#define AUDIO_OUT_HSYNC_CYCLES 212 
-				#define AUDIO_OUT_VSYNC_CYCLES 212 
+				#define AUDIO_OUT_HSYNC_CYCLES (189)
+				#define AUDIO_OUT_VSYNC_CYCLES (189)
 			#endif 
 		#else
 			#define PCM_CHANNELS 0
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS
 			
 			#if UART == 1
-				#define AUDIO_OUT_HSYNC_CYCLES 213 
-				#define AUDIO_OUT_VSYNC_CYCLES 213 
+				#define AUDIO_OUT_HSYNC_CYCLES (187)
+				#define AUDIO_OUT_VSYNC_CYCLES (187)
 			#else
-				#define AUDIO_OUT_HSYNC_CYCLES 167 
-				#define AUDIO_OUT_VSYNC_CYCLES 167 
+				#define AUDIO_OUT_HSYNC_CYCLES (144)
+				#define AUDIO_OUT_VSYNC_CYCLES (144)
 			#endif
 		#endif
 	#else
