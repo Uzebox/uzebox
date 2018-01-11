@@ -44,15 +44,15 @@ int main(){
 
 	/* Bitmap modes */
 
-	SetTileTableRow(M41_TILEROW_2BPP, 8U);
-	SetTileTableRow(M41_TILEROW_2BPP, 9U);
-	SetTileTableRow(M41_TILEROW_2BPP, 10U);
-	SetTileTableRow(M41_TILEROW_2BPP, 11U);
+	SetTileTableRow(M42_TILEROW_2BPP, 8U);
+	SetTileTableRow(M42_TILEROW_2BPP, 9U);
+	SetTileTableRow(M42_TILEROW_2BPP, 10U);
+	SetTileTableRow(M42_TILEROW_2BPP, 11U);
 
-	SetTileTableRow(M41_TILEROW_1BPP, 12U);
-	SetTileTableRow(M41_TILEROW_1BPP, 13U);
-	SetTileTableRow(M41_TILEROW_1BPP, 14U);
-	SetTileTableRow(M41_TILEROW_1BPP, 15U);
+	SetTileTableRow(M42_TILEROW_1BPP, 12U);
+	SetTileTableRow(M42_TILEROW_1BPP, 13U);
+	SetTileTableRow(M42_TILEROW_1BPP, 14U);
+	SetTileTableRow(M42_TILEROW_1BPP, 15U);
 
 	for (j = 0U; j < 16U; j ++){
 		for (i = 0U; i < 32U; i ++){

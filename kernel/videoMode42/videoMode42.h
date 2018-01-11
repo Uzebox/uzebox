@@ -48,8 +48,8 @@ unsigned char GetPixel(unsigned char x, unsigned char y);
 
 /* Special tile rows */
 
-#define M41_TILEROW_2BPP ((void*)(0xFE00U))
-#define M41_TILEROW_1BPP ((void*)(0xFF00U))
+#define M42_TILEROW_2BPP ((void*)(0xFE00U))
+#define M42_TILEROW_1BPP ((void*)(0xFF00U))
 
 /* Optional charsets */
 
