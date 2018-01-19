@@ -55,30 +55,29 @@
 
 update_sound:
 
-	; Channel 1 (17 cy)
+	; Audio generation
 
-	movw  ZL,      r16
-	lds   r16,     sound_spos
-	subi  r16,     0x01
+	lds   ZH,      sound_spos
+	subi  ZH,      0x01
 	brcc  .+2
-	ldi   r16,     0x00    ; End of click sound, silence
+	ldi   ZH,      0x00    ; End of click sound, silence
 	sbic  _SFR_IO_ADDR(GPIOR0), 7
-	ldi   r16,     0xFF    ; Requested new sound
+	ldi   ZH,      0xFF    ; Requested new sound
 	cbi   _SFR_IO_ADDR(GPIOR0), 7
-	sts   sound_spos, r16
-	ldi   r17,     DEFAULT_MASTER_VOL
-	mulsu r16,     r17     ; sample * mixing_vol
-	movw  r16,     ZL
-	mov   ZH,      r1
+	sts   sound_spos, ZH
 
-	; Final processing (3 cy)
+	lsl   ZH               ; Make 2 periods
+	lsl   ZH               ; Make 4 periods
+	subi  ZH,      64      ; 192 -> 256=0 -> 192
+	brpl  .+2
+	com   ZH               ; 63 -> 0 -> 127 -> 64
+	subi  ZH,      192     ; 127 -> 64 -> 191 -> 128
 
-	subi  ZH,      0x80    ; Converts to unsigned
 	sts   _SFR_MEM_ADDR(OCR2A), ZH ; Output sound byte
 
 	; Wait and Sync generation
 
-	WAIT  ZL,      38
+	WAIT  ZL,      39
 
 	;--- Video sync update ( 68 cy LOW pulse) ---
 	sbic  _SFR_IO_ADDR(GPIOR0), 0
