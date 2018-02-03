@@ -52,8 +52,7 @@ Graphics_GradBar:
 Graphics_GradBar_l:
 	st    Z+,      r24
 	subi  r24,     0xEF
-	cpi   r24,     0x10
-	brne  Graphics_GradBar_l
+	brcs  Graphics_GradBar_l
 	ret
 
 
