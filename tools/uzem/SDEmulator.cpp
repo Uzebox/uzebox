@@ -200,7 +200,7 @@ void SDEmu::read(unsigned char *ptr) {
 				}
 			}
 		}
-		if (lastfile == -1 || fp <= 0) { *ptr++ = 0; }
+		if (lastfile == -1 || fp <= (void*)0) { *ptr++ = 0; }
 		else {
 			if(pos!=(lastPos+1)){
 				fseek(fp, pos - ((toc[lastfile].cluster_no-2)*clusterSize), SEEK_SET);
