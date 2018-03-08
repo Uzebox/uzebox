@@ -1,6 +1,8 @@
 /*
  *  Uzebox Kernel
- *  Copyright (C) 2008-2009 Alec Bourque
+ *  Copyright (C) 2008 - 2009 Alec Bourque
+ *                2017 Sandor Zsuga (Jubatian)
+ *                     CunningFellow
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,64 +44,66 @@
 .global update_sound
 .global counter
 
-
-//Public variables
+; Public variables
 .global mixer
 
 
 
-#define vol 			0
-#define step_lo			1
-#define step_hi			2
-#define samplepos_frac	3
-#define samplepos_lo	4
-#define samplepos_hi	5
+; For uzeboxSoundEngineCore.s
+
+#define vol            0
+#define step_lo        1
+#define step_hi        2
+#define samplepos_frac 3
+#define samplepos_lo   4
+#define samplepos_hi   5
+
+
 
 .section .bss
 
 	sound_enabled:.space 1
 
-	//struct MixerStruct -> soundEngine.h
-	mixer:
-	mixerStruct:
+	; struct MixerStruct -> soundEngine.h
 
-	tr1_vol:		 .space 1
-	tr1_step_lo:	 .space 1
-	tr1_step_hi:	 .space 1
-	tr1_pos_frac:	 .space 1
-	tr1_pos_lo:		 .space 1
-	tr1_pos_hi:		 .space 1
+mixer:
+mixerStruct:
 
-	tr2_vol:		 .space 1
-	tr2_step_lo:	 .space 1
-	tr2_step_hi:	 .space 1
-	tr2_pos_frac:	 .space 1
-	tr2_pos_lo:		 .space 1
-	tr2_pos_hi:		 .space 1
+	tr1_vol:       .space 1
+	tr1_step_lo:   .space 1
+	tr1_step_hi:   .space 1
+	tr1_pos_frac:  .space 1
+	tr1_pos_lo:    .space 1
+	tr1_pos_hi:    .space 1
 
-	tr3_vol:		 .space 1
-	tr3_step_lo:	 .space 1
-	tr3_step_hi:	 .space 1
-	tr3_pos_frac:	 .space 1
-	tr3_pos_lo:		 .space 1
-	tr3_pos_hi:		 .space 1
+	tr2_vol:       .space 1
+	tr2_step_lo:   .space 1
+	tr2_step_hi:   .space 1
+	tr2_pos_frac:  .space 1
+	tr2_pos_lo:    .space 1
+	tr2_pos_hi:    .space 1
 
-	tr4_vol:		 .space 1
-	tr4_params:		 .space 1 //bit0=>0=7,1=15 bits lfsr, b1:6=divider 
-	tr4_barrel_lo:	 .space 1
-	tr4_barrel_hi:	 .space 1
-	tr4_divider:	 .space 1 ;current divider accumulator
-	tr4_reserved1:	 .space 1
+	tr3_vol:       .space 1
+	tr3_step_lo:   .space 1
+	tr3_step_hi:   .space 1
+	tr3_pos_frac:  .space 1
+	tr3_pos_lo:    .space 1
+	tr3_pos_hi:    .space 1
+
+	tr4_vol:       .space 1
+	tr4_params:    .space 1 ; bit0=>0=7,1=15 bits lfsr, b1:6=divider
+	tr4_barrel_lo: .space 1
+	tr4_barrel_hi: .space 1
+	tr4_divider:   .space 1 ; current divider accumulator
+	tr4_reserved1: .space 1
 
 #if SOUND_CHANNEL_5_ENABLE==1
-	tr5_vol:		 .space 1
-	tr5_step_lo:	 .space 1
-	tr5_step_hi:	 .space 1
-	tr5_pos_frac:	 .space 1
-	tr5_pos_lo:		 .space 1
-	tr5_pos_hi:		 .space 1
-;	tr5_loop_start_lo: .space 1
-;	tr5_loop_start_hi: .space 1
+	tr5_vol:       .space 1
+	tr5_step_lo:   .space 1
+	tr5_step_hi:   .space 1
+	tr5_pos_frac:  .space 1
+	tr5_pos_lo:    .space 1
+	tr5_pos_hi:    .space 1
 	tr5_loop_len_lo: .space 1
 	tr5_loop_len_hi: .space 1
 	tr5_loop_end_lo: .space 1
@@ -108,287 +112,276 @@
 
 .section .text
 
+
+
 ;**********************
 ; Mix sound and process music track
 ; NOTE: registers r18-r27 are already saved by the caller
 ;***********************
 process_music:
-	
+
 #if ENABLE_MIXER==1
 	lds ZL,sound_enabled
 	sbrc ZL,0
- 	call ProcessMusic
+	call ProcessMusic
 #endif
 
 	ret
+
+
 
 ;****************************
 ; Inline sound mixing
-; In: ZL = video phase (1=pre-eq/post-eq, 2=hsync)
-
-; Destroys: Z,r0,r1
-; cycles: 212+
+; In: ZL = video phase (1 = Pre-eq / Post-eq, 2 = Hsync, 0 = No sync)
+;
+; Total cycle count must be AUDIO_OUT_HSYNC_CYCLES in Hsync only, otherwise
+; it can finish earlier or later. Sync pulse timings have to be maintained.
+;
+; Destroys: Z, r0, r1
 ;****************************
+
 update_sound:
-	push r16
-	push r17
-	push r18
-	push r28
-	push r29
 
-	mov r18,ZL
+	push  r18
+	push  r17
+	push  r16
 
-	;channel 1 
-	lds r16,tr1_step_lo
-	lds r17,tr1_pos_frac
-	add	r17,r16	;add step to fractional part of sample pos
-	lds r16,tr1_step_hi	
-	lds ZL,tr1_pos_lo
-	lds ZH,tr1_pos_hi 
-	adc ZL,r16	;add step to low byte of sample pos
-	lpm	r16,Z	;load sample
-	sts tr1_pos_lo,ZL
-	sts tr1_pos_frac,r17
-	lds r17,tr1_vol
-	mulsu r16,r17;(sample*mixing vol)
-	sbc r0,r0	;sign extend	
-	mov r28,r1	;set (sample*vol>>8) to mix buffer lsb
-	mov r29,r0	;set mix buffer msb	
-	nop
+	mov   r18,     ZL
 
-;38
-	
-	;channel 2
-	lds r16,tr2_step_lo
-	lds r17,tr2_pos_frac
-	add	r17,r16	;add step to fractional part of sample pos
-	lds r16,tr2_step_hi	
-	lds ZL,tr2_pos_lo
-	lds ZH,tr2_pos_hi 
-	adc ZL,r16	;add step to low byte of sample pos
-	lpm	r16,Z	;load sample
-	sts tr2_pos_lo,ZL
-	sts tr2_pos_frac,r17
-	lds r17,tr2_vol
+	; Mix result is collected in r0:r1 (r0 is the high byte!)
 
-	;*** Video sync update ***
-	sbrc r18,0								;pre-eq/post-eq sync
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN	;TCNT1=0xAC
-	sbrs r18,0								
-	rjmp .
-	;*************************
+	; Channel 1 (27 cy - 3 for initializing mix. buffer)
 
-	mulsu r16,r17;(sample*mixing vol)
-	clr r0
-	sbc r0,r0	;sign extend
-	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
-	adc r29,r0	;ajust mix buffer msb		
-;70
-	
-	;channel 3
-	lds r16,tr3_step_lo
-	lds r17,tr3_pos_frac
-	add	r17,r16				;add step to fractional part of sample pos
-	lds r16,tr3_step_hi	
-	lds ZL,tr3_pos_lo
-	lds ZH,tr3_pos_hi 
-	adc ZL,r16				;add step to low byte of sample pos
-	lpm	r16,Z				;load sample
-	sts tr3_pos_lo,ZL
-	sts tr3_pos_frac,r17
-	lds r17,tr3_vol
-	mulsu r16,r17			;(sample*mixing vol)
-	sbc r0,r0				;sign extend
-	add r28,r1				;add (sample*vol>>8) to mix buffer lsb
-	adc r29,r0				;ajust mix buffer msb
-;97	
+	lds   r17,     tr1_pos_frac
+	lds   ZL,      tr1_pos_lo
+	lds   ZH,      tr1_pos_hi
+	lds   r16,     tr1_step_lo
+	add   r17,     r16     ; Add step to fractional part of sample pos
+	lds   r16,     tr1_step_hi
+	adc   ZL,      r16     ; Add step to low byte of sample pos
+	lpm   r16,     Z       ; Load sample
+	sts   tr1_pos_lo, ZL
+	sts   tr1_pos_frac, r17
+	lds   r17,     tr1_vol
+	mulsu r16,     r17     ; (sample * mixing_vol)
+	sbc   r0,      r0      ; Sign extend
 
-	;channel 4 - 7/15 bit LFSR 
-	lds r16,tr4_barrel_lo
-	lds r17,tr4_barrel_hi
-	lds ZL,tr4_divider
-	dec ZL	
-	brpl ch4_no_shift	
+	; Channel 2 (27 cy + 2/3 sync generator + 2 preload)
 
-	lds ZH,tr4_params
-	mov ZL,ZH
-	lsr ZL 			;keep bits7:1
+	lds   r17,     tr2_pos_frac
+	lds   ZL,      tr2_pos_lo
+	lds   ZH,      tr2_pos_hi
+	lds   r16,     tr2_step_lo
+	add   r17,     r16     ; Add step to fractional part of sample pos
+	lds   r16,     tr2_step_hi
+	adc   ZL,      r16     ; Add step to low byte of sample pos
+	lpm   r16,     Z       ; Load sample
+	sts   tr2_pos_lo, ZL
+	sts   tr2_pos_frac, r17
+	movw  ZL,      r0
+	lds   r17,     tr2_vol
+	mulsu r16,     r17     ; (sample * mixing_vol)
+	sbc   r0,      r0      ; Sign extend
+	add   r1,      ZH      ; Add ((sample * vol) >> 8) to mix buffer lsb
+	lds   r17,     tr3_pos_frac
+	;--- Video sync update ( 68 cy LOW pulse) ---
+	sbrc  r18,     0
+	sbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN
+	;--------------------------------------------
+	adc   r0,      ZL      ; Ajust mix buffer msb
 
-	mov r0,r16  ;copy barrel shifter
-	lsr r0
-	eor r0,r16  ;xor bit0 and bit1
-	bst r0,0
-	lsr r17
-	ror r16
-	bld r17,6	;15 bits mode
-	sbrs ZH,0
-	bld r16,6	;7 bits mode
+	; Channel 3 (27 cy - 2 preload)
 
-	sts tr4_barrel_lo,r16
-	sts tr4_barrel_hi,r17
+	lds   ZL,      tr3_pos_lo
+	lds   ZH,      tr3_pos_hi
+	lds   r16,     tr3_step_lo
+	add   r17,     r16     ; Add step to fractional part of sample pos
+	lds   r16,     tr3_step_hi
+	adc   ZL,      r16     ; Add step to low byte of sample pos
+	lpm   r16,     Z       ; Load sample
+	sts   tr3_pos_lo, ZL
+	sts   tr3_pos_frac, r17
+	movw  ZL,      r0
+	lds   r17,     tr3_vol
+	mulsu r16,     r17     ; (sample * mixing_vol)
+	sbc   r0,      r0      ; Sign extend
+	add   r1,      ZH      ; Add ((sample * vol) >> 8) to mix buffer lsb
+	adc   r0,      ZL      ; Ajust mix buffer msb
 
-	rjmp ch4_end
-ch4_no_shift:
-	;wait loop 21 cycles
-	ldi r17,6
-	dec r17
-	brne .-4
-	;rjmp .
+	; Channel 4 - 7/15 bit LFSR (34 cy)
+
+	lds   r16,     tr4_barrel_lo ; Get the LFSR (16 bits barrel shifter)
+	lds   r17,     tr4_barrel_hi
+
+	lds   ZH,      tr4_vol ; get the Volume
+	lsr   ZH               ; Divide it by 2 to get sample for '1'.
+	clc
+	sbrc  r16,     0       ; If the LSB of the LFSR is zero
+	neg   ZH               ; then produce sample (negative) for '0' (C set unless zero)
+	sbc   ZL,      ZL      ; Sign extend
+	add   r1,      ZH      ; Add sample to mix buffer lsb
+	adc   r0,      ZL      ; Adjust mix buffer msb
+
+	lds   ZL,      tr4_divider ; load the divider
+	subi  ZL,      2       ; Decrement bits 1..7 leaving bit 0 untouched by subtracting 2
+	brcs  ch4_shift        ; if not enough ticks have elapsed then don't shift the LFSR
+	lpm   ZL,      Z
+	lpm   ZL,      Z
+	lpm   ZL,      Z
+	rjmp  ch4_end
+
+ch4_shift:
+	mov   ZL,      r16     ; Perform the actual LFSR shifting by copying low byte of LFSR to a temp for XOR opperation
+	lsr   r17              ; shift the 16 bits of the barrel shifter
+	ror   r16              ; leaving the old bit 0 into Carry (Same bit used to decide +ve or -ve "sample" above)
+	eor   ZL,      r16     ; perform the XOR of bit 0 and bit 1
+	bst   ZL,      0       ; Save that XOR'd bit to T
+	bld   r17,     6       ; Write T to the 15th bit of the LFSR (regardless of mode as 7 bit will overwrite it)
+	lds   ZL,      tr4_params ; Reload the divider / Parameters which consists of 7 bits of divider + 1 bit of mode
+	sbrs  ZL,      0       ; If the 7/14 mode bit indicates 7 bit mode then
+	bld   r16,     6       ; Store T to the 7th bit of the LFSR
+
 ch4_end:
+	sts   tr4_barrel_lo, r16 ; save the LFSR
+	sts   tr4_barrel_hi, r17
+	sts   tr4_divider, ZL  ; Save the divider (plus 7/15 mode bit in LSB)
 
-	sts tr4_divider,ZL
-	ldi r17,0x80 ;-128
-	
-	;*** Video sync update ***
-	sbrc r18,1								;hsync
-	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN	;TCNT1=0xF0
-	sbrs r18,1								
-	rjmp .
-	;*************************
-	
-	sbrc r16,0
-	ldi r17,0x7f ;+127
-	
-	lds r16,tr4_vol
+#if (SOUND_CHANNEL_5_ENABLE != 0)
 
-	mulsu r17,r16;(sample*mixing vol)
-	sbc r0,r0	;sign extend
-	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
-	adc r29,r0	;ajust mix buffer msb
+	; Channel 5 - PCM (45 cy + 2/3 sync generator)
 
-;142
-#if SOUND_CHANNEL_5_ENABLE==1
-	;channel 5 PCM -- 45 cycles
+	ldi   r17,     0
+	lds   ZL,      tr5_pos_frac
+	lds   ZH,      tr5_step_lo
+	;--- Video sync update (136 cy LOW pulse) ---
+	sbrc  r18,     1
+	sbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN
+	;--------------------------------------------
+	add   ZL,      ZH      ; Add fractional part
+	sts   tr5_pos_frac, ZL
 
-	;add fractional part
-	lds r16,tr5_pos_frac
-	lds r17,tr5_step_lo 
-	add r16,r17
-	sts tr5_pos_frac,r16
+	lds   ZL,      tr5_pos_lo
+	lds   ZH,      tr5_pos_hi
+	lds   r16,     tr5_step_hi
+	adc   ZL,      r16     ; Add low part
+	adc   ZH,      r17     ; Add high part
 
-	;add lo
-	lds ZL,tr5_pos_lo
-	lds r17,tr5_step_hi 
-	adc ZL,r17
+	lds   r16,     tr5_loop_end_lo
+	lds   r17,     tr5_loop_end_hi
+	cp    ZL,      r16
+	cpc   ZH,      r17
+	brcc  ch5_reset        ; Gone past end of sample
+	lpm   ZL,      Z
+	rjmp  .
+	rjmp  ch5_nores
 
-	;add hi
-	lds ZH,tr5_pos_hi
-	ldi r16,0
-	adc ZH,r16
+ch5_reset:
+	lds   r16,     tr5_loop_len_lo
+	lds   r17,     tr5_loop_len_hi
+	sub   ZL,      r16
+	sbc   ZH,      r17     ; Reset to beginning
 
-	movw r16,ZL
-	lds r0,tr5_loop_len_lo
-	lds r1,tr5_loop_len_hi	
-	sub r16,r0
-	sbc r17,r1
-	lds r0,tr5_loop_end_lo
-	lds r1,tr5_loop_end_hi
+ch5_nores:
+	sts   tr5_pos_lo, ZL
+	sts   tr5_pos_hi, ZH
 
-	cp ZL,r0
-	cpc ZH,r1
-	brlo .+2
-	movw ZL,r16
-
-	sts tr5_pos_lo,ZL
-	sts tr5_pos_hi,ZH
-
-	lpm	r16,Z	;load sample
-	lds r17,tr5_vol
-
-	mulsu r16,r17;(sample*mixing vol)
-	sbc r0,r0	;sign extend
-	add r28,r1	;add (sample*vol>>8) to mix buffer lsb
-	adc r29,r0	;adjust mix buffer msb	
-;186	
-#endif
-	
-	;final processing
-
-	;clip
-	clr r0
-	cpi r28,128	;> 127?
-	cpc r29,r0 ;0	
-	brlt .+2
-	ldi r28,127
-	
-	dec r0
-	cpi r28,-128; <-128?
-	cpc r29,r0 ;0xff
-	brge .+2
-	ldi r28,-128
-
-	subi r28,128	;convert to unsigned		
-	sts _SFR_MEM_ADDR(OCR2A),r28 ;output sound byte
-	
-
-#if UART == 1
-	;read UART data (23 cycles)
-	
-	ldi ZL,lo8(uart_rx_buf)
-	ldi ZH,hi8(uart_rx_buf)
-	lds r16,uart_rx_head
-
-	clr r0
-	add ZL,r16
-	adc ZH,r0
-
-	lds r17,_SFR_MEM_ADDR(UCSR0A)	
-
-	sbrs r17,RXC0	;data in?
-	rjmp 1f
-
-	lds r18,_SFR_MEM_ADDR(UDR0)
-	st Z,r18
-	inc r16
-	andi r16,(UART_RX_BUFFER_SIZE-1) ;wrap
-	sts uart_rx_head,r16
-	rjmp uart_tx
-1:
-	WAIT r28,9
-
-uart_tx:
-	;send UART data (24 cycles)
-	
-	ldi ZL,lo8(uart_tx_buf)
-	ldi ZH,hi8(uart_tx_buf)
-	lds r16,uart_tx_tail
-	lds r29,uart_tx_head
-	
-	add ZL,r16
-	adc ZH,r0	;r0=0
-
-	lds r28,_SFR_MEM_ADDR(UCSR0A)
-	andi r28,(1<<UDRE0)	 	//UCSR0A & (1<<UDRE0)
-
-	;if(ring_head == ring_tail || (UCSR0A & (1<<UDRE0)==0 ), nothing to send
-	sub r29,r16
-	mul r28,r29
-	breq 1f		
-
-	ld r18,Z
-	sts _SFR_MEM_ADDR(UDR0),r18	;TCNT1=0x134
-	inc r16
-	andi r16,(UART_TX_BUFFER_SIZE-1) ;wrap
-	sts uart_tx_tail,r16
-	rjmp update_sound_end
-1:
-	WAIT r28,9
+	lpm   r16,     Z       ; Load sample
+	movw  ZL,      r0
+	lds   r17,     tr5_vol
+	mulsu r16,     r17     ; (sample * mixing_vol)
+	sbc   r0,      r0      ; Sign extend
+	add   r1,      ZH      ; Add ((sample * vol) >> 8) to mix buffer lsb
+	adc   r0,      ZL      ; Ajust mix buffer msb
 
 #endif
 
+	; Restore no longer used registers (5 cy + 2/3 sync generator)
 
-update_sound_end:
+	movw  ZL,      r0      ; Move mix buffer for Final processing
+	pop   r16
+	pop   r17
+#if (SOUND_CHANNEL_5_ENABLE == 0)
+	;--- Video sync update (136 cy LOW pulse) ---
+	sbrc  r18,     1
+	sbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN
+	;--------------------------------------------
+#endif
 
-	pop r29
-	pop r28
-	pop r18
-	pop r17
-	pop r16
-	
+	; Final processing (9 cy)
+
+	subi  ZH,      0x80
+	sbci  ZL,      0xFF    ; Converts to unsigned
+	brpl  .+6
+	ldi   ZH,      0x00    ; Saturate from bottom to 0x00
+	nop
+	rjmp  .+6
+	cpi   ZL,      0x00
+	breq  .+2
+	ldi   ZH,      0xFF    ; Saturate from top to 0xFF
+	sts   _SFR_MEM_ADDR(OCR2A), ZH ; Output sound byte
+
+#if (UART != 0)
+
+	; Read UART data (20 cycles)
+
+	ldi   ZL,      lo8(uart_rx_buf)
+	ldi   ZH,      hi8(uart_rx_buf)
+	lds   r18,     uart_rx_head
+
+	clr   r1
+	add   ZL,      r18
+	adc   ZH,      r1
+	inc   r18
+	andi  r18,     (UART_RX_BUFFER_SIZE - 1) ; Wrap
+
+	lds   r0,      _SFR_MEM_ADDR(UCSR0A)
+
+	sbrc  r0,      RXC0    ; Data in?
+	rjmp  uart_rx_in
+	lpm   ZL,      Z
+	rjmp  .
+	rjmp  uart_rx_end
+
+uart_rx_in:
+	lds   r0,      _SFR_MEM_ADDR(UDR0)
+	st    Z,       r0
+	sts   uart_rx_head, r18
+
+uart_rx_end:
+
+	; Send UART data (23 cycles)
+
+	ldi   ZL,      lo8(uart_tx_buf)
+	ldi   ZH,      hi8(uart_tx_buf)
+	lds   r18,     uart_tx_tail
+
+	add   ZL,      r18
+	adc   ZH,      r1      ; r1 = 0
+
+	lds   r0,      _SFR_MEM_ADDR(UCSR0A)
+
+	lds   r1,      uart_tx_head
+	cp    r1,      r18     ; Is there any data in the buffer to send?
+	sbrs  r0,      UDRE0   ; Data can be sent?
+	rjmp  uart_tx_wt
+	brne  uart_tx_out
+uart_tx_wt:
+	lpm   ZL,      Z
+	rjmp  .
+	rjmp  .
+	rjmp  uart_tx_end
+
+uart_tx_out:
+	ld    r0,      Z
+	sts   _SFR_MEM_ADDR(UDR0), r0
+	inc   r18
+	andi  r18,     (UART_TX_BUFFER_SIZE - 1) ; Wrap
+	sts   uart_tx_tail, r18
+
+uart_tx_end:
+
+#endif
+
+	pop   r18
+
 	ret
-
-;212
-
-
-
-
