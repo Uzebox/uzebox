@@ -271,7 +271,7 @@ ch4_end:
 	cp    ZL,      r16
 	cpc   ZH,      r17
 	brcc  ch5_reset        ; Gone past end of sample
-	lpm   ZL,      Z
+	lpm   r16,     Z
 	rjmp  .
 	rjmp  ch5_nores
 
