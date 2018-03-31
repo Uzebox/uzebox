@@ -13,8 +13,9 @@ INFO=../gameinfo.properties
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
 KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSONG_SPEED=1
-KERNEL_OPTIONS += -DMAX_SPRITES=0 -DRAM_TILES_COUNT=8 -DENABLE_MIXER=1 -DSCREEN_TILES_V=27
-KERNEL_OPTIONS += -DMUSIC_ENGINE=STREAM -DSTREAM_MUSIC_DEBUG=1 -DSONG_BUFFER_SIZE=256 -DSOUND_CHANNEL_5_ENABLE=1 ##-DSOUND_MIXER=1
+KERNEL_OPTIONS += -DMAX_SPRITES=1 -DRAM_TILES_COUNT=3 -DSCREEN_TILES_V=26 -DFIRST_RENDER_LINE=35
+KERNEL_OPTIONS += -DMUSIC_ENGINE=STREAM -DSTREAM_MUSIC_DEBUG=1 -DSTREAM_MUSIC_RAM=1 -DSONG_BUFFER_SIZE=256 -DSOUND_CHANNEL_5_ENABLE=0 -DSOUND_MIXER=0
+KERNEL_OPTIONS += -DRESOLUTION_EXT=1 -DVRAM_TILES_H=32
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
@@ -56,7 +57,12 @@ INCLUDES = -I"$(KERNEL_DIR)"
 
 ## Build
 ##all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
-all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss size
+all: SD_MUSIC.DAT ../data/sdMusicConfig.cfg ../data/sdPCMConfig.cfg $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss size
+
+## Regenerate the music resources
+SD_MUSIC.DAT: ../data/sdMusicConfig.cfg ../data/sdPCMConfig.cfg
+	$(UZEBIN_DIR)mconvert ../data/sdMusicConfig.cfg
+	$(UZEBIN_DIR)dconvert ../data/sdPCMConfig.cfg
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -75,15 +81,14 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../SPIRamMusicDemo.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
 sdBase.o: $(KERNEL_DIR)/sdBase.S
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
 spiram.o: $(KERNEL_DIR)/spiram.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
+$(GAME).o: ../SPIRamMusicDemo.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 ##Link
 $(TARGET): $(OBJECTS)
 	 $(CC) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)
@@ -113,7 +118,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze
+	-rm -rf SD_MUSIC.DAT $(OBJECTS) $(GAME).* dep/* *.uze
 
 
 ## Other dependencies
