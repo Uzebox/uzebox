@@ -96,7 +96,21 @@
 	extern void StopSong();
 	#if MUSIC_ENGINE == MIDI
 		extern void StartSong(const char *midiSong);
-	#else
+	#elif MUSIC_ENGINE == STREAM
+		#if STREAM_MUSIC_RAM
+			extern void StartSong();
+			extern u8 SongBufBytes();
+			extern u8 SongBufFull();
+			extern u8 SongBufRead();
+			extern void SongBufWrite(u8 t);
+			#ifndef SONG_BUF_MIN
+				#define SONG_BUFFER_MIN 2
+			#endif
+		#else//bufferless "streaming"/compressed player
+			extern void StartSong(const char *song);
+			extern u8 SongBufRead();
+		#endif
+	#else//MOD
 		extern void StartSong(const char *song, u16 startPos, bool loop);
 	#endif
 	extern void ResumeSong();
@@ -191,3 +205,4 @@
 
 
 #endif
+
