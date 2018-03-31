@@ -50,9 +50,9 @@
 	
 	vram: 	  		.space VRAM_SIZE
 	text_vram:		.space SCREEN_TILES_H*SCREEN_TILES_V
-	tile_table_lo:	.byte 1
-	tile_table_hi:	.byte 1
-	font_tile_index:.byte 1
+	tile_table_lo:	.space 1
+	tile_table_hi:	.space 1
+	font_tile_index:.space 1
 
 .section .data
 

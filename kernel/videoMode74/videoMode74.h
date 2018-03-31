@@ -71,7 +71,7 @@ extern void M74_VramFill(unsigned int src, unsigned char pitch);
 extern void M74_RamTileFillRom(unsigned int  src, unsigned char dst);
 extern void M74_RamTileFillRam(unsigned char src, unsigned char dst);
 extern void M74_RamTileClear(unsigned char dst);
-extern void M74_Halt(void);
+extern void M74_Halt(void) __attribute__((noreturn));
 extern void M74_Seq(void);
 #if (M74_SPR_ENABLE != 0)
 extern void M74_VramRestore(void);
