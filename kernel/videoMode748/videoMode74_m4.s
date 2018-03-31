@@ -1,6 +1,6 @@
 ;
 ; Uzebox Kernel - Video Mode 748 scanline loop, Mode 4 (SPI RAM 4bpp)
-; Copyright (C) 2017 Sandor Zsuga (Jubatian)
+; Copyright (C) 2018 Sandor Zsuga (Jubatian)
 ;
 ; -----
 ;
@@ -27,71 +27,59 @@
 ;
 ; SPI RAM mode 4, entry point
 ;
-; Enters in cycle 1740, first SPI RAM transaction finished into 'r2' at cycle
-; 1738.
+; Enters in cycle 1735.
 ;
 ; r14:r15: Row selector offset
-; r16: Scanline counter (Normally 0 => 223)
-; r17: Logical row counter
-; r19: m74_config
+;     r16: Scanline counter (Normally 0 => 223)
+;     r17: Logical row counter
+;     r19: m74_config
 ; r22:r23: Tile descriptors
-; r24: Tile row (0 - 31)
-; r25: render_lines_count
-; YL:  Zero
+;     r25: render_lines_count
+;       X: VRAM, pointing at mode
+;      YL: Zero
+;      YH: Palette buffer
 ;
-m74_spi4:
+m74_mode4:
 
 
 
 ;
-; Load tile indices (96 byte / tile row for the left side)
+; Prepare pointer for left side pixels
 ;
-; 16 + 3 cycles
+; 21 + 4 cycles
 ;
-; At 1759 at the end
+; At 1760 at the end
 ;
-	lds   ZL,      m74_tidx_lo  ; ( 2)
-	lds   ZH,      m74_tidx_hi  ; ( 4)
-	lsl   r24              ; ( 5)
-	add   ZL,      r24     ; ( 6)
-	adc   ZH,      YL      ; ( 7)
 	; --- SPI ---
-	nop                    ; Padding for SPI
+	in    r2,      SR_DR
+	out   SR_DR,   r2
 	; -----------
-	sbrs  r19,     2       ; ( 8 /  9)
-	rjmp  spi4roi          ; (10)
-	; RAM tile index list
-	ld    XL,      Z+      ; (11)
-	ld    XH,      Z+      ; (13)
+	M74WT_r24      11      ; (11)
+	mov   r24,     r17     ; (12)
+	andi  r24,     0x07    ; (13) Row select
+	mov   r3,      r24
+	lsl   r24
+	add   r24,     r3      ; (16)
 	; --- SPI ---
 	in    r3,      SR_DR
 	out   SR_DR,   r3
 	; -----------
-	nop                    ; (14)
-	rjmp  spi4rie          ; (16)
-spi4roi:
-	; ROM tile index list
-	lpm   XL,      Z+      ; (13)
-	; --- SPI ---
-	in    r3,      SR_DR
-	out   SR_DR,   r3
-	; -----------
-	lpm   XH,      Z+      ; (16)
-spi4rie:
+	lsl   r24
+	lsl   r24              ; (18) * 12
+	inc   r24
+	add   XL,      r24
+	adc   XH,      YL      ; (21) YL: Zero; X points at row to use
 
 
 
 ;
 ; Process Color 0 reloading if enabled. YL is zero at this point.
 ;
-; 44 + 7 cycles
+; 44 + 6 cycles
 ;
 ; At 1810 at the end
 ;
 #if (M74_COL0_OFF != 0)
-	; --- SPI ---
-	nop                    ; Padding for SPI
-	; -----------
 	sbrs  r19,     4       ; ( 1 /  2)
 	rjmp  spi4c00          ; ( 3) Reload disabled
 	mov   ZL,      r17     ; ( 3) Create Color0 table from logical scanline ctr.
@@ -137,7 +125,7 @@ spi4c00:
 	M74WT_R24      16      ; (44)
 spi4c01:
 #else
-	M74WT_R24      13      ; (12) (+ 1cy SPI padding)
+	M74WT_R24      12      ; (12)
 	; --- SPI ---
 	in    r4,      SR_DR
 	out   SR_DR,   r4
@@ -157,18 +145,9 @@ spi4c01:
 
 
 ;
-; Adjust tile index for the row
+; Filler
 ;
-; 7 cycles
-;
-; At 1817 at the end
-;
-	ldi   YL,      12      ; ( 1)
-	mov   r24,     r17     ; ( 2) Log. scanline
-	andi  r24,     0x07    ; ( 3)
-	mul   r24,     YL      ; ( 5) 12 bytes / line
-	add   XL,      r0      ; ( 6)
-	adc   XH,      r1      ; ( 7)
+	M74WT_R24      10
 
 
 
@@ -192,10 +171,9 @@ spi4c01:
 ;
 ; Cycle counter is at 246 on its end
 ;
-	ldi   r20,     24      ; (1818) Count of tiles to render
-	inc   r16              ; (1819) Increment the physical line counter
-	inc   r17              ; (1820) Increment the logical line counter
-	lpm   r0,      Z       ; (   3) Dummy load (nop)
+	ldi   r20,     24      ; (   1) Count of tiles to render
+	inc   r16              ; (   2) Increment the physical line counter
+	inc   r17              ; (   3) Increment the logical line counter
 	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
 	ldi   ZL,      2       ; (   6)
 	in    r7,      SR_DR   ; (   7)

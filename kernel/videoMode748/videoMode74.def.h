@@ -1,6 +1,6 @@
 /*
- *  Uzebox Kernel - Video Mode 74
- *  Copyright (C) 2015 - 2017 Sandor Zsuga (Jubatian)
+ *  Uzebox Kernel - Video Mode 748
+ *  Copyright (C) 2018 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,6 +103,14 @@
 
 
 
+/* Enable Row Mode 6 & Row Mode 7. Enable them only if you are using them,
+** they cost about 3K of ROM space. */
+#ifndef M74_M67_ENABLE
+	#define M74_M67_ENABLE     0
+#endif
+
+
+
 /* Video temporary workspaces.
 ** These are only used during the scanline render, so if you are using the
 ** reset feature, you can locate them at such locations where the main code
@@ -138,7 +146,7 @@
 **
 ** The main program stack: The definition gives the top of the stack (so first
 ** used stack position is the definition - 1). It should be shared with the
-** palette buffer and optionally other work areas to conserve memory.
+** palette buffer and optionally other work areas to converse memory.
 ** Note that the Uzebox logo feature can not be used if you place the palette
 ** buffer at 0x1000 - 0x10FF since the default stack top + 1 is 0x1100, so
 ** the palette buffer will destroy the stack in the logo code. */
@@ -152,43 +160,13 @@
 
 
 
-/* Tile descriptor tables. Each uses up to 130 bytes in ROM or RAM
-** respectively. To have Mode 74 operational, you have to define at least one
-** proper tile descriptor! The Uzebox logo feature expects M74_RAMTD_OFF
-** defined, using its first 5 bytes, which it restores after use. */
-
-#ifndef M74_ROMTD_OFF
-	#define M74_ROMTD_OFF      0
-#endif
-#ifndef M74_RAMTD_OFF
-	#define M74_RAMTD_OFF      0x1030
-#endif
-
-
-
-/* Disable color zero. Color zero can not be used for sprites (it is the
-** transparent color). If you don't need it (using only up to 15 colors), you
-** can disable it by this option. This causes omitting initializing bytes 0 -
-** 16 of the palette buffer, which may be used for other purposes then (for
-** example the video stack). Color zero should not occur in the image data
-** then (it will cause pixels of undefined colors for this index). Note that
-** it also disables 2bpp mode (which uses color indices 0 - 3). You may use
-** the Multicolor mode (Row mode 3) instead with a repeated single tile row
-** to conserve RAM memory if you need simple 2bpp. */
-
-#ifndef M74_COL0_DISABLE
-	#define M74_COL0_DISABLE   0
-#endif
-
-
-
 /* Location of intro logo workspace. Only used during the intro logo's display
 ** if it is enabled, after that the related memory can be reused. Normally the
 ** default location set here should be fine. A region for the logo RAM tiles
 ** also has to be set up (it uses 18 RAM tiles, so 576 bytes). */
 
 #ifndef M74_LOGO_WORK
-	#define M74_LOGO_WORK      0x1040
+	#define M74_LOGO_WORK      0x1020
 #endif
 #ifndef M74_LOGO_RAMTILES
 	#define M74_LOGO_RAMTILES  0x0700
@@ -197,11 +175,8 @@
 
 
 /* Location of the 16 color palette. By default place it below the stack
-** (0x1000 - 0x100F) */
+** (0x1000 - 0x100F), and m74_paddr is pointed here. */
 
-#ifndef M74_PAL_PTRE
-	#define M74_PAL_PTRE       0
-#endif
 #ifndef M74_PAL_OFF
 	#define M74_PAL_OFF        0x1000
 #endif
@@ -216,10 +191,6 @@
 
 #ifndef M74_COL0_OFF
 	#define M74_COL0_OFF       0
-#else
-	#if ((M74_COL0_OFF != 0) && (M74_COL0_DISABLE != 0))
-		#error "Color 0 is disabled (M74_COL0_DISABLE set), relaoding (M74_COL0_OFF nonzero) can not be used!"
-	#endif
 #endif
 
 
@@ -240,39 +211,19 @@
 
 
 
-/* This can be used to enable separator line (Row mode 2). It uses some dozen
-** bytes of Flash. */
-
-#ifndef M74_M2_ENABLE
-	#define M74_M2_ENABLE      0
-#endif
-
-
-
 /* Row mode 4 (SPI RAM 4bpp) needs a 96 byte line buffer, it can be allocated
 ** here. By default it is placed below the stack. */
 
 #ifndef M74_M4_BUFFER
-	#define M74_M4_BUFFER      0x1040
+	#define M74_M4_BUFFER      0x1020
 #endif
 
+/* Row mode 4 (SPI RAM 4bpp) streams (it doesn't set up a start address), the
+** beginning address for this can be set here. It uses 672 bytes of SPI RAM
+** for every tile row. */
 
-
-/* The VRAM used for the kernel and sprite output. This is a rectangular
-** region normally mapping to the VRAM set up for Mode 74 output (m74_tidx),
-** so sprites and kernel stuff appears proper. */
-
-#ifndef M74_VRAM_OFF
-	#error "A base address for kernel and sprite VRAM surface is necessary!"
-#endif
-#ifndef M74_VRAM_W
-	#define M74_VRAM_W VRAM_TILES_H
-#endif
-#ifndef M74_VRAM_H
-	#define M74_VRAM_H VRAM_TILES_V
-#endif
-#ifndef M74_VRAM_P
-	#define M74_VRAM_P M74_VRAM_W
+#ifndef M74_M4_BASE
+	#define M74_M4_BASE        0
 #endif
 
 
@@ -295,8 +246,6 @@
 	#define M74_MSK_ENABLE     0
 #endif
 
-
-
 /* ROM mask index base. The ROM has 2048 tile slots, this list may have at
 ** most that many bytes. It doesn't need to be aligned to any boundary.
 ** Typically tile assets are packed together in the ROM taking one
@@ -311,114 +260,35 @@
 	#endif
 #endif
 
-/* RAM mask index base. This is always based at whatever RAM tile offset base
-** is set up (there is no practical use for supporting more than 64 RAM tiles
-** here since it can not be exploited). So it has up to 64 elements, the first
-** belonging to RAM tile 0 (Tile index 0xC0). If RAM tiles are only used for
-** rendering sprites or the area is repopulated after every frame, this may be
-** located under the palette buffer or video stack. */
+/* RAM mask index base. 1 byte is taken for each RAM tile available for the
+** sprite engine. This is used to make it unnecessary to always look up mask
+** indices by the background VRAM (in SPI RAM). It can be located under the
+** palette buffer (as long as renders finish in one VBlank; as it is only
+** needed for sprite rendering). */
 
 #ifndef M74_RAMMASKIDX_OFF
-	#if ((M74_SPR_ENABLE != 0) && (M74_MSK_ENABLE != 0))
-		#error "A RAM mask index base (M74_RAMMASKIDX_OFF) has to be defined for the sprite system!"
-	#endif
+	#define M74_RAMMASKIDX_OFF 0x1020
 #endif
 
-
-
-/* ROM mask pool's address. At most 224 x 8 bytes (depends on used masks).
-** If no actual masks are used, or only RAM masks are used, this may be left
-** zero. This has to be aligned at a 8 byte boundary. */
+/* ROM mask pool's address. At most 256 x 8 bytes (depends on used masks).
+** If no actual masks are used, this may be left zero. This has to be aligned
+** at a 8 byte boundary. */
 
 #ifndef M74_ROMMASK_OFF
 	#define M74_ROMMASK_OFF    0
 #endif
 
-/* RAM mask pool's address. At most 14 x 8 bytes (depends on used masks).
-** If no actual masks are used, or only ROM masks are used, this may be left
-** zero. This has to be aligned at a 8 byte boundary. */
-
-#ifndef M74_RAMMASK_OFF
-	#define M74_RAMMASK_OFF    0
-#endif
 
 
-
-/* Location of X row shifts. It can be disabled by leaving it zero. Enabling
-** it adds row shifts (to the left) of 0 - 7 pixels which should follow how
-** the display is generated. This somewhat eases scrolling, and enables
-** parallax scrolling. Up to 32 bytes, depending on how many rows the VRAM
-** has. If the content is re-generated before the render of every frame, it
-** may be located under the palette buffer or video stack. */
-
-#ifndef M74_XSHIFT_OFF
-	#define M74_XSHIFT_OFF     0
-#endif
-
-
-
-/* RAM tile allocation workspace pointer for sprites. Up to 192 bytes (depends
-** on maximal number of RAM tiles used, 3 bytes for a RAM tile). It may be
-** located below the palette buffer if the VRAM is rebuilt before new renders
-** completely (this case M74_ResReset has to be called before starting the
-** render). */
-
-#ifndef M74_RTLIST_PTRE
-	#define M74_RTLIST_PTRE    0
-#endif
-#ifndef M74_RTLIST_OFF
-	#if ((M74_SPR_ENABLE != 0) && (M74_RTLIST_PTRE == 0))
-		#error "A RAM tile list offset (M74_RTLIST_OFF) has to be defined for the sprite system!"
-	#endif
-#endif
-
-
-
-/* Enable SPI RAM sprites. If enabled, the sprite blitter (M74_BlitSprite and
-** M74_BlitSpriteCol) will work using the SPI RAM. The M74_SPR_RAM flag if set
-** requests using the high 64K of the SPI RAM. The SPI RAM blitter only works
-** with M74_REC_SLOW enabled, and it is somewhat slower than that blitter. It
-** is not possible to use ROM or RAM sourced sprites along with SPI RAM
-** sourced sprites. */
-
-#ifndef M74_SPIRAM_SPRITES
-	#define M74_SPIRAM_SPRITES 0
-#else
-	#if (M74_SPIRAM_SPRITES != 0)
-		#ifndef M74_REC_SLOW
-			#define M74_REC_SLOW 1
-		#else
-			#if (M74_REC_SLOW == 0)
-				#error "SPI RAM sourced sprites can only work with M74_REC_SLOW enabled"
-			#endif
-		#endif
-	#endif
-#endif
-
-
-
-/* Sprite recolor table set start offset. Only the high byte is used. If it is
-** set zero, then the recoloring support is not compiled in (saving some flash
-** space and making sprite blitting even without recoloring a bit faster). One
-** recolor table is 256 bytes, containing remap values for input bytes (pixel
-** pairs). */
+/* Sprite recolor table set start offset. Only the high byte is used. This is
+** a 256 byte ROM area of 16 byte (or less) recolor tables (one byte for one
+** index). This allows for heavier sprite recolor use. The first 16 bytes
+** should be filled up for straight recolor (values 0 - 15), so M74_BlitSprite
+** works correctly. The recolor table index is a simple offset within the 256
+** byte (wrapping) table, allowing to pack recolor maps tight. */
 
 #ifndef M74_RECTB_OFF
-	#define M74_RECTB_OFF      0
-#endif
-
-/* Enable slow recoloring. It makes sprite blitting about 15 percents slower
-** while offering a 256 byte ROM area of 16 byte (or less) recolor tables (one
-** byte for one index). This allows for heavier sprite recolor use. Note that
-** if enabled, recolor can not be turned off at all. The first 16 bytes should
-** be filled up for straight recolor (values 0 - 15), so M74_BlitSprite works
-** correctly. The recolor table index is a simple offset within the 256 byte
-** (wrapping) table, allowing to pack recolor maps tight. */
-
-#ifndef M74_REC_SLOW
-	#define M74_REC_SLOW       0
-#else
-	#if ((M74_REC_SLOW != 0) && (M74_RECTB_OFF == 0x0000))
-		#error "A recolor table (M74_RECTB_OFF) is necessary to use slow recoloring (M74_REC_SLOW)"
+	#if (M74_SPR_ENABLE != 0)
+		#error "A recolor table (M74_RECTB_OFF) has to be defined for the sprite system!"
 	#endif
 #endif

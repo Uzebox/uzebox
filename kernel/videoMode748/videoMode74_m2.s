@@ -1,6 +1,6 @@
 ;
 ; Uzebox Kernel - Video Mode 748 Row mode 2 (Separator line)
-; Copyright (C) 2017 Sandor Zsuga (Jubatian)
+; Copyright (C) 2018 Sandor Zsuga (Jubatian)
 ;
 ; This program is free software: you can redistribute it and/or modify
 ; it under the terms of the GNU General Public License as published by
@@ -23,276 +23,135 @@
 
 
 ;
-; Separator line with palette reload and stuff.
+; Separator line with palette reload.
 ;
-; Enters in cycle 1813. After doing its work, it returns to m74_scloop_sr,
-; cycle 1697 of the next line. For the documentation of what it displays, see
-; the comments for m74_tdesc in videoMode74.s
+; Enters in cycle 1735.
 ;
-; First pixel output in 24 tile wide mode has to be performed at cycle 353 (so
-; OUT finishing in 354).
+; r14:r15: Row selector offset
+;     r16: Scanline counter (Normally 0 => 223)
+;     r17: Logical row counter
+;     r19: m74_config
+; r22:r23: Tile descriptors
+;     r25: render_lines_count
+;       X: VRAM, pointing at mode
+;      YL: Zero
+;      YH: Palette buffer
 ;
-; Depending on the width (r18: number of pixels to produce) there are either
-; 1344, 1232, 1120 or 1008 display cycles. That is up to 336 cycles might not
-; be present.
-;
-; r16: Scanline counter (increments it by one)
-; r17: Logical row counter (increments it by one)
-; r18: Byte 0 of tile descriptor (mode)
-; r10: Byte 1 of tile descriptor
-; r11: Byte 2 of tile descriptor
-; r12: Byte 3 of tile descriptor
-; r21: Byte 4 of tile descriptor
-; X:   Offset from tile index list
-; r19: Global configuration (m74_config)
-; YH:  Palette buffer, high
-;
-; Everything expect r14, r15, r16, r17, r19, r22, r23, r25, and YH may be
-; clobbered. Register r18 has to be set zero before return.
-;
-m74_m2_separator:
+m74_mode2:
+
+	sbi   SR_PORT, SR_PIN  ; ( 2) Deselect SPI RAM (Any prev. operation)
+	ld    r20,     X+      ; ( 4) Mode & Flags
+	cbi   SR_PORT, SR_PIN  ; ( 6) Select SPI RAM
+	ldi   r24,     0x03    ; ( 7) Command: Read from SPI RAM
+	out   SR_DR,   r24     ; ( 8)
+	ld    r2,      X+      ; (10) Palette address low (None / RAM / ROM / SPI RAM)
+	ld    r3,      X+      ; (12) Palette address high
+	ld    r18,     X+      ; (14) Color of separator line (unless Color0 reload)
+	ldi   r24,     0xFF    ; (15)
+	mov   r12,     r24     ; (16) For SPI RAM
+	ldi   r24,     0x00    ; (17)
+	sbrc  r20,     7       ; (18 / 19) SPI RAM bank select
+	ldi   r24,     0x01    ; (19)
+	lpm   ZL,      Z       ; (22)
+	lpm   ZL,      Z       ; (25)
+	out   SR_DR,   r24     ; (26)
+
+
 
 ;
-; The hsync_pulse part for the new scanline.
+; Process Color 0 reloading if enabled. YL is zero at this point.
 ;
-; Normally in "conventional" graphics modes this is an "rcall hsync_pulse"
-; into the kernel, however here even those cycles were needed. I count the
-; cycles of the line beginning with that rcall, so the hsync cbi ends on
-; cycle 5.
+; Cycles: 49 (1810)
 ;
-; Note that the "sync_pulse" variable is not updated, which is normally a
-; decrementing counter for managing the mode. It is not used within the
-; display portion, so I only update it proper after the display ends (by
-; subtracting r16, the amount of lines which skipped updating it).
+	rcall m74_repcol0      ; (49)
+
+
+
 ;
-; The "update_sound" function destroys r0, r1, Z and the T flag in SREG.
+; The hsync_pulse part.
 ;
-; HSYNC_USABLE_CYCLES:
-; 234 (Allowing 4CH audio or either 5CH or the UART)
+; Cycle counter is at 246 on its end.
 ;
-; Cycle counter is at 246 on its end
-;
-	M74WT_R24      10      ; (   3)
+	ldi   YL,      0       ; (1811)
+	ld    r13,     Y       ; (1812) Color 0
+	sbrc  r20,     4
+	mov   r18,     r13     ; (1814) Color 0 is used for the line
+	lpm   ZL,      Z       ; (1817)
+	lpm   ZL,      Z       ; (1820 = 0)
+	rjmp  .                ; (   2)
+	inc   r16              ; (   3) Physical line counter
 	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
-	rjmp  .                ; (   7)
-	ldi   ZL,      2       ; (   8)
+	inc   r17              ; (   6) Logical line counter
+	ldi   ZL,      2       ; (   7)
+	out   SR_DR,   r12     ; (   8) SPI RAM dummy for first data fetch
 	call  update_sound     ; (  12) (+ AUDIO)
 	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 
 
-;
-; Cycles:  81
-; Ends:    327
-;
-
-	M74WT_R24      81      ; (81)
-
-
 
 ;
-; Branch off to palette loading or doing nothing during the line
+; Prepare for color replacements
 ;
-; Loading:    9 cycles (ends at 336)
-; No loading: 8 cycles (ends at 335)
+; Cycles:  1 ( 247)
 ;
-
-	mov   r24,     r17     ; ( 1)
-	andi  r24,     0x7     ; ( 2)
-	breq  .+2              ; ( 3 / 4)
-	cpi   r24,     0x7     ; ( 4)
-	breq  m2ldts           ; ( 5 / 6) 0 or 7 (first or last row): Maybe needs loading
-	nop                    ; ( 6)
-	rjmp  m2nold           ; ( 8)
-m2ldts:
-	sbrs  r18,     6       ; ( 7) No loading at all if set
-	rjmp  m2load           ; ( 9) Need loading palette
-m2nold:
+	movw  ZL,      r2      ; ( 1) For RAM / ROM loads (SPI RAM is initialized OK)
 
 
 
 ;
-; No palette reload
+; Process line
 ;
-; Cycles:  727
-; Ends:   1062
-;
-	mov   YL,      r10     ; ( 1)
-	ld    r2,      Y       ; ( 3) Color of separator line acquired
-	M74WT_R24      15      ; (18)
-	out   PIXOUT,  r2      ; (19) ( 354)
-	M74WT_R24      706     ; (725)
-	rjmp  m2comm           ; (727)
+	rcall m2_colrep        ; ( 300)
+	rcall m2_colrep        ; ( 353)
+	out   PIXOUT,  r18     ; ( 354)
+	rcall m2_colrep        ; ( 407)
+	rcall m2_colrep        ; ( 460)
+	rcall m2_colrep        ; ( 513)
+	rcall m2_colrep        ; ( 566)
+	rcall m2_colrep        ; ( 619)
+	rcall m2_colrep        ; ( 672)
+	rcall m2_colrep        ; ( 725)
+	rcall m2_colrep        ; ( 778)
+	rcall m2_colrep        ; ( 831)
+	rcall m2_colrep        ; ( 884)
+	rcall m2_colrep        ; ( 937)
+	rcall m2_colrep        ; ( 990)
+	rcall m2_colrep        ; (1043)
+	rcall m2_colrep        ; (1096)
+	M74WT_R24      598     ; (1694)
+	clr   r18              ; (1695)
+	rjmp  m74_scloop_sr    ; (1697)
 
 
 
 ;
-; Palette loading (either before or after separator color), entry: color the
-; separator line.
+; Routine to replace a palette byte
 ;
-; Cycles:   18
-; Ends:    354 (Outputs line color)
+; r12: 0xFF (for SPI RAM)
+; r20: Mode 2 config
+;  YL: Palette index to process (high nybble), increments by 16.
+;   Z: Palette source pointer
 ;
-
-m2ldaf:
-	mov   YL,      r10     ; ( 4)
-	ld    r2,      Y       ; ( 6) Color of separator line acquired
-	adiw  XL,      16      ; ( 8) Select palette to load
-	M74WT_R24      7       ; (15)
-	rjmp  m2ldcm           ; (17)
-m2load:
-	cpi   r24,     0       ; ( 1) Load before or after coloring separator?
-	brne  m2ldaf           ; ( 2 /  3) To load after
-	rjmp  .                ; ( 4)
-	mov   YL,      r10     ; ( 5)
-	andi  YL,      0xF0    ; ( 6)
-	swap  YL               ; ( 7) Index to use
-	clr   r2               ; ( 8)
-	movw  ZL,      XL      ; ( 9)
-	add   ZL,      YL      ; (10)
-	adc   ZH,      r2      ; (11) Color's offset
-	sbrs  r23,     5       ; (12 / 13) ROM / RAM palette source
-	rjmp  .+4              ; (14)
-	ld    r2,      Z       ; (15) Color of separator line acquired
-	rjmp  .+2              ; (17)
-	lpm   r2,      Z       ; (17) Color of separator line acquired
-m2ldcm:
-	out   PIXOUT,  r2      ; (18) ( 354)
-
-
-
-;
-; Load the palette in registers. The following registers are taken for this
-; (retaining the capability to call m74_setpalcol):
-;
-;  r0,  r1,  r2,  r3,  r4,  r5,  r6,  r7,
-;  r8,  r9, r10, r11, r12, r13, r20, r21
-;
-; Cycles:   52
-; Ends:    406
-;
-	movw  ZL,      XL      ; ( 1)
-	sbrs  r18,     5       ; ( 2 /  3) ROM / RAM palette source
-	rjmp  m2prom           ; ( 4)
-	ld    r0,      Z+      ; ( 5)
-	ld    r1,      Z+      ; ( 7)
-	ld    r2,      Z+      ; ( 9)
-	ld    r3,      Z+      ; (11)
-	ld    r4,      Z+      ; (13)
-	ld    r5,      Z+      ; (15)
-	ld    r6,      Z+      ; (17)
-	ld    r7,      Z+      ; (19)
-	ld    r8,      Z+      ; (21)
-	ld    r9,      Z+      ; (23)
-	ld    r10,     Z+      ; (25)
-	ld    r11,     Z+      ; (27)
-	ld    r12,     Z+      ; (29)
-	ld    r13,     Z+      ; (31)
-	ld    r20,     Z+      ; (33)
-	ld    r21,     Z+      ; (35)
-	M74WT_R24      15      ; (50)
-	rjmp  m2pcom           ; (52)
-m2prom:
-	lpm   r0,      Z+      ; ( 7)
-	lpm   r1,      Z+      ; (10)
-	lpm   r2,      Z+      ; (13)
-	lpm   r3,      Z+      ; (16)
-	lpm   r4,      Z+      ; (19)
-	lpm   r5,      Z+      ; (22)
-	lpm   r6,      Z+      ; (25)
-	lpm   r7,      Z+      ; (28)
-	lpm   r8,      Z+      ; (31)
-	lpm   r9,      Z+      ; (34)
-	lpm   r10,     Z+      ; (37)
-	lpm   r11,     Z+      ; (40)
-	lpm   r12,     Z+      ; (43)
-	lpm   r13,     Z+      ; (46)
-	lpm   r20,     Z+      ; (49)
-	lpm   r21,     Z+      ; (52)
-m2pcom:
-
-
-
-;
-; Refill the palette buffer
-;
-; Cycles:  656
-; Ends:   1062
-;
-#if (M74_COL0_DISABLE == 0)
-	clr   YL               ; ( 1)
-	mov   r24,     r0      ; ( 2)
-	rcall m74_setpalcol    ; (41) (3 + 36 cycles)
-	inc   YL               ; ()
-#else
-	M74WT_R24      41      ; ()
-	ldi   YL,      16      ; ()
-#endif
-	mov   r24,     r1      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r2      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r3      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r4      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r5      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r6      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r7      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r8      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r9      ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r10     ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r11     ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r12     ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r13     ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r20     ; ()
-	rcall m74_setpalcol    ; ()
-	inc   YL               ; ()
-	mov   r24,     r21     ; ()
-	rcall m74_setpalcol    ; (656) (41 * 16 cycles)
-m2comm:
-
-
-
-;
-; Common trailing region
-;
-; Cycles:  630
-; Ends:   1692
-;
-	M74WT_R24      630     ; (630)
-
-
-
-;
-; Row counter increments & Return
-;
-; Cycles:    5
-; Ends:   1697
-;
-
-	inc   r16              ; ( 1) Physical scanline counter increment
-	inc   r17              ; ( 2) Logical row counter increment
-	clr   r18              ; ( 3)
-	rjmp  m74_scloop_sr    ; ( 5) (1697)
+m2_colrep:
+	sbrc  r20,     5
+	rjmp  m2_colrep_23
+	sbrs  r20,     6
+	rjmp  m2_colrep_0      ; ( 5) No color replacing
+	nop
+	ld    r24,     Z+      ; ( 7) RAM source
+	rjmp  m2_colrep_r      ; ( 9)
+m2_colrep_23:
+	sbrs  r20,     6
+	rjmp  m2_colrep_2      ; ( 6) ROM source
+	in    r24,     SR_DR   ; ( 6) SPI RAM source
+	out   SR_DR,   r12     ; ( 7)
+	rjmp  m2_colrep_r      ; ( 9)
+m2_colrep_2:
+	lpm   r24,     Z+      ; ( 9)
+m2_colrep_r:
+	rcall m74_setpalcol    ; (48) (3 + 36 cycles)
+	inc   YL               ; (49)
+	ret                    ; (53)
+m2_colrep_0:
+	M74WT_R24      44      ; (49)
+	ret                    ; (53)

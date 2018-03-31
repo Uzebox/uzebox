@@ -38,9 +38,8 @@ sub_video_mode74:
 ; If no display, then just consume the configured height without any of
 ; Mode 74's features
 ;
-
 	lds   r19,     m74_config     ; ( 469)
-	sbrs  r19,     7       ; ( 470 /  471)
+	sbrs  r19,     0       ; ( 470 /  471)
 	rjmp  ddis             ; ( 472) Display disabled
 
 
@@ -62,7 +61,6 @@ sub_video_mode74:
 ; Cycles:  10
 ; Ends:    483
 ;
-
 	in    r24,     STACKL  ; ( 1) Load stack address for restoration before return
 	in    r25,     STACKH  ; ( 2) (Only actually used unless reset was enabled)
 	sts   v_reset_lo, r24  ; ( 4) Save restore address
@@ -75,61 +73,73 @@ sub_video_mode74:
 
 
 ;
-; Initialize SPI RAM
+; Load palette
 ;
-; Cycles:  76
-; Ends:    559
+; Cycles:  888
+; Ends:    1371
 ;
-	cbi   SR_PORT, SR_PIN  ; ( 2)
+	cbi   SR_PORT, SR_PIN  ; ( 2) Start SPI RAM operation for SPI RAM palette
 	ldi   r25,     0x03    ; ( 3) Read from SPI RAM
 	out   SR_DR,   r25     ; ( 4)
 	ldi   r25,     0x00    ; ( 5)
-	sbrc  r19,     0       ; ( 6 /  7) SPI RAM bank select
+	sbrc  r19,     7       ; ( 6 /  7) SPI RAM bank select
 	ldi   r25,     0x01    ; ( 7)
-	M74WT_R24      14      ; (21)
+	ldi   YL,      0       ; ( 8)
+	M74WT_R24      13      ; (21)
 	out   SR_DR,   r25     ; (22)
-	lds   r22,     m74_saddr_lo ; (24)
-	lds   r23,     m74_saddr_hi ; (26)
-	M74WT_R24      13      ; (39)
-	out   SR_DR,   r23     ; (40)
+	ldi   YH,      hi8(M74_PALBUF)
+	lds   ZL,      m74_paddr_lo ; (25)
+	lds   ZH,      m74_paddr_hi ; (27)
+	M74WT_R24      12      ; (39)
+	out   SR_DR,   ZH      ; (40)
 	M74WT_R24      17      ; (57)
-	out   SR_DR,   r22     ; (58)
+	out   SR_DR,   ZL      ; (58)
 	M74WT_R24      17      ; (75)
-	out   SR_DR,   r22     ; (76) Dummy byte for first fetch
+	out   SR_DR,   r25     ; (76) Dummy byte for first fetch
+	M74WT_R24      13      ; (89)
+pal_lp:
+	sbrs  r19,     5
+	rjmp  pal_lp_01
+	sbrs  r19,     6
+	rjmp  pal_lp_2         ; ( 5) ROM source
+	in    r24,     SR_DR   ; ( 5) SPI RAM source
+	out   SR_DR,   r25     ; ( 6)
+	rjmp  pal_lp_r         ; ( 8)
+pal_lp_01:
+	ld    r24,     Z+      ; ( 5) RAM source
+	nop
+	rjmp  pal_lp_r         ; ( 8)
+pal_lp_2:
+	lpm   r24,     Z+      ; ( 8)
+pal_lp_r:
+	rcall m74_setpalcol    ; (47) (3 + 36 cycles)
+	inc   YL               ; (48)
+	brne  pal_lp           ; (50) (50 * 16 - 1 + 89 = 888 cycles)
+
 
 
 ;
-; Load palette (m74_config is loaded into r19)
+; Initialize SPI RAM for streaming for Row mode 4
 ;
-; Cycles: 773
-; Ends:   1332
+; Cycles:  80
+; Ends:    1451
 ;
-
-	ldi   YH,      hi8(M74_PALBUF)  ; ( 1)
-#if (M74_PAL_PTRE != 0)
-	lds   ZL,      m74_pal_lo   ; ( 3)
-	lds   ZH,      m74_pal_hi   ; ( 5)
-#else
-	ldi   ZL,      lo8(M74_PAL_OFF) ; ( 2)
-	ldi   ZH,      hi8(M74_PAL_OFF) ; ( 3)
-	rjmp  .                ; ( 5)
-#endif
-#if (M74_COL0_DISABLE != 0)
-	ldi   YL,      16      ; ( 6) Color 0 disabled: skip it
-	adiw  ZL,      1       ; ( 8)
-	M74WT_R24      46      ; (54)
-#else
-	clr   YL               ; ( 6)
-#endif
-lcloop:
-	sbrs  r19,     3       ; ( 1) RAM / ROM palette
-	rjmp  .+4              ; ( 3)
-	ld    r24,     Z+      ; ( 4)
-	rjmp  .+2              ; ( 6)
-	lpm   r24,     Z+      ; ( 6)
-	rcall m74_setpalcol    ; (45) (3 + 36 cycles)
-	inc   YL               ; (46)
-	brne  lcloop           ; (47 / 48) (767 cy total for the loop)
+	sbi   SR_PORT, SR_PIN  ; ( 2)
+	rjmp  .                ; ( 4)
+	cbi   SR_PORT, SR_PIN  ; ( 6)
+	ldi   r25,     0x03    ; ( 7) Read from SPI RAM
+	out   SR_DR,   r25     ; ( 8)
+	ldi   r25,     (M74_M4_BASE >> 16) & 0x01 ; ( 9)
+	M74WT_R24      16      ; (25)
+	out   SR_DR,   r25     ; (26)
+	ldi   r23,     (M74_M4_BASE >>  8) & 0xFF ; (27)
+	ldi   r22,     (M74_M4_BASE      ) & 0xFF ; (28)
+	M74WT_R24      15      ; (43)
+	out   SR_DR,   r23     ; (44)
+	M74WT_R24      17      ; (61)
+	out   SR_DR,   r22     ; (62)
+	M74WT_R24      17      ; (79)
+	out   SR_DR,   r22     ; (80) Dummy byte for first fetch
 
 
 
@@ -138,7 +148,7 @@ lcloop:
 ; (m74_config is loaded into r19)
 ;
 ; Cycles: 10
-; Ends:   1342
+; Ends:   1461
 ;
 
 	clr   r16              ; ( 1) Scanline counter
@@ -150,9 +160,9 @@ lcloop:
 	ldi   ZH,      hi8(M74_ROWS_OFF) ; ( 3)
 	rjmp  .                ; ( 5)
 #endif
-	; Load the first two values to get the initial scanline.
+	; Load the first value to get the initial scanline.
 	ld    r17,     Z+      ; ( 7) Load first logical row counter
-	adiw  ZL,      1       ; ( 9)
+	rjmp  .                ; ( 9)
 	movw  r14,     ZL      ; (10)
 
 
@@ -161,12 +171,12 @@ lcloop:
 ; Prepare for frame render loop
 ;
 ; Cycles: 6
-; Ends:   1348
+; Ends:   1467
 ;
 
 	lds   r25,     render_lines_count ; ( 2)
-	lds   r22,     m74_tdesc_lo ; ( 4)
-	lds   r23,     m74_tdesc_hi ; ( 6)
+	lds   r22,     m74_vaddr_lo ; ( 4)
+	lds   r23,     m74_vaddr_hi ; ( 6)
 
 
 
@@ -177,7 +187,7 @@ lcloop:
 ; when tweaking the scanline loop.
 ;
 
-	M74WT_R24      348     ; (1696)
+	M74WT_R24      229     ; (1696)
 	rjmp  m74_scloop       ; (1703)
 m74_scloopr:
 	M74WT_R24      110     ; (1813)
@@ -312,6 +322,63 @@ m74_setpalcol:
 	st    Y+,      r24     ; (30)
 	st    Y,       r24     ; (32)
 	ret                    ; (36)
+
+
+
+;
+; Process color 0 replace along with SPI RAM address loads (2 bytes). The
+; address loads assume an SPI access before the rcall to this. Next SPI access
+; after this has to wait 4 cycles.
+;
+;  r3: r2: SPI RAM address
+;     r19: m74_config
+;     r24: Clobbered
+;      YL: Clobbered
+;       Z: Clobbered
+;
+; Cycles: 46 + 3
+;
+m74_repcol0:
+#if (M74_COL0_OFF != 0)
+	sbrs  r19,     4       ; ( 1 /  2)
+	rjmp  c0rl0            ; ( 3) Reload disabled
+	mov   ZL,      r17     ; ( 3) Create Color0 table from logical scanline ctr.
+	ldi   ZH,      hi8(M74_COL0_OFF) ; ( 4)
+	ld    r24,     Z       ; ( 6) Color0 table
+	st    Y+,      r24     ; ( 8)
+	st    Y+,      r24     ; (10)
+	st    Y+,      r24     ; (12)
+	st    Y+,      r24     ; (14)
+	out   SR_DR,   r3      ; <== SPI RAM address high
+	st    Y+,      r24     ; (16)
+	st    Y+,      r24     ; (18)
+	st    Y+,      r24     ; (20)
+	st    Y+,      r24     ; (22)
+	st    Y+,      r24     ; (24)
+	st    Y+,      r24     ; (26)
+	st    Y+,      r24     ; (28)
+	st    Y+,      r24     ; (30)
+	st    Y+,      r24     ; (32)
+	out   SR_DR,   r2      ; <== SPI RAM address low
+	st    Y+,      r24     ; (34)
+	st    Y+,      r24     ; (36)
+	st    Y+,      r24     ; (38)
+	rjmp  c0rle            ; (40)
+c0rl0:
+	M74WT_R24      11      ; (14)
+	out   SR_DR,   r3      ; <== SPI RAM address high
+	M74WT_R24      18      ; (32)
+	out   SR_DR,   r2      ; <== SPI RAM address low
+	M74WT_R24      8       ; (40)
+c0rle:
+#else
+	M74WT_R24      14      ; (14)
+	out   SR_DR,   r3      ; <== SPI RAM address high
+	M74WT_R24      18      ; (32)
+	out   SR_DR,   r2      ; <== SPI RAM address low
+	M74WT_R24      8       ; (40)
+#endif
+	ret
 
 
 

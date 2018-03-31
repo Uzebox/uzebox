@@ -29,8 +29,8 @@
 ; Cycles/Pixel: 7 / 3.5
 ; Tile Width:   8
 ; Tile Height:  8
-; Resolution:   192x224 pixels or 384x224 pixels in 1bpp SPI RAM mode
-; Sprites:      Possible by RAM tiles (32 bytes / tile, up to 64)
+; Resolution:   192x224 pixels or 384x224 pixels
+; Sprites:      Possible by RAM tiles (32 bytes / tile, up to 128)
 ; Scrolling:    X and Y scrolling possible
 ;
 ; Description
@@ -46,18 +46,15 @@
 ;
 
 ;
-; volatile unsigned char m74_config;
+; volatile u8 m74_config;
 ;
 ; Global configuration flags
 ;
-; bit 0: Unused
-; bit 1: If set, Tile row descriptors are located in RAM, otherwise ROM (32b)
-; bit 2: If set, Tile index source list is in RAM, otherwise ROM (64b)
-; bit 3: If set, RAM palette source, otherwise ROM (16b)
+; bit 0: Display enabled if set. Otherwise screen is black
+; bit 1: If set, VRAM row addresses are in RAM, otherwise ROM (64b)
 ; bit 4: Color 0 reload enabled if set
-; bit 5: Unused
-; bit 6: Unused
-; bit 7: Display enabled if set. Otherwise screen is black
+; bit 5-6: Palette source: 0: RAM, 1: RAM, 2: ROM, 3: SPI RAM
+; bit 7: 16th bit of Palette address if it is in SPI RAM
 ;
 ; Color 0 reload:
 ; If enabled, on every scanline, Color 0 of the palette will be reloaded. This
@@ -68,14 +65,13 @@
 
 #if (M74_ROWS_PTRE != 0)
 ;
-; volatile unsigned int m74_rows;
+; volatile u16 m74_rows;
 ;
-; Row selector address. Records are of 3 bytes in the following layout except
+; Row selector address. Records are of 2 bytes in the following layout except
 ; for the first record which misses the first byte:
 ;
 ; - byte 0: Scanline to act on (0 - 223)
 ; - byte 1: New logical scanline position
-; - byte 2: New X shift (high 5 bits ignored)
 ;
 ; The list ends when the scanline can not match any more (either already
 ; passed or can never be reached).
@@ -84,109 +80,28 @@
 #endif
 
 ;
-; volatile unsigned int m74_tdesc;
+; volatile u16 m74_vaddr;
 ;
-; Tile row descriptor address. This points at a 32 byte list of indices which
-; address into the tile descriptor tables.
+; Video RAM addresses (either in ROM or RAM). This points at a 32 byte list of
+; RAM addresses pointing to the available Video RAM rows (each row is 8 pixels
+; tall).
 ;
-; There are two such tables selected by bit 7 of the index: if the bit is 0,
-; it selects the ROM table, otherwise the RAM table. The low 7 bits of the
-; index are an offset into this table.
+; See "Tile row modes overwiev" in M748_Manual.rst for descriptions on how the
+; Video RAM can be filled up to select and configure rows.
 ;
-; Each entry takes 5 bytes using the following layout:
-;
-; byte 0: bit 0 - 2: Row mode:
-;                    0: ROM 4bpp tiles (3 x 64 ROM tiles + 64 RAM tiles)
-;                    1: (Same as 0)
-;                    2: Special: Separator line
-;                    3: (Same as 2)
-;                    4: SPI RAM 4bpp bitmap
-;                    5: SPI RAM 3bpp bitmap
-;                    6: SPI RAM 1bpp bitmap with Attributes (384 px wide)
-;                    7: SPI RAM 1bpp bitmap (384 px wide)
-;         bit 3 - 7: Flags (used by some modes)
-;
-; Mode 0:
-; byte 1: Offset high for ROM tiles 0x00 - 0x3F
-; byte 2: Offset high for ROM tiles 0x40 - 0x7F
-; byte 3: Offset high for ROM tiles 0x80 - 0xBF
-; byte 4: Offset high for RAM tiles 0xC0 - 0xFF
-;
-; Mode 2:
-; byte 1 is used, see below.
-;
-; Mode 4:
-; No extra byte usage.
-;
-; Mode 5:
-; No extra byte usage.
-;
-; Mode 6:
-; byte 1 is used to specify foreground (high nybble) and background (low
-; nybble) colors, selected from the palette.
-;
-; Mode 7:
-; No extra byte usage.
-;
-; Mode 2 (Separator with Palette reload feature):
-;
-; This mode displays a simple separator while allowing a reload of the palette
-; (useful for split-screen effects).
-;
-; It uses the high nybble of byte 1 to color the separator line.
-;
-; The tile index source specifies the offset of the palette, if bit 5 of
-; byte 0 is set, it is in RAM, otherwise in ROM. Palette reload can take place
-; for line 0, from the given offset, which also affects the color of the
-; separator line, or line 7, from given offset + 16, which doesn't affect the
-; color of the separator line (taken from the previous palette).
-;
-; Palette reload can be turned off by setting bit 6 of byte 0. This case the
-; seperator is simply a single colored line of the given width.
-;
-.global m74_tdesc
+.global m74_vaddr
 
 ;
-; volatile unsigned int m74_tidx;
+; volatile u16 m74_paddr;
 ;
-; Address of ROM / RAM tile index source address list. These specify the RAM
-; addresses of VRAM for each tile row (32 x 2 bytes, low byte first).
+; Address of palette, either in RAM, ROM or SPI RAM depending on bit 5-6 of
+; m74_config. The frame's render starts with this palette.
 ;
-.global m74_tidx
-
-#if (M74_PAL_PTRE != 0)
-;
-; volatile unsigned int m74_pal;
-;
-; Address of palette, either in RAM or ROM depending on bit 3 of m74_config.
-; The frame's render starts with this palette.
-;
-.global m74_pal
-#endif
-
-#if (M74_ROMMASK_PTRE != 0)
-;
-; volatile unsigned int m74_romma;
-;
-; Address of ROM mask pool containing at most 224 masks, 8 bytes each. These
-; are used for sprite blitting.
-;
-.global m74_romma
-#endif
-
-#if (M74_RAMMASK_PTRE != 0)
-;
-; volatile unsigned int m74_ramma;
-;
-; Address of RAM mask pool containing at most 14 masks, 8 bytes each. These
-; are used for sprite blitting.
-;
-.global m74_ramma
-#endif
+.global m74_paddr
 
 #if (M74_RESET_ENABLE != 0)
 ;
-; volatile unsigned int m74_reset;
+; volatile u16 m74_reset;
 ;
 ; Reset vector where the video frame render will reset upon return with an
 ; empty stack. It should be a function with void parameters and void return.
@@ -198,15 +113,7 @@
 #endif
 
 ;
-; volatile unsigned int m74_saddr;
-;
-; SPI RAM base address. This address is used combined with M74_CFG_SPIRAM_HIGH
-; in m74_config for SPI RAM sourced modes.
-;
-.global m74_saddr
-
-;
-; unsigned char M74_Finish(void);
+; u8 M74_Finish(void);
 ;
 ; Always returns zero.
 ;
@@ -221,7 +128,7 @@
 .global ClearVram
 
 ;
-; void SetTile(char x, char y, unsigned int tileId);
+; void SetTile(char x, char y, u16 tileId);
 ;
 ; Uzebox kernel function: sets a tile at a given X:Y location on VRAM.
 ; Operates on the region set up by M74_SetVram().
@@ -229,7 +136,7 @@
 .global SetTile
 
 ;
-; void SetFont(char x, char y, unsigned char tileId);
+; void SetFont(char x, char y, u8 tileId);
 ;
 ; Uzebox kernel function: sets a (character) tile at a given X:Y location on
 ; VRAM. Operates on the region set up by M74_SetVram().
@@ -237,7 +144,7 @@
 .global SetFont
 
 ;
-; void M74_RamTileFillRom(unsigned int src, unsigned char dst);
+; void M74_RamTileFillRom(u16 src, u8 dst);
 ;
 ; Fills a RAM tile from a ROM tile. Source is a normal address, destination is
 ; a tile offset (byte offset divided by 32).
@@ -245,7 +152,7 @@
 .global M74_RamTileFillRom
 
 ;
-; void M74_RamTileFillRam(unsigned char src, unsigned char dst);
+; void M74_RamTileFillRam(u8 src, u8 dst);
 ;
 ; Fills a RAM tile from a RAM tile. Both source and destination are tile
 ; offsets (byte offset divided by 32).
@@ -253,7 +160,7 @@
 .global M74_RamTileFillRam
 
 ;
-; void M74_RamTileClear(unsigned char dst);
+; void M74_RamTileClear(u8 dst);
 ;
 ; Clears a RAM tile to color index zero. Destination is a tile offset (byte
 ; offset divided by 32).
@@ -364,25 +271,17 @@
 	m74_rows_lo:   .space 1 ; Row selector address, low
 	m74_rows_hi:   .space 1 ; Row selector address, high
 #endif
-	m74_tdesc:
-	m74_tdesc_lo:  .space 1 ; Tile row descriptor address, low
-	m74_tdesc_hi:  .space 1 ; Tile row descriptor address, high
-	m74_tidx:
-	m74_tidx_lo:   .space 1 ; Tile index source address list, low
-	m74_tidx_hi:   .space 1 ; Tile index source address list, high
-#if (M74_PAL_PTRE != 0)
-	m74_pal:
-	m74_pal_lo:    .space 1 ; Palette source, low
-	m74_pal_hi:    .space 1 ; Palette source, high
-#endif
+	m74_vaddr:
+	m74_vaddr_lo:  .space 1 ; Video RAM addresses, low
+	m74_vaddr_hi:  .space 1 ; Video RAM addresses, high
+	m74_paddr:
+	m74_paddr_lo:  .space 1 ; Palette source, low
+	m74_paddr_hi:  .space 1 ; Palette source, high
 #if (M74_RESET_ENABLE != 0)
 	m74_reset:
 	m74_reset_lo:  .space 1 ; Reset vector, low
 	m74_reset_hi:  .space 1 ; Reset vector, high
 #endif
-	m74_saddr:
-	m74_saddr_lo:  .space 1 ; SPI RAM base address, low
-	m74_saddr_hi:  .space 1 ; SPI RAM base address, high
 
 	; Locals
 
@@ -399,7 +298,6 @@
 ; calls within the Mode 74 core.
 ;
 #include "videoMode748/videoMode74_sprite.s"
-#include "videoMode748/videoMode74_vram.s"
 #endif
 
 
@@ -412,11 +310,11 @@
 ;
 .section .text.ClearVram
 ClearVram:
-	ldi   r18,     lo8(M74_VRAM_P * M74_VRAM_H)
-	ldi   r19,     hi8(M74_VRAM_P * M74_VRAM_H)
+;	ldi   r18,     lo8(M74_VRAM_P * M74_VRAM_H)
+;	ldi   r19,     hi8(M74_VRAM_P * M74_VRAM_H)
 	movw  r0,      r18     ; Length of VRAM in r1:r0
-	ldi   ZL,      lo8(M74_VRAM_OFF)
-	ldi   ZH,      hi8(M74_VRAM_OFF)
+;	ldi   ZL,      lo8(M74_VRAM_OFF)
+;	ldi   ZH,      hi8(M74_VRAM_OFF)
 	clr   r20
 	; Clear excess bytes compared to lower multiple of 4
 	sbrs  r0,      0
@@ -451,8 +349,8 @@ clvr2:
 
 
 ;
-; void SetTile(char x, char y, unsigned int tileId);
-; void SetFont(char x, char y, unsigned char tileId);
+; void SetTile(char x, char y, u16 tileId);
+; void SetFont(char x, char y, u8 tileId);
 ;
 ; Uzebox kernel function: sets a tile at a given X:Y location on VRAM.
 ; Operates on the region set up by M74_SetVram().
@@ -467,21 +365,21 @@ clvr2:
 .section .text
 SetTile:
 SetFont:
-	ldi   r25,     M74_VRAM_P
+;	ldi   r25,     M74_VRAM_P
 	mul   r25,     r22
 	movw  ZL,      r0
 	clr   r1
 	add   ZL,      r24
 	adc   ZH,      r1
-	subi  ZL,      lo8(-(M74_VRAM_OFF))
-	sbci  ZH,      hi8(-(M74_VRAM_OFF))
+;	subi  ZL,      lo8(-(M74_VRAM_OFF))
+;	sbci  ZH,      hi8(-(M74_VRAM_OFF))
 	st    Z,       r20
 	ret
 
 
 
 ;
-; void M74_RamTileFillRom(unsigned int src, unsigned char dst);
+; void M74_RamTileFillRom(u16 src, u8 dst);
 ;
 ; Fills a RAM tile from a ROM tile. Source is a normal address, destination is
 ; a tile offset (byte offset divided by 32).
@@ -513,7 +411,7 @@ frtrol:
 
 
 ;
-; void M74_RamTileFillRam(unsigned char src, unsigned char dst);
+; void M74_RamTileFillRam(u8 src, u8 dst);
 ;
 ; Fills a RAM tile from a RAM tile. Both source and destination are tile
 ; offsets (byte offset divided by 32).
@@ -546,7 +444,7 @@ frtral:
 
 
 ;
-; void M74_RamTileClear(unsigned char dst);
+; void M74_RamTileClear(u8 dst);
 ;
 ; Clears a RAM tile to color index zero. Destination is a tile offset (byte
 ; offset divided by 32).
@@ -611,11 +509,11 @@ M74_Seq:
 ; to some hsync_pulse rcalls which the kernel adds after the video mode), to
 ; ensure that all relative jumps are within range.
 ;
-#include "videoMode748/videoMode74_spi67.s"
-#include "videoMode748/videoMode74_spi5.s"
-#include "videoMode748/videoMode74_spi4.s"
+#if (M74_M67_ENABLE != 0)
+#include "videoMode748/videoMode74_m67.s"
+#endif
+#include "videoMode748/videoMode74_m2.s"
+#include "videoMode748/videoMode74_m4.s"
+#include "videoMode748/videoMode74_m5.s"
 #include "videoMode748/videoMode74_sub.s"
 #include "videoMode748/videoMode74_scloop.s"
-#if (M74_M2_ENABLE != 0)
-#include "videoMode748/videoMode74_m2.s"
-#endif

@@ -1,6 +1,6 @@
 ;
-; Uzebox Kernel - Video Mode 74 sprite blitter (SPI RAM source)
-; Copyright (C) 2015 - 2017 Sandor Zsuga (Jubatian)
+; Uzebox Kernel - Video Mode 748 sprite blitter (SPI RAM source)
+; Copyright (C) 2015 - 2018 Sandor Zsuga (Jubatian)
 ;
 ; This program is free software: you can redistribute it and/or modify
 ; it under the terms of the GNU General Public License as published by
@@ -25,12 +25,6 @@
 ; This is because this component belongs to the sprite blitter
 ; (M74_BlitSprite), sitting in its section.
 ;
-
-
-
-#define  SR_PORT _SFR_IO_ADDR(PORTA)
-#define  SR_PIN  PA4
-#define  SR_DR   _SFR_IO_ADDR(SPDR)
 
 
 

@@ -1,6 +1,6 @@
 /*
- *  Mode 74 tests
- *  Copyright (C) 2015 Sandor Zsuga (Jubatian)
+ *  Mode 748, Row mode 4 image
+ *  Copyright (C) 2018 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,10 +25,8 @@
 #define TILES_H
 
 
-extern const unsigned char imgvram[]        PROGMEM;
-extern const unsigned char res_screen_00[]  __attribute__ ((section (".tiles")));
-extern const unsigned char res_pal_00[]     __attribute__ ((section (".tiles")));
-extern const unsigned char res_sprites_00[] __attribute__ ((section (".tiles")));
+extern const unsigned char res_pal[];
+extern const unsigned char res_img[];
 
 
 #endif

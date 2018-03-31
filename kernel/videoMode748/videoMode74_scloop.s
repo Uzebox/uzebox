@@ -28,21 +28,6 @@
 
 
 ;
-; Audio notes and cycles remaining:
-;
-;             AUDIO_OUT_HSYNC_CYCLES  Rem.Cycles  Rem.Blank
-;
-; 5CH + UART: .................. 258 ...... 1541 ...... 197
-; 5CH ......: .................. 212 ...... 1587 ...... 243
-; 4CH + UART: .................. 213 ...... 1586 ...... 242
-; 4CH ......: .................. 167 ...... 1632 ...... 288
-;
-; Rem.Cycles are with the use of hsync_pulse
-;
-
-
-
-;
 ; hsync_pulse notes:
 ;
 ; It takes 18 + 3 (rcall) cycles without the audio. Its first four
@@ -64,13 +49,12 @@
 ;
 ; r0, r1: Temp
 ; r2, r3, r4, r5, r6, r7, r8, r9: Preloaded pixels for the tile
-; r10: ROM 4bpp tiles 0x00 - 0x3F, offset high
-; r11: ROM 4bpp tiles 0x40 - 0x7F, offset high
-; r12: ROM 4bpp tiles 0x80 - 0xBF, offset high
+; r10: ROM 4bpp tiles 0x00 - 0x7F, offset high
+; r11: ROM 4bpp tiles 0x80 - 0xFF, offset high - r10
+; r12: 0xFF (for SPI RAM)
 ; r13: Row selection offset
 ; r18: Remaining pixels - 8. After the line, also for the last partial tile.
-; r21: RAM 4bpp tiles 0xC0 - 0xFF, offset high
-; r24: 32 (for tile offset multiplication) (1bpp uses it for px. 0 color)
+; r21: 32 (for tile offset multiplication)
 ; X: Palette (only XH loaded, XL is from color)
 ; Y: Palette (only YH loaded, YL is from color)
 ; Z: Tile data loading
@@ -90,9 +74,14 @@
 ; The Video Stack is empty at this point, so can be restored to its base.
 ;
 
+
 cramt:
 	; 4bpp RAM tiles
-	add   ZH,      r21     ; (13) RAM tiles adjusted base
+	out   PIXOUT,  r3      ; ( 8) Pixel 1
+	out   SR_DR,   r12     ; ( 9) r12: 0xFF
+	mul   r1,      r21     ; (11) r21: 32; 0001 tttt ttt0 0000
+	movw  ZL,      r0      ; (12)
+	subi  ZH,      0x0F    ; (13) Range: 0x0100 - 0x10FF (Full 4K RAM for 128 tiles)
 	add   ZL,      r13     ; (14) Row select
 	out   PIXOUT,  r4      ; (15) Pixel 2
 	ld    YL,      Z+      ; (17)
@@ -115,22 +104,17 @@ cloop:
 	out   PIXOUT,  r2      ; ( 1) Pixel 0
 centry:
 	; Scanline render entry point (at cycle 1)
-	pop   ZL               ; ( 3)
-	muls  ZL,      r24     ; ( 5) cccc sttt ttt0 0000
-	movw  ZL,      r0      ; ( 6)
-	andi  ZH,      0x07    ; ( 7) Mask to select one of 64 tiles (cy preserved)
+	in    ZL,      SR_DR   ; ( 2) Background tile (from SPI RAM)
+	pop   r1               ; ( 4) Foreground tile (from RAM)
+	sbrc  r1,      7       ; ( 5) No foreground
+	rjmp  cramt            ; ( 7) A foreground RAM tile
+	out   SR_DR,   r12     ; ( 7) r12: 0xFF
 	out   PIXOUT,  r3      ; ( 8) Pixel 1
-	brcc  cb007f           ; ( 9 / 10)
-	sbrc  r1,      3       ; (10 / 11)
-	rjmp  cramt            ; (12)
-	add   ZH,      r12     ; (12) ROM 4bpp, tiles 0x80 - 0xBF base
-	rjmp  c4com            ; (14)
-cb007f:
-	mov   r0,      r10     ; (11) ROM 4bpp, tiles 0x00 - 0x3F base
-	sbrc  r1,      3       ; (12 / 13)
-	mov   r0,      r11     ; (13) ROM 4bpp, tiles 0x40 - 0x7F base
-	add   ZH,      r0      ; (14)
-c4com:
+	muls  ZL,      r21     ; (10) r21: 32; (c)ssss tttt ttt0 0000
+	movw  ZL,      r0      ; (11)
+	add   ZH,      r10     ; (12) r10: Tiles 0 - 127
+	brcc  .+2              ; (13 / 14)
+	add   ZH,      r11     ; (14) r11: Tiles 128 - 255
 	; 4bpp ROM tiles
 	out   PIXOUT,  r4      ; (15) Pixel 2
 	add   ZL,      r13     ; (16) Row select
@@ -237,11 +221,12 @@ m74_scloop_sr:
 ; resets the Video Stack to its base!
 ;
 ; r14:r15: Row selector offset (m74_rows + 2)
-; r16: Scanline counter (Normally 0 => 223)
-; r17: Logical row counter (init from m74_rows[0])
-; r19: m74_config
-; r22:r23: Tile descriptors (m74_tdesc)
-; r25: render_lines_count
+;     r16: Scanline counter (Normally 0 => 223)
+;     r17: Logical row counter (init from m74_rows[0])
+;     r19: m74_config
+; r22:r23: Video RAM addresses (m74_vaddr)
+;     r25: render_lines_count
+;      YH: Palette buffer
 ;
 ; Entry is at cycle 1698. (the rjmp must be issued at 1696)
 ; Exit is at 1703.
@@ -257,19 +242,19 @@ m74_scloop:
 ; Row management code.
 ;
 ; r14:r15: Row selector offset
-; r16: Scanline counter (Normally 0 => 223)
-; r17: Logical row counter
-; r19: m74_config
-; r22:r23: Tile descriptors
-; r25: render_lines_count
-; YL:  Zero
+;     r16: Scanline counter (Normally 0 => 223)
+;     r17: Logical row counter
+;     r19: m74_config
+; r22:r23: VRAM pointers
+;     r25: render_lines_count
+;      YL: Zero
+;      YH: Palette buffer
 ;
 ; Cycles:
-;  11 (Row select)
-;  40 (Tile descriptor load)
-;  16 (Tile index load)
+;   8 (Row select)
+;  16 (VRAM pointer load)
 ; ---
-;  67
+;  24
 ;
 	;
 	; Select row
@@ -277,14 +262,9 @@ m74_scloop:
 	movw  ZL,      r14     ; ( 1)
 	ld    r24,     Z+      ; ( 3)
 	cp    r24,     r16     ; ( 4)
-	breq  mresp            ; ( 5 /  6) At new split point if equal
-	sbiw  ZL,      2       ; ( 7) No new line: just load prev. X shift
-	ld    r20,     Z       ; ( 9)
-	rjmp  mrese            ; (11)
-mresp:
-	ld    r17,     Z+      ; ( 8) Load new logical row counter
-	ld    r20,     Z+      ; (10) Load new X shift
-	movw  r14,     ZL      ; (11)
+	brne  mresn            ; ( 5 /  6) At new split point if equal
+	ld    r17,     Z+      ; ( 7) Load new logical row counter
+	movw  r14,     ZL      ; ( 8)
 mrese:
 	;
 	; Load tile descriptors
@@ -293,126 +273,92 @@ mrese:
 	mov   r24,     r17     ; ( 2)
 	lsr   r24              ; ( 3)
 	lsr   r24              ; ( 4)
-	lsr   r24              ; ( 5) Tile descriptor offset from log. row counter
+	andi  r24,     0xFE    ; ( 5) VRAM pointer offset from log. row counter
 	add   ZL,      r24     ; ( 6)
 	adc   ZH,      YL      ; ( 7)
 	sbrs  r19,     1       ; ( 8 /  9)
 	rjmp  mrtiro           ; (10)
-	ld    ZL,      Z       ; (11) Tile descriptor index from RAM
-	rjmp  mrtira           ; (13)
-mrtdra:
-	subi  ZL,      lo8(-(M74_RAMTD_OFF - 128)) ; (18)
-	sbci  ZH,      hi8(-(M74_RAMTD_OFF - 128)) ; (19)
-	ld    r18,     Z       ; (21)
-	andi  r18,     0x07    ; (22)
-	cpi   r18,     0x04    ; (23) SPI RAM Mode 4?
-	brne  .+6              ; (24 / 25)
-	in    r2,      SR_DR   ; (25)
-	out   SR_DR,   r2      ; (26) (1738) => 6x SPI loads fit before call update_sound
-	rjmp  m74_spi4         ; (28) (1740) SPI RAM mode 4
-	ld    r18,     Z+      ; (27)
-	lpm   r21,     Z       ; (30) Dummy load (nop)
-	ld    r10,     Z+      ; (32)
-	ld    r11,     Z+      ; (34)
-	ld    r12,     Z+      ; (36)
-	ld    r21,     Z+      ; (38)
-	rjmp  mrtdco           ; (40)
-mrtiro:
-	lpm   ZL,      Z       ; (13) Tile descriptor index from ROM
-mrtira:
-	clr   ZH               ; (14)
-	sbrc  ZL,      7       ; (15 / 16) Bit 7 zero: ROM
-	rjmp  mrtdra           ; (17)
-	subi  ZL,      lo8(-(M74_ROMTD_OFF)) ; (17)
-	sbci  ZH,      hi8(-(M74_ROMTD_OFF)) ; (18)
-	lpm   r18,     Z       ; (21)
-	andi  r18,     0x07    ; (22)
-	cpi   r18,     0x04    ; (23) SPI RAM Mode 4?
-	brne  .+6              ; (24 / 25)
-	in    r2,      SR_DR   ; (25)
-	out   SR_DR,   r2      ; (26) (1738) => 6x SPI loads fit before call update_sound
-	rjmp  m74_spi4         ; (28) (1740) SPI RAM mode 4
-	lpm   r18,     Z+      ; (28)
-	lpm   r10,     Z+      ; (31)
-	lpm   r11,     Z+      ; (34)
-	lpm   r12,     Z+      ; (37)
-	lpm   r21,     Z+      ; (40)
-mrtdco:
-	;
-	; Load tile indices
-	;
-	lds   ZL,      m74_tidx_lo  ; ( 2)
-	lds   ZH,      m74_tidx_hi  ; ( 4)
-	lsl   r24              ; ( 5)
-	add   ZL,      r24     ; ( 6)
-	adc   ZH,      YL      ; ( 7)
-	sbrs  r19,     2       ; ( 8 /  9)
-	rjmp  mtdroi           ; (10)
-	; RAM tile index list
-	ld    XL,      Z+      ; (11)
+	ld    XL,      Z+      ; (11) VRAM pointer from RAM
 	ld    XH,      Z+      ; (13)
 	nop                    ; (14)
-	rjmp  mtdrie           ; (16)
-mtdroi:
-	; ROM tile index list
-	lpm   XL,      Z+      ; (13)
+	rjmp  mrtira           ; (16)
+mresn:
+	rjmp  mrese            ; ( 8)
+mrtiro:
+	lpm   XL,      Z+      ; (13) VRAM pointer from ROM
 	lpm   XH,      Z+      ; (16)
-mtdrie:
+mrtira:
+
+
+
+;
+; Branch off to appropriate row mode.
+;
+; Cycles: 10
+;
+	ld    ZL,      X       ; ( 2) Row mode & Flags
+	andi  ZL,      0x07    ; ( 3) Row mode masked
+	ldi   ZH,      0       ; ( 4)
+	subi  ZL,      lo8(-(pm(rsl_table)))
+	sbci  ZH,      hi8(-(pm(rsl_table)))
+	ijmp                   ; ( 8)
+rsl_table:
+	rjmp  m74_mode0        ; (10) (1735)
+	rjmp  m74_mode0        ; (10) (1735)
+	rjmp  m74_mode2        ; (10) (1735)
+	rjmp  m74_mode0        ; (10) (1735)
+	rjmp  m74_mode4        ; (10) (1735)
+	rjmp  m74_mode5        ; (10) (1735)
+#if (M74_M67_ENABLE != 0)
+	rjmp  m74_mode6        ; (10) (1735)
+	rjmp  m74_mode7        ; (10) (1735)
+#else
+	rjmp  m74_mode0        ; (10) (1735)
+	rjmp  m74_mode0        ; (10) (1735)
+#endif
+
+
+
+;
+; Mode 0 (normal tiled mode with 256 ROM tiles & 128 RAM tiles)
+;
+m74_mode0:
+
+
+
+;
+; Prepare for Mode 0 scanline
+;
+; Cycles: 26 (1761)
+;
+	sbi   SR_PORT, SR_PIN  ; ( 2) Deselect SPI RAM (Any prev. operation)
+	ld    r20,     X+      ; ( 4) Mode & Flags
+	cbi   SR_PORT, SR_PIN  ; ( 6) Select SPI RAM
+	ldi   r24,     0x03    ; ( 7) Command: Read from SPI RAM
+	out   SR_DR,   r24     ; ( 8)
+	ld    r2,      X+      ; (10) SPI RAM address low
+	ld    r3,      X+      ; (12) SPI RAM address high
+	ld    r10,     X+      ; (14) ROM tiles 0x00 - 0x7F high
+	ld    r11,     X+      ; (16) ROM tiles 0x80 - 0xFF high
+	ldi   r24,     0xFF    ; (17)
+	mov   r12,     r24     ; (18) For SPI RAM
+	ldi   r24,     0x00    ; (19)
+	sbrc  r20,     7       ; (20 / 21) SPI RAM bank select
+	ldi   r24,     0x01    ; (21)
+	swap  r20              ; (22)
+	andi  r20,     0x07    ; (23) X shift
+	sub   r11,     r10     ; (24) ROM tiles 0x80 - 0xFF high adjusted
+	nop                    ; (25)
+	out   SR_DR,   r24     ; (26)
 
 
 
 ;
 ; Process Color 0 reloading if enabled. YL is zero at this point.
 ;
-; 40 cycles
+; Cycles: 49 (1810)
 ;
-; At 1808 at the end
-;
-#if (M74_COL0_OFF != 0)
-	sbrs  r19,     4       ; ( 1 /  2)
-	rjmp  c0rl0            ; ( 3) Reload disabled
-	mov   ZL,      r17     ; ( 3) Create Color0 table from logical scanline ctr.
-	ldi   ZH,      hi8(M74_COL0_OFF) ; ( 4)
-	ld    r8,      Z       ; ( 6) Color0 table
-	st    Y+,      r8      ; ( 8)
-	st    Y+,      r8      ; (10)
-	st    Y+,      r8      ; (12)
-	st    Y+,      r8      ; (14)
-	st    Y+,      r8      ; (16)
-	st    Y+,      r8      ; (18)
-	st    Y+,      r8      ; (20)
-	st    Y+,      r8      ; (22)
-	st    Y+,      r8      ; (24)
-	st    Y+,      r8      ; (26)
-	st    Y+,      r8      ; (28)
-	st    Y+,      r8      ; (30)
-	st    Y+,      r8      ; (32)
-	st    Y+,      r8      ; (34)
-	st    Y+,      r8      ; (36)
-	st    Y+,      r8      ; (38)
-	rjmp  c0rle            ; (40)
-c0rl0:
-	M74WT_R24      37      ; (40)
-c0rle:
-#else
-	M74WT_R24      40      ; (40)
-#endif
-
-
-
-;
-; Branch off to other modes
-;
-; At 1812 at the end
-;
-	sbrc  r18,     2       ; ( 1 / 2)
-	rjmp  m74_spi567       ; ( 3) (1811) Other SPI modes
-#if (M74_M2_ENABLE == 0U)
-	rjmp  .                ; ( 4)
-#else
-	sbrc  r18,     1       ; ( 3 / 4)
-	rjmp  m74_m2_separator ; ( 5) (1813) Separator line
-#endif
+	rcall m74_repcol0      ; (49)
 
 
 
@@ -439,6 +385,8 @@ c0rle:
 ;
 ; Cycle counter is at 246 on its end
 ;
+	ldi   ZL,      16      ; (1811)
+	add   r11,     ZL      ; (1812) Adjust 0x80 - 0xFF further for the 0x80 base.
 	sbiw  XL,      1       ; (1814) Adjust for stack (pre-incrementing)
 	movw  r4,      XL      ; (1815) r5:r4, XH:XL, putting it aside
 	mov   XH,      r17     ; (1816)
@@ -448,11 +396,11 @@ c0rle:
 	mov   r13,     XH      ; (1820 = 0) Done
 	mov   XH,      YH      ; (   1) XH is also a palette pointer
 	clr   r2               ; (   2) Leftmost pixel of partial tile (scroll) is zero
-	nop                    ; (   3)
+	ldi   r18,     192     ; (   3) No. of pixels to output
 	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
-	ldi   r18,     192     ; (   6) No. of pixels to output
-	andi  r20,     0x07    ; (   7) Mask X shift to 0 - 7
-	ldi   ZL,      2       ; (   8)
+	nop                    ; (   6)
+	ldi   ZL,      2       ; (   7)
+	out   SR_DR,   r12     ; (   8) SPI RAM dummy for first data fetch
 	call  update_sound     ; (  12) (+ AUDIO)
 	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 
@@ -463,7 +411,7 @@ c0rle:
 ;
 ; Enters in cycle 246.
 ;
-	ldi   r24,     32      ; ( 1) Load 32 for 4bpp tile offset calculation
+	ldi   r21,     32      ; ( 1) Load 32 for 4bpp tile offset calculation
 
 
 
@@ -503,21 +451,16 @@ c0rle:
 	;
 	out   STACKL,  r4      ; ( 5)
 	out   STACKH,  r5      ; ( 6) VRAM pointer set up
-	pop   ZL               ; ( 8)
-	muls  ZL,      r24     ; (10) cccc sttt ttt0 0000
-	movw  ZL,      r0      ; (11)
-	andi  ZH,      0x07    ; (12) Mask to select one of 64 tiles (cy preserved)
-	brcc  pb007f           ; (13 / 14)
-	sbrc  r1,      3       ; (14 / 15)
-	rjmp  pramt            ; (16)
-	add   ZH,      r12     ; (16) ROM 4bpp, tiles 0x80 - 0xBF base
-	rjmp  p4com            ; (18)
-pb007f:
-	mov   r0,      r10     ; (15) ROM 4bpp, tiles 0x00 - 0x3F base
-	sbrc  r1,      3       ; (16 / 17)
-	mov   r0,      r11     ; (17) ROM 4bpp, tiles 0x40 - 0x7F base
-	add   ZH,      r0      ; (18)
-p4com:
+	in    ZL,      SR_DR   ; ( 7) Background tile (from SPI RAM)
+	out   SR_DR,   r12     ; ( 8) r12: 0xFF
+	pop   r1               ; (10) Foreground tile (from RAM)
+	sbrc  r1,      7       ; (11 / 12) No foreground
+	rjmp  pramt            ; (13) A foreground RAM tile
+	muls  ZL,      r21     ; (14) r21: 32; (c)ssss tttt ttt0 0000
+	movw  ZL,      r0      ; (15)
+	add   ZH,      r10     ; (16) r10: Tiles 0 - 127
+	brcc  .+2              ; (17 / 18)
+	add   ZH,      r11     ; (18) r11: Tiles 128 - 255
 	; 4bpp ROM tiles
 	add   ZL,      r13     ; (19) Row select
 	lpm   YL,      Z+      ; (22)
@@ -556,7 +499,7 @@ ptej1:
 	;
 pnscr:
 	M74WT_R24      36      ; (41)
-	ldi   r24,     32      ; (42) For multiplications
+	ldi   r21,     32      ; (42) For multiplications
 	out   STACKL,  r4      ; (43)
 	out   STACKH,  r5      ; (44) VRAM pointer set up
 	clr   r3               ; (45)
@@ -616,7 +559,9 @@ pte1:
 	; Components accessed with "rjmp", so could be put a bit off
 pramt:
 	; 4bpp RAM tiles
-	add   ZH,      r21     ; (17) RAM tiles adjusted base
+	mul   r1,      r21     ; (15) r21: 32; 0001 tttt ttt0 0000
+	movw  ZL,      r0      ; (16)
+	subi  ZH,      0x0F    ; (17) Range: 0x0100 - 0x10FF (Full 4K RAM for 128 tiles)
 	add   ZL,      r13     ; (18) Row select
 	ld    YL,      Z+      ; (20)
 	ld    XL,      Z+      ; (22)

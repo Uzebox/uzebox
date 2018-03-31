@@ -1,6 +1,6 @@
 /*
- *  Uzebox Kernel - Video Mode 74
- *  Copyright (C) 2015 Sandor Zsuga (Jubatian)
+ *  Uzebox Kernel - Video Mode 748
+ *  Copyright (C) 2018 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,77 +29,135 @@
 
 #pragma once
 
-extern volatile unsigned char m74_config;
+#include <uzebox.h>
+
+
+extern volatile u8  m74_config;
 #if (M74_ROWS_PTRE != 0)
-extern volatile unsigned int  m74_rows;
+extern volatile u16 m74_rows;
 #else
 #define m74_rows   (M74_ROWS_OFF)
 #endif
-extern volatile unsigned int  m74_tdesc;
-extern volatile unsigned int  m74_tidx;
-#if (M74_PAL_PTRE != 0)
-extern volatile unsigned int  m74_pal;
-#else
-#define m74_pal    (M74_PAL_OFF)
-#endif
+extern volatile u16 m74_vaddr;
+extern volatile u16 m74_paddr;
 #if (M74_RESET_ENABLE != 0)
-extern volatile unsigned int  m74_reset;
+extern volatile u16 m74_reset;
 #endif
 #if (M74_RTLIST_PTRE != 0)
-extern volatile unsigned int  m74_rtlist;
+extern volatile u16 m74_rtlist;
 #else
 #define m74_rtlist (M74_RTLIST_OFF)
 #endif
-extern volatile unsigned int  m74_saddr;
-extern volatile unsigned char m74_rtmax;
-extern volatile unsigned char m74_rtno;
+extern volatile u8  m74_rtmax;
+extern volatile u8  m74_rtbase;
 
 #if (M74_VRAM_CONST == 0)
-extern void M74_SetVram(unsigned int addr, unsigned char wdt, unsigned char hgt);
-extern void M74_SetVramEx(unsigned int addr, unsigned char wdt, unsigned char hgt, unsigned char pt);
+extern void M74_SetVram(u16 addr, u8 wdt, u8 hgt);
+extern void M74_SetVramEx(u16 addr, u8 wdt, u8 hgt, u8 pt);
 #endif
-extern unsigned char M74_Finish(void);
-extern void M74_VramMove(signed char x, signed char y);
-extern void M74_VramFillCol(unsigned char y, unsigned int src, unsigned char incr);
-extern void M74_VramFillRow(unsigned char x, unsigned int src, unsigned char incr);
-extern void M74_VramFill(unsigned int src, unsigned char pitch);
-extern void M74_RamTileFillRom(unsigned int  src, unsigned char dst);
-extern void M74_RamTileFillRam(unsigned char src, unsigned char dst);
-extern void M74_RamTileClear(unsigned char dst);
-extern void M74_Halt(void);
+extern u8   M74_Finish(void);
+extern void M74_RamTileFillRom(u16 src, u8 dst);
+extern void M74_RamTileFillRam(u8  src, u8 dst);
+extern void M74_RamTileClear(u8 dst);
+extern void M74_Halt(void) __attribute__((noreturn));
 extern void M74_Seq(void);
 #if (M74_SPR_ENABLE != 0)
 extern void M74_VramRestore(void);
-extern void M74_ResReset(void);
-extern void M74_BlitSprite(unsigned int spo, unsigned char xl, unsigned char yl, unsigned char flg);
-#if ((M74_RECTB_OFF >> 8) != 0)
-extern void M74_BlitSpriteCol(unsigned int spo, unsigned char xl, unsigned char yl, unsigned char flg, unsigned char col);
+extern void M74_BlitSprite(u16 spo, u8 xl, u8 yl, u8 flg);
+extern void M74_BlitSpriteCol(u16 spo, u8 xl, u8 yl, u8 flg, u8 col);
+extern void M74_PutPixel(u8 col, u8 xl, u8 yl, u8 flg);
 #endif
-extern void M74_PutPixel(unsigned char col, unsigned char xl, unsigned char yl, unsigned char flg);
-#endif
+
+
+/*
+** VRAM row for Mode 0
+*/
+typedef struct{
+ u8  config;           /* Row configuration */
+ u16 bg_addr;          /* Background address in SPI RAM (config bit 7 is high bit) */
+ u8  t0_addr_h;        /* Tiles 0 - 127 address high */
+ u8  t1_addr_h;        /* Tiles 128 - 255 address high */
+ u8  data[25];         /* RAM tile data */
+}m74_mode0_vram_t;
+
+
+/*
+** VRAM row for Mode 2
+*/
+typedef struct{
+ u8  config;           /* Row configuration */
+ u16 pal_addr;         /* Palette address (config bit 7 is high bit for SPI RAM) */
+ u8  col;              /* Line color */
+}m74_mode2_vram_t;
+
+
+/*
+** VRAM row for Mode 4
+*/
+typedef struct{
+ u8  config;           /* Row configuration */
+ u8  data[96];         /* Left column pixel data (8 * 24 pixels) */
+}m74_mode4_vram_t;
+
+
+/*
+** VRAM row for Mode 5
+*/
+typedef struct{
+ u8  config;           /* Row configuration */
+ u16 img_addr;         /* Image row address in SPI RAM (config bit 7 is high bit) */
+}m74_mode5_vram_t;
+
+
+/*
+** VRAM row for Mode 6
+*/
+typedef struct{
+ u8  config;           /* Row configuration */
+ u16 img_addr;         /* Image row address in SPI RAM (config bit 7 is high bit) */
+ u8  data[96];         /* Attribute data for the row */
+}m74_mode6_vram_t;
+
+
+/*
+** VRAM row for Mode 7
+*/
+typedef struct{
+ u8  config;           /* Row configuration */
+ u16 img_addr;         /* Image row address in SPI RAM (config bit 7 is high bit) */
+ u8  fgcol;            /* Foreground color */
+ u8  bgcol;            /* Background color */
+}m74_mode7_vram_t;
 
 
 /*
 ** Sprite blitter flags, for use with M74_BlitSprite.
-** Sprite importance is on bits 6-7, the smaller the number, the bigger the
-** importance score (so 0 is the highest).
+** Sprite importance is ignored in this mode, it is left only for
+** compatibility with Mode 74.
 */
-#define M74_SPR_FLIPX 0x01U
-#define M74_SPR_FLIPY 0x04U
-#define M74_SPR_RAM   0x02U
-#define M74_SPR_MASK  0x10U
-#define M74_SPR_I3    0xC0U
-#define M74_SPR_I2    0x80U
-#define M74_SPR_I1    0x40U
-#define M74_SPR_I0    0x00U
+#define M74_SPR_FLIPX            0x01U
+#define M74_SPR_FLIPY            0x04U
+#define M74_SPR_SPIRAM_A16       0x02U
+#define M74_SPR_MASK             0x10U
+#define M74_SPR_I3               0xC0U
+#define M74_SPR_I2               0x80U
+#define M74_SPR_I1               0x40U
+#define M74_SPR_I0               0x00U
 
 
 /*
-** Configuration (m74_config) flags
+** Configuration (m74_config) flags. The palette configuration is common with
+** Row Mode 2's configuration. The SPI RAM address bit 16 is common in all Row
+** Mode configurations.
 */
-#define M74_CFG_SPIRAM_HIGH      0x01U
-#define M74_CFG_RAM_TDESC        0x02U
-#define M74_CFG_RAM_TIDX         0x04U
-#define M74_CFG_RAM_PALETTE      0x08U
+#define M74_CFG_ENABLE           0x01U
+#define M74_CFG_RAM_VADDR        0x02U
 #define M74_CFG_COL0_RELOAD      0x10U
-#define M74_CFG_ENABLE           0x80U
+
+#define M74_CFG_PAL_SRC_MASK     0x60U
+#define M74_CFG_PAL_SRC_NONE     0x00U
+#define M74_CFG_PAL_SRC_RAM      0x20U
+#define M74_CFG_PAL_SRC_ROM      0x40U
+#define M74_CFG_PAL_SRC_SPIRAM   0x60U
+
+#define M74_CFG_SPIRAM_A16       0x80U

@@ -21,21 +21,10 @@
 #define M74CFG_H
 
 
-/* Where the tile & similar aligned data is placed (not Mode 74 specific) */
-#define TILES_SECT         0x4900
-
-/* Resource locations (not Mode 74 specific) */
-#define RES_SCREEN_00_OFF  (TILES_SECT + 0x0080U)
-#define RES_PAL_00_OFF     (TILES_SECT + 0x00E0U)
-#define RES_TILES_00_OFF   (TILES_SECT + 0x0100U)
-#define RES_SPRITES_00_OFF (TILES_SECT + 0x1900U)
-
 /* Mode 74 specifics */
-#define M74_RECTB_OFF      (TILES_SECT + 0x2800)
-#define M74_ROMMASKIDX_OFF (TILES_SECT + 0x2700 - ((TILES_SECT + 0x0100) / 32))
-#define M74_ROMMASK_OFF    (TILES_SECT + 0x2100)
-#define M74_SPR_ENABLE     1
-#define M74_MSK_ENABLE     1
+#define M74_SPR_ENABLE     0
+#define M74_MSK_ENABLE     0
+#define M74_M4_BASE        0
 
 
 #endif

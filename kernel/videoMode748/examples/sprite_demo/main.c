@@ -1,6 +1,6 @@
 /*
- *  Mode 74 tests
- *  Copyright (C) 2015 Sandor Zsuga (Jubatian)
+ *  Mode 748, Sprite demo
+ *  Copyright (C) 2018 Sandor Zsuga (Jubatian)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,14 +21,16 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
+#include <spiram.h>
+#include <bootlib.h>
 #include "tiles.h"
 
 
 
 /* Row selectors */
 static unsigned char rowsel[] = {
-         9U,   0U, /* First line: Start at scanline 9 */
- 255U              /* End of list */
+         9U, /* First line: Start at scanline 9 */
+ 255U        /* End of list */
 };
 
 
@@ -72,43 +74,45 @@ static const unsigned char sine[] PROGMEM = {
 #define costb(x) pgm_read_byte(&(sine[((x) + 64U) & 0xFFU]))
 
 
-/* Tile map indices */
-static const unsigned char tidx[] PROGMEM = {
- 0x00U, 0x04U,
- 0x18U, 0x04U,
- 0x30U, 0x04U,
- 0x48U, 0x04U,
- 0x60U, 0x04U,
- 0x78U, 0x04U,
- 0x90U, 0x04U,
- 0xA8U, 0x04U,
 
- 0xC0U, 0x04U,
- 0xD8U, 0x04U,
- 0xF0U, 0x04U,
- 0x08U, 0x05U,
- 0x20U, 0x05U,
- 0x38U, 0x05U,
- 0x50U, 0x05U,
- 0x68U, 0x05U,
+/* VRAM rows */
+static m74_mode0_vram_t vramrow[28U];
 
- 0x80U, 0x05U,
- 0x98U, 0x05U,
- 0xB0U, 0x05U,
- 0xC8U, 0x05U,
- 0xE0U, 0x05U,
- 0xF8U, 0x05U,
- 0x10U, 0x06U,
- 0x28U, 0x06U,
 
- 0x40U, 0x06U,
- 0x58U, 0x06U,
- 0x70U, 0x06U,
- 0x88U, 0x06U,
- 0xA0U, 0x06U,
- 0xB8U, 0x06U,
- 0xD0U, 0x06U,
- 0xE8U, 0x06U
+/* Tile row VRAM address table */
+static u16 const vramrow_offs[32U] PROGMEM = {
+ (u16)(&vramrow[ 0]),
+ (u16)(&vramrow[ 1]),
+ (u16)(&vramrow[ 2]),
+ (u16)(&vramrow[ 3]),
+ (u16)(&vramrow[ 4]),
+ (u16)(&vramrow[ 5]),
+ (u16)(&vramrow[ 6]),
+ (u16)(&vramrow[ 7]),
+ (u16)(&vramrow[ 8]),
+ (u16)(&vramrow[ 9]),
+ (u16)(&vramrow[10]),
+ (u16)(&vramrow[11]),
+ (u16)(&vramrow[12]),
+ (u16)(&vramrow[13]),
+ (u16)(&vramrow[14]),
+ (u16)(&vramrow[15]),
+ (u16)(&vramrow[16]),
+ (u16)(&vramrow[17]),
+ (u16)(&vramrow[18]),
+ (u16)(&vramrow[19]),
+ (u16)(&vramrow[20]),
+ (u16)(&vramrow[21]),
+ (u16)(&vramrow[22]),
+ (u16)(&vramrow[23]),
+ (u16)(&vramrow[24]),
+ (u16)(&vramrow[25]),
+ (u16)(&vramrow[26]),
+ (u16)(&vramrow[27]),
+ (u16)(&vramrow[27]),
+ (u16)(&vramrow[27]),
+ (u16)(&vramrow[27]),
+ (u16)(&vramrow[27])
 };
 
 
@@ -128,17 +132,28 @@ static const unsigned char scrolltxt[] PROGMEM =
 
 int main(){
 
-	/* Ensures that the tile map is linked */
-	volatile unsigned char dummy_sec = res_sprites_00[0];
+	sdc_struct_t tsds;
+	u8  i;
+	u8  j;
+	u8  t0;
+	u8  t1;
+	u8  t2;
+	u16 a16;
+	u16 c16 = 0U;
+	u8* pal  = (u8*)(m74_paddr);
 
-	unsigned char  i;
-	unsigned char  t0;
-	unsigned char  t1;
-	unsigned char  t2;
-	unsigned int   a16;
-	unsigned int   c16 = 0U;
-	unsigned char* vram = (unsigned char*)(M74_VRAM_OFF);
-	unsigned char* pal  = (unsigned char*)(M74_PAL_OFF);
+
+	/* Set main configuration flags, display disabled */
+
+	m74_config = 0U;
+
+
+	/* Init FS to reset SD card, to ensure that the SPI RAM is accessible
+	** (otherwise it may interfere). */
+
+	tsds.bufp = &(vramrow[0].config); /* Just using some free RAM */
+	FS_Init(&tsds);
+
 
 	/* Set rendering parameteras: Reduce height to 22 fake tiles, the many
 	** sprites need it (the dragon disc image originally had 24 fake
@@ -147,18 +162,31 @@ int main(){
 	SetRenderingParameters(32U, 198U);
 
 
+	/* Transfer entire ROM to SPI RAM */
+
+	SpiRamInit();
+	SpiRamSeqWriteStart(0U, 0U);
+	a16 = 0U;
+	do{
+		SpiRamSeqWriteU8(pgm_read_byte(a16));
+		a16 ++;
+	}while(a16 != 0U);
+	SpiRamSeqWriteEnd();
+
+
 	/* Set row selector */
 
-	m74_rows  = (unsigned int)(&rowsel[0]);
+	m74_rows  = (u16)(&rowsel[0]);
 
-	/* Set tile row descriptors */
+	/* Set tile row VRAM addresses */
 
-	m74_tdesc = (unsigned int)(&res_screen_00[0]);
-	m74_tidx  = (unsigned int)(&tidx[0]);
+	m74_vaddr = (u16)(&vramrow_offs[0]);
 
-	/* Set maximal RAM tile count allocated for sprites */
+	/* Set base and maximal RAM tile count allocated for sprites */
 
-	m74_rtmax = 64U;
+	m74_rtbase = 36U;
+	m74_rtmax = 76U;
+
 
 	/* Load palette */
 
@@ -167,26 +195,33 @@ int main(){
 		pal[i] = pgm_read_byte(&(res_pal_00[i]));
 	}
 
-	/* Set up VRAM */
+	/* Set up VRAM (including background in SPI RAM) */
 
-	for (a16 = 0U; a16 < 24U * 27U; a16++)
-	{
-		vram[a16] = pgm_read_byte(&(imgvram[a16]));
+	SpiRamSeqWriteStart(1U, 0U);
+	for (j = 0U; j < 27U; j ++){
+		vramrow[j].config    = 0U | M74_CFG_SPIRAM_A16; /* Row mode: 0 */
+		vramrow[j].bg_addr   = (u16)(j) * 24U;
+		vramrow[j].t0_addr_h = (u16)(&res_tiles_00[32U *   0U]) >> 8;
+		vramrow[j].t1_addr_h = (u16)(&res_tiles_00[32U * 128U]) >> 8;
+		for (i = 0U; i < 24U; i++){
+			SpiRamSeqWriteU8(pgm_read_byte(&(imgvram[((u16)(j) * 24U) + i])));
+		}
 	}
+	SpiRamSeqWriteEnd();
+
+	/* Clear foreground VRAM to start with a clean state */
+
+	M74_VramRestore();
 
 
-	/* Set main configuration flags & Enable */
+	/* Enable display */
 
-	m74_config =
-	    M74_CFG_RAM_PALETTE |
-	    M74_CFG_ENABLE;
+	m74_config |= M74_CFG_ENABLE;
 
 
 	/* Wait for a clean frame start */
 
-	ClearVsyncFlag();
-	while (GetVsyncFlag() == 0);
-	ClearVsyncFlag();
+	WaitVsync(2U);
 
 	while(1)
 	{
@@ -225,9 +260,9 @@ int main(){
 		{
 			t0 = (c16 + (i * 32U)) & 0xFFU;
 			M74_BlitSprite( RES_SPRITES_00_OFF + (32U * 32U),
-			                ((( sintb(t0) * (unsigned int)(t1)) >> 8)       >> 1) + 101U + ((0U - t1) >> 2),
-			                ((((costb(t0) * (unsigned int)(t1)) >> 8) * 3U) >> 2) + 113U + (((0U - t1) * 3U) >> 3),
-			                M74_SPR_I2 | M74_SPR_MASK );
+			                ((( sintb(t0) * (u16)(t1)) >> 8)       >> 1) + 101U + ((0U - t1) >> 2),
+			                ((((costb(t0) * (u16)(t1)) >> 8) * 3U) >> 2) + 113U + (((0U - t1) * 3U) >> 3),
+			                M74_SPR_I2 | M74_SPR_MASK);
 		}
 
 		/* Scrolltext */
@@ -255,7 +290,7 @@ int main(){
 				                   t1,
 				                   (sintb(t1 + 16U) >> 1) + 32U,
 				                   t2,
-				                   (((c16 >> 3) + i) << 7) & 0x80U );
+				                   (((c16 >> 3) + i) << 4) & 0x10U );
 			}
 		}
 

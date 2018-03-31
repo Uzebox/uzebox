@@ -1,6 +1,6 @@
 ;
 ; Uzebox Kernel - Video Mode 748 scanline loop, Mode 6 and 7 (SPI RAM 1bpp)
-; Copyright (C) 2017 Sandor Zsuga (Jubatian)
+; Copyright (C) 2018 Sandor Zsuga (Jubatian)
 ;
 ; -----
 ;
@@ -362,25 +362,59 @@ spi6_blks:
 
 
 ;
-; SPI RAM mode 6 and 7, entry point
+; SPI RAM mode 6 & 7, entry point
 ;
-; Enters in cycle 1816.
+; Enters in cycle 1735.
 ;
-; r10: Tile descriptor, byte 1
-; r11: Tile descriptor, byte 2
-; r13: Tile descriptor, byte 3
 ; r14:r15: Row selector offset
-; r16: Scanline counter (Normally 0 => 223)
-; r17: Logical row counter
-; r18: Tile descriptor, byte 0 (Mode & Flags)
-; r19: m74_config
-; r21: Tile descriptor, byte 4
+;     r16: Scanline counter (Normally 0 => 223)
+;     r17: Logical row counter
+;     r19: m74_config
 ; r22:r23: Tile descriptors
-; r24: Tile row (0 - 31)
-; r25: render_lines_count
-; X: Tile indices (VRAM)
+;     r25: render_lines_count
+;       X: VRAM, pointing at mode
+;      YL: Zero
+;      YH: Palette buffer
 ;
-spi67:
+m74_mode6:
+m74_mode7:
+
+
+
+;
+; Prepare for Mode 6 & 7 scanline
+;
+; Cycles: 26 (1761)
+;
+	sbi   SR_PORT, SR_PIN  ; ( 2) Deselect SPI RAM (Any prev. operation)
+	ld    r21,     X+      ; ( 4) Mode & Flags
+	cbi   SR_PORT, SR_PIN  ; ( 6) Select SPI RAM
+	ldi   r24,     0x03    ; ( 7) Command: Read from SPI RAM
+	out   SR_DR,   r24     ; ( 8)
+	ld    r2,      X+      ; (10) SPI RAM address low
+	ld    r3,      X+      ; (12) SPI RAM address high
+	ldi   r24,     0xFF    ; (13)
+	mov   r12,     r24     ; (14) For SPI RAM
+	mov   r24,     r17     ; (15)
+	andi  r24,     7       ; (16)
+	ldi   r20,     48      ; (17)
+	mul   r24,     r20     ; (19) Start offset adjustment
+	add   r2,      r0      ; (20)
+	adc   r3,      r1      ; (21)
+	sbc   r20,     r20     ; (22)
+	sbrc  r21,     7       ; (23 / 24) SPI RAM bank select
+	subi  r20,     0x01    ; (24)
+	andi  r20,     0x01    ; (25)
+	out   SR_DR,   r20     ; (26)
+
+
+
+;
+; Process Color 0 reloading if enabled. YL is zero at this point.
+;
+; Cycles: 49 (1810)
+;
+	rcall m74_repcol0      ; (49)
 
 
 
@@ -404,11 +438,19 @@ spi67:
 ;
 ; Cycle counter is at 246 on its end
 ;
-	M74WT_R24      7       ; (   3)
+	ld    r5,      X+      ; (1812) Foreground color
+	ld    r4,      X+      ; (1814) Background color
+	ldi   YL,      0       ; (1815)
+	ld    r6,      Y       ; (1817) Color 0
+	sbrc  r21,     4       ; (1818 / 1819) Use Color 0 for Background?
+	mov   r4,      r6      ; (1819)
+	rjmp  .                ; (   1)
+	inc   r16              ; (   2) Increment the physical line counter
+	inc   r17              ; (   3) Increment the logical line counter
 	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
-	nop                    ; (   6)
-	ldi   r20,     48      ; (   7) Count of tiles to render
-	ldi   ZL,      2       ; (   8)
+	ldi   r20,     48      ; (   6) Count of tiles to render
+	ldi   ZL,      2       ; (   7)
+	out   SR_DR,   r12     ; (   8) SPI RAM dummy for first data fetch
 	call  update_sound     ; (  12) (+ AUDIO)
 	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 
@@ -417,36 +459,28 @@ spi67:
 ;
 ; Extra padding.
 ;
-	M74WT_R24      76
+	M74WT_R24      81
 
 
 
 ;
 ; Prepare for code block entry
 ;
-; Enter in cycle 322.
+; Enter in cycle 337.
 ;
 	in    r0,      SR_DR   ; ( 1)
 	out   SR_DR,   r0      ; ( 2)
-	bst   r18,     0       ; ( 3) Into T to select between attr (0) and no-attr (1)
-	ldi   r24,     5       ; ( 4) Code block size
-	brtc  spi6_na_prep     ; ( 5 /  6)
-	mov   YL,      r10     ; ( 6) Tile descriptor, byte 1 (fg:bg colors)
-	ld    r5,      Y       ; ( 8)
-	swap  YL               ; ( 9)
-	ld    r4,      Y       ; (11)
-spi6_na_pree:
-	rjmp  spi6_at_pree     ; (13)
-spi6_na_prep:
-	lpm   YL,      Z       ; ( 9) Dummy load (nop)
-	rjmp  spi6_na_pree     ; (11)
-spi6_at_pree:
-	clr   r10              ; (14)
-	clr   r11              ; (15)
-	mul   r0,      r24     ; (17) r24 = 5, size of code blocks (words)
-	movw  ZL,      r0      ; (18)
-	subi  ZL,      lo8(-(pm(spi6_blks))) ; (19)
-	rjmp  spi6_sl_entry    ; (21)
+	bst   r21,     0       ; ( 3) Into T to select between attr (0) and no-attr (1)
+	brts  .+2              ; ( 4 /  5)
+	sbiw  XL,      2       ; ( 6) If attribute mode, then rewind VRAM to attributes
+	brts  .                ; ( 7)
+	ldi   r24,     5       ; ( 8) Code block size
+	clr   r10              ; ( 9)
+	clr   r11              ; (10)
+	mul   r0,      r24     ; (12) r24 = 5, size of code blocks (words)
+	movw  ZL,      r0      ; (13)
+	subi  ZL,      lo8(-(pm(spi6_blks))) ; (14)
+	rjmp  spi6_sl_entry    ; (16)
 
 
 

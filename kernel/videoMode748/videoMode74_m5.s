@@ -1,6 +1,6 @@
 ;
 ; Uzebox Kernel - Video Mode 748 scanline loop, Mode 5 (SPI RAM 3bpp)
-; Copyright (C) 2017 Sandor Zsuga (Jubatian)
+; Copyright (C) 2018 Sandor Zsuga (Jubatian)
 ;
 ; -----
 ;
@@ -25,29 +25,58 @@
 
 
 ;
-; SPI RAM mode 567, entry point
+; SPI RAM mode 5, entry point
 ;
-; Enters in cycle 1811.
+; Enters in cycle 1735.
 ;
-; r10: Tile descriptor, byte 1
-; r11: Tile descriptor, byte 2
-; r13: Tile descriptor, byte 3
 ; r14:r15: Row selector offset
-; r16: Scanline counter (Normally 0 => 223)
-; r17: Logical row counter
-; r18: Tile descriptor, byte 0 (Mode & Flags)
-; r19: m74_config
-; r21: Tile descriptor, byte 4
+;     r16: Scanline counter (Normally 0 => 223)
+;     r17: Logical row counter
+;     r19: m74_config
 ; r22:r23: Tile descriptors
-; r24: Tile row (0 - 31)
-; r25: render_lines_count
-; X: Tile indices (VRAM)
+;     r25: render_lines_count
+;       X: VRAM, pointing at mode
+;      YL: Zero
+;      YH: Palette buffer
 ;
-m74_spi567:
-	inc   r16              ; ( 1) Increment the physical line counter
-	inc   r17              ; ( 2) Increment the logical line counter
-	sbrc  r18,     1       ; ( 3 /  4)
-	rjmp  spi67            ; ( 5) (1816) Mode: 6 or 7.
+m74_mode5:
+
+
+
+;
+; Prepare for Mode 5 scanline
+;
+; Cycles: 26 (1761)
+;
+	sbi   SR_PORT, SR_PIN  ; ( 2) Deselect SPI RAM (Any prev. operation)
+	ld    r20,     X+      ; ( 4) Mode & Flags
+	cbi   SR_PORT, SR_PIN  ; ( 6) Select SPI RAM
+	ldi   r24,     0x03    ; ( 7) Command: Read from SPI RAM
+	out   SR_DR,   r24     ; ( 8)
+	ld    r2,      X+      ; (10) SPI RAM address low
+	ld    r3,      X+      ; (12) SPI RAM address high
+	ldi   r24,     0xFF    ; (13)
+	mov   r12,     r24     ; (14) For SPI RAM
+	mov   r24,     r17     ; (15)
+	andi  r24,     7       ; (16)
+	ldi   r21,     72      ; (17)
+	mul   r24,     r21     ; (19) Start offset adjustment
+	add   r2,      r0      ; (20)
+	adc   r3,      r1      ; (21)
+	sbc   r21,     r21     ; (22)
+	sbrc  r20,     7       ; (23 / 24) SPI RAM bank select
+	subi  r21,     0x01    ; (24)
+	andi  r21,     0x01    ; (25)
+	out   SR_DR,   r21     ; (26)
+
+
+
+;
+; Process Color 0 reloading if enabled. YL is zero at this point.
+;
+; Cycles: 49 (1810)
+;
+	rcall m74_repcol0      ; (49)
 
 
 
@@ -71,11 +100,13 @@ m74_spi567:
 ;
 ; Cycle counter is at 246 on its end
 ;
-	M74WT_R24      8       ; (   3)
+	M74WT_R24      11      ; (   1)
+	inc   r16              ; (   2) Increment the physical line counter
+	inc   r17              ; (   3) Increment the logical line counter
 	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
-	nop                    ; (   6)
-	ldi   r20,     24      ; (   7) Count of tiles to render
-	ldi   ZL,      2       ; (   8)
+	ldi   r20,     24      ; (   6) Count of tiles to render
+	ldi   ZL,      2       ; (   7)
+	out   SR_DR,   r12     ; (   8) SPI RAM dummy for first data fetch
 	call  update_sound     ; (  12) (+ AUDIO)
 	M74WT_R24      HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES
 

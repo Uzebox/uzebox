@@ -79,6 +79,10 @@
 
 		#if (INTRO_LOGO != 0)
 
+// TEST: Return, needs cleaning up
+return;
+
+
 			unsigned char* wrk = (unsigned char*)(M74_LOGO_WORK);
 			unsigned char* rsl;
 			unsigned char  i;
@@ -99,14 +103,13 @@
 				wrk[i] = pgm_read_byte(&(uzeboxlogo_vram[i]));
 			}
 			for (i = 0U; i < 5U; i++){
-				wrk[74U + i] = ((unsigned char*)(M74_RAMTD_OFF))[i];
-				((unsigned char*)(M74_RAMTD_OFF))[i] = wrk[i];
+//				wrk[74U + i] = ((unsigned char*)(M74_RAMTD_OFF))[i];
+//				((unsigned char*)(M74_RAMTD_OFF))[i] = wrk[i];
 			}
 			rsl[0] = 0U;
 			rsl[1] = 0U;
 			rsl[2] = 255U; /* Row selector setup to simply use the logo rows */
-			m74_tdesc = (unsigned int)(&(wrk[5])); /* Tile descriptors (4 rows only) */
-			m74_tidx  = (unsigned int)(&(wrk[9])); /* Tile indices (4 rows only) */
+			m74_vaddr = (unsigned int)(&(wrk[5])); /* Tile descriptors (4 rows only) */
 			for (i = 0U; i < 5U; i++)
 			{
 				M74_RamTileFillRom( (unsigned int)(&uzeboxlogo_text[0]) + (i * 32U),
@@ -128,9 +131,9 @@
 
 			uzeboxlogo_1_load();
 			m74_config =
-			    M74_CFG_RAM_TDESC |
-			    M74_CFG_RAM_TIDX |
-			    M74_CFG_RAM_PALETTE |
+//			    M74_CFG_RAM_TDESC |
+//			    M74_CFG_RAM_TIDX |
+//			    M74_CFG_RAM_PALETTE |
 			    M74_CFG_ENABLE;
 			WaitVsync(3U);
 
@@ -164,7 +167,7 @@
 				rsl[2] = wrk[73];
 			#endif
 			for (i = 0U; i < 5U; i++){
-				((unsigned char*)(M74_RAMTD_OFF))[i] = wrk[74U + i];
+//				((unsigned char*)(M74_RAMTD_OFF))[i] = wrk[74U + i];
 			}
 
 			SetRenderingParameters(FIRST_RENDER_LINE, FRAME_LINES);
@@ -178,11 +181,9 @@
 	void InitializeVideoMode()
 	{
 		m74_config = 0U;    /* Display disabled */
+		m74_paddr  = M74_PAL_OFF;     /* 16 color palette address */
 #if (M74_ROWS_PTRE != 0)
 		m74_rows   = M74_ROWS_OFF;    /* Row selector address */
-#endif
-#if (M74_PAL_PTRE != 0)
-		m74_pal    = M74_PAL_OFF;     /* 16 color palette address */
 #endif
 #if (M74_RTLIST_PTRE != 0)
 		m74_rtlist = M74_RTLIST_OFF;  /* RAM tile allocation workspace address */
@@ -195,7 +196,7 @@
 #endif
 #if (M74_SPR_ENABLE != 0)
 		m74_rtmax  = 32U;   /* Sprites: Allow 32 RAM tiles by default */
-		M74_ResReset();     /* Sprites: Clean up restore list */
+//		M74_ResReset();     /* Sprites: Clean up restore list */
 #endif
 	}
 

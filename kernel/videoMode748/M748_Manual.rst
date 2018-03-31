@@ -11,7 +11,8 @@ Introduction
 
 Video Mode 748 is a 7 cycle / pixel palettized mode at up to 4bpp (16 colors)
 depth within a scanline. It is capable to display 192 pixels (24 tiles of 8
-pixels width) horizontally or 384 pixels for 1bpp images from the SPI RAM.
+pixels width) horizontally or 384 pixels for 1bpp images from the SPI RAM and
+text.
 
 The 7 cycles / pixel figure produces the same essential pixel clock like the
 NTSC Commodore 64's Multicolor mode, having a 1,5:1 pixel aspect ratio.
@@ -32,8 +33,7 @@ Overall key features of the frame renderer are as follows:
   others.
 
 - Horizontal scrolling as X shift to the left by 0 to 7 pixels is available,
-  similar to the respective feature of Commodore 64's VIC. It normally
-  requires copying the VRAM for a complete scrolling algorithm.
+  along with arbitrary VRAM start positions for the background (in SPI RAM).
 
 - The palette is represented as a simple 16 byte array, allowing for palette
   effects (such as fading). Color 0 (background) of the palette may be changed
@@ -43,9 +43,9 @@ Overall key features of the frame renderer are as follows:
 - Up to 224 scanlines height, configurable by the Uzebox kernel's
   SetRenderingParameters() function.
 
-- 4 bits per pixel row mode allows for up to 3 x 64 ROM tiles and up to 1 x 64
-  RAM tiles. Each 64 tile bank may be located independently of others within
-  ROM or RAM respectively. This row mode is available for the sprite engine.
+- 4 bits per pixel row mode allows for up to 2 x 128 ROM tiles and up to 128
+  RAM tiles (depending on available RAM). This row mode is available for the
+  sprite engine.
 
 - 234 cycles are available for the inline mixer. This allows for having five
   channels audio, of four channels and UART.
@@ -55,18 +55,18 @@ Overall key features of the sprite engine are as follows:
 - Works with 8 x 8 pixel ROM, RAM or SPI RAM sourced sprite tiles or single
   pixels. Index 0 of the sprite tiles is transparent.
 
-- Blitter concept with VRAM restoring: for rendering sprites, blits are to be
-  called placing sprites on the canvas like if it was a regular framebuffer.
-  RAM tile allocation and related tasks are carried out by the sprite engine
-  internally. The VRAM can be restored to its original contents after a
-  frame's display to start a new render.
+- Blitter concept with background restoring: for rendering sprites, blits are
+  to be called placing sprites on the canvas like if it was a regular
+  framebuffer. RAM tile allocation and related tasks are carried out by the
+  sprite engine internally. The blits can be cleared by a simple operation to
+  start a new render.
 
 - X and Y mirroring.
 
-- RAM tile usage can be controlled allowing the use of 1 to 64 RAM tiles.
+- RAM tile usage can be controlled allowing the use of 1 to 128 RAM tiles.
 
 - Can perform blits over the 4 bits per pixel row mode. It can cope with
-  different tilesets on the same screen (allowing the use of more than 192
+  different tilesets on the same screen (allowing the use of more than 256
   ROM tiles), and can use RAM tiles as well as targets (so it will blit
   normally over RAM tiles not allocated for sprites).
 
@@ -158,89 +158,87 @@ Tile row modes overview
 
 
 The mode of a row is selected by the m74_tdesc pointer, pointing into an array
-of 32 bytes, each byte specifying a pointer into a tile row descriptor table.
-Bit 7 of this value governs whether the ROM (0) or the RAM (1) tile descriptor
-table should be used, located by the M74_ROMTD_OFF and M74_RAMTD_OFF
-definitions respectively. One tile descriptor takes normally 5 bytes in these
-tables.
-
-Tile row 0 is special for the following uses:
-
-- The sprite engine uses this row to locate the RAM tiles whose base offset
-  must be identical across the whole display region used for sprite rendering.
+of 32 words, each word specifying a pointer to a VRAM row whose first bytes
+describe the type and parameters of the row.
 
 Byte 0 of the tile descriptor specifies the row mode and flags as follows:
 
 - bits 0 - 2: Row mode.
 - bits 3 - 7: Flags (usage depends on row mode).
 
-In SPI RAM sourced modes reading starts at m74_saddr in the bank specified
-in m74_config. Reading is continuous during the display frame, as many bytes
-are fetched as required for each row.
 
-
-Mode 0: 192 4bpp ROM tiles + 64 4bpp RAM tiles
+Mode 0: 256 4bpp ROM tiles + 128 4bpp RAM tiles
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Tile indices are used as follows:
+The VRAM row is as follows:
 
-- 0x00 - 0x3F: 4bpp ROM tiles (base: byte 1)
-- 0x40 - 0x7F: 4bpp ROM tiles (base: byte 2)
-- 0x80 - 0xBF: 4bpp ROM tiles (base: byte 3)
-- 0xC0 - 0xFF: 4bpp RAM tiles (base: byte 4)
+- byte 0: bits 0 - 2: 0 (Mode 0)
+- byte 0: bits 4 - 6: X shift (0 - 7 pixels to the left)
+- byte 0: bit 7: 16th bit of background VRAM row address (in SPI RAM)
+- byte 1: Background VRAM row address low (in SPI RAM)
+- byte 2: Background VRAM row address high (in SPI RAM)
+- byte 3: ROM tiles 0x00 - 0x7F base high
+- byte 4: ROM tiles 0x80 - 0xFF base high
+- byte 5 - 29: VRAM row for RAM tiles (24 + 1 tiles)
 
 Tile descriptor bytes are used as indicated above: they specify the high byte
 of the base offset for the tiles with the given offset. Note that one step in
 the base means 8 tiles: it is possible to overlap distinct tile maps
 exploiting this if necessary.
 
+If bit 7 of the VRAM byte is set, then it is a RAM tile, otherwise a ROM tile
+determined by the Background VRAM's entry.
+
 
 Mode 2: Separator line with palette reload
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This mode uses no VRAM. Only bytes 0 and 1 are used from the tile descriptor.
-
-This is an optional mode, needs to be enabled explicitly (M74_M2_ENABLE = 1)
-if needed.
-
 This mode is capable to display a simple separator line of a single color
-(high nybble of byte 1) with optional palette replacement.
+with optional palette replacement.
 
-The following bits of tile descriptor byte 0 are used as flags:
+The VRAM row is as follows:
 
-- bit 5: If set, palette is fetched from RAM, otherwise ROM.
-- bit 6: If set, no palette reloading takes place.
+- byte 0: bits 0 - 2: 2 (Mode 2)
+- byte 0: bit 4: If set, Color 0 is used for the line
+- byte 0: bits 5 - 6: Palette source: 0: None, 1: RAM, 2: ROM, 3: SPI RAM
+- byte 0: bit 7: 16th bit of Palette address (in SPI RAM)
+- byte 1: Palette address, low
+- byte 2: Palette address, high
+- byte 3: Color of the separator line (if byte 0, bit 4 clear)
 
-Palette reload may take place on row 0 or row 7 of this mode if it was
-enabled. They behave differently in the following manner:
-
-- Row 0 reload uses the tile index source as palette base offset. It colors
-  the separator line using the specified color of this new palette.
-
-- Row 7 reload uses the tile index source plus 16 as palette base offset. It
-  colors the separator line using the specified color from the old palette.
+Using Color 0 for the separator line allows for Color 0 replacement to work on
+it if necessary.
 
 
 Mode 4: SPI RAM 4bpp bitmap
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This mode requires a VRAM width of 96 bytes for its rows. The VRAM is used to
-store the 24 pixels wide left column.
+The VRAM row is as follows:
 
-In this mode, a line takes 84 SPI RAM bytes.
+- byte 0: bits 0 - 2: 4 (Mode 4)
+- byte 1 - 96: Left column data (8 x 12 bytes for storing 24 pixels width)
 
-Horizontal scrolling in this mode is not possible.
+This mode is special due to its requirements, and must be on the top of a
+frame (only modes not using the SPI RAM may be above it). It initializes the
+SPI RAM at the top using m74_m4_addr, and reads 84 bytes of it on each line
+sequentially.
 
 This mode can be used to display 4bpp pictures at up to 192 x 224 pixels
-resolution. It can also be mixed with any other mode.
+resolution.
 
 
 Mode 5: SPI RAM 3bpp bitmap
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This mode uses no VRAM.
+The VRAM row is as follows:
 
-In this mode, a line takes 72 SPI RAM bytes.
+- byte 0: bits 0 - 2: 5 (Mode 5)
+- byte 0: bit 7: 16th bit of bitmap data address (in SPI RAM)
+- byte 1: Bitmap data address low (in SPI RAM)
+- byte 2: Bitmap data address high (in SPI RAM)
+
+A line takes 72 SPI RAM bytes, the data address increments by 72 after every
+line within the 8 lines tall tile row.
 
 3 SPI RAM bytes encode 8 pixels as follows: ::
 
@@ -253,33 +251,46 @@ indices of the palette (so color 0 replacement may be used).
 Mode 6: SPI RAM 1bpp bitmap with attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This mode requires a VRAM width of 96 bytes for its rows. The VRAM is used to
-store attributes: background (0) and foreground (1) colors for each 8 x 8
-pixel block.
+The VRAM row is as follows:
 
-In this mode, a line takes 48 SPI RAM bytes.
+- byte 0: bits 0 - 2: 6 (Mode 6)
+- byte 0: bit 7: 16th bit of bitmap data address (in SPI RAM)
+- byte 1: Bitmap data address low (in SPI RAM)
+- byte 2: Bitmap data address high (in SPI RAM)
+- byte 3 - 98: Attribute RAM for the row (96 bytes)
 
-Horizontal scrolling in this mode is not possible.
+Attributes: background (0) and foreground (1) colors for each 8x8 pixel block.
+
+A line takes 48 SPI RAM bytes.
 
 This mode can be used to display 1bpp attribute mode pictures at up to
-384 x 224 pixels resolution. It can also be mixed with any other mode (such as
-even Mode 4).
+384 x 224 pixels resolution.
+
+The mode has to be enabled by setting M74_M67_ENABLE nonzero to be used.
 
 
 Mode 7: SPI RAM 1bpp bitmap
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This mode uses no VRAM. Byte 1 of the tile descriptor specifies the colors
-(high nybble: foreground, low nybble: background) for the entire row from the
-palette. Using color index 0 allows for using the related feature
-(M74_COL0_OFF nonzero) to change this color every scanline.
+The VRAM row is as follows:
 
-In this mode, a line takes 48 SPI RAM bytes.
+- byte 0: bits 0 - 2: 7 (Mode 7)
+- byte 0: bit 4: If set, Color 0 is used for background
+- byte 0: bit 7: 16th bit of bitmap data address (in SPI RAM)
+- byte 1: Bitmap data address low (in SPI RAM)
+- byte 2: Bitmap data address high (in SPI RAM)
+- byte 3: Foreground color
+- byte 4: Background color (if byte 0, bit 4 clear)
 
-Horizontal scrolling in this mode is not possible.
+Using Color 0 for the background allows for Color 0 replacement to work on it
+if necessary.
+
+A line takes 48 SPI RAM bytes.
 
 This mode can be used to display 1bpp pictures at up to 384 x 224 pixels
-resolution. It can also be mixed with any other mode.
+resolution.
+
+The mode has to be enabled by setting M74_M67_ENABLE nonzero to be used.
 
 
 
@@ -300,18 +311,16 @@ Each displayed line (physical scanline) can contain any logical scanline of
 the 256 from the 32 configurable tile rows. This selection may be directed by
 a split list.
 
-This list uses byte triplets defining locations where the logical scanline
-counter has to be re-loaded, and the X shift register has to be set.
-Afterwards the logical scanline counter increments by one on every line. The
-triplets are as follows:
+This list uses byte pairs defining locations where the logical scanline
+counter has to be re-loaded. Afterwards the logical scanline counter
+increments by one on every line. The byte pairs are as follows:
 
 - byte 0: Physical scanline to act on (0 - 223)
 - byte 1: Logical scanline to set
-- byte 2: X shift value (only the low 3 bits are used)
 
-The first triplet is partial, only having bytes 1 and 2 (that is, line 0 is
-implicit for that). The list can be terminated by a byte 0 value which can
-not be reached any more, such as zero or 255.
+The first byte is a Logical scanline to set (0 for physical scanline is
+implicit). The list can be terminated by a byte 0 value which can not be
+reached any more, such as zero or 255.
 
 
 

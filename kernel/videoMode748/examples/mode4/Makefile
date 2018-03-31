@@ -1,10 +1,10 @@
 ###############################################################################
-# Makefile for the project SpriteDemo
+# Makefile for the project Mode 748 Row mode 4 example
 ###############################################################################
 
 ## General Flags
-PROJECT = m74sprer
-GAME    = m74sprer
+PROJECT = m748rm4
+GAME    = m748rm4
 INFO    = gameinfo.properties
 MCU     = atmega644
 TARGET  = $(GAME).elf
@@ -15,8 +15,8 @@ DEPDIR  = _dep_
 DIRS    = $(OUTDIR) $(OBJDIR) $(DEPDIR)
 
 ## Kernel settings
-KERNEL_DIR = ../../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=74 -DINTRO_LOGO=1 -DSOUND_MIXER=MIXER_TYPE_INLINE
+KERNEL_DIR = ../../..
+KERNEL_OPTIONS  = -DVIDEO_MODE=748 -DINTRO_LOGO=1 -DSOUND_MIXER=MIXER_TYPE_INLINE
 
 ## Packrom (.uze)
 PACKROM_DIR = ../../../../tools/packrom
@@ -44,18 +44,19 @@ LDFLAGS += -Wl,-gc-sections
 
 ## Setup for Mode 74 stuff
 CFLAGS  += -include m74cfg.h
-LDFLAGS += -Wl,--section-start=.tiles=0x4900
 
 ## Intel Hex file production flags
 HEX_FLASH_FLAGS = -R .eeprom
 
-HEX_EEPROM_FLAGS = -j .eeprom
-HEX_EEPROM_FLAGS += --set-section-flags=.eeprom="alloc,load"
-HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
-
 
 ## Objects that must be built in order to link
-OBJECTS  = $(OBJDIR)/uzeboxVideoEngineCore.o $(OBJDIR)/uzeboxCore.o $(OBJDIR)/uzeboxSoundEngine.o $(OBJDIR)/uzeboxSoundEngineCore.o $(OBJDIR)/uzeboxVideoEngine.o
+OBJECTS  = $(OBJDIR)/uzeboxVideoEngineCore.o
+OBJECTS += $(OBJDIR)/uzeboxCore.o
+OBJECTS += $(OBJDIR)/uzeboxSoundEngine.o
+OBJECTS += $(OBJDIR)/uzeboxSoundEngineCore.o
+OBJECTS += $(OBJDIR)/uzeboxVideoEngine.o
+OBJECTS += $(OBJDIR)/spiram.o
+OBJECTS += $(OBJDIR)/bootlib.o
 OBJECTS += $(OBJDIR)/$(GAME).o
 OBJECTS += $(OBJDIR)/tiles.o
 
@@ -63,7 +64,7 @@ OBJECTS += $(OBJDIR)/tiles.o
 INCLUDES = -I"$(KERNEL_DIR)"
 
 ## Build
-all: $(OUTDIR)/$(TARGET) $(OUTDIR)/$(GAME).hex $(OUTDIR)/$(GAME).eep $(OUTDIR)/$(GAME).lss $(OUTDIR)/$(GAME).uze size
+all: $(OUTDIR)/$(TARGET) $(OUTDIR)/$(GAME).hex $(OUTDIR)/$(GAME).lss $(OUTDIR)/$(GAME).uze size
 
 ## Directories
 $(OBJDIR):
@@ -91,6 +92,12 @@ $(OBJDIR)/uzeboxSoundEngine.o: $(KERNEL_DIR)/uzeboxSoundEngine.c $(DIRS)
 $(OBJDIR)/uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c $(DIRS)
 	$(CC) $(INCLUDES) $(CFLAGS) -c $< -o $@
 
+$(OBJDIR)/spiram.o: $(KERNEL_DIR)/spiram.s $(DIRS)
+	$(CC) $(INCLUDES) $(ASMFLAGS) -c $< -o $@
+
+$(OBJDIR)/bootlib.o: $(KERNEL_DIR)/bootlib.s $(DIRS)
+	$(CC) $(INCLUDES) $(ASMFLAGS) -c $< -o $@
+
 ## Compile game sources
 $(OBJDIR)/$(GAME).o: main.c $(DIRS)
 	$(CC) $(INCLUDES) $(CFLAGS) -c $< -o $@
@@ -104,9 +111,6 @@ $(OUTDIR)/$(TARGET): $(OBJECTS) $(DIRS)
 
 $(OUTDIR)/%.hex: $(OUTDIR)/$(TARGET)
 	avr-objcopy -O ihex $(HEX_FLASH_FLAGS) $< $@
-
-$(OUTDIR)/%.eep: $(OUTDIR)/$(TARGET)
-	-avr-objcopy $(HEX_EEPROM_FLAGS) -O ihex $< $@ || exit 0
 
 $(OUTDIR)/%.lss: $(OUTDIR)/$(TARGET)
 	avr-objdump -h -S $< > $@
