@@ -113,6 +113,15 @@
 #endif
 
 ;
+; volatile u8  m74_m4_bank;
+; volatile u16 m74_m4_addr;
+;
+; SPI RAM base address for Row mode 4. By default it is set up to M74_M4_BASE.
+;
+.global m74_m4_bank
+.global m74_m4_addr
+
+;
 ; u8 M74_Finish(void);
 ;
 ; Always returns zero.
@@ -122,26 +131,40 @@
 ;
 ; void ClearVram(void);
 ;
-; Uzebox kernel function: clears the VRAM. Operates on the region set up
-; by M74_SetVram().
+; Uzebox kernel function: clears the VRAM. This means clearing Row mode 0's
+; VRAM, all other modes are unaffected. If the sprite engine is enabled, use
+; M74_VramRestore() instead.
 ;
 .global ClearVram
 
 ;
 ; void SetTile(char x, char y, u16 tileId);
 ;
-; Uzebox kernel function: sets a tile at a given X:Y location on VRAM.
-; Operates on the region set up by M74_SetVram().
+; Uzebox kernel function: sets a tile at a given X:Y location. This draws on
+; Mode 6 / 7 SPI RAM canvas, setting fake tiles on the 1bpp bitmap.
 ;
 .global SetTile
 
 ;
 ; void SetFont(char x, char y, u8 tileId);
 ;
-; Uzebox kernel function: sets a (character) tile at a given X:Y location on
-; VRAM. Operates on the region set up by M74_SetVram().
+; Uzebox kernel function: sets a character at a given X:Y location. This draws
+; on Mode 6 / 7 SPI RAM canvas, setting fake tiles on the 1bpp bitmap.
 ;
 .global SetFont
+
+;
+; void M74_PrepareM4Row(u8 row, u8 bank, u16 addr);
+;
+; Prepares Row Mode 4 tile row from SPI RAM source. The SPI RAM source has to
+; have 8 * 96 bytes (768 bytes) of data (a 192 pixels wide 4bpp bitmap slice).
+; It is assumed that every row displays at its natural position (so display
+; beginning at line 0) when determining target in SPI RAM.
+;
+; Can be used with display enabled, but note that it takes about 20 scanlines!
+; (So ideally only call once in a VBlank to prevent it being interrupted)
+;
+.global M74_PrepareM4Row
 
 ;
 ; void M74_RamTileFillRom(u16 src, u8 dst);
@@ -282,6 +305,10 @@
 	m74_reset_lo:  .space 1 ; Reset vector, low
 	m74_reset_hi:  .space 1 ; Reset vector, high
 #endif
+	m74_m4_bank:   .space 1 ; Row mode 4 base SPI RAM bank
+	m74_m4_addr:            ; Row mode 4 base SPI RAM address
+	m74_m4_addr_lo: .space 1
+	m74_m4_addr_hi: .space 1
 
 	; Locals
 
@@ -492,6 +519,175 @@ SetTile_w14:
 	rjmp  .
 	rjmp  .
 	nop
+	ret
+
+
+
+;
+; void M74_PrepareM4Row(u8 row, u8 bank, u16 addr);
+;
+; Prepares Row Mode 4 tile row from SPI RAM source. The SPI RAM source has to
+; have 8 * 96 bytes (768 bytes) of data (a 192 pixels wide 4bpp bitmap slice).
+; It is assumed that every row displays at its natural position (so display
+; beginning at line 0) when determining target in SPI RAM.
+;
+; Can be used with display enabled, but note that it takes about 20 scanlines!
+; (So ideally only call once in a VBlank to prevent it being interrupted)
+;
+;     r24: row
+;     r22: bank
+; r21:r20: addr
+;
+.section .text.M74_PrepareM4Row
+M74_PrepareM4Row:
+
+	lds   r23,     m74_config
+	lds   ZL,      m74_vaddr + 0
+	lds   ZH,      m74_vaddr + 1
+	clr   r1
+	andi  r24,     0x1F    ; 32 rows, wrapping
+	add   ZL,      r24
+	adc   ZH,      r1
+	add   ZL,      r24
+	adc   ZH,      r1
+	sbrs  r23,     1       ; m74_config bit 1: M74_RAM_VADDR
+	rjmp  .+6
+	ld    XL,      Z+
+	ld    XH,      Z+      ; VRAM address
+	rjmp  .+4
+	lpm   XL,      Z+
+	lpm   XH,      Z+      ; VRAM address
+	ld    r25,     X+
+	andi  r25,     7
+	cpi   r25,     4       ; Row mode 4?
+	breq  .+2
+	ret                    ; Do nothing if not
+
+	; Copy SPI RAM part first using the row mode's VRAM as buffer
+
+	subi  r20,     0xF4    ; Add 12 to ignore left part for now
+	sbci  r21,     0xFF
+	sbci  r22,     0xFF
+	lds   ZL,      m74_m4_addr_lo
+	lds   ZH,      m74_m4_addr_hi
+	lds   r19,     m74_m4_bank
+	ldi   r23,     84
+	lsl   r24
+	lsl   r24
+	lsl   r24
+	mul   r23,     r24     ; Target address
+	add   ZL,      r0
+	adc   ZH,      r1
+	eor   r1,      r1      ; r1 zero without affecting carry
+	adc   r19,     r1
+	ldi   r23,     8
+M74_PrepareM4Row_l0:
+	cbi   SR_PORT, SR_PIN  ; Select SPI RAM
+	ldi   r25,     0x03    ; Read
+	out   SR_DR,   r25
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r22     ; SPI RAM: Address high
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r21     ; SPI RAM: Address mid
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r20     ; SPI RAM: Address low
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r20     ; SPI RAM: Dummy
+	subi  r20,     (((0x1000000 - 96)      ) & 0xFF)
+	sbci  r21,     (((0x1000000 - 96) >>  8) & 0xFF)
+	sbci  r22,     (((0x1000000 - 96) >> 16) & 0xFF)
+	nop
+	ldi   r25,     83
+M74_PrepareM4Row_l1:
+	rcall M74_PrepareM4Row_w11
+	in    r0,      SR_DR
+	out   SR_DR,   r0
+	st    X+,      r0
+	dec   r25
+	brne  M74_PrepareM4Row_l1
+	nop
+	rcall M74_PrepareM4Row_w11
+	in    r0,      SR_DR
+	st    X+,      r0
+	sbi   SR_PORT, SR_PIN  ; Deselect SPI RAM
+	subi  XL,      84
+	sbci  XH,      0
+	cbi   SR_PORT, SR_PIN  ; Select SPI RAM
+	ldi   r25,     0x02    ; Write
+	out   SR_DR,   r25
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r19     ; SPI RAM: Address high
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   ZH      ; SPI RAM: Address mid
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   ZL      ; SPI RAM: Address low
+	rcall M74_PrepareM4Row_w11
+	subi  ZL,      (((0x1000000 - 84)      ) & 0xFF)
+	sbci  ZH,      (((0x1000000 - 84) >>  8) & 0xFF)
+	sbci  r19,     (((0x1000000 - 84) >> 16) & 0xFF)
+	ldi   r25,     84
+M74_PrepareM4Row_l2:
+	ld    r0,      X+
+	out   SR_DR,   r0
+	rcall M74_PrepareM4Row_w11
+	nop
+	dec   r25
+	brne  M74_PrepareM4Row_l2
+	subi  XL,      84
+	sbci  XH,      0
+	sbi   SR_PORT, SR_PIN  ; Deselect SPI RAM
+	dec   r23
+	brne  M74_PrepareM4Row_l0
+
+	; Copy VRAM part, populating the left column rendered from it
+
+	subi  r20,     (((96 * 8 + 12)      ) & 0xFF) ; Rewind to beginning
+	sbci  r21,     (((96 * 8 + 12) >>  8) & 0xFF)
+	sbci  r22,     (((96 * 8 + 12) >> 16) & 0xFF)
+	ldi   r23,     8
+M74_PrepareM4Row_l3:
+	cbi   SR_PORT, SR_PIN  ; Select SPI RAM
+	ldi   r25,     0x03    ; Read
+	out   SR_DR,   r25
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r22     ; SPI RAM: Address high
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r21     ; SPI RAM: Address mid
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r20     ; SPI RAM: Address low
+	rcall M74_PrepareM4Row_w17
+	out   SR_DR,   r20     ; SPI RAM: Dummy
+	subi  r20,     (((0x1000000 - 96)      ) & 0xFF)
+	sbci  r21,     (((0x1000000 - 96) >>  8) & 0xFF)
+	sbci  r22,     (((0x1000000 - 96) >> 16) & 0xFF)
+	nop
+	ldi   r25,     11
+M74_PrepareM4Row_l4:
+	rcall M74_PrepareM4Row_w11
+	in    r0,      SR_DR
+	out   SR_DR,   r0
+	st    X+,      r0
+	dec   r25
+	brne  M74_PrepareM4Row_l4
+	nop
+	rcall M74_PrepareM4Row_w11
+	in    r0,      SR_DR
+	st    X+,      r0
+	sbi   SR_PORT, SR_PIN  ; Deselect SPI RAM
+	dec   r23
+	brne  M74_PrepareM4Row_l3
+
+	; Done, target filled
+
+	ret
+
+M74_PrepareM4Row_w17:
+	rjmp  .
+	rjmp  .
+	rjmp  .
+M74_PrepareM4Row_w11:
+	rjmp  .
+	rjmp  .
 	ret
 
 

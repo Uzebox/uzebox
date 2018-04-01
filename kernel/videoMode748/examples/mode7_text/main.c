@@ -101,6 +101,7 @@ int main(){
 
 	tsds.bufp = &(vramrow[0].config); /* Just using some free RAM */
 	FS_Init(&tsds);
+	SpiRamInit();
 
 
 	/* Set rendering parameters for 4:3 display. */
@@ -137,7 +138,6 @@ int main(){
 
 	/* Set up SPI RAM */
 
-	SpiRamInit();
 	SpiRamSeqWriteStart(0U, 0x0000U);
 	for (j = 0U; j < 216U; j++){
 		for (i = 0U; i < 48U; i++){
@@ -167,6 +167,9 @@ int main(){
 	/* Enable display */
 
 	m74_config |= M74_CFG_ENABLE;
+
+
+	a16 = 0U;
 
 	while(1){
 

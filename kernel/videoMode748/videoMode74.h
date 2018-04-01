@@ -43,11 +43,8 @@ extern volatile u16 m74_paddr;
 #if (M74_RESET_ENABLE != 0)
 extern volatile u16 m74_reset;
 #endif
-#if (M74_RTLIST_PTRE != 0)
-extern volatile u16 m74_rtlist;
-#else
-#define m74_rtlist (M74_RTLIST_OFF)
-#endif
+extern volatile u8  m74_m4_bank;
+extern volatile u16 m74_m4_addr;
 extern volatile u8  m74_rtmax;
 extern volatile u8  m74_rtbase;
 
@@ -56,6 +53,7 @@ extern void M74_SetVram(u16 addr, u8 wdt, u8 hgt);
 extern void M74_SetVramEx(u16 addr, u8 wdt, u8 hgt, u8 pt);
 #endif
 extern u8   M74_Finish(void);
+extern void M74_PrepareM4Row(u8 row, u8 bank, u16 addr);
 extern void M74_RamTileFillRom(u16 src, u8 dst);
 extern void M74_RamTileFillRam(u8  src, u8 dst);
 extern void M74_RamTileClear(u8 dst);

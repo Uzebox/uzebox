@@ -185,18 +185,14 @@ return;
 #if (M74_ROWS_PTRE != 0)
 		m74_rows   = M74_ROWS_OFF;    /* Row selector address */
 #endif
-#if (M74_RTLIST_PTRE != 0)
-		m74_rtlist = M74_RTLIST_OFF;  /* RAM tile allocation workspace address */
-#endif
 #if (M74_RESET_ENABLE != 0)
 		m74_reset  = 0U;              /* Reset starts off disabled (so logo may display) */
 #endif
-#if (M74_SD_ENABLE != 0)
-		m74_sdsec  = 0U;              /* Sector part of SD offset initially zero */
-#endif
+		m74_m4_bank = M74_M4_BASE / 65536U;
+		m74_m4_addr = M74_M4_BASE % 65536U;
 #if (M74_SPR_ENABLE != 0)
 		m74_rtmax  = 32U;   /* Sprites: Allow 32 RAM tiles by default */
-//		M74_ResReset();     /* Sprites: Clean up restore list */
+		m74_rtbase = 72U;   /* Sprites: In the range 0x0A00 - 0x0DFF */
 #endif
 	}
 

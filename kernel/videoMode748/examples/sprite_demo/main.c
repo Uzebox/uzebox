@@ -154,6 +154,7 @@ int main(){
 
 	tsds.bufp = &(vramrow[0].config); /* Just using some free RAM */
 	FS_Init(&tsds);
+	SpiRamInit();
 
 
 	/* Set rendering parameteras: Reduce height to 22 fake tiles, the many
@@ -165,7 +166,6 @@ int main(){
 
 	/* Transfer entire ROM to SPI RAM */
 
-	SpiRamInit();
 	SpiRamSeqWriteStart(0U, 0U);
 	a16 = 0U;
 	do{

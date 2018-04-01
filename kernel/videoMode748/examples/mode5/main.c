@@ -94,6 +94,7 @@ int main(){
 
 	tsds.bufp = (u8*)(0x0800U); /* Just using some free RAM */
 	FS_Init(&tsds);
+	SpiRamInit();
 
 
 	/* Set rendering parameters for 4:3 display. */
@@ -128,7 +129,6 @@ int main(){
 
 	/* Set up SPI RAM */
 
-	SpiRamInit();
 	SpiRamSeqWriteStart(0U, 0x0000U);
 	for (j = 0U; j < 216U; j++){
 		for (i = 0U; i < 72U; i++){
