@@ -84,6 +84,11 @@ int main(){
 	u8* pal  = (u8*)(m74_paddr);
 
 
+	/* Set main configuration flags, display disabled */
+
+	m74_config = 0U;
+
+
 	/* Init FS to reset SD card, to ensure that the SPI RAM is accessible
 	** (otherwise it may interfere). */
 
@@ -131,11 +136,12 @@ int main(){
 			    pgm_read_byte(&res_img[((u16)(j) * 72U) + i]));
 		}
 	}
+	SpiRamSeqWriteEnd();
 
 
-	/* Set main configuration flags & Enable */
+	/* Enable display */
 
-	m74_config = M74_CFG_ENABLE;
+	m74_config |= M74_CFG_ENABLE;
 
 	while(1);
 

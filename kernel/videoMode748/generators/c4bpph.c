@@ -30,7 +30,7 @@
 
 
 /*  The GIMP header to use */
-#include "sprites.h"
+#include "tiles.h"
 
 
 #include <stdio.h>

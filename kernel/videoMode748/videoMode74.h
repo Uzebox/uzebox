@@ -162,3 +162,11 @@ typedef struct{
 #define M74_CFG_PAL_SRC_SPIRAM   0x60U
 
 #define M74_CFG_SPIRAM_A16       0x80U
+
+
+/*
+** Row mode 2 and Row mode 7: Use color 0 for background instead of taking it
+** from VRAM. This can be used mostly to allow Color 0 replaces to take over.
+*/
+#define M74_CFG_USE_COL0         0x10U
+

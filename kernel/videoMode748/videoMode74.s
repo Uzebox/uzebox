@@ -305,45 +305,41 @@
 ;
 ; void ClearVram(void);
 ;
-; Uzebox kernel function: clears the VRAM. Operates on the region set up
-; by M74_SetVram().
+; Uzebox kernel function: clears the VRAM. This means clearing Row mode 0's
+; VRAM, all other modes are unaffected. If the sprite engine is enabled, use
+; M74_VramRestore() instead.
+;
+; Clobbered registers:
+; r22, r23, r24, r25, XL, XH, ZL, ZH
 ;
 .section .text.ClearVram
 ClearVram:
-;	ldi   r18,     lo8(M74_VRAM_P * M74_VRAM_H)
-;	ldi   r19,     hi8(M74_VRAM_P * M74_VRAM_H)
-	movw  r0,      r18     ; Length of VRAM in r1:r0
-;	ldi   ZL,      lo8(M74_VRAM_OFF)
-;	ldi   ZH,      hi8(M74_VRAM_OFF)
-	clr   r20
-	; Clear excess bytes compared to lower multiple of 4
-	sbrs  r0,      0
-	rjmp  clvr0
-	st    Z+,      r20
-	dec   r0
-clvr0:
-	sbrs  r0,      1
-	rjmp  clvr1
-	st    Z+,      r20
-	dec   r0
-	st    Z+,      r20
-	dec   r0
-clvr1:
-	; Test for zero
-	mov   r18,     r1
-	or    r18,     r0
-	breq  clvr2
-	movw  r24,     r0      ; r25:r24, r1:r0
-	; If nonzero, clear remaining area in blocks of four (3cy / byte)
-clvr3:
-	st    Z+,      r20
-	st    Z+,      r20
-	st    Z+,      r20
-	st    Z+,      r20
-	sbiw  r24,     4
-	brne  clvr3
-clvr2:
-	clr   r1
+
+	lds   r23,     m74_config
+	lds   ZL,      m74_vaddr + 0
+	lds   ZH,      m74_vaddr + 1
+	ldi   r24,     32
+clvr_l0:
+	sbrs  r23,     1       ; m74_config bit 1: M74_RAM_VADDR
+	rjmp  .+6
+	ld    XL,      Z+
+	ld    XH,      Z+      ; VRAM address
+	rjmp  .+4
+	lpm   XL,      Z+
+	lpm   XH,      Z+      ; VRAM address
+	ld    r25,     X
+	andi  r25,     7
+	brne  clvr_l1          ; Not a Mode 0 row, skip it
+	adiw  XL,      5       ; VRAM
+	ldi   r25,     0
+	ldi   r22,     25
+clvr_l2:
+	st    X+,      r25     ; Clear VRAM row
+	dec   r22
+	brne  clvr_l2
+clvr_l1:
+	dec   r24
+	brne  clvr_l0
 	ret
 
 
@@ -352,28 +348,150 @@ clvr2:
 ; void SetTile(char x, char y, u16 tileId);
 ; void SetFont(char x, char y, u8 tileId);
 ;
-; Uzebox kernel function: sets a tile at a given X:Y location on VRAM.
-; Operates on the region set up by M74_SetVram().
-;
-; The high byte of tileId is not used, so the two functions can be served by
-; the same routine.
+; Uzebox kernel function: sets a tile at a given X:Y location. This draws on
+; Mode 6 / 7 SPI RAM canvas, setting fake tiles on the 1bpp bitmap.
 ;
 ;     r24: x
 ;     r22: y
-; r21:r20: tileId (r21 not used)
+; r21:r20: tileId (r21 not set for SetFont)
 ;
-.section .text
-SetTile:
+.section .text.SetTileFont
 SetFont:
-;	ldi   r25,     M74_VRAM_P
-	mul   r25,     r22
-	movw  ZL,      r0
-	clr   r1
-	add   ZL,      r24
+	ldi   r21,     0       ; SetFont takes only 8 bits for the ID.
+	subi  r20,     0xE0    ; Also it assumes index 0 corresponding to ASCII 0x20.
+SetTile:
+	cbi   SR_PORT, SR_PIN  ; Select SPI RAM
+	ldi   r25,     0x03    ; Read
+	out   SR_DR,   r25
+	ldi   r23,     8
+	mul   r20,     r23
+	mov   r20,     r0
+	mov   r25,     r1      ; ( 5)
+	mul   r21,     r23
+	mov   r21,     r0
+	add   r21,     r25
+	ldi   r25,     0
+	adc   r25,     r1
+	clr   r1               ; (12) r25:r21:r20: Tile address
+	subi  r20,     (((0x1000000 - (M74_M67_FONT_OFF))      ) & 0xFF)
+	sbci  r21,     (((0x1000000 - (M74_M67_FONT_OFF)) >>  8) & 0xFF)
+	sbci  r25,     (((0x1000000 - (M74_M67_FONT_OFF)) >> 16) & 0xFF)
+	andi  r25,     0x01    ; (16)
+	nop                    ; (17)
+	out   SR_DR,   r25     ; SPI RAM: Address high
+	cpi   r24,     48      ; ( 1) X position OK? (0 - 47 is valid)
+	brcs  .+2
+	rjmp  SetTile_notile
+	lds   r23,     m74_config
+	lds   ZL,      m74_vaddr + 0
+	lds   ZH,      m74_vaddr + 1
+	clr   r1               ; (10)
+	andi  r22,     0x1F    ; (11) 32 rows, wrapping
+	add   ZL,      r22
 	adc   ZH,      r1
-;	subi  ZL,      lo8(-(M74_VRAM_OFF))
-;	sbci  ZH,      hi8(-(M74_VRAM_OFF))
-	st    Z,       r20
+	add   ZL,      r22
+	adc   ZH,      r1      ; (15)
+	rjmp  .                ; (17)
+	out   SR_DR,   r21     ; SPI RAM: Address mid
+	sbrs  r23,     1       ; ( 1) m74_config bit 1: M74_RAM_VADDR
+	rjmp  .+8
+	nop
+	ld    XL,      Z+
+	ld    XH,      Z+      ; ( 7) VRAM address
+	rjmp  .+4              ; ( 9)
+	lpm   XL,      Z+
+	lpm   XH,      Z+      ; ( 9) VRAM address
+	ld    r25,     X
+	andi  r25,     6       ; (12) Must be 6 for Row mode 6 or 7
+	cpi   r25,     6
+	breq  .+2
+	rjmp  SetTile_notile
+	ld    r25,     X+      ; (17)
+	out   SR_DR,   r20     ; SPI RAM: Address low
+	ldi   r23,     0x00
+	sbrc  r25,     7       ; ( 2) Row mode: SPI RAM A16
+	ldi   r23,     0x01
+	ld    r20,     X+      ; ( 5) Address low
+	ld    r21,     X+      ; ( 7) Address mid
+	ldi   r25,     lo8(7 * 48)
+	add   r20,     r25
+	ldi   r25,     hi8(7 * 48)
+	adc   r21,     r25
+	adc   r23,     r1      ; (12) Start output on bottom line (due to push-pop load)
+	add   r20,     r24
+	adc   r21,     r1
+	adc   r23,     r1      ; (15)
+	rjmp  .                ; (17)
+	out   SR_DR,   r25     ; Dummy
+	rcall SetTile_w16
+	in    r25,     SR_DR   ; Byte 0
+	out   SR_DR,   r25
+	push  r25
+	rcall SetTile_w14
+	in    r25,     SR_DR   ; Byte 1
+	out   SR_DR,   r25
+	push  r25
+	rcall SetTile_w14
+	in    r25,     SR_DR   ; Byte 2
+	out   SR_DR,   r25
+	push  r25
+	rcall SetTile_w14
+	in    r25,     SR_DR   ; Byte 3
+	out   SR_DR,   r25
+	push  r25
+	rcall SetTile_w14
+	in    r25,     SR_DR   ; Byte 4
+	out   SR_DR,   r25
+	push  r25
+	rcall SetTile_w14
+	in    r25,     SR_DR   ; Byte 5
+	out   SR_DR,   r25
+	push  r25
+	rcall SetTile_w14
+	in    r25,     SR_DR   ; Byte 6
+	out   SR_DR,   r25
+	push  r25
+	rcall SetTile_w14
+	in    r25,     SR_DR   ; Byte 7
+	sbi   SR_PORT, SR_PIN  ; Deselect SPI RAM
+	push  r25
+	ldi   XL,      8
+SetTile_olp:
+	cbi   SR_PORT, SR_PIN  ; Select SPI RAM
+	ldi   r25,     0x02    ; Write
+	out   SR_DR,   r25
+	rcall SetTile_w17
+	out   SR_DR,   r23     ; SPI RAM: Address high
+	rcall SetTile_w17
+	out   SR_DR,   r21     ; SPI RAM: Address mid
+	rcall SetTile_w17
+	out   SR_DR,   r20     ; SPI RAM: Address low
+	rcall SetTile_w14
+	pop   r25
+	subi  r20,     48
+	out   SR_DR,   r25     ; SPI RAM: Data
+	sbci  r21,     0
+	sbci  r23,     0
+	dec   XL
+	rcall SetTile_w14
+	sbi   SR_PORT, SR_PIN  ; Deselect SPI RAM
+	brne  SetTile_olp
+	ret
+
+SetTile_notile:
+	rcall SetTile_w14
+	sbi   SR_PORT, SR_PIN  ; Deselect SPI RAM
+	ret
+
+SetTile_w17:
+	nop
+SetTile_w16:
+	rjmp  .
+SetTile_w14:
+	rjmp  .
+	rjmp  .
+	rjmp  .
+	nop
 	ret
 
 
@@ -382,7 +500,7 @@ SetFont:
 ; void M74_RamTileFillRom(u16 src, u8 dst);
 ;
 ; Fills a RAM tile from a ROM tile. Source is a normal address, destination is
-; a tile offset (byte offset divided by 32).
+; a RAM tile index.
 ;
 ; r25:r24: src
 ;     r22: dst
@@ -392,7 +510,8 @@ M74_RamTileFillRom:
 	movw  ZL,      r24     ; Source offset in Z
 	ldi   XL,      32
 	mul   r22,     XL
-	movw  XL,      r0      ; Destination offset generated in X
+	movw  XL,      r0
+	inc   XH               ; Destination offset generated in X
 	clr   r1               ; r1 must be zero for C
 	ldi   r22,     8
 frtrol:
@@ -413,8 +532,8 @@ frtrol:
 ;
 ; void M74_RamTileFillRam(u8 src, u8 dst);
 ;
-; Fills a RAM tile from a RAM tile. Both source and destination are tile
-; offsets (byte offset divided by 32).
+; Fills a RAM tile from a RAM tile. Both source and destination are RAM tile
+; indices.
 ;
 ;     r24: src
 ;     r22: dst
@@ -423,9 +542,11 @@ frtrol:
 M74_RamTileFillRam:
 	ldi   XL,      32
 	mul   r24,     XL
-	movw  ZL,      r0      ; Source offset generated in Z
+	movw  ZL,      r0
+	inc   ZH               ; Source offset generated in Z
 	mul   r22,     XL
-	movw  XL,      r0      ; Destination offset generated in X
+	movw  XL,      r0
+	inc   XH               ; Destination offset generated in X
 	clr   r1               ; r1 must be zero for C
 	ldi   r22,     8
 frtral:
@@ -446,8 +567,7 @@ frtral:
 ;
 ; void M74_RamTileClear(u8 dst);
 ;
-; Clears a RAM tile to color index zero. Destination is a tile offset (byte
-; offset divided by 32).
+; Clears a RAM tile to color index zero. Destination is a RAM tile index.
 ;
 ;     r24: dst
 ;
@@ -455,7 +575,8 @@ frtral:
 M74_RamTileClear:
 	ldi   XL,      32
 	mul   r24,     XL
-	movw  XL,      r0      ; Destination offset generated in X
+	movw  XL,      r0
+	inc   XH               ; Destination offset generated in X
 	clr   r1               ; r1 must be zero for C
 	ldi   r22,     8
 frtcll:

@@ -85,6 +85,11 @@ int main(){
 	u8* pal  = (u8*)(m74_paddr);
 
 
+	/* Set main configuration flags, display disabled */
+
+	m74_config = 0U;
+
+
 	/* Init FS to reset SD card, to ensure that the SPI RAM is accessible
 	** (otherwise it may interfere). */
 
@@ -126,8 +131,8 @@ int main(){
 			    ( (((j >> 4) & 1U) << 6) +
 			      (((j >> 2) & 3U) << 3) +
 			      (((j     ) & 3U)     ) );
-			vramrow[j].data[(i << 1) + 0U] = (c << 1) | 0x49U;
-			vramrow[j].data[(i << 1) + 1U] = c;
+			vramrow[j].data[(i << 1) + 0U] = c;
+			vramrow[j].data[(i << 1) + 1U] = (c << 1) | 0x49U;
 		}
 	}
 
@@ -142,11 +147,12 @@ int main(){
 			    pgm_read_byte(&res_img[((u16)(j) * 48U) + i]));
 		}
 	}
+	SpiRamSeqWriteEnd();
 
 
-	/* Set main configuration flags & Enable */
+	/* Enable display */
 
-	m74_config = M74_CFG_ENABLE;
+	m74_config |= M74_CFG_ENABLE;
 
 	while(1);
 

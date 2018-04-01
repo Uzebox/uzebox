@@ -32,7 +32,7 @@
 
 
 /*  The GIMP header to use */
-#include "tiles80bfmsk.h"
+#include "masks.h"
 
 
 #include <stdio.h>

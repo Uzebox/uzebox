@@ -1,10 +1,10 @@
 ###############################################################################
-# Makefile for the project SpriteDemo
+# Makefile for the project Mode 748 Row mode 6 example
 ###############################################################################
 
 ## General Flags
-PROJECT = m748spex
-GAME    = m748spex
+PROJECT = m748rm7
+GAME    = m748rm7
 INFO    = gameinfo.properties
 MCU     = atmega644
 TARGET  = $(GAME).elf
@@ -44,14 +44,17 @@ LDFLAGS += -Wl,-gc-sections
 
 ## Setup for Mode 74 stuff
 CFLAGS  += -include m74cfg.h
-LDFLAGS += -Wl,--section-start=.tiles=0x4900
 
 ## Intel Hex file production flags
 HEX_FLASH_FLAGS = -R .eeprom
 
 
 ## Objects that must be built in order to link
-OBJECTS  = $(OBJDIR)/uzeboxVideoEngineCore.o $(OBJDIR)/uzeboxCore.o $(OBJDIR)/uzeboxSoundEngine.o $(OBJDIR)/uzeboxSoundEngineCore.o $(OBJDIR)/uzeboxVideoEngine.o
+OBJECTS  = $(OBJDIR)/uzeboxVideoEngineCore.o
+OBJECTS += $(OBJDIR)/uzeboxCore.o
+OBJECTS += $(OBJDIR)/uzeboxSoundEngine.o
+OBJECTS += $(OBJDIR)/uzeboxSoundEngineCore.o
+OBJECTS += $(OBJDIR)/uzeboxVideoEngine.o
 OBJECTS += $(OBJDIR)/spiram.o
 OBJECTS += $(OBJDIR)/bootlib.o
 OBJECTS += $(OBJDIR)/$(GAME).o

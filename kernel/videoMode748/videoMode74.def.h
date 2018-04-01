@@ -93,23 +93,6 @@
 ** assembler sources where the assembler doesn't understand them. */
 
 
-/* Notes on the "_PTRE" defines:
-** Several offsets can be either used as compile time definition of accessed
-** by a pointer in RAM. The latter needs 2 RAM bytes each. If you need
-** multiple configurations for one, you can enable it by setting the
-** accompanying "_PTRE" definition to '1' for the cost of 2 RAM bytes. They
-** will still be initialized with the corresponding compile time definition
-** for convenience. */
-
-
-
-/* Enable Row Mode 6 & Row Mode 7. Enable them only if you are using them,
-** they cost about 3K of ROM space. */
-#ifndef M74_M67_ENABLE
-	#define M74_M67_ENABLE     0
-#endif
-
-
 
 /* Video temporary workspaces.
 ** These are only used during the scanline render, so if you are using the
@@ -117,6 +100,7 @@
 ** may reuse them. */
 
 /* The render stack. Needs 16 bytes. Defines the bottom of the stack. */
+
 #ifndef M74_VIDEO_STACK
 	#define M74_VIDEO_STACK    0x1010
 #endif
@@ -124,10 +108,10 @@
 /* The palette buffer. The low byte of the address is ignored (256 byte
 ** boundary). Needs 256 bytes. Disabling color 0 makes the first 16 bytes
 ** available for other purposes. */
+
 #ifndef M74_PALBUF
 	#define M74_PALBUF         0x0F00
 #endif
-
 
 
 
@@ -224,6 +208,25 @@
 
 #ifndef M74_M4_BASE
 	#define M74_M4_BASE        0
+#endif
+
+
+
+/* Enable Row Mode 6 & Row Mode 7. Enable them only if you are using them,
+** they cost about 3K of ROM space. */
+
+#ifndef M74_M67_ENABLE
+	#define M74_M67_ENABLE     0
+#endif
+
+/* Font table address for Row Mode 6 & 7, for the SetTile or SetFont routines.
+** This is an SPI RAM address (17 bits), where the font data has to be loaded.
+** The font has the same format like a mask set (8 bytes / character). Note
+** that using SetTile you may have more than 256 characters. The default sets
+** this area up at the end of the SPI RAM. */
+
+#ifndef M74_M67_FONT_OFF
+	#define M74_M67_FONT_OFF   0x1F800
 #endif
 
 
