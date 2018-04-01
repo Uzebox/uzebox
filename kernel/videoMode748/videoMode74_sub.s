@@ -98,9 +98,9 @@ sub_video_mode74:
 	out   SR_DR,   r25     ; (76) Dummy byte for first fetch
 	M74WT_R24      13      ; (89)
 pal_lp:
-	sbrs  r19,     5
-	rjmp  pal_lp_01
 	sbrs  r19,     6
+	rjmp  pal_lp_01
+	sbrs  r19,     5
 	rjmp  pal_lp_2         ; ( 5) ROM source
 	in    r24,     SR_DR   ; ( 5) SPI RAM source
 	out   SR_DR,   r25     ; ( 6)

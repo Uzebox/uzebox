@@ -75,8 +75,9 @@ static const unsigned char sine[] PROGMEM = {
 
 
 
-/* VRAM rows */
-static m74_mode0_vram_t vramrow[28U];
+/* VRAM rows (Mode 2 rows are nice for filling up unused rows) */
+static m74_mode0_vram_t vramrow[27U];
+static m74_mode2_vram_t vramdummy = { 2U | M74_CFG_PAL_SRC_NONE, 0U, 0x1FU };
 
 
 /* Tile row VRAM address table */
@@ -108,11 +109,11 @@ static u16 const vramrow_offs[32U] PROGMEM = {
  (u16)(&vramrow[24]),
  (u16)(&vramrow[25]),
  (u16)(&vramrow[26]),
- (u16)(&vramrow[27]),
- (u16)(&vramrow[27]),
- (u16)(&vramrow[27]),
- (u16)(&vramrow[27]),
- (u16)(&vramrow[27])
+ (u16)(&vramdummy),
+ (u16)(&vramdummy),
+ (u16)(&vramdummy),
+ (u16)(&vramdummy),
+ (u16)(&vramdummy)
 };
 
 
@@ -184,8 +185,8 @@ int main(){
 
 	/* Set base and maximal RAM tile count allocated for sprites */
 
-	m74_rtbase = 36U;
-	m74_rtmax = 76U;
+	m74_rtbase = 34U;
+	m74_rtmax = 78U;
 
 
 	/* Load palette */

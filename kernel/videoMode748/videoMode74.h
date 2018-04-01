@@ -147,8 +147,9 @@ typedef struct{
 
 /*
 ** Configuration (m74_config) flags. The palette configuration is common with
-** Row Mode 2's configuration. The SPI RAM address bit 16 is common in all Row
-** Mode configurations.
+** Row Mode 2's configuration (M74_CFG_PAL_SRC_NONE is interpreted as RAM for
+** m74_config). The SPI RAM address bit 16 is common in all Row Mode
+** configurations.
 */
 #define M74_CFG_ENABLE           0x01U
 #define M74_CFG_RAM_VADDR        0x02U

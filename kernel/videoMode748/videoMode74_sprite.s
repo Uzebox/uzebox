@@ -232,7 +232,7 @@ rls_l0:
 rls_l1:
 	dec   r24
 	brne  rls_l0
-	sts   v_rtno,  r25     ; No RAM tiles allocated for sprites
+	sts   v_rtno,  r24     ; No RAM tiles allocated for sprites
 	ret
 
 
@@ -309,6 +309,8 @@ M74_PutPixel:
 	lsr   r18
 	lsr   r18
 	lsr   r18              ; Tile X location on VRAM
+	cpi   r18,     25
+	brcc  bpixe            ; Out of VRAM on X
 	andi  r23,     0x07
 	andi  r22,     0x07
 
@@ -543,7 +545,7 @@ bsplle:
 	ld    r17,     X
 	mov   r18,     r17
 	andi  r18,     0x07    ; Row mode
-	brne  bsplle           ; Not row mode 0: Can not blit here
+	brne  bspule           ; Not row mode 0: Can not blit here
 	swap  r17
 	andi  r17,     0x07    ; X shift
 	add   r22,     r17
@@ -626,17 +628,19 @@ m74_blitspriteptprep:
 	; Allocate the RAM tile and calculate necessary address data
 
 	movw  r18,     r4      ; Column (X) & Row (Y) offsets
+	cpi   r18,     25
+	brcc  bsppexit1        ; Out of VRAM on X
 	rcall m74_ramtilealloc
-	brtc  bsppexit         ; No RAM tile
+	brtc  bsppexit0        ; No RAM tile
 
 	; Call the sprite part blitter
 
 	rcall m74_blitspritept
 
-bsppexit:
-
+bsppexit0:
 	bst   r16,     3
 	bld   r16,     4       ; Restore mask usage flag (was only cleared, so OK)
+bsppexit1:
 	ret
 
 
@@ -665,20 +669,10 @@ bsppexit:
 ;
 m74_ramtilealloc:
 
-#if (M74_MSK_ENABLE != 0)
-	; Load the mask used setting into the 'T' flag, also setting bit 3 of
-	; flags as required.
-
-	bst   r16,     4
-	bld   r16,     3
-#endif
-
 	; Load tile's data, first pass.
 	; This is for determining whether the tile was already allocated (if
 	; it is within the sprite allocated RAM tile range).
 
-	cpi   r18,     25      ; VRAM width is 25 tiles, beyond that, drop
-	brcc  rtadroptile
 	movw  ZL,      XL      ; Save VRAM row start for allocation
 	adiw  XL,      5       ; VRAM data begin
 	add   XL,      r18     ; Column (X) offset
@@ -690,17 +684,21 @@ m74_ramtilealloc:
 
 	sbrs  r0,      7       ; Bit 7 set: RAM tile
 	rjmp  rtanewrom
+
+#if (M74_MSK_ENABLE != 0)
+	bst   r16,     4       ; Load the mask used setting into the 'T' flag,
+	bld   r16,     3       ; also setting bit 3 of flags as required.
+#endif
+
 	mov   r18,     r0
 	andi  r18,     0x7F
 	lds   r17,     m74_rtbase
 	cp    r18,     r17
-	brcs  rtafast
+	brcs  rtanewram
 	lds   r0,      m74_rtmax
 	add   r0,      r17
 	cp    r18,     r0
 	brcc  rtanewram
-
-rtafast:
 
 	; Fast path: Already allocated RAM tile. VRAM address in X is no
 	; longer needed. Load its mask if necessary.
@@ -726,7 +724,6 @@ rtafro:
 	mul   r17,     r21
 	add   ZL,      r0
 	adc   ZH,      r1      ; Start offset of mask
-	clr   r1
 	movw  r14,     ZL
 rtafnm:
 #endif
@@ -776,15 +773,14 @@ rtanewram:
 
 	; Calculate source RAM tile address
 
-	lds   r15,     m74_rtbase
 	ldi   r21,     32
-	add   r18,     r15
 	mul   r18,     r21
 	movw  ZL,      r0
 	inc   ZH               ; Source RAM tile address
 
 	; Calculate target RAM tile address
 
+	lds   r15,     m74_rtbase
 	add   r15,     r14
 	mul   r15,     r21
 	movw  YL,      r0
@@ -835,6 +831,14 @@ rtanewrom:
 	cbi   SR_PORT, SR_PIN  ; Select SPI RAM
 	ldi   r17,     0x03    ; Read
 	out   SR_DR,   r17
+
+#if (M74_MSK_ENABLE != 0)
+	bst   r16,     4       ; Load the mask used setting into the 'T' flag,
+	bld   r16,     3       ; also setting bit 3 of flags as required.
+#else
+	rjmp  .
+#endif
+
 	ld    r17,     Z+      ; VRAM row: configuration
 	ldi   r19,     0x00
 	sbrc  r17,     7       ; Address bit 16
@@ -844,17 +848,17 @@ rtanewrom:
 	ld    r18,     Z+      ; VRAM row: Bg. address high
 	add   r17,     r0
 	adc   r18,     r1
-	adc   r19,     r1      ; (13) Address of tile calculated
+	adc   r19,     r1      ; (15) Address of tile calculated
 
 	; Can allocate new RAM tile?
 
-	lds   r14,     v_rtno
-	lds   r15,     m74_rtmax ; (17)
+	lds   r14,     v_rtno  ; (17)
 	out   SR_DR,   r19     ; SPI RAM: Address high
+	lds   r15,     m74_rtmax
 	cp    r14,     r15
 	brcc  rtadroptile_sp   ; No free RAM tiles: Drop with SPI cancel
-	mov   r15,     r14     ; ( 3)
-	inc   r15              ; ( 4) For new allocated tile count
+	mov   r15,     r14     ; ( 5)
+	inc   r15              ; ( 6) For new allocated tile count
 
 	; Calculate target RAM tile address
 
@@ -864,13 +868,13 @@ rtanewrom:
 	mul   r0,      r21
 	movw  YL,      r0
 	clr   r1
-	inc   YH               ; (13) Target RAM tile address
+	inc   YH               ; (15) Target RAM tile address
 
 	; Prepare for ROM tile address calculation
 
-	ld    r21,     Z+      ; (15) VRAM row: ROM tiles 0x00 - 0x7F base high
-	ld    r0,      Z+      ; (17) VRAM row: ROM tiles 0x80 - 0xFF base high
+	ld    r21,     Z+      ; (17) VRAM row: ROM tiles 0x00 - 0x7F base high
 	out   SR_DR,   r18     ; SPI RAM: Address mid
+	ld    r0,      Z+      ; ( 2) VRAM row: ROM tiles 0x80 - 0xFF base high
 	mov   ZH,      r0
 	ldi   ZL,      0
 	lsr   ZH
@@ -882,11 +886,9 @@ rtanewrom:
 	lsr   ZH
 	ror   ZL
 	lsr   ZH
-	ror   ZL               ; (12) ROM mask base for 0x80 - 0xFF
+	ror   ZL               ; (14) ROM mask base for 0x80 - 0xFF
 	mov   r19,     r21
 	ldi   r18,     0
-	lsr   r19
-	ror   r18
 	lsr   r19              ; (17)
 	out   SR_DR,   r17     ; SPI RAM: Address low
 	ror   r18
@@ -895,7 +897,9 @@ rtanewrom:
 	lsr   r19
 	ror   r18
 	lsr   r19
-	ror   r18              ; ( 7) ROM mask base address for 0x00 - 0x7F
+	ror   r18
+	lsr   r19
+	ror   r18              ; ( 9) ROM mask base address for 0x00 - 0x7F
 #if (M74_MSK_ENABLE != 0)
 	subi  ZL,      lo8(-(M74_ROMMASKIDX_OFF))
 	sbci  ZH,      hi8(-(M74_ROMMASKIDX_OFF))
@@ -903,12 +907,11 @@ rtanewrom:
 	sbci  r19,     hi8(-(M74_ROMMASKIDX_OFF))
 #else
 	rjmp  .
-	rjmp  .                ; (11)
+	rjmp  .                ; (13)
 #endif
 
 	; Wait for SPI
 
-	rjmp  .
 	rjmp  .
 	rjmp  .                ; (17)
 	out   SR_DR,   r17     ; SPI RAM: Dummy
@@ -1055,8 +1058,7 @@ rtaalloccpe:
 	; and save the RAM tile's index on VRAM so it becomes visible.
 
 	sbiw  YL,      32
-	mov   r21,     r14
-	lds   r14,     m74_rtbase
+	lds   r21,     m74_rtbase
 	add   r21,     r14
 	ori   r21,     0x80    ; Tile allocated
 	st    X,       r21     ; X still holds VRAM offset

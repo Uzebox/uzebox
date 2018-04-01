@@ -73,12 +73,12 @@ m74_mode2:
 ; Cycle counter is at 246 on its end.
 ;
 	ldi   YL,      0       ; (1811)
-	ld    r13,     Y       ; (1812) Color 0
+	ld    r13,     Y       ; (1813) Color 0
 	sbrc  r20,     4
-	mov   r18,     r13     ; (1814) Color 0 is used for the line
-	lpm   ZL,      Z       ; (1817)
-	lpm   ZL,      Z       ; (1820 = 0)
-	rjmp  .                ; (   2)
+	mov   r18,     r13     ; (1815) Color 0 is used for the line
+	lpm   ZL,      Z       ; (1818)
+	lpm   ZL,      Z       ; (   1)
+	nop                    ; (   2)
 	inc   r16              ; (   3) Physical line counter
 	cbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ; (   5)
 	inc   r17              ; (   6) Logical line counter
@@ -101,24 +101,25 @@ m74_mode2:
 ;
 ; Process line
 ;
-	rcall m2_colrep        ; ( 300)
-	rcall m2_colrep        ; ( 353)
+	rcall m2_colrep        ; ( 303)
+	M74WT_R24      50      ; ( 353)
 	out   PIXOUT,  r18     ; ( 354)
-	rcall m2_colrep        ; ( 407)
-	rcall m2_colrep        ; ( 460)
-	rcall m2_colrep        ; ( 513)
-	rcall m2_colrep        ; ( 566)
-	rcall m2_colrep        ; ( 619)
-	rcall m2_colrep        ; ( 672)
-	rcall m2_colrep        ; ( 725)
-	rcall m2_colrep        ; ( 778)
-	rcall m2_colrep        ; ( 831)
-	rcall m2_colrep        ; ( 884)
-	rcall m2_colrep        ; ( 937)
-	rcall m2_colrep        ; ( 990)
-	rcall m2_colrep        ; (1043)
-	rcall m2_colrep        ; (1096)
-	M74WT_R24      598     ; (1694)
+	rcall m2_colrep        ; ( 410)
+	rcall m2_colrep        ; ( 466)
+	rcall m2_colrep        ; ( 522)
+	rcall m2_colrep        ; ( 578)
+	rcall m2_colrep        ; ( 634)
+	rcall m2_colrep        ; ( 690)
+	rcall m2_colrep        ; ( 746)
+	rcall m2_colrep        ; ( 802)
+	rcall m2_colrep        ; ( 858)
+	rcall m2_colrep        ; ( 914)
+	rcall m2_colrep        ; ( 970)
+	rcall m2_colrep        ; (1026)
+	rcall m2_colrep        ; (1082)
+	rcall m2_colrep        ; (1138)
+	rcall m2_colrep        ; (1194)
+	M74WT_R24      500     ; (1694)
 	clr   r18              ; (1695)
 	rjmp  m74_scloop_sr    ; (1697)
 
@@ -133,15 +134,15 @@ m74_mode2:
 ;   Z: Palette source pointer
 ;
 m2_colrep:
-	sbrc  r20,     5
+	sbrc  r20,     6
 	rjmp  m2_colrep_23
-	sbrs  r20,     6
+	sbrs  r20,     5
 	rjmp  m2_colrep_0      ; ( 5) No color replacing
 	nop
 	ld    r24,     Z+      ; ( 7) RAM source
 	rjmp  m2_colrep_r      ; ( 9)
 m2_colrep_23:
-	sbrs  r20,     6
+	sbrs  r20,     5
 	rjmp  m2_colrep_2      ; ( 6) ROM source
 	in    r24,     SR_DR   ; ( 6) SPI RAM source
 	out   SR_DR,   r12     ; ( 7)
