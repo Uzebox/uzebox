@@ -24,155 +24,12 @@
 	#include <avr/pgmspace.h>
 	#include "uzebox.h"
 	#include "intro.h"
-	#if (INTRO_LOGO != 0)
-		#include "videoMode748/uzeboxlogo.h"
-	#endif
-
-
-
-	#if (INTRO_LOGO != 0)
-
-		/* For logo: Fill in normal image & palette */
-
-		static void uzeboxlogo_1_load(){
-
-			unsigned char  i;
-			unsigned char* pal = (unsigned char*)(M74_PAL_OFF);
-
-			for (i = 0U; i < 13U; i++)
-			{
-				M74_RamTileFillRom( (unsigned int)(&uzeboxlogo_tiles_1[0]) + ((unsigned int)(i) * 32U),
-				                    (M74_LOGO_RAMTILES >> 5) + 0x01U + i);
-			}
-			for (i = 0U; i < 16U; i++)
-			{
-				pal[i] = pgm_read_byte(&(uzeboxlogo_pal_1[i]));
-			}
-
-		}
-
-		/* For logo: Fill in flash image & palette */
-
-		static void uzeboxlogo_2_load(){
-
-			unsigned char  i;
-			unsigned char* pal = (unsigned char*)(M74_PAL_OFF);
-
-			for (i = 0U; i < 13U; i++)
-			{
-				M74_RamTileFillRom( (unsigned int)(&uzeboxlogo_tiles_2[0]) + ((unsigned int)(i) * 32U),
-				                    (M74_LOGO_RAMTILES >> 5) + 0x01U + i);
-			}
-			for (i = 0U; i < 16U; i++)
-			{
-				pal[i] = pgm_read_byte(&(uzeboxlogo_pal_2[i]));
-			}
-
-		}
-
-	#endif
 
 
 
 	/* Callback invoked by UzeboxCore.Initialize() */
 	void DisplayLogo(){
 
-		#if (INTRO_LOGO != 0)
-
-// TEST: Return, needs cleaning up
-return;
-
-
-			unsigned char* wrk = (unsigned char*)(M74_LOGO_WORK);
-			unsigned char* rsl;
-			unsigned char  i;
-
-			/* Preparations (doesn't enable display yet) */
-
-			#if (M74_ROWS_OFF != 0)
-				rsl = (unsigned char*)(m74_rows);
-				wrk[71] = rsl[0]; /* Save initializer of row selector */
-				wrk[72] = rsl[1];
-				wrk[73] = rsl[2];
-			#else
-				m74_rows = (unsigned int)(&(wrk[71]));
-				rsl = (unsigned char*)(m74_rows);
-			#endif
-			for (i = 0U; i < 71U; i++)
-			{
-				wrk[i] = pgm_read_byte(&(uzeboxlogo_vram[i]));
-			}
-			for (i = 0U; i < 5U; i++){
-//				wrk[74U + i] = ((unsigned char*)(M74_RAMTD_OFF))[i];
-//				((unsigned char*)(M74_RAMTD_OFF))[i] = wrk[i];
-			}
-			rsl[0] = 0U;
-			rsl[1] = 0U;
-			rsl[2] = 255U; /* Row selector setup to simply use the logo rows */
-			m74_vaddr = (unsigned int)(&(wrk[5])); /* Tile descriptors (4 rows only) */
-			for (i = 0U; i < 5U; i++)
-			{
-				M74_RamTileFillRom( (unsigned int)(&uzeboxlogo_text[0]) + (i * 32U),
-				                    (M74_LOGO_RAMTILES >> 5) + 0x0EU + i);
-			}
-			M74_RamTileClear((M74_LOGO_RAMTILES >> 5));
-			SetRenderingParameters(110U, 32U);
-
-			/* Logo display sequence starts */
-
-			InitMusicPlayer(logoInitPatches);
-			WaitVsync(15U);
-
-			#if (INTRO_LOGO == 1)
-				TriggerFx(0U, 0xFFU, true);
-			#endif
-
-			/* Fill in normal logo image & palette */
-
-			uzeboxlogo_1_load();
-			m74_config =
-//			    M74_CFG_RAM_TDESC |
-//			    M74_CFG_RAM_TIDX |
-//			    M74_CFG_RAM_PALETTE |
-			    M74_CFG_ENABLE;
-			WaitVsync(3U);
-
-			/* Fill in flash logo image & palette */
-
-			uzeboxlogo_2_load();
-			WaitVsync(2U);
-
-			/* Fill in normal logo image & palette (again) */
-
-			uzeboxlogo_1_load();
-
-			#if (INTRO_LOGO == 2)
-				SetMasterVolume(0xC0U);
-				TriggerNote(3U, 0U, 16U, 0xFFU);
-			#endif
-
-			WaitVsync(65U);
-
-			/* Disable display, so logo is OFF */
-
-			m74_config = 0U;
-			WaitVsync(20U);
-
-			/* Restore row selector contents if necessary, and
-			** also the default rendering parameters */
-
-			#if (M74_ROWS_OFF != 0)
-				rsl[0] = wrk[71];
-				rsl[1] = wrk[72];
-				rsl[2] = wrk[73];
-			#endif
-			for (i = 0U; i < 5U; i++){
-//				((unsigned char*)(M74_RAMTD_OFF))[i] = wrk[74U + i];
-			}
-
-			SetRenderingParameters(FIRST_RENDER_LINE, FRAME_LINES);
-
-		#endif
 	}
 
 
@@ -181,6 +38,7 @@ return;
 	void InitializeVideoMode()
 	{
 		m74_config = 0U;    /* Display disabled */
+		m74_discol = 0U;    /* Color when disabled: Black */
 		m74_paddr  = M74_PAL_OFF;     /* 16 color palette address */
 #if (M74_ROWS_PTRE != 0)
 		m74_rows   = M74_ROWS_OFF;    /* Row selector address */

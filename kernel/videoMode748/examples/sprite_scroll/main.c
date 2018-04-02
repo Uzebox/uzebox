@@ -189,7 +189,6 @@ int main(){
 	u8  j;
 	u8  t0;
 	u8  t1;
-	u8  t2;
 	u8  ysh;
 	u16 a16;
 	u16 c16 = 0U;

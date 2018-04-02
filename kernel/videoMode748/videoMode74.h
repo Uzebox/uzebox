@@ -33,6 +33,7 @@
 
 
 extern volatile u8  m74_config;
+extern volatile u8  m74_discol;
 #if (M74_ROWS_PTRE != 0)
 extern volatile u16 m74_rows;
 #else

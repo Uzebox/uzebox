@@ -271,7 +271,13 @@ ddisl:
 	breq  ddise            ; (1819 / 1820)
 	inc   r16              ; (1820)
 	rcall hsync_pulse      ; (21 + AUDIO)
-	M74WT_R24      1813 - 21 - AUDIO_OUT_HSYNC_CYCLES
+	M74WT_R24      351 - 21 - AUDIO_OUT_HSYNC_CYCLES
+	lds   r24,     m74_discol
+	out   PIXOUT,  r24     ; ( 354)
+	M74WT_R24      1342
+	ldi   r24,     0
+	out   PIXOUT,  r24     ; (1698)
+	M74WT_R24      115
 	rjmp  ddisl            ; (1815)
 
 ddise:

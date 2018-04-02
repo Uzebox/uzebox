@@ -50,7 +50,7 @@
 ;
 ; Global configuration flags
 ;
-; bit 0: Display enabled if set. Otherwise screen is black
+; bit 0: Display enabled if set. Otherwise screen is colored by m74_discol.
 ; bit 1: If set, VRAM row addresses are in RAM, otherwise ROM (64b)
 ; bit 4: Color 0 reload enabled if set
 ; bit 5-6: Palette source: 0: RAM, 1: RAM, 2: ROM, 3: SPI RAM
@@ -62,6 +62,13 @@
 ; performed by logical scanline position (as set by Row select).
 ;
 .global m74_config
+
+;
+; volatile u8 m74_discol;
+;
+; Color of display when it is disabled. Black by default.
+;
+.global m74_discol
 
 #if (M74_ROWS_PTRE != 0)
 ;
@@ -289,6 +296,7 @@
 	; Globals
 
 	m74_config:    .space 1 ; Global configuration
+	m74_discol:    .space 1 ; Color of display when it is disabled
 #if (M74_ROWS_PTRE != 0)
 	m74_rows:
 	m74_rows_lo:   .space 1 ; Row selector address, low
