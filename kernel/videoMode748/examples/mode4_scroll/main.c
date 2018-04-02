@@ -87,7 +87,7 @@ static u16 const vramrow_offs[32U] PROGMEM = {
 **
 ** No error checking, just a quick & dirty solution.
 */
-u8  file_get_next_byte(sdc_struct_t* sds, u16* secpos)
+static u8  file_get_next_byte(sdc_struct_t* sds, u16* secpos)
 {
 	u8  rval;
 	u16 spos = *secpos;
@@ -112,7 +112,7 @@ u8  file_get_next_byte(sdc_struct_t* sds, u16* secpos)
 ** a simple wraparound scroll, providing the Y position is sufficient to
 ** determine what to fill and where from.
 */
-void vram_fill_left(u16 ypos)
+static void vram_fill_left(u16 ypos)
 {
 	u8* data = &(vramrow[(u8)(ypos & 0xFFU) >> 3].data[0]);
 	u32 t32  = (u32)(LEFTCOL_BASE) + ((ypos & 0xFFF8U) * 12U);
@@ -131,6 +131,8 @@ int main(){
 
 	sdc_struct_t sds;
 	u8  i;
+	u8  bpos;
+	u8  bval;
 	u16 a16;
 	u8  dir;
 	u8  img_x;
@@ -216,10 +218,15 @@ int main(){
 
 	while (img_p < img_y){
 
-		/* Load one image line */
+		/* Load one image line, centered for display */
 
+		bpos = 48U - (img_x / 4U);
 		for (i = 0U; i < (img_x / 2U); i ++){
-			tbuf[i] = file_get_next_byte(&sds, &a16);
+			bval = file_get_next_byte(&sds, &a16);
+			if (bpos < 96U){
+				tbuf[bpos] = bval;
+			}
+			bpos ++;
 		}
 
 		/* Left half */
@@ -281,16 +288,20 @@ int main(){
 
 		if (dir == 0U){ /* Scroll down */
 
-			a16 ++;
-			vram_fill_left(a16 + 224U);
-			if (a16 >= img_y - 224U){
+			if ((a16 + 224U) <  img_y){
+				a16 ++;
+				vram_fill_left(a16 + 224U);
+			}
+			if ((a16 + 224U) >= img_y){
 				dir = 1U;
 			}
 
 		}else{          /* Scroll up */
 
-			a16 --;
-			vram_fill_left(a16);
+			if (a16 != 0U){
+				a16 --;
+				vram_fill_left(a16);
+			}
 			if (a16 == 0U){
 				dir = 0U;
 			}
