@@ -54,23 +54,59 @@ Track tracks[CHANNELS];
 //Common player vars
 bool playSong=false;
 unsigned char lastStatus;
-const char *songPos; 
-const char *songStart;
-const char *loopStart;
 unsigned char masterVolume;
 u8 songSpeed;
 u8 step;
 
 #if MUSIC_ENGINE == MIDI
-	//MIDI player vars
+
+	unsigned int ReadVarLen(const char **songPos);
+
+	const char *songPos; 
+	const char *songStart;
+	const char *loopStart;
+	
 	u16	nextDeltaTime;
 	u16	currDeltaTime;
-#else
-	//MOD players vars
+
+#elif MUSIC_ENGINE == STREAM
+
+	#if STREAM_MUSIC_RAM == 1
+		volatile u16 songPos;
+		u16 songStart;
+		volatile u16 loopStart;
+		volatile u16 loopEnd;
+
+		u8 nextDeltaTime;
+
+		u8 songBuf[SONG_BUFFER_SIZE];
+		u8 songBufIn, songBufOut;
+
+		u8 SongBufFull();
+		u8 SongBufBytes();
+		void SongBufWrite(u8 t);
+		u8 SongBufRead();
+
+		#if STREAM_MUSIC_DEBUG == 1
+			volatile u16 songStalls;
+		#endif
+
+	#else//bufferless flash "streaming"
+		const char *songPos;
+		const char *loopStart;
+
+		u8 nextDeltaTime;
+	#endif
+
+#else //MOD player
+
 	u8 currentTick;
 	u8 currentStep;
 	u8 modChannels;
 	u8 songLength;
+	const char *songPos; 
+	const char *songStart;
+	const char *loopStart;
 	const u16 *patternOffsets;
 	const char *patterns;
 #endif
@@ -289,6 +325,7 @@ void InitMusicPlayer(const Patch *patchPointersParam){
 		}
 
 		songPos=song+1; //skip first delta-time
+
 		songStart=song+1;//skip first delta-time
 		loopStart=song+1;
 		nextDeltaTime=0;
@@ -299,7 +336,45 @@ void InitMusicPlayer(const Patch *patchPointersParam){
 		playSong=true;
 	}
 
-#else
+#elif MUSIC_ENGINE == STREAM
+
+	#if STREAM_MUSIC_RAM == 1
+
+		void StartSong(){
+			for(unsigned char t=0;t<CHANNELS;t++){
+				tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);
+				tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+			}
+
+			songPos		= 0;
+			songStart	= 0;
+			loopStart	= 0;
+			nextDeltaTime	= 0;
+			songSpeed	= 0;
+
+			lastStatus	= 0;
+			playSong	= true;
+		}
+	#else//bufferless flash version
+
+		void StartSong(const char *song){
+			for(unsigned char t=0;t<CHANNELS;t++){
+				tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);
+				tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+			}
+
+			songPos		= song;
+			//songStart	= song;
+			loopStart	= song;
+			nextDeltaTime	= 0;
+			songSpeed	= 0;
+
+			lastStatus	= 0;
+			playSong	= true;
+		}
+	#endif
+
+#else//MOD
 
 	void StartSong(const char *song, u16 startPos, bool loop){
 		for(unsigned char t=0;t<CHANNELS;t++){
@@ -438,6 +513,7 @@ void ProcessMusic(void){
 			
 				if(c1==0xff){
 					//META data type event
+
 					c1=pgm_read_byte(songPos++);
 
 				
@@ -460,9 +536,7 @@ void ProcessMusic(void){
 					if(c1&0x80) lastStatus=c1;					
 					channel=lastStatus&0x0f;
 				
-					//get next data byte
-					//Note: maybe we should not advance the cursor
-					//in case we receive an unsupported command				
+					//get next data byte		
 					if(c1&0x80) c1=pgm_read_byte(songPos++); 
 
 					switch(lastStatus&0xf0){
@@ -511,14 +585,14 @@ void ProcessMusic(void){
 		
 				#if SONG_SPEED == 1
 					if(songSpeed != 0){
-						uint32_t l  = (uint32_t)(nextDeltaTime<<8);
+						u32 l  = (u32)(nextDeltaTime<<8);
 
 						if(songSpeed < 0){//slower
-							(uint32_t)(l += (uint32_t)(-songSpeed*(nextDeltaTime<<1)));
-							(uint32_t)(l >>= 8);
+							(u32)(l += (u32)(-songSpeed*(nextDeltaTime<<1)));
+							(u32)(l >>= 8);
 						}
 						else//faster
-							(uint32_t)(l /= (uint32_t)((1<<8)+(songSpeed<<1)));
+							(u32)(l /= (u32)((1<<8)+(songSpeed<<1)));
 
 						nextDeltaTime = l;
 					}
@@ -528,7 +602,104 @@ void ProcessMusic(void){
 		
 			currDeltaTime++;
 	
-		#else
+		#elif MUSIC_ENGINE == STREAM
+		
+			//process all simultaneous events
+			//everything about this format is designed to minimize the size of the most common events
+			if(nextDeltaTime)//eat last frames delay
+				nextDeltaTime--;
+
+			while(!nextDeltaTime){
+				#if STREAM_MUSIC_RAM == 1
+					if(SongBufBytes() < SONG_BUFFER_MIN){
+						#if STREAM_MUSIC_DEBUG == 1
+							songStalls++;
+						#endif
+						nextDeltaTime++;//we are running out of data, stretch the timing a bit		
+						break;
+					}
+				#endif//flash "streaming" is bufferless
+
+				c1 = SongBufRead();
+
+				if(c1 == 0xFF){//future expansion
+					playSong = false;//we do not yet know the number of argument bytes for these, so can't continue the stream
+					break;
+				}else if((c1 & 0b11100000) < 0b10100000){//0bCCCXXXXX, if (CCC>>5) is 0-4, then it is a Note On
+					//Note On: 0bCCCVVVVV, VNNNNNNN = CCC = channel, VVVVV V = volume, NNNNNNN = note
+					channel = (c1>>5);//get channel
+					c1 = (c1 & 0b00011111);//get volume 5 LSBits
+					c2 = SongBufRead();//get packed note and MSBit of volume
+					c1 |= (c2 & 0b10000000)>>2;//add 1 MSBit to previous LSBits for 6 bits total volume
+					c1 <<= 2;//convert our 6 bits to: 7 bit converted to 8 bit volume of original format
+					c2 &= 0b01111111;//mask out the MSbit of volume, leaving just the note
+					//c2 = note, c1 = volume
+					if(tracks[channel].flags|TRACK_FLAGS_ALLOCATED)//allocated==true
+						TriggerNote(channel,tracks[channel].patchNo,c2,c1);
+				
+				}else{//"channel" is not actually the channel, but an indicator of the command
+					c2 = (c1 &	0b11100000);//determine the actual command type by the "channel" signal
+
+					if(c2 ==	0b10100000){//"channel" == 5<<5 indicates Program Change
+						channel = (c1 & 0b00000111);//extract actual channel(not the 5 used for signal)
+						c2 = SongBufRead();//get patch
+						tracks[channel].patchNo = c2;
+					
+					}else if(c2 ==	0b11000000){//"channel" == 6<<5 indicates Marker						
+						c2 = (c1 & 0b00000011);
+						
+						if(c2 == 0b00000000){//Loop End(0b11000000)
+							#if STREAM_MUSIC_RAM == 1//only need to record the loop end for buffer rollover calculations						
+								loopEnd = songPos;
+							#endif//no need for this variable in the flash based "streaming" player, since we immediately loop
+							songPos = loopStart;
+						}else if(c2 == 0b00000001){//Loop Start(0b11000001)
+							loopStart = songPos;
+						}else if(c2 == 0b00000010){//Song End(0b11000010)
+							playSong = false;
+							break;
+						}else{//Tick End(0b110XXX11)
+							nextDeltaTime = ((c1 & 0b00011100)>>2)+1;//possibly short version 1-7 frames, 1 byte
+							if(nextDeltaTime == (0b00000111)+1)//longer version, 2 bytes
+								nextDeltaTime = SongBufRead();
+						}
+					}else{//c2 = 0b11100000 "channel" = 7<<5 indicates Controller Event
+						channel = (c1 & 0b00000111);//get the actual channel
+						c2 = (c1 & 0b00011000);//mask the controller type
+						c1 = SongBufRead();//get controller value
+						
+						if(c2 == 0b00000000)//Channel Volume
+							tracks[channel].trackVol=c1<<1;
+						else if(c2 == 0b00001000)//Expression
+							tracks[channel].expressionVol=c1<<1;
+						else if(c2 == 0b00010000)//Tremolo Volume
+							tracks[channel].tremoloLevel=c1<<1;
+						else//c2 = 0b00011000//Tremolo Rate
+							tracks[channel].tremoloRate=c1<<1;
+					}
+				}
+		
+				#if SONG_SPEED == 1
+					if(!nextDeltaTime)
+						continue;
+
+					if(songSpeed != 0){
+						u32 l  = (u32)(nextDeltaTime<<8);
+
+						if(songSpeed < 0){//slower
+							(u32)(l += (u32)(-songSpeed*(nextDeltaTime<<1)));
+							(u32)(l >>= 8);
+						}
+						else//faster
+							(u32)(l /= (u32)((1<<8)+(songSpeed<<1)));
+
+						nextDeltaTime = l;
+					}
+				#endif
+
+			}//end while
+		
+		#else //MOD
 			
 
 			u8 patternNo,data, note,data2,flags;
@@ -615,6 +786,7 @@ void ProcessMusic(void){
 						}
 						
 					}
+
 					track->patternPos=patPos;										
 				}
 			}
@@ -641,7 +813,6 @@ void ProcessMusic(void){
 			
 	
 		#endif
-
 
 	}//end if(playSong)
 
@@ -868,6 +1039,8 @@ void ProcessMusic(void){
 
 
 
+#if MUSIC_ENGINE == MIDI
+
 unsigned int ReadVarLen(const char **songPos)
 {
     unsigned int value;
@@ -887,6 +1060,40 @@ unsigned int ReadVarLen(const char **songPos)
     return value;
 }
 
+#elif MUSIC_ENGINE == STREAM
+	#if STREAM_MUSIC_RAM == 1
+	
+	u8 SongBufBytes(){
+		if(songBufIn > songBufOut)
+			return (songBufIn-songBufOut);
+		else
+			return ((sizeof(songBuf)+songBufIn)-songBufOut)%sizeof(songBuf);
+	}
+
+	u8 SongBufFull(){
+		return(songBufOut == ((songBufIn+1)%sizeof(songBuf)));
+	}
+
+	void SongBufWrite(u8 t){//writes a byte into the circular buffer
+		songBuf[songBufIn] = t;
+		songBufIn = ((songBufIn+1)%sizeof(songBuf));
+	}
+
+	#endif
+
+u8 SongBufRead(){//this name is a bit dubious for the flash only(no buffer) version, but it keep the code easier to read
+	#if STREAM_MUSIC_RAM == 1
+		u8 t = songBuf[songBufOut];
+		songBufOut = ((songBufOut+1)%sizeof(songBuf));
+		songPos++;
+		return t;
+	#else//bufferless flash version
+		return pgm_read_byte(songPos++);
+	#endif
+}
+
+#endif
+
 
 
 
@@ -904,7 +1111,7 @@ void TriggerCommon(Track* track,u8 patch,u8 volume,u8 note){
 	track->note=note;
 	track->loopCount=0;
 
-#if MUSIC_ENGINE == MIDI
+#if MUSIC_ENGINE == MIDI || MUSIC_ENGINE == STREAM
 	track->expressionVol=DEFAULT_EXPRESSION_VOL;
 #endif
 
