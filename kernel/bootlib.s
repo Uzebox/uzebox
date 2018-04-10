@@ -741,7 +741,7 @@ SDC_Read_Sector:
 	cpi   r24,     0x00
 	brne  .+2
 	ret                    ; Read successful
-	mov   r24,     r0      ; Fall through to SD_Read_Sector
+	mov   r24,     r0      ; Fall through to SD_Read_Sector_Nr
 
 
 
@@ -820,6 +820,141 @@ SD_Read_Sector_l:
 	rjmp  sdlib_ret_fl_04r
 
 	; Done, correct read
+
+	rjmp  sdlib_ret_okr    ; Success
+
+
+
+/*
+** Performs a single sector write with a retry when the write fails. Note
+** that this may take a long time!
+**
+** Inputs:
+** r25:r24: Pointer to SD data structure
+** r23:r22: 512b sector address, high
+** r21:r20: 512b sector address, low (together they are a proper C uint32)
+** Outputs:
+**     r24: Zero if operation succeeded. Otherwise one of the followings:
+**          1: Card is not initialized
+**          2: CMD24 failed
+**          3: Timed out during waiting (card should be reinitialized)
+**          4: CRC error (data is rejected by card)
+** Clobbers (only for no bootloader):
+** r0, r18, r19, r20, r21, r22, r23, r24, r25, X, Z, T(SREG)
+*/
+.global SDC_Write_Sector
+SDC_Write_Sector:
+
+	movw  r18,     r20
+	movw  XL,      r22
+	push  r24
+	push  r25
+	rcall SD_Write_Sector_Nr
+	pop   r25
+	pop   r0
+	movw  r22,     XL
+	movw  r20,     r18
+	cpi   r24,     0x00
+	brne  .+2
+	ret                    ; Write successful
+	mov   r24,     r0      ; Fall through to SD_Write_Sector_Nr
+
+
+
+/*
+** Performs a single sector write (no retry). Note that this may take a long
+** time!
+**
+** Inputs:
+** r25:r24: Pointer to SD data structure
+** r23:r22: 512b sector address, high
+** r21:r20: 512b sector address, low (together they are a proper C uint32)
+** Outputs:
+**     r24: Zero if operation succeeded. Otherwise one of the followings:
+**          1: Card is not initialized
+**          2: CMD24 failed
+**          3: Timed out during waiting (card should be reinitialized)
+**          4: CRC error (data is rejected by card)
+** Clobbers (only for no bootloader):
+** r0, r20, r21, r22, r23, r24, r25, Z, T(SREG)
+*/
+SD_Write_Sector_Nr:
+
+	; Load parameters
+
+	movw  ZL,      r24
+	ld    r25,     Z       ; Flags
+	bst   r25,     4       ; CRC checking state into T
+	rcall sdlib_get_secbuf_Z
+
+	; Transform sector address to byte address (SDSC)
+
+	sbrs  r25,     1       ; SDHC card: Sector address as-is.
+	rcall sdlib_convsec_sc ; SDSC cards use byte address
+
+	; Prepare SD Write block command (CMD24)
+
+	ldi   r24,     24      ; CMD24, parameter is OK in r23:r22:r21:r20
+	rcall SDC_Command
+	cpi   r24,     0x00    ; R1 is Ready?
+	breq  .+2
+	rjmp  sdlib_ret_fl_02r
+
+	; Prepare data packet
+
+	rcall sdlib_wait_spi_with_FF
+	ldi   r24,     0xFE    ; Data token
+	out   SPI_DR,  r24
+
+	; Data is ready to be written. Do it along with CRC calculation
+
+	ldi   r24,     0x00
+	ldi   r25,     0x00    ; CRC value begin
+	movw  r20,     ZL
+	subi  r21,     0xFE    ; End of target (+ 512 bytes); carry set
+SD_Write_Sector_l:
+	ld    r22,     Z+
+	rcall sdlib_wait_spi
+	out   SPI_DR,  r22
+	rcall SDC_CRC16_Byte
+	cp    ZL,      r20
+	cpc   ZH,      r21
+	brcs  SD_Write_Sector_l
+
+	; 512 bytes out and calculated CRC upon, send the CRC
+
+	rcall sdlib_wait_spi
+	out   SPI_DR,  r25
+	rcall sdlib_wait_spi
+	out   SPI_DR,  r24
+
+	; Check response
+
+	rcall sdlib_wait_spi
+	rcall sdlib_wait_spi_with_FF
+	in    r22,     SPI_DR
+	andi  r22,     0x1F
+	cpi   r22,     0x05
+	breq  .+2              ; Data accepted
+	rjmp  sdlib_ret_fl_04r
+
+	; Wait as long as card is busy
+
+	ldi   r23,     0x00
+	ldi   r24,     0x00
+	ldi   r25,     0x10
+SD_Write_Sector_w:
+	rcall sdlib_wait_spi_with_FF
+	in    r22,     SPI_DR
+	subi  r23,     1
+	sbci  r24,     0
+	sbci  r25,     0       ; Timed out?
+	brne  .+2
+	rjmp  sdlib_ret_fl_03r
+	cpi   r22,     0xFF
+	brne  SD_Write_Sector_w
+
+	; Done, correct write
 
 	rjmp  sdlib_ret_okr    ; Success
 
@@ -1165,6 +1300,29 @@ FS_Read_Sector:
 	movw  r22,     r24
 	movw  r24,     ZL
 	rcall SDC_Read_Sector
+	rjmp  SPI_Set_Max
+
+
+
+/*
+** Saves sector buffer into currently selected sector of file
+**
+** Inputs:
+** r25:r24: Pointer to SD data structure
+** Outputs:
+**     r24: SD write errors (SDC_Write_Sector)
+** Clobbers (only for no bootloader):
+** r0, r1 (zero), r18, r19, r20, r21, r22, r23, r24, r25, X, Z
+*/
+.global FS_Write_Sector
+FS_Write_Sector:
+
+	rcall SPI_Set_SD
+	rcall FS_Get_Sector
+	movw  r20,     r22
+	movw  r22,     r24
+	movw  r24,     ZL
+	rcall SDC_Write_Sector
 	rjmp  SPI_Set_Max
 
 

@@ -146,6 +146,18 @@ uint8_t  SDC_Read_Sector(sdc_struct_t* sds, uint32_t sector);
 
 
 /*
+** Performs a single sector write (attempts a retry on fault).
+**
+** Returns zero on success, otherwise:
+** 1: Card is not initialized
+** 2: CMD24 failed
+** 3: Timed out during waiting (card should be reinitialized)
+** 4: CRC error (data rejected by card)
+*/
+uint8_t  SDC_Write_Sector(sdc_struct_t* sds, uint32_t sector);
+
+
+/*
 ** Detects and initializes SD card and FAT filesystem over it. This takes a
 ** few dozen milliseconds. It populates the SD data structure according to the
 ** results, which means setting the Filesystem type flag in addition to SD
@@ -175,6 +187,14 @@ uint32_t FS_Get_Sector(sdc_struct_t* sds);
 ** Returns zero on success, otherwise SDC_Read_Sector errors.
 */
 uint8_t  FS_Read_Sector(sdc_struct_t* sds);
+
+
+/*
+** Saves sector buffer into currently selected sector of file.
+**
+** Returns zero on success, otherwise SDC_Write_Sector errors.
+*/
+uint8_t  FS_Write_Sector(sdc_struct_t* sds);
 
 
 /*
