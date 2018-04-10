@@ -16,6 +16,8 @@ TOOLS += uzem
 TOOLS += packrom
 TOOLS += gconvert
 TOOLS += bin2hex
+TOOLS += mconvert
+TOOLS += dconvert
 
 # Builds out-of-the-box on Linux, OS X, and Windows
 # but requires C++11 support, so you may need to
@@ -28,6 +30,8 @@ TOOLS += midiconv
 ######################################
 TOOLS_DEP += packrom
 TOOLS_DEP += gconvert
+TOOLS_DEP += mconvert
+TOOLS_DEP += dconvert
 
 ######################################
 # Demos
@@ -51,6 +55,7 @@ DEMOS += Mode13ExtendedDemo
 DEMOS += MusicDemo 	
 DEMOS += LodeRunner
 DEMOS += SDCardDemo
+DEMOS += SPIRamMusicDemo
 DEMOS += SpriteDemo	
 DEMOS += SuperMarioDemo
 DEMOS += tutorial
@@ -163,4 +168,5 @@ help:
 	@echo -----
 	@echo If you have a multiprocessor system, use \'-j N\', e.g.: \'make release -j 3\'
 	@echo
+
 
