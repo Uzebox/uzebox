@@ -144,20 +144,6 @@
 
 
 
-/* Location of intro logo workspace. Only used during the intro logo's display
-** if it is enabled, after that the related memory can be reused. Normally the
-** default location set here should be fine. A region for the logo RAM tiles
-** also has to be set up (it uses 18 RAM tiles, so 576 bytes). */
-
-#ifndef M74_LOGO_WORK
-	#define M74_LOGO_WORK      0x1020
-#endif
-#ifndef M74_LOGO_RAMTILES
-	#define M74_LOGO_RAMTILES  0x0700
-#endif
-
-
-
 /* Location of the 16 color palette. By default place it below the stack
 ** (0x1000 - 0x100F), and m74_paddr is pointed here. */
 

@@ -52,8 +52,8 @@ Overall key features of the frame renderer are as follows:
 
 Overall key features of the sprite engine are as follows:
 
-- Works with 8 x 8 pixel ROM, RAM or SPI RAM sourced sprite tiles or single
-  pixels. Index 0 of the sprite tiles is transparent.
+- Works with 8 x 8 pixel SPI RAM sourced sprite tiles or single pixels. Index
+  0 of the sprite tiles is transparent.
 
 - Blitter concept with background restoring: for rendering sprites, blits are
   to be called placing sprites on the canvas like if it was a regular
@@ -70,9 +70,7 @@ Overall key features of the sprite engine are as follows:
   ROM tiles), and can use RAM tiles as well as targets (so it will blit
   normally over RAM tiles not allocated for sprites).
 
-- Supports recoloring the sprite tiles by fast or slow recolor tables (fast
-  recolor tables requiring 256 bytes ROM each, slow tables requiring 16 bytes
-  each).
+- Supports recoloring the sprite tiles by recolor tables.
 
 - Supports masking: the tile layer may partially cover sprite content.
 
@@ -365,28 +363,16 @@ Kernel integration
 ------------------------------------------------------------------------------
 
 
-To support the Uzebox kernel's Print function, SetTile, SetFont and ClearVram
-are implemented. Note however that they don't operate directly on the display
-as this is not possible by the configurability of Mode 74.
-
-Some functions within the kernel rely on compile time defined width and height
-parameters. These should be set up by planning how the kernel's output will be
-displayed with Mode 74 (for example if 6 pixels wide tiles are used at 24
-tiles width, 32 could be set up for VRAM_TILES_H and SCREEN_TILES_H).
-
-Note that the sprite engine also operates on this VRAM.
+To support the Uzebox kernel's Print function, the SetTile and the SetFont
+routines are implemented to operate on Row Mode 6 or 7, by drawing character
+images onto the SPI RAM bitmap. So these routines are quite slow, however such
+text doesn't consume SRAM.
 
 
 Uzebox logo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Uzebox logo display code is designed to interfere the least with the
-flexibility of the video mode. For normal use cases it should compile fine
-just enabling it (setting INTRO_LOGO to 1 or 2).
-
-It uses Row mode 0, RAM tiles only, needing at least 19 RAM tiles.
-
-For the palette it requires a RAM palette, so the logo doesn't work if the
-palette offset is disabled (M74_PAL_PTRE set zero) and a ROM palette is used.
-The initial palette offset (M74_PAL_OFF) must point to a RAM location (which
-is so by default).
+There is no Uzebox logo display support in this mode. Games using the mode are
+recommended to load a logo from external data and display that using an
+applicable row mode, this way the precious ROM space can be preserved for game
+code and tile data.
