@@ -1698,6 +1698,7 @@ sdlib_pos_shift:
 	lsl   r18
 	lsl   r24
 	brcc  .-8
+	ret
 
 
 
