@@ -50,6 +50,11 @@ int main(){
 	u8  rby;
 	u8  pos;
 
+	/* Prepare screen */
+
+	SetFontTable(font);
+	ClearVram();
+
 	/* Init the SD Card and the SPI RAM. Always do the inits in this order
 	** since the SD Card on a normal Uzebox (using the bootloader) would
 	** have the card in an undefined state, usually interfering with the
@@ -58,12 +63,12 @@ int main(){
 	** sdCardInitNoBuffer() routine will have a hefty 15 sec timeout. */
 
 	sdCardInitNoBuffer();
-	SpiRamInit();
-
-	/* Prepare screen */
-
-	SetFontTable(font);
-	ClearVram();
+	if (!SpiRamInit()){
+		Print( (SCREEN_TILES_H / 2U) - 5U,
+		       (SCREEN_TILES_V / 2U) - 1U,
+		       PSTR("No SPI RAM!") );
+		while(1);
+	}
 
 	/* Get .uze file's start sector */
 

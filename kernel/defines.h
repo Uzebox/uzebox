@@ -85,8 +85,10 @@
 	#define MIXER_TYPE_VSYNC 	0
 	#define MIXER_TYPE_INLINE	1
 
-	#define MIDI 0
-	#define MOD	 1
+	#define MIDI	0
+	#define MOD	1
+	#define STREAM	2
+
 
  	/*
 	 * Defines the video mode to use. 
@@ -349,6 +351,13 @@
 		#define MUSIC_ENGINE MIDI
 	#endif
 
+
+	#if MUSIC_ENGINE == STREAM
+		#ifndef SONG_BUFFER_MIN
+			#define SONG_BUFFER_MIN	2
+		#endif
+	#endif
+
 	/*
 	 * Kernel Internal settings, do not modify
 	 */
@@ -442,22 +451,22 @@
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
 			
 			#if UART == 1
-				#define AUDIO_OUT_HSYNC_CYCLES 258 
-				#define AUDIO_OUT_VSYNC_CYCLES 258 
+				#define AUDIO_OUT_HSYNC_CYCLES (232)
+				#define AUDIO_OUT_VSYNC_CYCLES (232)
 			#else
-				#define AUDIO_OUT_HSYNC_CYCLES 212 
-				#define AUDIO_OUT_VSYNC_CYCLES 212 
+				#define AUDIO_OUT_HSYNC_CYCLES (189)
+				#define AUDIO_OUT_VSYNC_CYCLES (189)
 			#endif 
 		#else
 			#define PCM_CHANNELS 0
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS
 			
 			#if UART == 1
-				#define AUDIO_OUT_HSYNC_CYCLES 213 
-				#define AUDIO_OUT_VSYNC_CYCLES 213 
+				#define AUDIO_OUT_HSYNC_CYCLES (187)
+				#define AUDIO_OUT_VSYNC_CYCLES (187)
 			#else
-				#define AUDIO_OUT_HSYNC_CYCLES 167 
-				#define AUDIO_OUT_VSYNC_CYCLES 167 
+				#define AUDIO_OUT_HSYNC_CYCLES (144)
+				#define AUDIO_OUT_VSYNC_CYCLES (144)
 			#endif
 		#endif
 	#else
@@ -560,12 +569,20 @@
 		#include "videoMode13/videoMode13.def.h"
 	#elif VIDEO_MODE == 14
 		#include "videoMode14/videoMode14.def.h"
+	#elif VIDEO_MODE == 40
+		#include "videoMode40/videoMode40.def.h"
+	#elif VIDEO_MODE == 41
+		#include "videoMode41/videoMode41.def.h"
+	#elif VIDEO_MODE == 42
+		#include "videoMode42/videoMode42.def.h"
 	#elif VIDEO_MODE == 74
 		#include "videoMode74/videoMode74.def.h"
 	#elif VIDEO_MODE == 90
 		#include "videoMode90/videoMode90.def.h"
 	#elif VIDEO_MODE == 92
 		#include "videoMode92/videoMode92.def.h"
+	#elif VIDEO_MODE == 748
+		#include "videoMode748/videoMode74.def.h"
 	#elif VIDEO_MODE == 0
 		//custom user defined video mode
 		#include QUOTE(VIDEO_MODE_PATH/videoMode.def.h)
@@ -580,3 +597,4 @@
 	#endif
 
 #endif
+

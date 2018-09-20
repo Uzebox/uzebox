@@ -28,6 +28,11 @@
 
 #include <util/atomic.h> 
 
+/* Video modes may redefine stack top to allocate workspace */
+#ifndef UZEBOX_STACK_TOP
+#define UZEBOX_STACK_TOP 0x10FF
+#endif
+
 #define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
 #define Wait100ns() asm volatile("lpm\n\t");
 
@@ -113,15 +118,19 @@ void SetRenderingParameters(u8 firstScanlineToRender, u8 scanlinesToRender){
 const u16 io_table[] PROGMEM ={
 	io_set(TCCR1B,0x00),	//stop timers
 	io_set(TCCR0B,0x00),
+
+	io_set(SPL, UZEBOX_STACK_TOP & 0xFFU),
+	io_set(SPH, UZEBOX_STACK_TOP >> 8),
+
 	io_set(DDRC,0xff), 		//video dac
-	io_set(DDRB,0xff),		//h-sync for ad725
-	io_set(DDRD,(1<<PD7)+(1<<PD4)), //audio-out + led 
-	io_set(PORTD,(1<<PD4)+(1<<PD3)+(1<<PD2)), //turn on led & activate pull-ups for soft-power switches
+
+	io_set(DDRD,   (1 << PD7) | (1 << PD6) | (1 << PD4) | (1 << PD1)), // Audio-out, Chip Select, LED, UART TX
+	io_set(PORTD,  (1 << PD6) | (1 << PD4) | (1 << PD5) | (1 << PD3) | (1 << PD2) | (1 << PD0)), // Set CS high, LED on, pull-up for all inputs (PD3, PD2 are buttons)
 
 	//setup port A for joypads
 
-	io_set(DDRA,0b00001100), 	//set only control lines as outputs
-	io_set(PORTA,0b11111011),  //activate pullups on the data lines
+	io_set(DDRA,   0x0C), // Set only control lines (CLK, Latch) as outputs
+	io_set(PORTA,  0xFB), // Activate pullups on the data lines and unused pins
 
 #if MIDI_IN == 1
 	io_set(UCSR0B,(1<<RXEN0)), //set UART for MIDI in
@@ -150,7 +159,9 @@ const u16 io_table[] PROGMEM ={
 	io_set(TCCR2A,(1<<COM2A1)+(1<<WGM21)+(1<<WGM20)), //Fast PWM	
 	io_set(OCR2A,0), //duty cycle (amplitude)
 	io_set(TCCR2B,(1<<CS20)),  //enable timer, no pre-scaler	
-	io_set(SYNC_PORT,(1<<SYNC_PIN)|(1<<VIDEOCE_PIN)), //set sync & chip enable line to hi
+	
+	io_set(DDRB,   (1 << SYNC_PIN) | (1 << VIDEOCE_PIN) | (1 << PB3) | (1 << PB7) | (1 << PB5)), // 4FSC, SCK, MOSI
+	io_set(PORTB,  (1 << SYNC_PIN) | (1 << VIDEOCE_PIN) | (1 << PB6) | (1 << PB2) | (1 << PB1)), // Set sync & chip enable line to hi, MISO and unused pins pull-up
 	
 	//set sync generator counter, COMPB for Vsync on TIMER1
 	io_set(OCR1BL,0x1D),
@@ -161,10 +172,19 @@ const u16 io_table[] PROGMEM ={
 void Initialize(void){
 	int i;
 
+	cli();
+
+	//Initialize I/O registers
+	u16 val;
+	u8 *ptr;
+	for(u8 j=0;j<(sizeof(io_table)>>1);j++){
+		val=pgm_read_word(&io_table[j]);
+		ptr=(u8*)(val&0xff);
+		*ptr=val>>8;
+	}
+
 	if(!isEepromFormatted()) FormatEeprom();
 
-	cli();
-	
 	//InitSoundPort(); //ramp-up sound to avoid click
 
 	#if SOUND_MIXER == MIXER_TYPE_VSYNC
@@ -173,12 +193,12 @@ void Initialize(void){
 		//ramp up to avoid initial click
 		for(int j=0;j<MIX_BANK_SIZE*2;j++){
 			mix_buf[j]=0x80;//(i<128?i:128);
-		}	
-	
+		}
+
 		mix_pos=mix_buf;
 		mix_bank=0;
 	#endif
-	
+
 	#if MIXER_CHAN4_TYPE == 0
 		//initialize LFSR		
 		tr4_barrel_lo=1;
@@ -191,7 +211,6 @@ void Initialize(void){
 		InitUartTxBuffer();
 	#endif
 
-
 	#if SNES_MOUSE == 1
 		snesMouseEnabled=false;
 	#endif
@@ -200,7 +219,7 @@ void Initialize(void){
 	for(i=0;i<CHANNELS;i++){
 		mixer.channels.all[i].volume=0;
 	}
-	
+
 	//set sync parameters. starts at odd field, in pre-eq pulses, line 1, vsync flag cleared
 	sync_phase=0;
 	sync_flags=0;
@@ -215,20 +234,11 @@ void Initialize(void){
 	sound_enabled=1;
 
 	InitializeVideoMode();
-	
-	//Initialize I/O registers
-	u16 val;
-	u8 *ptr;
-	for(u8 j=0;j<(sizeof(io_table)>>1);j++){
-		val=pgm_read_word(&io_table[j]);
-		ptr=(u8*)(val&0xff);
-		*ptr=val>>8;	
-	}
 
 	sei();
-	
+
 	DisplayLogo();
-	
+
 }
 
 void ReadButtons(){

@@ -28,6 +28,9 @@ The Atmega644 needs to have some fuses set in order to support teh bootloader. F
 
 Revisions
 ---------
+V0.4.6 18-oct-2017
+ -Jubatian: Changed init port settings mostly to prevent potentially shorting the SD card's MISO.
+
 V0.4.5 06-jun-2015
  -Changed the rule that detects if a game is already programmed. Now reflash if location (0) is 0xff.
 
@@ -68,7 +71,7 @@ extern unsigned int vram[];
 /*
  * Game loader version string as display in the menu
  */
-const char strDemo[] PROGMEM = ">> Uzebox GameLoader 0.4.5 <<";
+const char strDemo[] PROGMEM = ">> Uzebox GameLoader 0.4.6 <<";
 
 
 /*
