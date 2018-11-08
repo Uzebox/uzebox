@@ -51,12 +51,12 @@
 
   <xs:element name="mega-maps">
     <xs:complexType>
-      <xs:attribute name="mega-tile-width" use="required" type="xs:integer"/>
-      <xs:attribute name="mega-tile-height" use="required" type="xs:integer"/>
-      <xs:attribute name="var-name" use="required" type="xs:NCName"/>
       <xs:sequence>
         <xs:element minOccurs="1" maxOccurs="unbounded" ref="map"/>
       </xs:sequence>
+      <xs:attribute name="mega-tile-width" use="required" type="xs:integer"/>
+      <xs:attribute name="mega-tile-height" use="required" type="xs:integer"/>
+      <xs:attribute name="var-name" use="required" type="xs:NCName"/>
     </xs:complexType>
   </xs:element>
 
