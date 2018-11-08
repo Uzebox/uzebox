@@ -43,13 +43,13 @@
     <xs:complexType>
       <xs:sequence>
         <xs:element minOccurs="1" maxOccurs="unbounded" ref="map"/>
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="mega-maps"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="mega-map"/>
       </xs:sequence>
       <xs:attribute name="pointers-size" use="required" type="PointerSizeType"/>
     </xs:complexType>
   </xs:element>
 
-  <xs:element name="mega-maps">
+  <xs:element name="mega-map">
     <xs:complexType>
       <xs:sequence>
         <xs:element minOccurs="1" maxOccurs="unbounded" ref="map"/>
