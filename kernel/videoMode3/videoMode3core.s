@@ -1532,7 +1532,7 @@ fill_vram_loop:
 .section .text.SetFont
 SetFont:
 	lds r21,font_tile_index
-	add r20,21
+	add r20,r21
 	rjmp SetTile	
 
 ;***********************************
