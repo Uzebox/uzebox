@@ -20,8 +20,8 @@ MIX_PATH_ESC:= $(subst $(SPACE),$(SPACE_ESC),$(MIX_PATH))
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=9 -DINTRO_LOGO=0 -DUART=1  -DUART_RX_BUFFER_SIZE=256 -DUART_TX_BUFFER_SIZE=128
-KERNEL_OPTIONS += -DMIXER_WAVES=\"$(MIX_PATH_ESC)\"  -DSOUND_MIXER=1 -DSOUND_CHANNEL_5_ENABLE=0 -DRESOLUTION=60
+KERNEL_OPTIONS  = -DVIDEO_MODE=9 -DINTRO_LOGO=0 -DUART=1  -DUART_RX_BUFFER_SIZE=256 -DUART_TX_BUFFER_SIZE=128 -DSCREEN_TILES_H=80 -DSCREEN_TILES_V=25
+KERNEL_OPTIONS += -DMIXER_WAVES=\"$(MIX_PATH_ESC)\"  -DSOUND_MIXER=1 -DSOUND_CHANNEL_5_ENABLE=0 -DRESOLUTION=80 -DFIRST_RENDER_LINE=28 -DWIFI_DEBUG=1
 
 
 ## Options common to compile, link and assembly rules
@@ -63,14 +63,14 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: ../data/power-mode9.inc ../data/font6x8-full-mode9.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+all: ../data/power-mode9.inc ../data/font6x8-full.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ## Compile resources
-../data/font6x8-full-mode9.inc: ../data/font6x8-full.png ../data/font.gconvert.xml
-	$(UZEBIN_DIR)gconvert ../data/font.gconvert.xml
+../data/font6x8-full.inc: ../data/font6x8-full.png ../data/font.gconvert.xml
+	-$(UZEBIN_DIR)gconvert ../data/font.gconvert.xml
 
 ../data/power-mode9.inc: ../data/powerlevel.png ../data/power.gconvert.xml
-	$(UZEBIN_DIR)gconvert ../data/power.gconvert.xml
+	-$(UZEBIN_DIR)gconvert ../data/power.gconvert.xml
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -130,7 +130,8 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze
+	-rm -rf $(OBJECTS) $(GAME).* eeprom.bin
+	-rm -rf dep
 
 
 ## Other dependencies

@@ -1,9 +1,9 @@
 <?xml version="1.0" ?>
 <gfx-xform version="1">
 
-	<input file="../data/font6x8-full.png" type="png" tile-width="6" tile-height="8" />
-	<output file="../data/font6x8-full-mode9.inc" type="code60">
-		<tiles var-name="font6x8"/>
+	<input file="../data/font6x8-full.png" type="png" tile-width="6" tile-height="8"/>	
+	<output file="../data/font6x8-full.inc" type="code80" background-color="0" remove-duplicate-tiles="false">
+		<tiles var-name="font"/>
 	</output>
  
 </gfx-xform>

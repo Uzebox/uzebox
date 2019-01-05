@@ -23,14 +23,16 @@
 ; Real-time code generated tile data
 ; Sub mode 1: 360x240, tiles only, 60x28 tiles, 6x8 pixels tile, 256 colors per pixel (-DRESOLUTION=60)
 ; Sub mode 2: 480x240, tiles only, 80x28 tiles, 6x8 pixels, 2 colors per pixel (-DRESOLUTION=80)
-; no scrolling, no sprites  
-;***************************************************	
+; no scrolling, no sprites
+; Includes cursor functions and windowing for vertical scolling
+;***************************************************
 
 .global vram
 .global codetiles_table
 .global SetTile
 .global ClearVram
 .global SetFontTilesIndex
+.global GetFontTilesIndex
 .global SetTileTable
 .global SetTile
 .global GetTile
@@ -40,13 +42,23 @@
 .global SetCursorParams
 .global backgroundColor
 .global foregroundColor
+.global SetVerticalScroll
+.global GetVerticalScroll
+.global VerticalScrollUp
+.global SetForegroundColor
+.global ClearLine
+.global GetRowVramAddress
+.global VerticalScrollDown
+
 
 .section .bss
 	vram: 	  		.space VRAM_SIZE	;allocate space for the video memory (VRAM)
+	screen_line:	.space 1
+	vertical_scroll:.space 1
 	tile_table_lo:	.space 1
 	tile_table_hi:	.space 1
 	font_tile_index:.space 1
-	backgroundColor:.space VRAM_TILES_V
+	backgroundColor:.space VRAM_TILES_V ;allocate 1 color per row
 	foregroundColor:.space 1
 	cursor_x:		.space 1
 	cursor_y:		.space 1
@@ -62,15 +74,22 @@
 sub_video_mode9:
 
 	;waste line to align with next hsync in render function
-	WAIT r19,1342-19
+	WAIT r19,1342-20-1-5-2
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
-	
-	clr r15	;current Y tile
+	lds r15,vertical_scroll	;current Y tile
+
+	//compute adress of first tile row to draw
+	ldi r16,VRAM_TILES_H
+	mul r16,r15
+	add YL,r0
+	adc YH,r1
+
 	ldi r16,SCREEN_TILES_V*TILE_HEIGHT; total scanlines to draw (28*8)
 	mov r10,r16
 	clr r22
+	sts screen_line,r22
 
 	ldi XL,lo8(backgroundColor)
 	ldi XH,hi8(backgroundColor)
@@ -98,54 +117,62 @@ sub_video_mode9:
 
 
 
+next_text_line:
+	rcall hsync_pulse
 
-next_text_line:	
-	rcall hsync_pulse 
-
-	WAIT r19,HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT - 30
+	WAIT r19,HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT - 30 - 2
 
 	;***draw line***
 	call render_tile_line
 
-	WAIT r19,48 + ((RESOLUTION-SCREEN_TILES_H)*TILE_WIDTH*CYCLES_PER_PIXEL) - CENTER_ADJUSTMENT
+	WAIT r19,48 + ((RESOLUTION-SCREEN_TILES_H)*TILE_WIDTH*CYCLES_PER_PIXEL) - CENTER_ADJUSTMENT - 12
 
 	dec r10
 	breq text_frame_end
-	
+
 	lpm ;3 nop
 	inc r22
 
 	cpi r22,8 ;last char line? 1
-	breq next_text_row 
-	
-	;wait to align with next_tile_row instructions (+1 cycle for the breq)
-	lpm ;3 nop
-	lpm ;3 nop
-	lpm ;3 nop
-	nop
+	breq next_text_row
 
-	rjmp next_text_line	
+	;wait to align with next_tile_row instructions (+1 cycle for the breq)
+	WAIT r19,22
+
+	rjmp next_text_line
 
 next_text_row:
-	clr r22		;current char line			;1	
+	clr r22		;current char line			;1
 
 	clr r0
 	ldi r19,VRAM_TILES_H
 	add YL,r19
 	adc YH,r0
 
-	ld r2,X+
+	ld r2,X+	;get next row color
 	inc r15
-	nop
+
+	;wrap back to start of vram if required
+	ldi ZL,lo8(vram)
+	ldi ZH,hi8(vram)
+	ldi r19,SCREEN_TILES_V
+	cp r15,r19	;reached the last line?
+	brne 1f
+	movw YL,ZL
+1:
+	brne 1f
+	clr r15
+1:
+
+	lds r19,screen_line
+	inc r19
+	sts screen_line,r19
 
 	rjmp next_text_line
 
 text_frame_end:
 
-	ldi r19,5
-	dec r19			
-	brne .-4
-	rjmp .
+	WAIT r19,29
 
 	rcall hsync_pulse ;145
 
@@ -171,16 +198,16 @@ text_frame_end:
 ; r16,r17 = destroyed by code tiles
 ; r22     = Y offset in tile row (0-7)
 ; Y       = VRAM adress to draw from (must not be modified)
-; 
+;
 ; cycles  = 1495
 ;*************************************************
 render_tile_line:
 	push YL
-	push YH	
+	push YH
 
    	ldi r18,lo8(pm(render_tile_line_end))
 	ldi r19,hi8(pm(render_tile_line_end))
-	ldi r21,FONT_TILE_SIZE ;size of a tile in words  
+	ldi r21,FONT_TILE_SIZE ;size of a tile in words
 	ldi r23,FONT_TILE_WIDTH ;size of tile row in words
 
 
@@ -192,14 +219,15 @@ render_tile_line:
 	lds r13,cursor_x
 	lds r14,cursor_y
 	lds r16,cursor_state
+	lds r0,	screen_line
 	ldi r17,1
-	clr r0
 
-	cpse r14,r15	;is cursor on this row?
+	cpse r14,r0		;is cursor on this row?
 	clr r12			;cursor not visible
 	cpse r16,r17
 	clr r12
 
+	clr r0
 	movw r8,YL		;save vram pointer
 	add r8,r13
 	adc r9,r0
@@ -220,7 +248,7 @@ render_tile_line:
 	ror r24
 
 	mul r22,r23			;compute Y offset in current tile row
-	add r24,r0			;add to title table base adress	
+	add r24,r0			;add to title table base adress
 	adc r25,r1
 
 	ld	r20,Y+			;load tile index from VRAM
@@ -230,13 +258,13 @@ render_tile_line:
 
 	movw ZL,r0	 		;copy to Z, the register used by ijmp
 #if RESOLUTION==80
-	clr r4				;black pixel for end of line 
+	clr r4				;black pixel for end of line
 #endif
 
     ldi r20,SCREEN_TILES_H ;tiles to render
 	ijmp      ;jump to first codetile
 
-render_tile_line_end:   
+render_tile_line_end:
 #if RESOLUTION==60
    	clr r4
 #endif
@@ -283,23 +311,26 @@ render_tile_line_end:
 ;************************************
 .section .text.ClearVram
 ClearVram:
-	//init vram		
-	ldi r30,lo8(VRAM_SIZE)
-	ldi r31,hi8(VRAM_SIZE)
+	//init vram
+//	ldi r30,lo8(VRAM_SIZE)
+//	ldi r31,hi8(VRAM_SIZE)
 
 	ldi XL,lo8(vram)
 	ldi XH,hi8(vram)
 
 fill_vram_loop:
-	st X+,r1
-	sbiw r30,1
-	brne fill_vram_loop
 
-	clr r1
+.rept VRAM_SIZE
+	st X+,r1
+.endr
+;	sbiw r30,1
+;	brne fill_vram_loop
+
+;	clr r1
 
 	ret
 
-	
+
 ;***********************************
 ; SET TILE 8bit mode
 ; C-callable
@@ -311,7 +342,7 @@ fill_vram_loop:
 SetTile:
 
 	clr r25
-	clr r23	
+	clr r23
 
 	ldi r18,VRAM_TILES_H
 
@@ -375,8 +406,14 @@ SetFont:
 
 	ldi r18,VRAM_TILES_H
 
+	lds r0,vertical_scroll
+	add r22,r0
+	cpi r22,VRAM_TILES_V
+	brlo 1f
+	subi r22,VRAM_TILES_V
+1:
 	mul r22,r18		;calculate Y line addr in vram
-	
+
 	add r0,r24		;add X offset
 	adc r1,r25
 
@@ -449,6 +486,17 @@ SetCursorParams:
 	sts font_tile_index,r24
 	ret
 
+;***********************************
+; Get FONT Index
+; C-callable
+; Return r24=First font tile index in tile table (8 bit)
+;************************************
+.section .text.GetFontTilesIndex
+	GetFontTilesIndex:
+	lds r24,font_tile_index
+	clr r25
+	ret
+
 
 ;***********************************
 ; Define the tile data source
@@ -458,5 +506,168 @@ SetCursorParams:
 .section .text.SetTileTable
 SetTileTable:
 	sts tile_table_lo,r24
-	sts tile_table_hi,r25	
+	sts tile_table_hi,r25
 	ret
+
+;***********************************
+; Set the vertical scroll position in vram
+; C-callable
+; 24=line
+;************************************
+.section .text.SetVerticalScroll
+SetVerticalScroll:
+	sts vertical_scroll,r24
+	ret
+
+;**********************************
+; Get the vertical scroll position in vram
+; C-callable
+; ; Returns:
+; r24=vertical scroll offset in memory (8 bit)
+;************************************
+.section .text.GetVerticalScroll
+GetVerticalScroll:
+	lds r24, vertical_scroll
+	ret
+
+
+;**********************************
+; Set the text color (foreground color)
+; C-callable
+; r24=color index
+;************************************
+.section .text.SetForegroundColor
+SetForegroundColor:
+	sts foregroundColor,r24
+	ret
+
+;***********************************
+; Scrolls the screen up by one row
+; C-callable
+; 24=boolean: clear the new row
+;************************************
+.section .text.VerticalScrollUp
+VerticalScrollUp:
+
+	lds r25, vertical_scroll
+	mov r23,r25
+	inc r25
+	cpi r25,SCREEN_TILES_V
+	brlo 1f
+	clr r25
+1:
+	sts vertical_scroll,r25
+
+	cpi r24,0
+	breq 2f
+
+	ldi r24,SCREEN_TILES_V-1
+	ldi r22,0
+	ldi r20,SCREEN_TILES_H-1
+	rcall ClearLine
+
+	clr r1
+	ret
+
+;***********************************
+; Scrolls the screen by one row
+; C-callable
+; 24=boolean: clear the new row
+;************************************
+.section .text.VerticalScrollDown
+VerticalScrollDown:
+
+	lds r25, vertical_scroll
+	mov r23,r25
+
+	dec r25
+	brpl 1f
+	ldi r25,SCREEN_TILES_V-1
+1:
+	sts vertical_scroll,r25
+
+	cpi r24,0
+	breq 2f
+
+	ldi r24,0
+	ldi r22,0
+	ldi r20,SCREEN_TILES_H-1
+	rcall ClearLine
+
+	clr r1
+	ret
+
+;***********************************
+; Patially clears a line in video memory
+; C-callable
+; r24=row
+; r22=start column
+; r20=end column
+;************************************
+.section .text.ClearLine
+ClearLine:
+
+	sub r20,r22
+	inc r20
+
+	ldi r18,VRAM_TILES_H
+
+	lds r0,vertical_scroll
+	add r24,r0
+	cpi r24,VRAM_TILES_V
+	brlo 1f
+	subi r24,VRAM_TILES_V
+1:
+	mul r24,r18		;calculate Y line addr in vram
+
+	clr r23
+	add r0,r22		;add X offset
+	adc r1,r23
+
+	ldi XL,lo8(vram)
+	ldi XH,hi8(vram)
+	add XL,r0
+	adc XH,r1
+
+2:
+	st X+,r23
+	dec r20
+	brne 2b
+
+	clr r1
+	ret
+
+;***********************************
+; Calculate the vram adress at the specified
+; row accounting for scrolling.
+; C-callable
+; r24= row (y)
+;
+; returns:
+; r24:r25 = VRAM address
+;************************************
+.section .text.GetRowVramAddress
+GetRowVramAddress:
+
+	ldi r18,VRAM_TILES_H
+
+	lds r0,vertical_scroll
+	add r24,r0
+	cpi r24,VRAM_TILES_V
+	brlo 1f
+	subi r24,VRAM_TILES_V
+1:
+	mul r24,r18		;calculate Y line addr in vram
+
+	clr r23
+
+	ldi r24,lo8(vram)
+	ldi r25,hi8(vram)
+	add r24,r0
+	adc r25,r1
+
+	clr r1
+	ret
+
+
+

@@ -84,6 +84,16 @@ const unsigned char unshifted[][2] PROGMEM = {
 	{0x7b,'-'},
 	{0x7c,'*'},
 	{0x7d,'9'},
+	{0x05,128}, //F1
+	{0x06,129}, //F2
+	{0x04,130}, //F3
+	{0x0c,131}, //F4
+	{0x03,132}, //F5
+	{0x0b,133}, //F6
+	{0x83,134}, //F7
+	{0x0a,135}, //F8
+	{0x01,136}, //F9
+	{0x09,137}, //F10
 	{0,0}
 };
 
@@ -154,6 +164,16 @@ const unsigned char shifted[][2] PROGMEM= {
 	{0x7b,'-'},
 	{0x7c,'*'},
 	{0x7d,'9'},
+	{0x05,128}, //F1
+	{0x06,129}, //F2
+	{0x04,130}, //F3
+	{0x0c,131}, //F4
+	{0x03,132}, //F5
+	{0x0b,133}, //F6
+	{0x83,134}, //F7
+	{0x0a,135}, //F8
+	{0x01,136}, //F9
+	{0x09,137}, //F10
 	{0,0}
 };
 
@@ -219,8 +239,17 @@ u8 GetKey(u8 command){
 }
 
 
-unsigned char is_up=0, shift = 0, mode = 0;
+u8 is_up=0, shift = 0, mode = 0;
+u16 ctrl,alt;
 bool is_extended=false;
+/*
+ * Decodes a keyboard scancode to an ASCII character
+ * return value is 16 bit:
+ * LSB: Standard ASCII character
+ * MSB: bit 0: Is a non-ascii extended character (ex num pad keys)
+ * 		bit 1: Control key was pressed
+ * 		bit 2: Alt key was pressed
+ */
 u16 decode(u8 sc)
 {
 	if(sc==0xe0){
@@ -235,50 +264,42 @@ u16 decode(u8 sc)
 				case 0xF0 :// The up-key identifier
 					is_up = 1;
 					break;
-				case 0x12 :// Left SHIFT
-					shift = 1;
-					break;
 
+				case 0x12 :// Left SHIFT
 				case 0x59 :// Right SHIFT
 					shift = 1;
 					break;
-				case 0x05 :// F1
-					if(mode == 0)
-					mode = 1;// Enter scan code mode
-					if(mode == 2)
-					mode = 3;// Leave scan code mode
+
+				case 0x14 :// Left Control (right ctrl is extended 0x0e+0x14)
+					ctrl = KB_CTRL_FLAG; //ctlr flag bit
 					break;
+
+				case 0x11 :// Left Alt (right Alt is extended 0x0e+0x11)
+					alt = KB_ALT_FLAG; //alt flag bit
+					break;
+
 				default:
-					if(mode == 0 || mode == 3)// If ASCII mode
-					{
-						if(is_extended){
-							is_extended=false;
-							return 0x0100|sc;
-						}else{
+					if(is_extended){
+						is_extended=false;
+						return alt|ctrl|0x0100|sc;
+					}else{
 
-							if(!shift)// If shift not pressed,
-							{ // do a table look-up
-								for(i = 0; pgm_read_byte(&(unshifted[i][0]))!=sc && pgm_read_byte(&(unshifted[i][0])); i++);
-								if (pgm_read_byte(&(unshifted[i][0])) == sc) {
-									c=pgm_read_byte(&(unshifted[i][1]));
-									//debug_char2(c);
-									//if(sc==0x5a)debug_hex(c);
-									return c;
-								}
-							} else {// If shift pressed
-								for(i = 0; pgm_read_byte(&(shifted[i][0]))!=sc && pgm_read_byte(&(shifted[i][0])); i++);
-								if (pgm_read_byte(&(shifted[i][0])) == sc) {
-									c=pgm_read_byte(&(shifted[i][1]));
-									//debug_char2(c);
-									//if(sc==0x5a)debug_hex(c);
-									return c;
-								}
+						if(!shift)// If shift not pressed,
+						{ // do a table look-up
+							for(i = 0; pgm_read_byte(&(unshifted[i][0]))!=sc && pgm_read_byte(&(unshifted[i][0])); i++);
+							if (pgm_read_byte(&(unshifted[i][0])) == sc) {
+								c=pgm_read_byte(&(unshifted[i][1]));
+
+								return alt|ctrl|c;
 							}
+						} else {// If shift pressed
+							for(i = 0; pgm_read_byte(&(shifted[i][0]))!=sc && pgm_read_byte(&(shifted[i][0])); i++);
+							if (pgm_read_byte(&(shifted[i][0])) == sc) {
+								c=pgm_read_byte(&(shifted[i][1]));
 
+								return alt|ctrl|c;
+							}
 						}
-
-					} else{ // Scan code mode
-
 					}
 					break;
 			}
@@ -288,19 +309,16 @@ u16 decode(u8 sc)
 			switch (sc)
 			{
 				case 0x12 :// Left SHIFT
-					shift = 0;
-					break;
 				case 0x59 :// Right SHIFT
 					shift = 0;
 					break;
-				case 0x05 :// F1
-					if(mode == 1)
-					mode = 2;
-					if(mode == 3)
-					mode = 0;
+
+				case 0x14 :// Left control (right ctrl is extended 0x0e+0x14)
+					ctrl = 0;
 					break;
-				case 0x06 :// F2
-					//debug_clear();
+
+				case 0x11 :// Left Alt (right Alt is extended 0x0e+0x11)
+					alt = 0; //alt flag bit
 					break;
 			}
 		}

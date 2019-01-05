@@ -25,7 +25,7 @@
 							<builder buildPath="${workspace_loc:/UzenetDemo/default}" command="make" id="de.innot.avreclipse.target.builder.winavr.app.debug.882542636" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="AVR GNU Make Builder" superClass="de.innot.avreclipse.target.builder.winavr.app.debug"/>
 							<tool id="de.innot.avreclipse.tool.assembler.winavr.app.debug.1939088132" name="AVR Assembler" superClass="de.innot.avreclipse.tool.assembler.winavr.app.debug">
 								<option id="de.innot.avreclipse.assembler.option.debug.level.31959917" name="Generate Debugging Info" superClass="de.innot.avreclipse.assembler.option.debug.level"/>
-								<option id="de.innot.avreclipse.asm.option.include.paths.1946166316" superClass="de.innot.avreclipse.asm.option.include.paths" valueType="includePath">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="de.innot.avreclipse.asm.option.include.paths.1946166316" name="#include paths for preprocessor(-I)" superClass="de.innot.avreclipse.asm.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${UZEBOX_KERNEL_DIR}&quot;"/>
 								</option>
 								<inputType id="de.innot.avreclipse.tool.assembler.input.15528133" superClass="de.innot.avreclipse.tool.assembler.input"/>
@@ -33,7 +33,7 @@
 							<tool id="de.innot.avreclipse.tool.compiler.winavr.app.debug.99058486" name="AVR Compiler" superClass="de.innot.avreclipse.tool.compiler.winavr.app.debug">
 								<option id="de.innot.avreclipse.compiler.option.debug.level.2096084754" name="Generate Debugging Info" superClass="de.innot.avreclipse.compiler.option.debug.level"/>
 								<option id="de.innot.avreclipse.compiler.option.optimize.1025793170" name="Optimization Level" superClass="de.innot.avreclipse.compiler.option.optimize"/>
-								<option id="de.innot.avreclipse.compiler.option.incpath.1950791194" superClass="de.innot.avreclipse.compiler.option.incpath" valueType="includePath">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="de.innot.avreclipse.compiler.option.incpath.1950791194" name="Include Paths (-I)" superClass="de.innot.avreclipse.compiler.option.incpath" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${UZEBOX_KERNEL_DIR}&quot;"/>
 								</option>
 								<inputType id="de.innot.avreclipse.compiler.winavr.input.1293881513" name="C Source Files" superClass="de.innot.avreclipse.compiler.winavr.input"/>
@@ -85,7 +85,7 @@
 							<builder autoBuildTarget="all" buildPath="${workspace_loc:/UzenetDemo/default}" cleanBuildTarget="clean" command="make" enableAutoBuild="false" enableCleanBuild="true" enabledIncrementalBuild="true" id="de.innot.avreclipse.target.builder.winavr.app.release.1127558406" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="AVR GNU Make Builder" parallelBuildOn="false" superClass="de.innot.avreclipse.target.builder.winavr.app.release"/>
 							<tool id="de.innot.avreclipse.tool.assembler.winavr.app.release.471633967" name="AVR Assembler" superClass="de.innot.avreclipse.tool.assembler.winavr.app.release">
 								<option id="de.innot.avreclipse.assembler.option.debug.level.1200628790" name="Generate Debugging Info" superClass="de.innot.avreclipse.assembler.option.debug.level" value="de.innot.avreclipse.assembler.option.debug.level.none" valueType="enumerated"/>
-								<option id="de.innot.avreclipse.asm.option.include.paths.376457375" superClass="de.innot.avreclipse.asm.option.include.paths" valueType="includePath">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="de.innot.avreclipse.asm.option.include.paths.376457375" name="#include paths for preprocessor(-I)" superClass="de.innot.avreclipse.asm.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${UZEBOX_KERNEL_DIR}&quot;"/>
 								</option>
 								<inputType id="de.innot.avreclipse.tool.assembler.input.1000352686" superClass="de.innot.avreclipse.tool.assembler.input"/>
@@ -93,7 +93,7 @@
 							<tool id="de.innot.avreclipse.tool.compiler.winavr.app.release.1169243323" name="AVR Compiler" superClass="de.innot.avreclipse.tool.compiler.winavr.app.release">
 								<option id="de.innot.avreclipse.compiler.option.debug.level.1114020110" name="Generate Debugging Info" superClass="de.innot.avreclipse.compiler.option.debug.level" value="de.innot.avreclipse.compiler.option.debug.level.none" valueType="enumerated"/>
 								<option id="de.innot.avreclipse.compiler.option.optimize.43067050" name="Optimization Level" superClass="de.innot.avreclipse.compiler.option.optimize" value="de.innot.avreclipse.compiler.optimize.size" valueType="enumerated"/>
-								<option id="de.innot.avreclipse.compiler.option.incpath.1208931916" superClass="de.innot.avreclipse.compiler.option.incpath" valueType="includePath">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="de.innot.avreclipse.compiler.option.incpath.1208931916" name="Include Paths (-I)" superClass="de.innot.avreclipse.compiler.option.incpath" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${UZEBOX_KERNEL_DIR}&quot;"/>
 								</option>
 								<inputType id="de.innot.avreclipse.compiler.winavr.input.1763670236" name="C Source Files" superClass="de.innot.avreclipse.compiler.winavr.input"/>
@@ -144,4 +144,5 @@
 		</scannerConfigBuildInfo>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 </cproject>
