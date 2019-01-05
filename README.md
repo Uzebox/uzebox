@@ -23,6 +23,7 @@ Features:
 * MIDI In: With a music sequencer, allows the creation of music directly on the console
 * SD/MicroSD and FAT16 API
 * 'Uzenet' extension for ESP8266 wifi and 1Mb SPI RAM
+* PS/2 keyboard interface
 * GameLoader: 4K Bootloader which allows to flash games from a standard FAT16 formatted SD card
 * Cross-platform emulator with GDB support to ease development
 * Multiple tools to convert MIDI, sound file and graphics to include files
