@@ -124,6 +124,23 @@ void ConsoleHandler(){
 							wifi_SendString_P(PSTR("\x1b[D"));
 						}
 						break;
+					case 0x16c: //home
+						if(DECCKM){
+							wifi_SendString_P(PSTR("\x1bOH"));
+						}else{
+							wifi_SendString_P(PSTR("\x1b[H"));
+						}
+						break;
+					case 0x169: //end
+						if(DECCKM){
+							wifi_SendString_P(PSTR("\x1bOF"));
+						}else{
+							wifi_SendString_P(PSTR("\x1b[F"));
+						}
+						break;
+					case 128:  //F1
+						wifi_SendString_P(PSTR("\x1b[11~"));
+						break;
 					case 129:  	//F2
 						if(console_foregroudColor==0b00111000){
 							console_foregroudColor=0xff;		//white
@@ -145,9 +162,44 @@ void ConsoleHandler(){
 					case 131:  	//F4
 						wifi_SendString_P(PSTR("+++")); //Get out of esp8266 passthrough-mode
 						break;
+					/*
 					case (KB_CTRL_FLAG|'c'):
 						UartSendChar('\x03');
 						break;
+					case (KB_CTRL_FLAG|'f'):
+						UartSendChar('\x06');
+						break;
+					*/
+
+					case (KB_CTRL_FLAG|'a'):
+					case (KB_CTRL_FLAG|'b'):
+					case (KB_CTRL_FLAG|'c'):
+					case (KB_CTRL_FLAG|'d'):
+					case (KB_CTRL_FLAG|'e'):
+					case (KB_CTRL_FLAG|'f'):
+					case (KB_CTRL_FLAG|'g'):
+					case (KB_CTRL_FLAG|'h'):
+					case (KB_CTRL_FLAG|'i'):
+					case (KB_CTRL_FLAG|'j'):
+					case (KB_CTRL_FLAG|'k'):
+					case (KB_CTRL_FLAG|'l'):
+					case (KB_CTRL_FLAG|'m'):
+					case (KB_CTRL_FLAG|'n'):
+					case (KB_CTRL_FLAG|'o'):
+					case (KB_CTRL_FLAG|'p'):
+					case (KB_CTRL_FLAG|'q'):
+					case (KB_CTRL_FLAG|'r'):
+					case (KB_CTRL_FLAG|'s'):
+					case (KB_CTRL_FLAG|'t'):
+					case (KB_CTRL_FLAG|'u'):
+					case (KB_CTRL_FLAG|'v'):
+					case (KB_CTRL_FLAG|'w'):
+					case (KB_CTRL_FLAG|'x'):
+					case (KB_CTRL_FLAG|'y'):
+					case (KB_CTRL_FLAG|'z'):
+						UartSendChar((c&0xff)-'a'+1);
+						break;
+
 					case 8:		//backspace
 						UartSendChar('\x7f');
 						break;
@@ -489,8 +541,17 @@ void console_Process(){
 
 							int coord[2];
 							parseParams(coord,escape_buf[esc_pos-1]);
-							cy=coord[0] -1 + _CONS_Y_ORIGIN;
-							cx=coord[1] -1 + _CONS_X_ORIGIN;
+							if(coord[0]==0){
+								cy=_CONS_Y_ORIGIN;
+							}else{
+								cy=coord[0] -1 + _CONS_Y_ORIGIN;
+							}
+							if(coord[1]==0){
+								cx=_CONS_X_ORIGIN;
+							}else{
+								cx=coord[1] -1 + _CONS_X_ORIGIN;
+							}
+
 							if(cy>=SCREEN_TILES_V)cy=SCREEN_TILES_V-1; //row
 							if(cx>=SCREEN_TILES_H)cx=SCREEN_TILES_H-1; //column
 						}

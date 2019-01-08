@@ -84,6 +84,8 @@ const unsigned char unshifted[][2] PROGMEM = {
 	{0x7b,'-'},
 	{0x7c,'*'},
 	{0x7d,'9'},
+	{0x76,27},  //ESC
+
 	{0x05,128}, //F1
 	{0x06,129}, //F2
 	{0x04,130}, //F3
@@ -164,6 +166,7 @@ const unsigned char shifted[][2] PROGMEM= {
 	{0x7b,'-'},
 	{0x7c,'*'},
 	{0x7d,'9'},
+	{0x76,27},  //ESC
 	{0x05,128}, //F1
 	{0x06,129}, //F2
 	{0x04,130}, //F3
