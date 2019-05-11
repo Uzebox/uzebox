@@ -5,7 +5,7 @@
 ## General Flags
 PROJECT = Bootloader5
 GAME    = $(PROJECT)
-VERSION = 5010
+VERSION = 5011
 INFO    = gameinfo.properties
 MCU     = atmega644
 TARGET  = $(GAME).elf

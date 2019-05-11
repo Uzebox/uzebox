@@ -114,6 +114,8 @@ DIR_List_secloaded:
 	brcs  DIR_List_loop
 	cpi   r20,     0xE5    ; Erased file marker
 	breq  DIR_List_loop
+	cpi   r20,     0x5F    ; Underscore. MAC OS X dotfiles appear like this
+	breq  DIR_List_loop
 	ldd   r20,     Z + 8   ; Ext 0 ('U') match?
 	subi  r20,     'U'
 	ldd   r20,     Z + 9   ; Ext 1 ('Z') match?
