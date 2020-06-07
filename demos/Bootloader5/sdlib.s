@@ -793,7 +793,7 @@ FAT_Init_cont:
 
 	movw  r24,     r10
 	subi  ZL,      0x42
-	sbci  ZH,      0xFE    ; Add 0x01B2 (address of Partition 0)
+	sbci  ZH,      0xFE    ; Add 0x01BE (address of Partition 0)
 	ldd   r20,     Z + 8
 	ldd   r21,     Z + 9   ; Get Partition 0 LBA (assume it is on the beginning somewhere)
 	ldi   r22,     0
@@ -1142,8 +1142,9 @@ FAT_Next_Sector_Z:
 
 	ld    r24,     X+
 	ld    r25,     X+      ; 32 bit cluster ID
+	ldi   r21,     0x0F
 	cp    r24,     r20
-	cpc   r25,     r20     ; FAT32 cluster high 16 bits not 0xFFFF: OK
+	cpc   r25,     r21     ; FAT32 cluster high 16 bits < 0x0FFF: OK
 	brne  FAT_NS_next_ret
 FAT_NS_next_16:
 	cpi   r22,     0xF0
