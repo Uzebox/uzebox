@@ -1145,7 +1145,7 @@ FAT_Next_Sector_Z:
 	ldi   r21,     0x0F
 	cp    r24,     r20
 	cpc   r25,     r21     ; FAT32 cluster high 16 bits < 0x0FFF: OK
-	brne  FAT_NS_next_ret
+	brcs  FAT_NS_next_ret
 FAT_NS_next_16:
 	cpi   r22,     0xF0
 	cpc   r23,     r20     ; FAT16 < 0xFFF0 or FAT32 < 0xFFFFFFF0: OK
