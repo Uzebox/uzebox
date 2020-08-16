@@ -52,7 +52,7 @@ uint8_t text_pos_x1, text_pos_y1, text_pos_x2, text_pos_y2, text_pos_x, text_pos
  * @param uint8_t x2 right margin of window
  * @param uint8_t y2 bottom margin of window
  */
-void text_set_window(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2) {
+static void text_set_window(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2) {
 	text_pos_x1 = x1;
 	text_pos_y1 = y1;
 	text_pos_x2 = x2;
@@ -65,7 +65,7 @@ void text_set_window(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2) {
  * Puts character into vram (screen)
  * @param uint8_t c character to print
  */
-void text_putc(uint8_t c) {
+static void text_putc(uint8_t c) {
 	vram[text_pos_x + text_pos_y * SCREEN_TILES_H] = c;
 	text_pos_x++;
 	if (text_pos_x > text_pos_x2) {
@@ -82,7 +82,7 @@ void text_putc(uint8_t c) {
  * @param uint16_t number number to print
  * @param uint8_t digits number of digits to print
  */
-void text_print_number(uint16_t number, uint8_t digits) {
+static void text_print_number(uint16_t number, uint8_t digits) {
 	for (uint8_t i = digits; i > 0; i--) {
 		uint16_t mul = 1;
 		for (uint8_t j = 1; j < i; j++) {
@@ -95,7 +95,7 @@ void text_print_number(uint16_t number, uint8_t digits) {
 /**
  * Advances text cursor to beginning of next line. At the bottom wraps to the top.
  */
-void text_next_line() {
+static void text_next_line() {
 	text_pos_x = text_pos_x1;
 	text_pos_y++;
 	if (text_pos_y > text_pos_y2) {
@@ -107,7 +107,7 @@ void text_next_line() {
  * Writes information into EEPROM, that given level has been done.
  * @param uint16_t level index of level to mark as done
  */
-void eeprom_set_level_done(uint16_t level) {
+static void eeprom_set_level_done(uint16_t level) {
 	struct EepromBlockStruct eeprom_data;
 
 	uint16_t block_id = level / 30 / 8;
@@ -130,7 +130,7 @@ void eeprom_set_level_done(uint16_t level) {
  * @param uint16_t level index of level, which we want to know, if has been done
  * @return int8_t true if level has been done, otherwise false
  */
-uint8_t eeprom_is_level_done(uint16_t level) {
+static uint8_t eeprom_is_level_done(uint16_t level) {
 	struct EepromBlockStruct eeprom_data;
 
 	uint16_t block_id = level / 30 / 8;
@@ -150,7 +150,7 @@ uint8_t eeprom_is_level_done(uint16_t level) {
  * Saves into EEPROM last played level.
  * @param uint16_t level index of level to save
  */
-void eeprom_set_last_level(uint16_t level) {
+static void eeprom_set_last_level(uint16_t level) {
 	struct EepromBlockStruct eeprom_data;
 	if (!EepromReadBlock(134, &eeprom_data) == 0) {
 		eeprom_data.id = 134;
@@ -168,7 +168,7 @@ void eeprom_set_last_level(uint16_t level) {
  * Reads from EEPROM last played level
  * @return uint16_t index of level last played
  */
-uint16_t eeprom_get_last_level() {
+static uint16_t eeprom_get_last_level() {
 	struct EepromBlockStruct eeprom_data;
 
 	if (EepromReadBlock(134, &eeprom_data) == 0) {
@@ -184,7 +184,7 @@ uint16_t eeprom_get_last_level() {
 /**
  * Draws info about level (level status, number and statistics)
  */
-void sokoban_draw_info() {
+static void sokoban_draw_info() {
 	text_set_window(0, SCREEN_TILES_V-1, SCREEN_TILES_H-1, SCREEN_TILES_V-1);
 	text_putc(sokoban_level_done ? FONT_SOKOBAN_TICK_YES : FONT_SOKOBAN_TICK_NO);
 	text_putc(FONT_SOKOBAN_LVL);
@@ -198,7 +198,7 @@ void sokoban_draw_info() {
 /**
  * Loads and draws level data (field and info) on screen
  */
-void sokoban_load_level() {
+static void sokoban_load_level() {
 	// position of "reading head" in level data (program memory)
 	char* reading_pos;
 	// read token, and his first and second nibble
@@ -284,7 +284,7 @@ void sokoban_load_level() {
 /**
  * Restarts whole game (clears counters and starts at first level)
  */
-void sokoban_restart_game() {
+static void sokoban_restart_game() {
 	sokoban_level = 0;
 	sokoban_level_data_pointer = (char*)sokoban_levels;
 	sokoban_moves = 0;
@@ -294,7 +294,7 @@ void sokoban_restart_game() {
 /**
  * Advances to the next level
  */
-void sokoban_advance_level() {
+static void sokoban_advance_level() {
 	sokoban_level++;
 	sokoban_level_data_pointer = sokoban_level_data_pointer_next;
 
@@ -306,7 +306,7 @@ void sokoban_advance_level() {
 /**
  * Skips all levels from the beginning to level before current
  */
-void sokoban_skip_to_previous_level() {
+static void sokoban_skip_to_previous_level() {
 	SetRenderingParameters(1, 1);
 
 	uint16_t to_level;
@@ -330,7 +330,7 @@ void sokoban_skip_to_previous_level() {
  * Returns pointer to char with player
  * @return char* pointer on tile in tvtext_buffer, where sokoban is
  */
-inline unsigned char* sokoban_find_player() {
+static unsigned char* sokoban_find_player() {
 	unsigned char* a;
 
 	// iterate through tvtext_buffer and search for sokoban or sokoban on target
@@ -347,7 +347,7 @@ inline unsigned char* sokoban_find_player() {
  * Returns if level is cleared
  * @return uint8_t 1 if level is cleared (done), 0 otherwise
  */
-inline uint8_t sokoban_is_level_cleared() {
+static uint8_t sokoban_is_level_cleared() {
 	unsigned char* a;
 
 	// iterate through tvtext buffer and return 0 if block, which is not on target is found
@@ -363,7 +363,7 @@ inline uint8_t sokoban_is_level_cleared() {
 /**
  * Gives game into state where was before last push
  */
-void sokoban_undo_last_push() {
+static void sokoban_undo_last_push() {
 	// only if there are entries in ringbuffer
 	if (sokoban_undo_ringbuffer_count > 0) {
 		// pointer to tile where sokoban was before push
@@ -407,7 +407,7 @@ void sokoban_undo_last_push() {
 /**
  * Screen to change level
  */
-void sokoban_level_select() {
+static void sokoban_level_select() {
 	for (uint8_t i = 0; i < 16*12; i++) {
 		vram[i] = FONT_SOKOBAN_SKY;
 	}
@@ -518,7 +518,7 @@ void sokoban_level_select() {
  * Process sokoban's move
  * @param int joypad joypad status
  */
-inline void sokoban_move(uint16_t joypad) {
+static void sokoban_move(uint16_t joypad) {
 	// pointer to tile that sokoban stands on
 	unsigned char* a;
 	// pointer to tile where sokoban goes to
@@ -637,7 +637,7 @@ inline void sokoban_move(uint16_t joypad) {
 /**
  * Plays "congratulations" music after level was finished
  */
-void sokoban_congratulations() {
+static void sokoban_congratulations() {
 	TriggerFx(SOKOBAN_SOUND_CONGRAT, 0xff, false);
 
 	WaitVsync(60);
@@ -646,7 +646,7 @@ void sokoban_congratulations() {
 /**
  * Sokoban game
  */
-void sokoban(void) {
+static void sokoban(void) {
 	// joypad status
 	uint16_t joypad;
 
@@ -695,7 +695,7 @@ void sokoban(void) {
 /**
  * Draws map, with offset for tiles
  */
-void DrawMap2WithTileOffset(unsigned char x,unsigned char y,const char *map, const char offset){
+static void DrawMap2WithTileOffset(unsigned char x,unsigned char y,const char *map, const char offset){
 	unsigned char i;
 	unsigned char mapWidth=pgm_read_byte(&(map[0]));
 	unsigned char mapHeight=pgm_read_byte(&(map[1]));
