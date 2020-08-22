@@ -387,7 +387,7 @@ void ReadMouseExtendedData(){
 */
 unsigned char playDevice=0,playPort=0,mouseSpriteIndex,mouseWidth,mouseHeight;
 unsigned int actionButton;
-int mx=0,my=0;
+static int mx=0,my=0;
 
 char EnableSnesMouse(unsigned char spriteIndex,const char *spriteMap){
 	snesMouseEnabled=true;
