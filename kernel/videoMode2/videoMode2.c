@@ -38,7 +38,6 @@
 
 
 	extern u8 sprites_per_lines[SCREEN_TILES_V*TILE_HEIGHT][MAX_SPRITES_PER_LINE];
-	struct SpriteStruct sprites[MAX_SPRITES];
 
 	/**
 	 *  =====USED INTERNALLY ONLY - USE SCREEN SECTIONS XSCROLL & YSCROLL===
