@@ -115,10 +115,11 @@ struct EepromBlockSaveGameStruct{
 struct EepromBlockSaveGameStruct saveGameBlock;
 
 extern unsigned char playDevice,playPort;
+extern unsigned int actionButton;
 int mx,my;
 char dx=0,dy=0;
 unsigned char highScore=0,molesWhacked=0,activeMoles=0,level,mouseSpeed=MOUSE_SENSITIVITY_MEDIUM;
-unsigned int time=0,lastTime=0,actionButton;
+unsigned int time=0,lastTime=0;
 bool gameOver;
 
 int main(){
