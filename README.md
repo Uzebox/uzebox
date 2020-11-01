@@ -12,7 +12,7 @@ The Uzebox is an open source, retro-minimalist game console design. It is based 
 
 Many commercial version are or where available: The Uzebox AVCore by Embedded Engineering llc and the Fuzebox by Adafruit Industries. There's also the Uzebox deluxe kit and the EUzebox, a version with a SCART interface. Get one of those if you know nothing about electronics!
 
-Features:
+## Features:
 * Interrupt driven: No cycle counting required, sound mixing and video generation are all made in the background
 * 5 channels sound engine: The sound subsystem is composed of 3 wavetable channels, 1 noise and 1 PCM channel. Sound is 8-bit mono, mixed at ~15Khz
 * 256 simultaneous colors arranged in a 3:3:2 color space (Red:3 bits, Green:3 bits, Blue: 2 bits)
@@ -29,6 +29,16 @@ Features:
 * Multiple tools to convert MIDI, sound file and graphics to include files
 
 The sources comes complete with fully functional games, demos, content generation tools and even a cross-platform emulator!
+
+## Building
+
+To build this repository under Debian or Ubuntu Linux run:
+
+```
+$ sudo apt install build-essential avr-libc gcc-avr libsdl2-dev
+$ cd uzebox
+$ make
+```
 
 **To find out more, please check out the project's sites:**
 * [Main website] [website]
