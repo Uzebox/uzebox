@@ -7,5 +7,5 @@ where:
 -w capture file
 -s no packet truncate
 
-Then open teh file in wireshark and enter "telnet" in the top filter bar.
+Then open the file in wireshark and enter "telnet" in the top filter bar.
 
