@@ -140,11 +140,11 @@ GdbServer::~GdbServer() {
 #endif
 }
 
-word GdbServer::avr_core_flash_read(int addr) {
+word_t GdbServer::avr_core_flash_read(int addr) {
     return core->progmem[addr];
 }
 
-void GdbServer::avr_core_flash_write( unsigned int addr, word val) {
+void GdbServer::avr_core_flash_write( unsigned int addr, word_t val) {
     if (addr>= progSize) {
         cerr << "try to write in flash after last valid address!" << endl;
         exit(0);
@@ -153,7 +153,7 @@ void GdbServer::avr_core_flash_write( unsigned int addr, word val) {
     core->progmem[addr]=val;
 }
 
-void GdbServer::avr_core_flash_write_hi8( unsigned int addr, byte val) {
+void GdbServer::avr_core_flash_write_hi8( unsigned int addr, byte_t val) {
     if ((addr*2)>= progSize) {
         cerr << "try to write in flash after last valid address!" << endl;
         exit(0);
@@ -162,7 +162,7 @@ void GdbServer::avr_core_flash_write_hi8( unsigned int addr, byte val) {
     core->progmem[addr] = tmp;
 }
 
-void GdbServer::avr_core_flash_write_lo8( unsigned int addr, byte val) {
+void GdbServer::avr_core_flash_write_lo8( unsigned int addr, byte_t val) {
     if (addr>=progSize) {
         cerr << "try to write in flash after last valid address!" << endl;
         exit(0);
@@ -171,13 +171,13 @@ void GdbServer::avr_core_flash_write_lo8( unsigned int addr, byte val) {
     core->progmem[addr] = tmp;
 }
 
-void GdbServer::avr_core_remove_breakpoint(dword pc) {
+void GdbServer::avr_core_remove_breakpoint(dword_t pc) {
     Breakpoints::iterator ii;
     if ((ii= find(BP.begin(), BP.end(), pc)) != BP.end()) 
         BP.erase(ii);
 }
 
-void GdbServer::avr_core_insert_breakpoint(dword pc) {
+void GdbServer::avr_core_insert_breakpoint(dword_t pc) {
     BP.push_back(pc);
 }
 
@@ -370,7 +370,7 @@ Low bytes before High since AVR is little endian. */
 void GdbServer::gdb_read_registers( )
 {
     int   i;
-    dword val;                  /* ensure it's 32 bit value */
+    dword_t val;                  /* ensure it's 32 bit value */
 
     /* (32 gpwr, SREG, SP, PC) * 2 hex bytes + terminator */
     size_t  buf_sz = (32 + 1 + 2 + 4)*2 + 1;
@@ -436,8 +436,8 @@ same and in the same order as described in gdb_read_registers() above. */
 void GdbServer::gdb_write_registers( char *pkt )
 {
     int   i;
-    byte  bval;
-    dword val;                  /* ensure it's a 32 bit value */
+    byte_t  bval;
+    dword_t val;                  /* ensure it's a 32 bit value */
 
     /* 32 gen purpose working registers */
     for ( i=0; i<32; i++ )
@@ -466,19 +466,19 @@ void GdbServer::gdb_write_registers( char *pkt )
     GDB stores PC in a 32 bit value (only uses 23 bits though).
     GDB thinks PC is bytes into flash, not words like in simulavr.
 
-    Must cast to dword so as not to get mysterious truncation. */
+    Must cast to dword_t so as not to get mysterious truncation. */
 
-    val  = ((dword)hex2nib(*pkt++)) << 4;
-    val += ((dword)hex2nib(*pkt++));
+    val  = ((dword_t)hex2nib(*pkt++)) << 4;
+    val += ((dword_t)hex2nib(*pkt++));
 
-    val += ((dword)hex2nib(*pkt++)) << 12;
-    val += ((dword)hex2nib(*pkt++)) << 8;
+    val += ((dword_t)hex2nib(*pkt++)) << 12;
+    val += ((dword_t)hex2nib(*pkt++)) << 8;
 
-    val += ((dword)hex2nib(*pkt++)) << 20;
-    val += ((dword)hex2nib(*pkt++)) << 16;
+    val += ((dword_t)hex2nib(*pkt++)) << 20;
+    val += ((dword_t)hex2nib(*pkt++)) << 16;
 
-    val += ((dword)hex2nib(*pkt++)) << 28;
-    val += ((dword)hex2nib(*pkt++)) << 24;
+    val += ((dword_t)hex2nib(*pkt++)) << 28;
+    val += ((dword_t)hex2nib(*pkt++)) << 24;
     core->pc=val/2;
 
     gdb_send_reply( "OK" );
@@ -528,17 +528,17 @@ void GdbServer::gdb_read_register( char *pkt )
 
     if ( (reg >= 0) && (reg < 32) )
     {                           /* general regs */
-        byte val = core->r[reg];
+        byte_t val = core->r[reg];
         snprintf( reply, sizeof(reply)-1, "%02x", val );
     }
     else if (reg == 32)         /* sreg */
     {
-        byte val = core->SREG;
+        byte_t val = core->SREG;
         snprintf( reply, sizeof(reply)-1, "%02x", val );
     }
     else if (reg == 33)         /* SP */
     {
-        byte spl, sph;
+        byte_t spl, sph;
         //spl = avr_core_mem_read( core, SPL_ADDR );
         //sph = avr_core_mem_read( core, SPH_ADDR );
         spl=core->SPL;
@@ -547,7 +547,7 @@ void GdbServer::gdb_read_register( char *pkt )
     }
     else if (reg == 34)         /* PC */
     {
-        dword val = core->pc * 2;
+        dword_t val = core->pc * 2;
         snprintf( reply, sizeof(reply)-1,
                 "%02x%02x" "%02x%02x", 
                 val & 0xff, (val >> 8) & 0xff,
@@ -570,7 +570,7 @@ void GdbServer::gdb_write_register( char *pkt )
 {
     int reg;
     int val, hval;
-    dword dval;
+    dword_t dval;
 
     reg = gdb_extract_hex_num(&pkt, '=');
     pkt++;                      /* skip over '=' character */
@@ -608,18 +608,18 @@ void GdbServer::gdb_write_register( char *pkt )
         GDB stores PC in a 32 bit value (only uses 23 bits though).
         GDB thinks PC is bytes into flash, not words like in simulavr.
 
-        Must cast to dword so as not to get mysterious truncation. */
+        Must cast to dword_t so as not to get mysterious truncation. */
 
-        dval  = (dword)val; /* we already read the first two nibbles */
+        dval  = (dword_t)val; /* we already read the first two nibbles */
 
-        dval += ((dword)hex2nib(*pkt++)) << 12;
-        dval += ((dword)hex2nib(*pkt++)) << 8;
+        dval += ((dword_t)hex2nib(*pkt++)) << 12;
+        dval += ((dword_t)hex2nib(*pkt++)) << 8;
 
-        dval += ((dword)hex2nib(*pkt++)) << 20;
-        dval += ((dword)hex2nib(*pkt++)) << 16;
+        dval += ((dword_t)hex2nib(*pkt++)) << 20;
+        dval += ((dword_t)hex2nib(*pkt++)) << 16;
 
-        dval += ((dword)hex2nib(*pkt++)) << 28;
-        dval += ((dword)hex2nib(*pkt++)) << 24;
+        dval += ((dword_t)hex2nib(*pkt++)) << 28;
+        dval += ((dword_t)hex2nib(*pkt++)) << 24;
         core->pc=dval / 2;
     }
     else
@@ -664,16 +664,16 @@ void GdbServer::gdb_read_memory( char *pkt )
 {
     unsigned int   addr = 0;
     int   len  = 0;
-    byte *buf;
-    byte  bval;
-    word  wval;
+    byte_t *buf;
+    byte_t  bval;
+    word_t  wval;
     int   i;
     int   is_odd_addr;
 
 
     pkt += gdb_get_addr_len( pkt, ',', '\0', &addr, &len );
 
-    buf = avr_new( byte, (len*2)+1, true );
+    buf = avr_new( byte_t, (len*2)+1, true );
 
     //if(addr>=0x804000) addr&=0xffff;
     fprintf(logFile,"%x:",addr);
@@ -800,8 +800,8 @@ void GdbServer::gdb_write_memory( char *pkt )
 {
     unsigned int  addr = 0;
     int  len  = 0;
-    byte bval;
-    word wval;
+    byte_t bval;
+    word_t wval;
     int  is_odd_addr;
     unsigned int  i;
     char reply[10];

@@ -54,11 +54,11 @@ using namespace std;
 
 struct avr8;
 
-typedef uint8_t byte;
-typedef uint16_t word;
-typedef uint32_t dword;
+typedef uint8_t byte_t;
+typedef uint16_t word_t;
+typedef uint32_t dword_t;
 
-class Breakpoints: public vector<dword> {
+class Breakpoints: public vector<dword_t> {
 };
 
 #define MAX_BUF 400 /* Maximum size of read/write buffers. */
@@ -113,12 +113,12 @@ class GdbServer {
 
     	FILE* logFile;
 
-        word avr_core_flash_read(int addr) ;
-        void avr_core_flash_write(unsigned int addr, word val) ;
-        void avr_core_flash_write_hi8(unsigned int addr, byte val) ;
-        void avr_core_flash_write_lo8(unsigned int addr, byte val) ;
-        void avr_core_remove_breakpoint(dword pc) ;
-        void avr_core_insert_breakpoint(dword pc) ;
+        word_t avr_core_flash_read(int addr) ;
+        void avr_core_flash_write(unsigned int addr, word_t val) ;
+        void avr_core_flash_write_hi8(unsigned int addr, byte_t val) ;
+        void avr_core_flash_write_lo8(unsigned int addr, byte_t val) ;
+        void avr_core_remove_breakpoint(dword_t pc) ;
+        void avr_core_insert_breakpoint(dword_t pc) ;
         int signal_has_occurred(int signo); 
         void signal_watch_start(int signo);
         void signal_watch_stop(int signo);
