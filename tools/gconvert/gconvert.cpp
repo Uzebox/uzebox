@@ -222,12 +222,12 @@ int findMegaMapIndex(MegaMapContainer* megaMapContainer, vector<int>* megaTileCa
     /**
     * Find the index in the mega map where the mega tile candidate is located. Return -1 if not found.
     **/
-    int index = 0;
+    size_t index = 0;
     bool match_found = true;
 
     while (index < megaMapContainer->data.size()){
         match_found = true;
-        for (int i = 0; i < megaTileCandidate->size(); i++) {
+        for (size_t i = 0; i < megaTileCandidate->size(); i++) {
             if (megaTileCandidate->at(i) != megaMapContainer->data.at(index)){
                 index += megaTileCandidate->size() - i;    
                 match_found = false;
@@ -244,7 +244,7 @@ int addMegaMapBlock(MegaMapContainer* megaMapContainer, vector<int>* megaTileCan
     /**
     * Add the mega tile at the end of the mega map. Return the index of the newly added block
     **/
-    for (int i = 0; i < megaTileCandidate->size(); i++) {
+    for (size_t i = 0; i < megaTileCandidate->size(); i++) {
         megaMapContainer->data.push_back(megaTileCandidate->at(i));
     }
     megaMapContainer->size++;
@@ -261,7 +261,7 @@ bool processMegaMap(FILE* tf, MegaMapContainer* megaMapContainer, vector<MapCont
     int counter = 0;
     int index = -1;
 
-    for (int i = 0; i < mapsVector->size(); i++){
+    for (size_t i = 0; i < mapsVector->size(); i++){
         if (mapsVector->at(i)->width % megaMapContainer->megaTileWidth != 0){
             printf("Map of width %d cannot be divided into mega tiles of width %d\n", mapsVector->at(i)->width, megaMapContainer->megaTileWidth);
             return false;
@@ -283,7 +283,7 @@ bool processMegaMap(FILE* tf, MegaMapContainer* megaMapContainer, vector<MapCont
         int x = 0, originX = 0;
         int y = 0, originY = 0;
         int mapWidth = mapsVector->at(i)->width;
-        for (int j = 0; j < mapsVector->at(i)->data.size(); j++){
+        for (size_t j = 0; j < mapsVector->at(i)->data.size(); j++){
             megaTileCandidate.push_back(mapsVector->at(i)->data.at(y*mapWidth+x));
             x++;
             if (x % megaMapContainer->megaTileWidth == 0){
@@ -330,7 +330,7 @@ bool processMegaMap(FILE* tf, MegaMapContainer* megaMapContainer, vector<MapCont
         fprintf(tf,"const int %s[] PROGMEM ={",megaMapContainer->varName);
     }
     int c = 0;
-    for (int i = 0; i < megaMapContainer->data.size(); i++){
+    for (size_t i = 0; i < megaMapContainer->data.size(); i++){
         if (c % (megaMapContainer->megaTileWidth*megaMapContainer->megaTileHeight) == 0){
             fprintf(tf, "\n");
         }
@@ -469,7 +469,7 @@ bool process(){
 				if(refIndex==-1){
 					uniqueTiles.push_back(tile);
 				}else{
-					free(tile);
+					delete[] tile;
 				}
 			}
 
@@ -501,7 +501,7 @@ bool process(){
 					break;
 				}
 			}
-			free(tile);
+			delete[] tile;
 
 			if(index==-1){
 				printf("Define tile not found in tileset!\n");
@@ -559,7 +559,7 @@ bool process(){
                                 break;
                             }
                         }
-                        free(tile);
+                        delete[] tile;
 
                         if(index==-1){
                             printf("Map tile not found in tilset!\n");
@@ -622,7 +622,7 @@ bool process(){
 							break;
 						}
 					}
-					free(tile);
+					delete[] tile;
 
 					if(index==-1){
 						printf("Map tile not found in tilset!\n");

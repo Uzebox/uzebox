@@ -837,7 +837,7 @@ void Options::appendOptions(const string& strang) {
    tempargv.reserve(100);
    tempvalue.reserve(1000);
 
-   char ch;
+   char ch = '\0';
 
    int length = strang.size();
    for (i=0; i<length; i++) {
@@ -849,7 +849,7 @@ void Options::appendOptions(const string& strang) {
                // finished a doublequoted section of data, so store
                // even if it is the empty string
                ch = '\0';
-               tempvalue += (ch);
+               tempvalue += ch;
                tokens.push_back(tempvalue);
                tempvalue.clear();
                continue;

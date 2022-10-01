@@ -93,7 +93,7 @@ u32 crc_tab[256];
  */
 u32 chksum_crc32 (unsigned char *block, unsigned int length)
 {
-   register unsigned long crc;
+   unsigned long crc;
    unsigned long i;
 
    crc = 0xFFFFFFFF;
