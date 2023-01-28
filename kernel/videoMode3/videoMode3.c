@@ -409,11 +409,11 @@ void DisplayLogo(){
 */
 void InitializeVideoMode(){
 
+	#if (SPRITES_AUTO_PROCESS != 0)
 	u8 i;
 
 	/* Disable sprites */
 
-	#if (SPRITES_AUTO_PROCESS != 0)
 	for(i = 0U; i < MAX_SPRITES; i++){
 		sprites[i].x = (SCREEN_TILES_H * TILE_WIDTH);
 		sprites[i].y = (SCREEN_TILES_V * TILE_HEIGHT);
