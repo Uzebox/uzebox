@@ -186,7 +186,7 @@ DSTATUS disk_initialize (void)
 	BYTE n, cmd, ty, ocr[4];
 	UINT tmr;
 
-#if _PF_USE_WRITE
+#if _FS_USE_WRITE
 	if (CardType && MMC_SEL) disk_writep(0, 0);	/* Finalize write process if it is in progress */
 #endif
 
@@ -308,7 +308,7 @@ DRESULT disk_readp (
 /* Write partial sector                                                  */
 /*-----------------------------------------------------------------------*/
 
-#if _PF_USE_WRITE
+#if _FS_USE_WRITE
 DRESULT disk_writep (
 	const BYTE *buff,	/* Pointer to the bytes to be written (NULL:Initiate/Finalize sector write) */
 	DWORD sa			/* Number of bytes to send, Sector number (LBA) or zero */

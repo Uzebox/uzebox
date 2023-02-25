@@ -356,7 +356,9 @@ CLUST get_fat (	/* 1:IO error, Else:Cluster status */
 	CLUST clst	/* Cluster# to get the link information */
 )
 {
+#if _FS_FAT12
 	WORD wc, bc, ofs;
+#endif
 	BYTE buf[4];
 	FATFS *fs = FatFs;
 
