@@ -587,7 +587,7 @@
 		#include "videoMode748/videoMode74.def.h"
 	#elif VIDEO_MODE == 0
 		//custom user defined video mode
-		#include <videomode.def.h>
+		#include QUOTE(VIDEO_MODE_PATH/videoMode.def.h) 
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif
