@@ -162,10 +162,12 @@
 	extern u8 UartUnreadCount();
 	extern s16 UartReadChar();
 	extern s8 UartSendChar(u8 data);		
+	extern bool IsUartRxBufferEmpty();
 	extern bool IsUartTxBufferEmpty();
 	extern bool IsUartTxBufferFull();
 	extern void InitUartTxBuffer();
 	extern void InitUartRxBuffer();
+	extern void UartPutInRxBuffer(u8 ch);
 
 	/*
 	 * Misc functions
@@ -186,6 +188,7 @@
 	extern u16  GetTrueRandomSeed(); 		//uses the entropy generator to generate a seed. Needs -DTRUE_RANDOM_GEN == 1	
 	extern u16 GetPrngNumber(u16);			//non-zero values seeds the LFSR generator (pseudo-random generator)
 	
+	extern u32 GetFuses();					//read the fuses in the format (MSB) Extended:High:Low (LSB)
 
 	//Debug
 	extern void debug_clear();
@@ -198,6 +201,13 @@
 	extern void debug_long_hex(u32 i);
 	extern void debug_long(unsigned long val);
 	extern void debug_crlf();
+
+	// Used to output debugging data in the CUzebox HUD.
+	// Example usage:
+	//	*debug_port1 = array[0].item1;
+	//	*debug_port2 = 42;
+	extern u8 volatile * const debug_port1; //= (unsigned char *) 0x39;
+	extern u8 volatile * const debug_port2; //= (unsigned char *) 0x3A;
 
 	/*
 	 * Deprecated functions

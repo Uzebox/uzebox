@@ -84,6 +84,9 @@ extern void wdt_randomize(void);
 void wdt_init(void) __attribute__((naked)) __attribute__((section(".init7"), used));
 void Initialize(void) __attribute__((naked)) __attribute__((section(".init8"), used));
 
+u8 volatile * const debug_port1 = (unsigned char *) 0x39;
+u8 volatile * const debug_port2 = (unsigned char *) 0x3A;
+
 void wdt_init(void)
 {
 
@@ -343,6 +346,7 @@ void ReadControllers(){
 
 #if SNES_MOUSE == 1
 
+//TODO: Fix potential timing issues with the Hyperkin SNES MOUSE. See: http://uzebox.org/forums/viewtopic.php?f=4&t=11101
 
 //read mouse bits 16 to 31
 //spec requires a 2.5ms delay between the two 16bits chunks
@@ -756,6 +760,13 @@ char EepromBlockExists(unsigned int blockId, u16* eepromAddr, u8* nextFreeBlockI
 	volatile u8 uart_rx_tail;
 	volatile u8 uart_rx_head;
 	volatile u8 uart_rx_buf[UART_RX_BUFFER_SIZE];
+
+
+	void UartPutInRxBuffer(u8 ch){
+		uart_rx_buf[uart_rx_head]=ch;
+		uart_rx_head++;
+		uart_rx_head&=(UART_RX_BUFFER_SIZE-1);
+	}
 
 	//obsolete
 	void UartGoBack(u8 count){
