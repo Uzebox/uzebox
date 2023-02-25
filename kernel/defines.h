@@ -577,6 +577,8 @@
 		#include "videoMode42/videoMode42.def.h"
 	#elif VIDEO_MODE == 74
 		#include "videoMode74/videoMode74.def.h"
+	#elif VIDEO_MODE == 80
+		#include "videoMode80/videoMode80.def.h"
 	#elif VIDEO_MODE == 90
 		#include "videoMode90/videoMode90.def.h"
 	#elif VIDEO_MODE == 92
@@ -585,7 +587,7 @@
 		#include "videoMode748/videoMode74.def.h"
 	#elif VIDEO_MODE == 0
 		//custom user defined video mode
-		#include QUOTE(VIDEO_MODE_PATH/videoMode.def.h)
+		#include <videomode.def.h>
 	#else
 		#error Invalid video mode defined with VIDEO_MODE
 	#endif
