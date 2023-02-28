@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="../data/sprites.png" type="png" tile-width="6" tile-height="8" />
+    <output file="../data/sprites.inc">
+        <tiles var-name="spriteset"/>
+        <maps pointers-size="8">
+			<map var-name="mapP1N0" left="1" top="0" width="2" height="2"/>
+			<map var-name="mapP1N1" left="3" top="0" width="2" height="2"/>
+			<map var-name="mapP1N2" left="5" top="0" width="2" height="2"/>
+			<map var-name="mapP1E0" left="0" top="2" width="2" height="2"/>
+			<map var-name="mapP1E1" left="0" top="4" width="2" height="2"/>
+			<map var-name="mapP1E2" left="0" top="6" width="2" height="2"/>
+			<map var-name="mapP1S0" left="7" top="0" width="2" height="2"/>
+			<map var-name="mapP1S1" left="9" top="0" width="2" height="2"/>
+			<map var-name="mapP1S2" left="11" top="0" width="2" height="2"/>
+			<map var-name="mapP1W0" left="2" top="2" width="2" height="2"/>
+			<map var-name="mapP1W1" left="2" top="4" width="2" height="2"/>
+			<map var-name="mapP1W2" left="2" top="6" width="2" height="2"/>
+			<map var-name="mapP2N0" left="13" top="0" width="2" height="2"/>
+			<map var-name="mapP2N1" left="15" top="0" width="2" height="2"/>
+			<map var-name="mapP2N2" left="17" top="0" width="2" height="2"/>
+			<map var-name="mapP2E0" left="4" top="2" width="2" height="2"/>
+			<map var-name="mapP2E1" left="4" top="4" width="2" height="2"/>
+			<map var-name="mapP2E2" left="4" top="6" width="2" height="2"/>
+			<map var-name="mapP2S0" left="19" top="0" width="2" height="2"/>
+			<map var-name="mapP2S1" left="21" top="0" width="2" height="2"/>
+			<map var-name="mapP2S2" left="23" top="0" width="2" height="2"/>
+			<map var-name="mapP2W0" left="6" top="2" width="2" height="2"/>
+			<map var-name="mapP2W1" left="6" top="4" width="2" height="2"/>
+			<map var-name="mapP2W2" left="6" top="6" width="2" height="2"/>
+			<map var-name="mapFroggerDrown0" left="0" top="8" width="2" height="2"/>
+			<map var-name="mapFroggerDrown1" left="2" top="8" width="2" height="2"/>
+			<map var-name="mapFroggerDrown2" left="4" top="8" width="2" height="2"/>
+			<map var-name="mapFroggerDrown3" left="6" top="8" width="2" height="2"/>
+			<map var-name="mapSnakeE0" left="0" top="10" width="2" height="2"/>
+			<map var-name="mapSnakeE1" left="2" top="10" width="2" height="2"/>
+			<map var-name="mapSnakeW0" left="4" top="10" width="2" height="2"/>
+			<map var-name="mapSnakeW1" left="6" top="10" width="2" height="2"/>
+			<map var-name="mapBonus" left="0" top="12" width="2" height="1"/>
+		</maps>	
+    </output>
+</gfx-xform>

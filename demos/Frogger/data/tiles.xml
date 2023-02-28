@@ -1,0 +1,51 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="../data/tiles.png" type="png" tile-width="6" tile-height="8" />
+    <output file="../data/tiles.inc">
+        <tiles var-name="tileset"/>
+        <maps pointers-size="8">
+			<map var-name="mapEmptyHome" left="0" top="1" width="2" height="2"/>
+			<map var-name="mapFrogHomeP1" left="2" top="1" width="2" height="2"/>
+			<map var-name="mapFrogHomeP2" left="4" top="1" width="2" height="2"/>
+			<map var-name="mapLogLeft" left="6" top="1" width="1" height="2"/>
+			<map var-name="mapLogMid" left="7" top="1" width="1" height="2"/>
+			<map var-name="mapLogRight" left="8" top="1" width="2" height="2"/>
+			<map var-name="mapTurtle0" left="10" top="1" width="2" height="2"/>
+			<map var-name="mapTurtle1" left="12" top="1" width="2" height="2"/>
+			<map var-name="mapLorry" left="0" top="3" width="5" height="2"/>
+			<map var-name="mapSportsCar" left="5" top="3" width="3" height="2"/>
+			<map var-name="mapTractor" left="8" top="3" width="2" height="2"/>
+			<map var-name="mapSedan" left="10" top="3" width="2" height="2"/>
+			<map var-name="mapMateHome" left="14" top="1" width="2" height="2"/>
+			<map var-name="mapFlyHome" left="16" top="1" width="2" height="2"/>
+			<map var-name="mapCrocHome0" left="18" top="1" width="2" height="2"/>
+			<map var-name="mapCrocHome1" left="20" top="1" width="2" height="2"/>
+			<map var-name="mapCrocHome2" left="22" top="1" width="2" height="2"/>
+			<map var-name="mapBonusT" left="22" top="3" width="2" height="1"/>
+			<map var-name="map200" left="12" top="4" width="2" height="1"/>
+			<map var-name="mapDigits" left="0" top="5" width="10" height="1"/>
+			<map var-name="mapAlpha" left="0" top="6" width="26" height="1"/>
+			<map var-name="mapLogSml" left="0" top="7" width="8" height="2"/>
+			<map var-name="mapLogMed" left="0" top="9" width="9" height="2"/>
+			<map var-name="mapLogLge" left="0" top="11" width="12" height="2"/>
+			<map var-name="mapTurtlesSml0" left="0" top="13" width="4" height="2"/>
+			<map var-name="mapTurtlesSml1" left="4" top="13" width="4" height="2"/>
+			<map var-name="mapTurtlesLge0" left="0" top="15" width="6" height="2"/>
+			<map var-name="mapTurtlesLge1" left="6" top="15" width="6" height="2"/>
+			<map var-name="mapSubmergingSml0" left="0" top="17" width="4" height="2"/>
+			<map var-name="mapSubmergingSml1" left="4" top="17" width="4" height="2"/>
+			<map var-name="mapSubmergingSml2" left="8" top="17" width="4" height="2"/>
+			<map var-name="mapSubmergingSml3" left="12" top="17" width="4" height="2"/>
+			<map var-name="mapSubmergingLge0" left="0" top="19" width="6" height="2"/>
+			<map var-name="mapSubmergingLge1" left="6" top="19" width="6" height="2"/>
+			<map var-name="mapSubmergingLge2" left="12" top="19" width="6" height="2"/>
+			<map var-name="mapSubmergingLge3" left="18" top="19" width="6" height="2"/>
+			<map var-name="mapSubmergedSml0" left="0" top="21" width="4" height="2"/>
+			<map var-name="mapSubmergedLge0" left="0" top="23" width="6" height="2"/>
+			<map var-name="mapGator0" left="4" top="21" width="9" height="2"/>
+			<map var-name="mapGator1" left="13" top="21" width="9" height="2"/>
+			<map var-name="mapTitleFrog" left="13" top="8" width="13" height="8"/>
+			<map var-name="mapTitleFrogger" left="6" top="23" width="14" height="2"/>
+		</maps>	
+    </output>
+</gfx-xform>

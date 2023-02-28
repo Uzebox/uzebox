@@ -1,0 +1,30 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="../data/tiles1.png" type="png" tile-width="8" tile-height="8" />
+    <output file="../data/tiles1.inc">
+        <tiles var-name="tileset1" tiles-offset="7"/>
+        <maps pointers-size="8">
+			<map var-name="mapHiScore1" left="0" top="1" width="3" height="1"/>
+			<map var-name="map1UP1" left="3" top="1" width="1" height="1"/>
+			<map var-name="mapDigits1" left="4" top="1" width="10" height="1"/>
+			<map var-name="mapBeamBlue1" left="14" top="1" width="1" height="1"/>
+			<map var-name="mapDKLadder" left="8" top="3" width="3" height="3"/>
+			<map var-name="mapDKTaunt10" left="12" top="2" width="4" height="4"/>
+			<map var-name="mapDKTaunt11" left="16" top="2" width="4" height="4"/>
+			<map var-name="mapAlphabet" left="0" top="7" width="27" height="1"/>
+			<map var-name="mapMeters" left="27" top="7" width="1" height="1"/>
+			<map var-name="mapPressStart0" left="0" top="8" width="11" height="1"/>
+			<map var-name="mapPressStart1" left="11" top="8" width="11" height="1"/>
+			<map var-name="mapHowHigh" left="0" top="9" width="22" height="1"/>
+			<map var-name="mapRank" left="0" top="10" width="4" height="1"/>
+			<map var-name="mapScore" left="4" top="10" width="5" height="1"/>
+			<map var-name="mapName" left="9" top="10" width="4" height="1"/>
+			<map var-name="map1st" left="0" top="11" width="3" height="1"/>
+			<map var-name="map2nd" left="3" top="11" width="3" height="1"/>
+			<map var-name="map3rd" left="6" top="11" width="3" height="1"/>
+			<map var-name="map4th" left="9" top="11" width="3" height="1"/>
+			<map var-name="mapDonkeyTitle" left="0" top="14" width="25" height="5"/>
+			<map var-name="mapKongTitle" left="0" top="19" width="20" height="5"/>
+		</maps>	
+    </output>
+</gfx-xform>

@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="../data/sprites.png" type="png" tile-width="8" tile-height="8" />
+    <output file="../data/sprites.inc">
+        <tiles var-name="spriteset"/>
+        <maps pointers-size="8">
+			<map var-name="mapMarioWalk0" left="1" top="0" width="2" height="2"/>
+			<map var-name="mapMarioWalk1" left="3" top="0" width="2" height="2"/>
+			<map var-name="mapMarioJump0" left="5" top="0" width="2" height="2"/>
+			<map var-name="mapMarioClimb0" left="0" top="2" width="2" height="2"/>
+			<map var-name="mapMarioClimb1" left="2" top="2" width="2" height="2"/>
+			<map var-name="mapMarioClimb2" left="4" top="2" width="2" height="2"/>
+			<map var-name="mapMarioClimb3" left="6" top="2" width="2" height="2"/>
+			<map var-name="mapMarioMallet0" left="0" top="6" width="3" height="2"/>
+			<map var-name="mapMarioMallet1" left="3" top="5" width="2" height="3"/>
+			<map var-name="mapMarioDie0" left="0" top="8" width="2" height="2"/>
+			<map var-name="mapMarioDie1" left="2" top="8" width="2" height="2"/>
+			<map var-name="mapMarioDie2" left="4" top="8" width="2" height="2"/>
+			<map var-name="mapMarioDie3" left="6" top="8" width="2" height="2"/>
+			<map var-name="mapBarrelDrop0" left="0" top="10" width="2" height="1"/>
+			<map var-name="mapBarrelDrop1" left="2" top="10" width="2" height="1"/>
+			<map var-name="mapBarrelRoll0" left="4" top="10" width="1" height="1"/>
+			<map var-name="mapBarrelRoll1" left="5" top="10" width="1" height="1"/>
+			<map var-name="mapBarrelRoll2" left="6" top="10" width="1" height="1"/>
+			<map var-name="mapBarrelRoll3" left="7" top="10" width="1" height="1"/>
+			<map var-name="mapSparky0" left="0" top="11" width="2" height="2"/>
+			<map var-name="mapSparky1" left="2" top="11" width="2" height="2"/>
+			<map var-name="mapGhostRed0" left="0" top="13" width="2" height="2"/>
+			<map var-name="mapGhostRed1" left="2" top="13" width="2" height="2"/>
+			<map var-name="mapGhostBlue0" left="4" top="13" width="2" height="2"/>
+			<map var-name="mapGhostBlue1" left="6" top="13" width="2" height="2"/>
+			<map var-name="mapSpring0" left="0" top="15" width="1" height="2"/>
+			<map var-name="mapSpring1" left="1" top="16" width="2" height="1"/>
+			<map var-name="mapExplode0" left="0" top="17" width="1" height="1"/>
+			<map var-name="mapExplode1" left="1" top="17" width="1" height="1"/>
+			<map var-name="mapExplode2" left="2" top="17" width="1" height="1"/>
+			<map var-name="mapPie0" left="3" top="17" width="2" height="1"/>
+			<map var-name="mapDKEscape0" left="5" top="15" width="3" height="3"/>
+			<map var-name="mapDKEscape1" left="8" top="15" width="3" height="3"/>
+			<map var-name="mapDKFalling" left="8" top="12" width="3" height="3"/>
+			<map var-name="mapDKBouncing" left="8" top="9" width="3" height="3"/>
+		</maps>	
+    </output>
+</gfx-xform>

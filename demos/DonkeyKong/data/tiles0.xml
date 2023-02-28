@@ -1,0 +1,92 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="../data/tiles0.png" type="png" tile-width="8" tile-height="8" />
+    <output file="../data/tiles0.inc">
+        <tiles var-name="tileset0" clear-tile-offset="22"/>
+        <maps pointers-size="8">
+			<map var-name="mapDKBarrelLt0" left="0" top="18" width="4" height="4"/>
+			<map var-name="mapDKBarrelRt0" left="4" top="18" width="4" height="4"/>
+			<map var-name="mapDKTaunt0" left="12" top="24" width="4" height="4"/>
+			<map var-name="mapDKTaunt1" left="16" top="24" width="4" height="4"/>
+			<map var-name="mapDKBarrelHold" left="20" top="24" width="4" height="4"/>
+			<map var-name="mapPauline0" left="0" top="25" width="2" height="2"/>
+			<map var-name="mapPauline1" left="2" top="25" width="2" height="2"/>
+			<map var-name="mapHelp0" left="4" top="25" width="4" height="1"/>
+			<map var-name="mapHelp1" left="4" top="26" width="4" height="1"/>
+			<map var-name="mapOilFire0" left="4" top="14" width="2" height="4"/>
+			<map var-name="mapOilFire1" left="6" top="14" width="2" height="4"/>
+			<map var-name="mapHalfFlame0" left="4" top="15" width="2" height="1"/>
+			<map var-name="mapHalfFlame1" left="6" top="15" width="2" height="1"/>
+			<map var-name="mapOil" left="4" top="16" width="2" height="2"/>
+			<map var-name="mapFireBeam0" left="8" top="14" width="2" height="2"/>
+			<map var-name="mapFireBeam1" left="10" top="14" width="2" height="2"/>
+			<map var-name="mapLives" left="1" top="0" width="1" height="1"/>
+			<map var-name="mapPurse" left="0" top="1" width="1" height="1"/>
+			<map var-name="mapLadderAqua" left="0" top="7" width="1" height="1"/>
+			<map var-name="mapLadderAqua2" left="1" top="7" width="2" height="1"/>
+			<map var-name="mapLadderWhite" left="0" top="14" width="1" height="1"/>
+			<map var-name="mapLadderWhite2" left="0" top="13" width="2" height="1"/>
+			<map var-name="mapLadderYellow" left="0" top="11" width="1" height="1"/>
+			<map var-name="mapLadderYellow2" left="0" top="10" width="2" height="1"/>
+			<map var-name="mapBeamRed" left="0" top="6" width="1" height="1"/>
+			<map var-name="mapBeamOrange" left="1" top="14" width="1" height="1"/>
+			<map var-name="mapBeamBlue" left="14" top="23" width="1" height="1"/>
+			<map var-name="mapRivet" left="2" top="11" width="1" height="2"/>
+			<map var-name="mapConveyorBelt" left="2" top="14" width="1" height="1"/>
+			<map var-name="mapHiScore" left="0" top="23" width="3" height="1"/>
+			<map var-name="map1UP" left="3" top="23" width="1" height="1"/>
+			<map var-name="mapSledgeHammer" left="0" top="2" width="1" height="2"/>
+			<map var-name="mapBonusFrame" left="1" top="2" width="6" height="3"/>
+			<map var-name="mapHeart" left="7" top="2" width="2" height="2"/>
+			<map var-name="mapBrokenHeart" left="9" top="2" width="2" height="2"/>
+			<map var-name="mapRampSquare" left="0" top="6" width="1" height="1"/>
+			<map var-name="mapRamp0" left="1" top="5" width="1" height="2"/>
+			<map var-name="mapRamp1" left="2" top="5" width="1" height="2"/>
+			<map var-name="mapRamp2" left="3" top="5" width="1" height="2"/>
+			<map var-name="mapRamp3" left="4" top="5" width="1" height="2"/>
+			<map var-name="mapRamp4" left="5" top="5" width="1" height="2"/>
+			<map var-name="mapRamp5" left="6" top="5" width="1" height="2"/>
+			<map var-name="mapRamp6" left="7" top="5" width="1" height="2"/>
+			<map var-name="mapJigsaw0" left="0" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw1" left="2" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw2" left="4" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw3" left="6" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw4" left="8" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw5" left="10" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw6" left="12" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw7" left="14" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw8" left="16" top="8" width="2" height="2"/>
+			<map var-name="mapJigsaw9" left="18" top="8" width="2" height="2"/>
+			<map var-name="mapBarrel" left="3" top="15" width="1" height="2"/>
+			<map var-name="mapDigits" left="4" top="23" width="10" height="1"/>
+			<map var-name="map100" left="15" top="11" width="2" height="1"/>
+			<map var-name="map500" left="15" top="12" width="2" height="1"/>
+			<map var-name="map600" left="17" top="11" width="2" height="1"/>
+			<map var-name="map800" left="17" top="12" width="2" height="1"/>
+			<map var-name="mapPulleyTop" left="5" top="11" width="4" height="2"/>
+			<map var-name="mapPulleyBtm" left="9" top="11" width="4" height="2"/>
+			<map var-name="mapPulleyRopeLt0" left="13" top="11" width="1" height="1"/>
+			<map var-name="mapPulleyRopeLt1" left="13" top="12" width="1" height="1"/>
+			<map var-name="mapPulleyRopeRt0" left="14" top="11" width="1" height="1"/>
+			<map var-name="mapPulleyRopeRt1" left="14" top="12" width="1" height="1"/>
+			<map var-name="mapUmbrella" left="3" top="11" width="2" height="2"/>
+			<map var-name="mapDKIdle" left="8" top="24" width="4" height="4"/>
+			<map var-name="mapBlankKong" left="16" top="0" width="3" height="3"/>
+			<map var-name="mapBlankPauline" left="4" top="0" width="2" height="2"/>
+			<map var-name="mapCogRt0" left="0" top="15" width="1" height="1"/>
+			<map var-name="mapCogRt1" left="1" top="15" width="1" height="1"/>
+			<map var-name="mapCogRt2" left="2" top="15" width="1" height="1"/>
+			<map var-name="mapCogRt3" left="1" top="17" width="1" height="1"/>
+			<map var-name="mapCogLt0" left="0" top="16" width="1" height="1"/>
+			<map var-name="mapCogLt1" left="1" top="16" width="1" height="1"/>
+			<map var-name="mapCogLt2" left="2" top="16" width="1" height="1"/>
+			<map var-name="mapCogLt3" left="2" top="17" width="1" height="1"/>
+			<map var-name="mapBonfire0" left="4" top="14" width="2" height="4"/>
+			<map var-name="mapBonfire1" left="6" top="14" width="2" height="4"/>
+			<map var-name="mapMesh" left="3" top="14" width="1" height="1"/>
+			<map var-name="mapPole" left="0" top="17" width="1" height="1"/>
+			<map var-name="mapLevelEquals" left="2" top="0" width="2" height="1"/>
+			<map var-name="mapBlankLadder" left="4" top="0" width="2" height="1"/>
+		</maps>	
+    </output>
+</gfx-xform>
