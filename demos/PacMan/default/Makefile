@@ -77,7 +77,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../pacman.c
+$(GAME).o: ../$(GAME).c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
@@ -96,7 +96,7 @@ $(TARGET): $(OBJECTS)
 %.uze: $(TARGET)
 	@echo
 	-packrom $(GAME).hex $(GAME).uze $(INFO)
-	
+
 size: ${TARGET}
 	@echo
 	@avr-size -C --mcu=${MCU} ${TARGET}
