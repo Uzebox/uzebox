@@ -31,13 +31,7 @@ Features:
 The sources comes complete with fully functional games, demos, content generation tools and even a cross-platform emulator!
 
 **To find out more, please check out the project's sites:**
-* [Main website] [website]
-* [Wiki] [wiki]
-* [Forums] [forums]
-
-[website]: http://belogic.com/uzebox
-[wiki]: http://uzebox.org/wiki
-[forums]: http://uzebox.org/forums
-
-
-
+* [Getting started](https://uzebox.org/wiki/Getting_Started_on_the_Uzebox): How to install the toolchains, IDEs and build the codebase. Then move on to tutorials and the rest of the documentation.  
+* [Main website](https://uzebox.org): The main hub with news, links, downloads and more.
+* [Wiki](https://uzebox.org/wiki): All the project's documentation.
+* [Forums](https://uzebox.org/forums): Share your new game and discuss everything Uzebox.
