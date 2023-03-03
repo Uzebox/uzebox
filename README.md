@@ -16,13 +16,13 @@ Features:
 * Interrupt driven: No cycle counting required, sound mixing and video generation are all made in the background
 * 5 channels sound engine: The sound subsystem is composed of 3 wavetable channels, 1 noise and 1 PCM channel. Sound is 8-bit mono, mixed at ~15Khz
 * 256 simultaneous colors arranged in a 3:3:2 color space (Red:3 bits, Green:3 bits, Blue: 2 bits)
-* Resolution: 9 video modes offering up to 360x224 pixels (tiles-only, tiles & sprites, and bitmap video modes)
+* Resolution: 10+ video modes offering up to 360x224 pixels (tiles-only, tiles & sprites, and bitmap video modes)
 * Full screen scrolling in certain video modes
-* Sprites: Up to 32 simultaneous sprites
+* Sprites: 32+ simultaneous sprites
 * Inputs supported: Two SNES compatible joypad inputs (including SNES mouse)
 * MIDI In: With a music sequencer, allows the creation of music directly on the console
-* SD/MicroSD and FAT16 API
-* 'Uzenet' extension for ESP8266 wifi and 1Mb SPI RAM
+* SD/MicroSD and FAT16/32 API
+* 'Uzenet' extension for ESP8266 wifi and 128KB SPI RAM
 * PS/2 keyboard interface
 * GameLoader: 4K Bootloader which allows to flash games from a standard FAT16 formatted SD card
 * Cross-platform emulator with GDB support to ease development
