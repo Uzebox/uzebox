@@ -14,6 +14,6 @@ an SD card.
 - The bootloader can access the first partition on the card (the card doesn't
   have to be partitioned).
 
-For flashing a bootloader onto the AVR, see:
+For the latest compiled bootloader .HEX file and details about flashing a bootloader onto the AVR, see:
 
 For setup details see: https://uzebox.org/forums/viewtopic.php?f=3&t=9405
