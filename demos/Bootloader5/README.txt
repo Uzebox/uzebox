@@ -16,4 +16,4 @@ an SD card.
 
 For flashing a bootloader onto the AVR, see:
 
-For setup details see: http://uzebox.org/forums/viewtopic.php?p=3847#p3847
+For setup details see: https://uzebox.org/forums/viewtopic.php?f=3&t=9405
