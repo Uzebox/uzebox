@@ -30,12 +30,18 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include <stdint.h>
 
 #ifndef UZEROM_H
+#define UZEROM_H
 
 #define HEADER_VERSION 1
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 0
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
+
+#define PERIPHERAL_MOUSE 1
+#define PERIPHERAL_KEYBOARD 2
+#define PERIPHERAL_MULTITAP 4
+#define PERIPHERAL_ESP8266 8
 
 #pragma pack( 1 )
 struct RomHeader{
@@ -49,9 +55,10 @@ struct RomHeader{
     uint8_t author[32];
     uint8_t icon[16*16];
     uint32_t crc32;
-    uint8_t mouse;
-	uint8_t description[64];
-    uint8_t reserved[114];
+    uint8_t psupport; //supported peripherals
+    uint8_t description[64];
+    uint8_t pdefault; //default enabled peripherals(Emulator only)
+    uint8_t reserved[113];
 };
 #pragma pack()
 
