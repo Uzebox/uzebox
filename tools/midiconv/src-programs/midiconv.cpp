@@ -185,7 +185,7 @@ void convertSong(const string& infile, const string& outfile)
             setEventTick(mev, tempo);
             newmidi[track].append(*mev);
           }
-        } else if (((*mev)[0] & 0x90) && (*mev)[2] == 0x00) {
+        } else if (mev->isNoteOff()) {
           int chan = mev->getChannel();
           if ((options.getBoolean("no1") && chan == 0) ||
               (options.getBoolean("no2") && chan == 1) ||
