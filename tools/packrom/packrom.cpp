@@ -77,7 +77,7 @@ typedef struct{
 	u8 description[64];
 	u8 pdefault; //peripherals to enable by default(Emulator)
 	u8 reserved[113];
-}RomHeader;
+}RomHeader; //if modified, uzerom.h must be updated
 
 union ROM{
 	u8 progmem[MAX_PROG_SIZE+HEADER_SIZE];
@@ -100,7 +100,7 @@ u32 crc_tab[256];
  */
 u32 chksum_crc32 (unsigned char *block, unsigned int length)
 {
-   register unsigned long crc;
+   unsigned long crc;
    unsigned long i;
 
    crc = 0xFFFFFFFF;
@@ -309,7 +309,7 @@ int main(int argc,char **argv)
 				fprintf(stderr,"\tMultitap: Enabled\n");
 
 			}else if(!strncmp(line,"esp8266=enabled",15)){
-				rom.header.psupport |= PERIPHERAL_KEYBOARD;
+				rom.header.psupport |= PERIPHERAL_ESP8266;
 				fprintf(stderr,"\tESP8266: Enabled\n");
 
 			}else if(!strncmp(line,"mouse=default",13)){
@@ -328,8 +328,8 @@ int main(int argc,char **argv)
 				fprintf(stderr,"\tMultitap: Default\n");
 
 			}else if(!strncmp(line,"esp8266=default",15)){
-				rom.header.psupport |= PERIPHERAL_KEYBOARD;
-				rom.header.pdefault |= PERIPHERAL_KEYBOARD;
+				rom.header.psupport |= PERIPHERAL_ESP8266;
+				rom.header.pdefault |= PERIPHERAL_ESP8266;
 				fprintf(stderr,"\tESP8266: Default\n");
 
 			}
@@ -348,6 +348,7 @@ int main(int argc,char **argv)
 	}
 
 	memcpy(rom.header.marker,"UZEBOX",MARKER_SIZE);
+	memset(rom.header.reserved, 0, sizeof(rom.header.reserved));
 	rom.header.version=HEADER_VERSION;
 	rom.header.target=0;
 	rom.header.crc32=chksum_crc32(rom.progmem+HEADER_SIZE, rom.header.progSize);
