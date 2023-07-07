@@ -44,7 +44,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define PERIPHERAL_ESP8266 8
 
 #pragma pack( 1 )
-struct RomHeader{
+struct RomHeader{//if this is modified, packrom.cpp needs to be updated
     //Header fields (512 bytes)
     uint8_t marker[6]; //'UZEBOX'
     uint8_t version; //header version
