@@ -74,20 +74,20 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
             printf("Error: cannot parse version %d UzeROM files.\n",header->version);
         }
 
-        char psupport_str[256];
-        char pdefault_str[256];
+        char psupport_str[256] = {0};
+        char pdefault_str[256] = {0};
         //header->psupport = buf[338]; /* the peripherals the ROM supports */
-        if(header->psupport & PERIPHERAL_MOUSE){ sprintf(psupport_str+strlen(psupport_str), "Mouse,");}
-        if(header->psupport & PERIPHERAL_KEYBOARD){ sprintf(psupport_str+strlen(psupport_str), "Keyboard,"); }
-        if(header->psupport & PERIPHERAL_MULTITAP){ sprintf(psupport_str+strlen(psupport_str), "Multitap,"); }
-        if(header->psupport & PERIPHERAL_ESP8266){ sprintf(psupport_str+strlen(psupport_str), "ESP8266,"); }
+        if(header->psupport & PERIPHERAL_MOUSE){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "Mouse,");}
+        if(header->psupport & PERIPHERAL_KEYBOARD){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "Keyboard,"); }
+        if(header->psupport & PERIPHERAL_MULTITAP){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "Multitap,"); }
+        if(header->psupport & PERIPHERAL_ESP8266){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "ESP8266,"); }
         if(strlen(psupport_str) && psupport_str[strlen(psupport_str)-1] == ','){ psupport_str[strlen(psupport_str)-1] == '\0'; } // remove trailing comma, if present
 
         //header->pdefault // the peripherals that should be "connected" at start(save the user some hotkey presses)
-        if(header->pdefault & PERIPHERAL_MOUSE){ sprintf(pdefault_str+strlen(pdefault_str), "Mouse,");}
-        if(header->pdefault & PERIPHERAL_KEYBOARD){ sprintf(pdefault_str+strlen(pdefault_str), "Keyboard,"); }
-        if(header->pdefault & PERIPHERAL_MULTITAP){ sprintf(pdefault_str+strlen(pdefault_str), "Multitap,"); }
-        if(header->pdefault & PERIPHERAL_ESP8266){ sprintf(pdefault_str+strlen(pdefault_str), "ESP8266,"); }
+        if(header->pdefault & PERIPHERAL_MOUSE){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "Mouse,");}
+        if(header->pdefault & PERIPHERAL_KEYBOARD){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "Keyboard,"); }
+        if(header->pdefault & PERIPHERAL_MULTITAP){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "Multitap,"); }
+        if(header->pdefault & PERIPHERAL_ESP8266){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "ESP8266,"); }
         if(strlen(pdefault_str) && pdefault_str[strlen(pdefault_str)-1] == ','){ pdefault_str[strlen(pdefault_str)-1] == '\0'; } // remove trailing comma, if present
 
 
