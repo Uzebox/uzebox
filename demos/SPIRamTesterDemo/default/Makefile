@@ -89,7 +89,7 @@ $(TARGET): $(OBJECTS)
 
 %.uze: $(TARGET)
 	@echo
-	-packrom $(GAME).hex $(GAME).uze $(INFO)
+	-$(UZEBIN_DIR)packrom $(GAME).hex $(GAME).uze $(INFO)
 
 UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 AVRSIZEFLAGS := -A ${TARGET}

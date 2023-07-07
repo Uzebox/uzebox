@@ -90,7 +90,7 @@ $(TARGET): $(OBJECTS)
 
 %.uze: $(TARGET)
 	@echo
-	-packrom $(GAME).hex $(GAME).uze $(INFO)
+	-$(UZEBIN_DIR)packrom $(GAME).hex $(GAME).uze $(INFO)
 
 size: ${TARGET}
 	@echo
