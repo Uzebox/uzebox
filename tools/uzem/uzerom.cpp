@@ -73,10 +73,30 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
         if(header->version != HEADER_VERSION){
             printf("Error: cannot parse version %d UzeROM files.\n",header->version);
         }
-        printf("%s\n",header->name);
-        printf("%s\n",header->author);
-        printf("%d\n",header->year);
-        
+
+        char psupport_str[256] = {0};
+        char pdefault_str[256] = {0};
+        //header->psupport = buf[338]; /* the peripherals the ROM supports */
+        if(header->psupport & PERIPHERAL_MOUSE){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "Mouse,");}
+        if(header->psupport & PERIPHERAL_KEYBOARD){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "Keyboard,"); }
+        if(header->psupport & PERIPHERAL_MULTITAP){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "Multitap,"); }
+        if(header->psupport & PERIPHERAL_ESP8266){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "ESP8266,"); }
+        if(strlen(psupport_str) && psupport_str[strlen(psupport_str)-1] == ','){ psupport_str[strlen(psupport_str)-1] == '\0'; } // remove trailing comma, if present
+
+        //header->pdefault // the peripherals that should be "connected" at start(save the user some hotkey presses)
+        if(header->pdefault & PERIPHERAL_MOUSE){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "Mouse,");}
+        if(header->pdefault & PERIPHERAL_KEYBOARD){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "Keyboard,"); }
+        if(header->pdefault & PERIPHERAL_MULTITAP){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "Multitap,"); }
+        if(header->pdefault & PERIPHERAL_ESP8266){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "ESP8266,"); }
+        if(strlen(pdefault_str) && pdefault_str[strlen(pdefault_str)-1] == ','){ pdefault_str[strlen(pdefault_str)-1] == '\0'; } // remove trailing comma, if present
+
+
+        printf("Name:\t%s\n",header->name);
+        printf("Author:\t%s\n",header->author);
+        printf("Year:\t%d\n",header->year);
+        printf("Support: %s\n",psupport_str);
+        printf("Default: %s\n",pdefault_str);
+
         if(header->target == 0){
             printf("Uzebox 1.0 - ATmega644\n");
         }
