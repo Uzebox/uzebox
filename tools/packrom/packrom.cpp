@@ -25,6 +25,7 @@
  * Revisions:
  * ----------
  * 1.3: 4/9/2012 - Fixed parse_hex_nibble bug (s >= 'a' && s <= 'f')
+ * 1.4: 4/7/2023 - Added peripheral bit fields(devices supported, and emulator defaults)
  */
 
 #include <iostream>
@@ -36,10 +37,15 @@
 
 #define HEADER_VERSION 1
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 3
+#define VERSION_MINOR 4
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
 #define MARKER_SIZE 6
+
+#define PERIPHERAL_MOUSE 1
+#define PERIPHERAL_KEYBOARD 2
+#define PERIPHERAL_MULTITAP 4
+#define PERIPHERAL_ESP8266 8
 
 #if defined (_MSC_VER) && _MSC_VER >= 1400
 // don't whine about sprintf and fopen.
@@ -67,10 +73,11 @@ typedef struct{
 	u8 author[32];
 	u8 icon[16*16];
 	u32 crc32;
-	u8 mouse;
+	u8 psupport; //peripherals supported
 	u8 description[64];
-    u8 reserved[114];
-}RomHeader;
+	u8 pdefault; //peripherals to enable by default(Emulator)
+	u8 reserved[113];
+}RomHeader; //if modified, uzerom.h must be updated
 
 union ROM{
 	u8 progmem[MAX_PROG_SIZE+HEADER_SIZE];
@@ -288,6 +295,43 @@ int main(int argc,char **argv)
 			}else if(!strncmp(line,"year=",5)){
 				rom.header.year=(u16) strtoul(line+5,NULL,10);
 				fprintf(stderr,"\tYear: %i\n", rom.header.year);
+
+			}else if(!strncmp(line,"mouse=support",13)){
+				rom.header.psupport |= PERIPHERAL_MOUSE;
+				fprintf(stderr,"\tMouse: Enabled\n");
+
+			}else if(!strncmp(line,"keyboard=enabled",16)){
+				rom.header.psupport |= PERIPHERAL_KEYBOARD;
+				fprintf(stderr,"\tKeyboard: Enabled\n");
+
+			}else if(!strncmp(line,"multitap=enabled",16)){
+				rom.header.psupport |= PERIPHERAL_MULTITAP;
+				fprintf(stderr,"\tMultitap: Enabled\n");
+
+			}else if(!strncmp(line,"esp8266=enabled",15)){
+				rom.header.psupport |= PERIPHERAL_ESP8266;
+				fprintf(stderr,"\tESP8266: Enabled\n");
+
+			}else if(!strncmp(line,"mouse=default",13)){
+				rom.header.psupport |= PERIPHERAL_MOUSE;
+				rom.header.pdefault |= PERIPHERAL_MOUSE;
+				fprintf(stderr,"\tMouse: Default\n");
+
+			}else if(!strncmp(line,"keyboard=default",16)){
+				rom.header.psupport |= PERIPHERAL_KEYBOARD;
+				rom.header.pdefault |= PERIPHERAL_KEYBOARD;
+				fprintf(stderr,"\tKeyboard: Default\n");
+
+			}else if(!strncmp(line,"multitap=default",16)){
+				rom.header.psupport |= PERIPHERAL_MULTITAP;
+				rom.header.pdefault |= PERIPHERAL_MULTITAP;
+				fprintf(stderr,"\tMultitap: Default\n");
+
+			}else if(!strncmp(line,"esp8266=default",15)){
+				rom.header.psupport |= PERIPHERAL_ESP8266;
+				rom.header.pdefault |= PERIPHERAL_ESP8266;
+				fprintf(stderr,"\tESP8266: Default\n");
+
 			}
 		}
 		fclose (file);
@@ -304,6 +348,7 @@ int main(int argc,char **argv)
 	}
 
 	memcpy(rom.header.marker,"UZEBOX",MARKER_SIZE);
+	//memset(rom.header.reserved, 0, sizeof(rom.header.reserved));
 	rom.header.version=HEADER_VERSION;
 	rom.header.target=0;
 	rom.header.crc32=chksum_crc32(rom.progmem+HEADER_SIZE, rom.header.progSize);
@@ -323,12 +368,6 @@ int main(int argc,char **argv)
 
 
 	fclose(out_file);
-
-	//while (1)
-	//{
-	//	if ('n' == getchar())
-	//	   break;
-	//}
 
 	return 0;
 }
