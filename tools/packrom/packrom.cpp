@@ -348,7 +348,7 @@ int main(int argc,char **argv)
 	}
 
 	memcpy(rom.header.marker,"UZEBOX",MARKER_SIZE);
-	memset(rom.header.reserved, 0, sizeof(rom.header.reserved));
+	//memset(rom.header.reserved, 0, sizeof(rom.header.reserved));
 	rom.header.version=HEADER_VERSION;
 	rom.header.target=0;
 	rom.header.crc32=chksum_crc32(rom.progmem+HEADER_SIZE, rom.header.progSize);
