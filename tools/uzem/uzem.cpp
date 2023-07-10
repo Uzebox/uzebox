@@ -254,7 +254,7 @@ int main(int argc,char **argv)
                     return 1;
                 }
                 // enable mouse support if required
-                if(uzeRomHeader.mouse){
+                if(uzeRomHeader.pdefault & PERIPHERAL_MOUSE){
                     uzebox.pad_mode = avr8::SNES_MOUSE;
                     printf("Mouse support enabled\n");
                 }
