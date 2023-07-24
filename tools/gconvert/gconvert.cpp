@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 	if(argc==1){
 		printf("Error: No input file provided.\n\n");
 		printf("Uzebox graphics converter version %i.%i.\n",VERSION_MAJ,VERSION_MIN);
-		printf("Usage: gconv <configuration.xml>");
+		printf("Usage: gconvert <configuration.xml>");
 		exit( 1 );
 	}
 
