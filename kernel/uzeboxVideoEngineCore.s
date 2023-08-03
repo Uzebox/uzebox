@@ -407,13 +407,13 @@ no_render:
 	brne  sync_ctrl_rd
 
 	; Check if controller is connected
-	clr   r24
+	clr   ZL
 	sbis  _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA1_PIN
-	ori   r24, 1
+	ori   ZL, 1
 
 	sbis  _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA2_PIN
-	ori   r24, 2
-	sts   joypadsConnectionStatus, r24
+	ori   ZL, 2
+	sts   joypadsConnectionStatus, ZL
 	
 	; Raise controller latch pin (maybe repeatedly for multiple scanlines,
 	; it doesn't really matter); also this path contains the first
