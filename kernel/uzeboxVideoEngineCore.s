@@ -447,12 +447,14 @@ sync_ctrl_rd:
 	ror   r0
 	sts   joypad1_status_lo_t + 0, r0
 	sts   joypad1_status_lo_t + 1, r1
-	cpi   ZL,      236       ; ZL >= 1, so Carry is clear after this
+	cpi   ZL, SLOW_CONTROLLER_LINE - 16
 	brne  sync_ctrl_rd1c
-	ror   r1
-	ror   r0
 	sts   joypad1_status_lo   + 0, r0
 	sts   joypad1_status_lo   + 1, r1
+	mov  r24, r0 ; joypad1_status_lo + 0 
+	cpi   r24, (BTN_START | BTN_SELECT | BTN_Y | BTN_B)
+	brne  sync_ctrl_rd1c
+	jmp   SoftReset
 sync_ctrl_rd1c:
 #if (P2_DISABLE == 0)
 	lds   r0,      joypad2_status_lo_t + 0
@@ -464,10 +466,16 @@ sync_ctrl_rd1c:
 	ror   r0
 	sts   joypad2_status_lo_t + 0, r0
 	sts   joypad2_status_lo_t + 1, r1
-	cpi   ZL,      236
+	cpi   ZL, SLOW_CONTROLLER_LINE - 16
 	brne  sync_ctrl_rd2c
 	sts   joypad2_status_lo   + 0, r0
 	sts   joypad2_status_lo   + 1, r1
+
+	mov   r24, r0 ; joypad1_status_lo + 0 
+	cpi   r24, (BTN_START | BTN_SELECT | BTN_Y | BTN_B)
+	brne  sync_ctrl_rd2c
+	jmp   SoftReset
+
 sync_ctrl_rd2c:
 #endif
 	lpm   ZL,      Z
@@ -533,7 +541,7 @@ sync_ret:
 
 	;refresh buttons states
 	#if (CONTROLLERS_VSYNC_READ == 1) && (SLOW_CONTROLLERS == 0)
-		;call ReadControllers
+		call ReadControllers
 	#endif 
 	
 	;invoke stuff the video mode may have to do
