@@ -341,6 +341,7 @@
 	 * 1 = controller use much slower clock frequency and is read during HSYNC ISR (default)
 	 * 0 = default controller routines enabled, may cause trouble with some cheap controllers
 	 */
+	#define SLOW_CONTROLLERS 0
 	#ifndef SLOW_CONTROLLERS
 		#if CONTROLLERS_VSYNC_READ == 1
 			#define SLOW_CONTROLLERS 1
@@ -552,6 +553,13 @@
 	#define JOYPAD_LATCH_PIN PA2
 	#define JOYPAD_DATA1_PIN PA0
 	#define JOYPAD_DATA2_PIN PA1
+	
+	#define POWER_SWITCH_PIN PA5
+
+	#define ESP_RST_PIN      PA6
+	#define ESP_PROG_PIN     PA7
+	#define ESP_RX_PIN       PD0
+	#define ESP_TX_PIN       PD1
 
 	#define EEPROM_BLOCK_SIZE 32
 	#define EEPROM_MAX_BLOCKS 64 //(2048/EEPROM_BLOCK_SIZE)

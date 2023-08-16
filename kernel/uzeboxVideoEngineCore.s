@@ -451,14 +451,14 @@ sync_ctrl_rd:
 	brne  sync_ctrl_rd1c
 	sts   joypad1_status_lo   + 0, r0
 	sts   joypad1_status_lo   + 1, r1
-	mov  r24, r0 ; joypad1_status_lo + 0 
-	cpi   r24, (BTN_START | BTN_SELECT | BTN_Y | BTN_B)
+	mov   ZL, r0 ; joypad1_status_lo + 0 
+	cpi   ZL, (BTN_START | BTN_SELECT | BTN_Y | BTN_B)
 	brne  sync_ctrl_rd1c
 	jmp   SoftReset
 sync_ctrl_rd1c:
 #if (P2_DISABLE == 0)
-	lds   r0,      joypad2_status_lo_t + 0
-	lds   r1,      joypad2_status_lo_t + 1
+	lds   r0, joypad2_status_lo_t + 0
+	lds   r1, joypad2_status_lo_t + 1
 	clc
 	sbis  _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA2_PIN
 	sec
@@ -471,8 +471,8 @@ sync_ctrl_rd1c:
 	sts   joypad2_status_lo   + 0, r0
 	sts   joypad2_status_lo   + 1, r1
 
-	mov   r24, r0 ; joypad1_status_lo + 0 
-	cpi   r24, (BTN_START | BTN_SELECT | BTN_Y | BTN_B)
+	mov   ZL, r0 ; joypad1_status_lo + 0 
+	cpi   ZL, (BTN_START | BTN_SELECT | BTN_Y | BTN_B)
 	brne  sync_ctrl_rd2c
 	jmp   SoftReset
 
