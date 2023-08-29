@@ -1,5 +1,12 @@
 <img src="http://uzebox.org/belogic.com/uzebox/images/new_banner3.jpg"
  alt="Uzebox logo" />
+
+This is my version of the Uzebox game console.
+
+On the firmware side I added support for slow SNES alike controllers. Most cheap controllers nowadays use a mikrocontroller instead of shift registers. This leads to timing issues with the original kernel which are solved if you set SLOW_CONTROLLERS=Y to your kernel parameters with this firmware.
+
+On the hardware side I build a very small PCB with Mini-Din connectors for SCART and controllers and changed the pinout slightly to free the second UART and connect it to an USB2Serial converter module. See the folder hardware/Bluescreen for details.
+
 <img src="https://uzebox.org/belogic.com/uzebox/images/thumbs/case_thumb.gif" height="74px"  />
 <img src="https://uzebox.org/belogic.com/uzebox/images/games/donkeykong.png"  />
 <img src="https://uzebox.org/belogic.com/uzebox/images/games/alterego.png"  />
