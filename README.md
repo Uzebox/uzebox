@@ -5,8 +5,8 @@ This is my version of the Uzebox game console.
 
 On the firmware side I added support for slow SNES alike controllers. Most cheap controllers nowadays use a mikrocontroller instead of shift registers. This leads to timing issues with the original kernel which are solved if you set SLOW_CONTROLLERS=Y to your kernel parameters with this firmware.
 
-<img src="https://github.com/Bluescreen2001/uzebox/blob/master/hardware/UzeboxNano1.jpg"  />
-<img src="https://github.com/Bluescreen2001/uzebox/blob/master/hardware/UzeboxNano2.jpg"  />
+<img src="https://github.com/Bluescreen2001/uzebox/blob/master/hardware/Uzebox Nano/UzeboxNano1.jpg"  />
+<img src="https://github.com/Bluescreen2001/uzebox/blob/master/hardware/Uzebox Nano/UzeboxNano2.jpg"  />
 
 On the hardware side I build a very small PCB with Mini-Din connectors for SCART and controllers and changed the pinout slightly to free the second UART and connect it to an USB2Serial converter module. See the folder hardware/Bluescreen for details.
 
