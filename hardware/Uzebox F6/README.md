@@ -2,10 +2,11 @@
 
 As a request of forum member Danboid I created a new version of the original Uzebox PCB. He wants a version which supports RGB SCART connection without the need for the expensive AD725. He could use the Uzebox SCART, but that doesn't fit into the original case. This version does.
 
+<img src="pcb.png" alt="PCB" />
+
 ## What is the same
 * General schematic and function
 * mechanical dimensions. All buttons, connectors, holes, etc. are in the same place, so you can use the original case.
-
 
 ## New features
 * SCART RGB support. Because space is too limited for the giant SCART connector, we use an Segadrive 2 Mini-DIN 9 pin connector
@@ -13,6 +14,7 @@ As a request of forum member Danboid I created a new version of the original Uze
 * Optional footprint for an USB to serial module on the bottom side below the SD card socket. You can use this as a powersupply connector to power your Uzebox from a USB wall plug. Also you can use it for debug messages, it is connected to the second UART of the AVR CPU. This leads to some small incompatibilities, so you have to activate it by a couple of solder jumpers on the bottom side. See below instructions.
 * The ESP12 Wifi Chip is connected to the CPU's SPI and reset lines. With this is should be possible to flash the AVR CPU via Wifi. But you need a special firmware for the ESP for that, which isn't written yet.
 * You can use an WS2812 "Neopixel" LED instead of the normal LED. Again, there is no software for it yet. It uses the same pin as the original LED. A connector for adding more WS2812 is also there, so maybe you can create a colorful Uzebox Sign in the top of your case.
+* Added mounting holes for lightpipe, so you can screw it to the board instead of glueing.
 * I overworked all the traces, so they are on raster and layouted them a bit cleaner - in my opinion.
 
 ## Instructions for using SCART
@@ -20,8 +22,6 @@ Use an XRGB to SCART cable. Put a jumper into the left position to route sync si
 
 I routed the SVideo signals to unused pins 5 (LUMA) and 6 (CHROMA), so with an adapter cable you can still use SVideo.
 See [this page](https://members.optusnet.com.au/eviltim/gamescart/gamescart.htm) for a compatible cable.
-
-![blah](mega2.png)
 
 <img src="mega2.png" alt="Mini Din 9 pinout" />
  
