@@ -18,7 +18,7 @@ As a request of forum member Danboid I created a new version of the original Uze
 * I overworked all the traces, so they are on raster and layouted them a bit cleaner - in my opinion.
 
 ## Instructions for using SCART
-Use an XRGB to SCART cable. Put a jumper into the left position to route sync signal to the connector. If you populated the AD725, you can alternatively a jumper into the right position, which routes CVBS to the sync pin, which should also work. You can the use TVs which don't support RGB on the SCART input.
+Use an Segadrive-2 to SCART cable. Put a jumper into the left position to route sync signal to the connector. If you populated the AD725, you can alternatively a jumper into the right position, which routes CVBS to the sync pin, which should also work. You can the use TVs which don't support RGB on the SCART input.
 
 I routed the SVideo signals to unused pins 5 (LUMA) and 6 (CHROMA), so with an adapter cable you can still use SVideo.
 See [this page](https://members.optusnet.com.au/eviltim/gamescart/gamescart.htm) for a compatible cable.
