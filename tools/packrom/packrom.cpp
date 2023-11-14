@@ -47,6 +47,15 @@
 #define PERIPHERAL_MULTITAP 4
 #define PERIPHERAL_ESP8266 8
 
+#define JAMMA_ROTATE_90 1
+#define JAMMA_ROTATE_180 2
+#define JAMMA_ROTATE_270 4
+#define JAMMA_FLIP_H 8
+#define JAMMA_FLIP_V 16
+#define JAMMA_B0 32 //future use...
+#define JAMMA_B1 64
+#define JAMMA_B2 128
+
 #if defined (_MSC_VER) && _MSC_VER >= 1400
 // don't whine about sprintf and fopen.
 // could switch to sprintf_s but that's not standard.
@@ -67,17 +76,18 @@ typedef struct{
 	u8 marker[MARKER_SIZE];	//'UZEBOX'
 	u8 version;		//header version
 	u8 target;		//AVR target (ATmega644=0, ATmega1284=1)
-	u32 progSize;	//program memory size in bytes
+	u32 progSize;		//program memory size in bytes
 	u16 year;
 	u8 name[32];
 	u8 author[32];
 	u8 icon[16*16];
 	u32 crc32;
-	u8 psupport; //peripherals supported
+	u8 psupport;		//peripherals supported
 	u8 description[64];
-	u8 pdefault; //peripherals to enable by default(Emulator)
-	u8 reserved[113];
-}RomHeader; //if modified, uzerom.h must be updated
+	u8 pdefault;		//peripherals to enable by default(Emulator)
+	u8 jamma;		//JAMMA options
+	u8 reserved[112];
+}RomHeader;
 
 union ROM{
 	u8 progmem[MAX_PROG_SIZE+HEADER_SIZE];
@@ -298,19 +308,19 @@ int main(int argc,char **argv)
 
 			}else if(!strncmp(line,"mouse=support",13)){
 				rom.header.psupport |= PERIPHERAL_MOUSE;
-				fprintf(stderr,"\tMouse: Enabled\n");
+				fprintf(stderr,"\tMouse: Supported\n");
 
-			}else if(!strncmp(line,"keyboard=enabled",16)){
+			}else if(!strncmp(line,"keyboard=support",16)){
 				rom.header.psupport |= PERIPHERAL_KEYBOARD;
-				fprintf(stderr,"\tKeyboard: Enabled\n");
+				fprintf(stderr,"\tKeyboard: Supported\n");
 
-			}else if(!strncmp(line,"multitap=enabled",16)){
+			}else if(!strncmp(line,"multitap=support",16)){
 				rom.header.psupport |= PERIPHERAL_MULTITAP;
-				fprintf(stderr,"\tMultitap: Enabled\n");
+				fprintf(stderr,"\tMultitap: Supported\n");
 
-			}else if(!strncmp(line,"esp8266=enabled",15)){
-				rom.header.psupport |= PERIPHERAL_ESP8266;
-				fprintf(stderr,"\tESP8266: Enabled\n");
+			}else if(!strncmp(line,"esp8266=support",15)){
+				rom.header.psupport |= PERIPHERAL_KEYBOARD;
+				fprintf(stderr,"\tESP8266: Supported\n");
 
 			}else if(!strncmp(line,"mouse=default",13)){
 				rom.header.psupport |= PERIPHERAL_MOUSE;
@@ -331,6 +341,26 @@ int main(int argc,char **argv)
 				rom.header.psupport |= PERIPHERAL_ESP8266;
 				rom.header.pdefault |= PERIPHERAL_ESP8266;
 				fprintf(stderr,"\tESP8266: Default\n");
+
+			}else if(!strncmp(line,"JAMMA=rotate90",14)){
+				rom.header.jamma |= JAMMA_ROTATE_90;
+				fprintf(stderr,"\tJAMMA: Rotate 90\n");
+
+			}else if(!strncmp(line,"JAMMA=rotate180",15)){
+				rom.header.jamma |= JAMMA_ROTATE_180;
+				fprintf(stderr,"\tJAMMA: Rotate 180\n");
+
+			}else if(!strncmp(line,"JAMMA=rotate270",15)){
+				rom.header.jamma |= JAMMA_ROTATE_270;
+				fprintf(stderr,"\tJAMMA: Rotate 270\n");
+
+			}else if(!strncmp(line,"JAMMA=flipH",11)){
+				rom.header.jamma |= JAMMA_FLIP_H;
+				fprintf(stderr,"\tJAMMA: Flip Horizontal\n");
+
+			}else if(!strncmp(line,"JAMMA=flipV",11)){
+				rom.header.jamma |= JAMMA_FLIP_H;
+				fprintf(stderr,"\tJAMMA: Flip Vertical\n");
 
 			}
 		}
