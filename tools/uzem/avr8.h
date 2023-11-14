@@ -466,6 +466,9 @@ public:
 	u8  scanline_buf[2048]; // For collecting pixels from a single scanline
 	u8  pixel_raw;          // Raw (8 bit) input pixel
 	bool fullscreen;
+	bool jamma;
+	int orientation; //default: -1(no rotation), 90, 180, 270, mostly for JAMMA(.uze JAMMA settings can be overriden with flag)
+	SDL_RendererFlip mirror; //default: SDL_FLIP_NONE, 1: SDL_FLIP_HORIZONTAL, 2: SDL_FLIP_VERTICAL, 3: Both
 
 	/*Audio*/
 	ringBuffer audioRing;
@@ -642,22 +645,22 @@ public:
 	void draw_memorymap();
 	void trigger_interrupt(unsigned int location);
 	unsigned int exec();
-    void spi_calculateClock();    
+	void spi_calculateClock();    
 	void update_hardware();
 	void update_hardware_fast();
 	void update_hardware_ins();
-    void update_spi();
-    void SDLoadImage(char *filename);    
-    void SDBuildMBR(SDPartitionEntry* entry);    
-    void SDMapDrive(const char* driveLetter); //only for WIN32
-    void SDSeekToOffset(u32 offset);    
-    u8 SDReadByte();    
-    void SDWriteByte(u8 value);    
-    void SDCommit();
-    void LoadEEPROMFile(const char* filename);
-    void shutdown(int errcode);
-    void idle(void);
-    void uzekb_handle_key(SDL_Event &ev);
+	void update_spi();
+	void SDLoadImage(char *filename);    
+	void SDBuildMBR(SDPartitionEntry* entry);    
+	void SDMapDrive(const char* driveLetter); //only for WIN32
+	void SDSeekToOffset(u32 offset);    
+	u8 SDReadByte();    
+	void SDWriteByte(u8 value);    
+	void SDCommit();
+	void LoadEEPROMFile(const char* filename);
+	void shutdown(int errcode);
+	void idle(void);
+	void uzekb_handle_key(SDL_Event &ev);
 
 };
 #endif

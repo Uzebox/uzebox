@@ -76,6 +76,7 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
 
         char psupport_str[256] = {0};
         char pdefault_str[256] = {0};
+        char jamma_str[256] = {0};
         //header->psupport = buf[338]; /* the peripherals the ROM supports */
         if(header->psupport & PERIPHERAL_MOUSE){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "Mouse,");}
         if(header->psupport & PERIPHERAL_KEYBOARD){ snprintf(psupport_str+strlen(psupport_str), sizeof(psupport_str)-strlen(psupport_str), "Keyboard,"); }
@@ -90,12 +91,26 @@ bool loadUzeImage(char* in_filename,RomHeader *header,u8 *buffer){
         if(header->pdefault & PERIPHERAL_ESP8266){ snprintf(pdefault_str+strlen(pdefault_str), sizeof(pdefault_str)-strlen(pdefault_str), "ESP8266,"); }
         if(strlen(pdefault_str) && pdefault_str[strlen(pdefault_str)-1] == ','){ pdefault_str[strlen(pdefault_str)-1] == '\0'; } // remove trailing comma, if present
 
+        if(header->jamma & JAMMA_ROTATE_90){ snprintf(jamma_str+strlen(jamma_str), sizeof(jamma_str)-strlen(jamma_str), "Rotate 90,"); }
+        if(header->jamma & JAMMA_ROTATE_180){ snprintf(jamma_str+strlen(jamma_str), sizeof(jamma_str)-strlen(jamma_str), "Rotate 180,"); }
+        if(header->jamma & JAMMA_ROTATE_270){ snprintf(jamma_str+strlen(jamma_str), sizeof(jamma_str)-strlen(jamma_str), "Rotate 270,"); }
+        if(header->jamma & JAMMA_FLIP_H){ snprintf(jamma_str+strlen(jamma_str), sizeof(jamma_str)-strlen(jamma_str), "Mirror Horizontal,"); }
+        if(header->jamma & JAMMA_FLIP_V){ snprintf(jamma_str+strlen(jamma_str), sizeof(jamma_str)-strlen(jamma_str), "Mirror Vertical,"); }
+        if(strlen(jamma_str) && jamma_str[strlen(jamma_str)-1] == ','){ jamma_str[strlen(jamma_str)-1] == '\0'; } // remove trailing comma, if present
 
         printf("Name:\t%s\n",header->name);
         printf("Author:\t%s\n",header->author);
         printf("Year:\t%d\n",header->year);
-        printf("Support: %s\n",psupport_str);
-        printf("Default: %s\n",pdefault_str);
+
+        if(psupport_str[0] || pdefault_str[0]){
+            printf("Peripherals:\n");
+            printf("\tSupport: %s\n",psupport_str);
+            printf("\tDefault: %s\n",pdefault_str);
+        }
+
+        if(jamma_str[0] != '\0'){
+            printf("JAMMA: %s\n",jamma_str);
+        }
 
         if(header->target == 0){
             printf("Uzebox 1.0 - ATmega644\n");
@@ -200,3 +215,4 @@ bool loadHex(const char *in_filename,unsigned char *buffer,unsigned int *bytesRe
 
 	return true;
 }
+

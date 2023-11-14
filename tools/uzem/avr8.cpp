@@ -384,7 +384,10 @@ void avr8::write_io_x(u8 addr,u8 value)
 
 					SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
 					SDL_RenderClear(renderer);
-					SDL_RenderCopy(renderer, texture, NULL, NULL);
+					if(orientation != -1 || mirror) //probably only useful for JAMMA
+						SDL_RenderCopyEx(renderer, texture, NULL, NULL, orientation, NULL, mirror);
+					else
+						SDL_RenderCopy(renderer, texture, NULL, NULL);
 					SDL_RenderPresent(renderer);
 
 #ifndef __EMSCRIPTEN__
@@ -2016,7 +2019,13 @@ bool avr8::init_gui()
 	atexit(SDL_Quit);
 	init_joysticks();
 
-	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,630,448,fullscreen?SDL_WINDOW_FULLSCREEN:SDL_WINDOW_RESIZABLE);
+	int monitorWidth = 630;
+	int monitorHeight = 448;
+	if(orientation == 90 || orientation == 270){
+	    monitorHeight = 630;
+	}
+ 
+	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,monitorWidth,monitorHeight,fullscreen?SDL_WINDOW_FULLSCREEN:SDL_WINDOW_RESIZABLE);
 	if (!window){
 		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
 		return false;
@@ -2028,7 +2037,7 @@ bool avr8::init_gui()
 		return false;
 	}
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-	SDL_RenderSetLogicalSize(renderer, 630, 448);
+	SDL_RenderSetLogicalSize(renderer, monitorWidth, monitorHeight);
 
 	surface = SDL_CreateRGBSurface(0, VIDEO_DISP_WIDTH, 224, 32, 0, 0, 0, 0);
 	if(!surface){
