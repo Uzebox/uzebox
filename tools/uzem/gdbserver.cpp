@@ -1388,3 +1388,4 @@ void GdbServer::SendPosition(int signo) {
 
     gdb_send_reply(reply);
 }
+

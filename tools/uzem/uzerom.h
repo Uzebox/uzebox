@@ -43,6 +43,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define PERIPHERAL_MULTITAP 4
 #define PERIPHERAL_ESP8266 8
 
+#define JAMMA_VERTICAL 1
+#define JAMMA_HORIZONTAL 2
+
 #pragma pack( 1 )
 struct RomHeader{//if this is modified, packrom.cpp needs to be updated
     //Header fields (512 bytes)
@@ -58,7 +61,8 @@ struct RomHeader{//if this is modified, packrom.cpp needs to be updated
     uint8_t psupport; //supported peripherals
     uint8_t description[64];
     uint8_t pdefault; //default enabled peripherals(Emulator only)
-    uint8_t reserved[113];
+    uint8_t jamma; //JAMMA options
+    uint8_t reserved[112];
 };
 #pragma pack()
 

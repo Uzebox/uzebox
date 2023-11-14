@@ -466,6 +466,8 @@ public:
 	u8  scanline_buf[2048]; // For collecting pixels from a single scanline
 	u8  pixel_raw;          // Raw (8 bit) input pixel
 	bool fullscreen;
+	bool jamma;
+	bool vertical;
 
 	/*Audio*/
 	ringBuffer audioRing;

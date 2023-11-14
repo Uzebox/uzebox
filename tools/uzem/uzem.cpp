@@ -47,6 +47,8 @@ static const struct option longopts[] ={
     { "novsync"    , no_argument      , NULL, 'v' },
     { "mouse"      , no_argument      , NULL, 'm' },
     { "2p"         , no_argument      , NULL, '2' },
+    { "jamma"      , no_argument      , NULL, 'j' },
+    { "vertical"   , no_argument      , NULL, 'o' },    
     { "img"        , required_argument, NULL, 'g' },
     { "record"     , no_argument      , NULL, 'r' },
     { "eeprom"     , required_argument, NULL, 'e' },
@@ -65,7 +67,7 @@ static const struct option longopts[] ={
     {NULL          , 0                , NULL, 0}
 };
 
-   static const char* shortopts = "hnfczlwxm2re:p:bdt:k:s:v";
+   static const char* shortopts = "hnfczlwxm2jore:p:bdt:k:s:v";
 
 #define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
 
@@ -82,6 +84,8 @@ void showHelp(char* programName){
     printerr("\t--novsync -v        Disables VSYNC (does not apply to software renderer)\n");
     printerr("\t--mouse -m          Start with emulated mouse enabled\n");
     printerr("\t--2p -2             Start with snes 2p mode enabled\n");
+    printerr("\t--jamma -j          Start with JAMMA mode enabled\n");
+    printerr("\t--vertical -o       Emulate vertical monitor orientation(JAMMA)\n");
     printerr("\t--sd -s <path>      SD card emulation from contents of path\n");
     printerr("\t--eeprom -e <file>  Use following filename for EEPRROM data (default is eeprom.bin).\n");
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
@@ -151,7 +155,7 @@ int main(int argc,char **argv)
             showHelp(argv[0]);
             return 1;
         case 'n':
-			uzebox.enableSound = false;
+	uzebox.enableSound = false;
             break;
         case 'f':
 			uzebox.fullscreen = true;
@@ -167,6 +171,12 @@ int main(int argc,char **argv)
             break;
         case '2':
 			uzebox.pad_mode = avr8::SNES_PAD2;
+            break;
+        case 'j':
+			uzebox.jamma = true;
+            break;
+        case 'o':
+			uzebox.vertical = true;
             break;
 #ifndef __EMSCRIPTEN__
         case 'r':
@@ -258,6 +268,18 @@ int main(int argc,char **argv)
                     uzebox.pad_mode = avr8::SNES_MOUSE;
                     printf("Mouse support enabled\n");
                 }
+                // if either JAMMA orientation is specified, use additional JAMMA logic as required(TODO)
+                // enable vertical mode if required(JAMMA)
+                if(uzeRomHeader.jamma & JAMMA_VERTICAL){
+                    uzebox.jamma = true;
+                    uzebox.vertical = true;
+                    printf("Vertical mode enabled(JAMMA)\n");
+                }
+                // enable default horizontal(JAMMA)
+                if(uzeRomHeader.jamma & JAMMA_HORIZONTAL){
+                    uzebox.jamma = true;
+                    printf("Horizontal mode enabled(JAMMA)\n");
+                }
             }else{
     			printerr("Error: Cannot load UZE ROM file '%s'. Bad format header?\n\n",heximage);
     			showHelp(argv[0]);
@@ -342,7 +364,7 @@ int main(int argc,char **argv)
 				uzebox.captureData=new u8[fz];
 				uzebox.captureSize=fz;
 				uzebox.capturePtr=0;
-				fread(uzebox.captureData,1,fz,uzebox.captureFile);
+				size_t clen = fread(uzebox.captureData,1,fz,uzebox.captureFile);
 				fclose(uzebox.captureFile);
 				uzebox.captureFile = 0;
             }

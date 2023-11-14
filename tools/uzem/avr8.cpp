@@ -384,7 +384,10 @@ void avr8::write_io_x(u8 addr,u8 value)
 
 					SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch);
 					SDL_RenderClear(renderer);
-					SDL_RenderCopy(renderer, texture, NULL, NULL);
+					if(vertical) //probably only useful for JAMMA
+						SDL_RenderCopyEx(renderer, texture, NULL, NULL, 90, NULL, SDL_FLIP_NONE);
+					else
+						SDL_RenderCopy(renderer, texture, NULL, NULL);
 					SDL_RenderPresent(renderer);
 
 #ifndef __EMSCRIPTEN__
@@ -2016,7 +2019,10 @@ bool avr8::init_gui()
 	atexit(SDL_Quit);
 	init_joysticks();
 
-	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,630,448,fullscreen?SDL_WINDOW_FULLSCREEN:SDL_WINDOW_RESIZABLE);
+	int monitorWidth = vertical ? 630:630;
+	int monitorHeight = vertical ? 630:448;
+ 
+	window = SDL_CreateWindow(caption,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,monitorWidth,monitorHeight,fullscreen?SDL_WINDOW_FULLSCREEN:SDL_WINDOW_RESIZABLE);
 	if (!window){
 		fprintf(stderr, "CreateWindow failed: %s\n", SDL_GetError());
 		return false;
@@ -2028,7 +2034,7 @@ bool avr8::init_gui()
 		return false;
 	}
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-	SDL_RenderSetLogicalSize(renderer, 630, 448);
+	SDL_RenderSetLogicalSize(renderer, monitorWidth, monitorHeight);
 
 	surface = SDL_CreateRGBSurface(0, VIDEO_DISP_WIDTH, 224, 32, 0, 0, 0, 0);
 	if(!surface){
@@ -2999,7 +3005,7 @@ void avr8::LoadEEPROMFile(const char* filename){
 
 void avr8::shutdown(int errcode){
 #if defined(__WIN32__)
-    if(hDisk != INVALID_HANDLE_VALUE){
+    if(hDisk != teINVALID_HANDLE_VALUE){
         CloseHandle (hDisk);        
         VirtualFree (lpSector, 0, MEM_RELEASE);
     }        
