@@ -47,6 +47,9 @@ static const struct option longopts[] ={
     { "novsync"    , no_argument      , NULL, 'v' },
     { "mouse"      , no_argument      , NULL, 'm' },
     { "2p"         , no_argument      , NULL, '2' },
+    { "jamma"      , no_argument      , NULL, 'j' },
+    { "rotate"     , required_argument, NULL, 'o' },
+    { "mirror"     , required_argument, NULL, 'i' },
     { "img"        , required_argument, NULL, 'g' },
     { "record"     , no_argument      , NULL, 'r' },
     { "eeprom"     , required_argument, NULL, 'e' },
@@ -65,7 +68,7 @@ static const struct option longopts[] ={
     {NULL          , 0                , NULL, 0}
 };
 
-   static const char* shortopts = "hnfczlwxm2re:p:bdt:k:s:v";
+   static const char* shortopts = "hnfczlwxm2jo:i:re:p:bdt:k:s:v";
 
 #define printerr(fmt,...) fprintf(stderr,fmt,##__VA_ARGS__)
 
@@ -82,6 +85,9 @@ void showHelp(char* programName){
     printerr("\t--novsync -v        Disables VSYNC (does not apply to software renderer)\n");
     printerr("\t--mouse -m          Start with emulated mouse enabled\n");
     printerr("\t--2p -2             Start with snes 2p mode enabled\n");
+    printerr("\t--jamma -j          Start with JAMMA mode enabled\n");
+    printerr("\t--rotate -o <angle> Rotate display 90/180/270 degrees(overrides .uze settings, no arg=90)\n");
+    printerr("\t--mirror -i <dir>   0: no mirror, 1: horizontal, 2: vertical, 3: both\n");
     printerr("\t--sd -s <path>      SD card emulation from contents of path\n");
     printerr("\t--eeprom -e <file>  Use following filename for EEPRROM data (default is eeprom.bin).\n");
     printerr("\t--boot -b           Bootloader mode.  Changes start address to 0xF000.\n");
@@ -142,6 +148,7 @@ int main(int argc,char **argv)
 
     int opt;
     char* heximage = NULL;
+    uzebox.orientation = -1;
 
     while((opt = getopt_long(argc, argv,shortopts,longopts,NULL)) != -1) {
         switch(opt) {
@@ -151,22 +158,38 @@ int main(int argc,char **argv)
             showHelp(argv[0]);
             return 1;
         case 'n':
-			uzebox.enableSound = false;
+            uzebox.enableSound = false;
             break;
         case 'f':
-			uzebox.fullscreen = true;
+	uzebox.fullscreen = true;
             break;
         case 'w':
-			uzebox.sdl_flags = (uzebox.sdl_flags & ~(SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)) | SDL_RENDERER_SOFTWARE;
+            uzebox.sdl_flags = (uzebox.sdl_flags & ~(SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)) | SDL_RENDERER_SOFTWARE;
             break;
         case 'v':
-			uzebox.sdl_flags &= ~SDL_RENDERER_PRESENTVSYNC;
+            uzebox.sdl_flags &= ~SDL_RENDERER_PRESENTVSYNC;
             break;
         case 'm':
-			uzebox.pad_mode = avr8::SNES_MOUSE;
+            uzebox.pad_mode = avr8::SNES_MOUSE;
             break;
         case '2':
-			uzebox.pad_mode = avr8::SNES_PAD2;
+            uzebox.pad_mode = avr8::SNES_PAD2;
+            break;
+        case 'j':
+                uzebox.jamma = strtol(optarg,NULL,10);
+                if(uzebox.jamma = 0)
+                    uzebox.jamma = 1;//assume the user meant something by this...
+            break;
+        case 'o':
+                uzebox.orientation = strtol(optarg,NULL,10);
+                if(uzebox.orientation != 0 && uzebox.orientation != 90 && uzebox.orientation != 270)
+                    uzebox.orientation = 90;//assume the user meant something by this...
+            break;
+        case 'i':
+                if(optarg[0] == 'h')
+                    uzebox.mirror = SDL_FLIP_HORIZONTAL;
+                else if(optarg[0] == 'v')
+                    uzebox.mirror = SDL_FLIP_VERTICAL;
             break;
 #ifndef __EMSCRIPTEN__
         case 'r':
@@ -256,7 +279,23 @@ int main(int argc,char **argv)
                 // enable mouse support if required
                 if(uzeRomHeader.pdefault & PERIPHERAL_MOUSE){
                     uzebox.pad_mode = avr8::SNES_MOUSE;
-                    printf("Mouse support enabled\n");
+                    printf(".uze setting: Mouse support enabled\n");
+                }
+                if(uzeRomHeader.jamma & JAMMA_ROTATE_90){
+                    uzebox.orientation = 90;
+                    printf(".uze setting: Rotate 90\n");
+                }
+                if(uzeRomHeader.jamma & JAMMA_ROTATE_180){
+                    uzebox.orientation = 180;
+                    printf(".uze setting: Rotate 180\n");
+                }
+                if(uzeRomHeader.jamma & JAMMA_ROTATE_270){
+                    uzebox.orientation = 270;
+                    printf(".uze setting: Rotate 270\n");
+                }
+                if(uzeRomHeader.jamma & (JAMMA_B0|JAMMA_B1|JAMMA_B2)){
+                    uzebox.jamma = uzeRomHeader.jamma;
+                    printf(".uze setting: JAMMA bits %d\n", uzebox.jamma);
                 }
             }else{
     			printerr("Error: Cannot load UZE ROM file '%s'. Bad format header?\n\n",heximage);
@@ -342,7 +381,7 @@ int main(int argc,char **argv)
 				uzebox.captureData=new u8[fz];
 				uzebox.captureSize=fz;
 				uzebox.capturePtr=0;
-				fread(uzebox.captureData,1,fz,uzebox.captureFile);
+				size_t clen = fread(uzebox.captureData,1,fz,uzebox.captureFile);
 				fclose(uzebox.captureFile);
 				uzebox.captureFile = 0;
             }
