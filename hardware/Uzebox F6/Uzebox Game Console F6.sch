@@ -27128,7 +27128,7 @@ Low profile connectors, straight&lt;p&gt;
 <part name="SUPPLY19" library="supply2" deviceset="GND" device=""/>
 <part name="C17" library="adafruit" deviceset="CPOL-US" device="E2-4" value="1uF"/>
 <part name="P+9" library="supply1" deviceset="+5V" device=""/>
-<part name="X1" library="Thorsten_connectors" deviceset="MINI-DIN-9" device=""/>
+<part name="X1" library="Thorsten_connectors" deviceset="MINI-DIN-9" device="" value="A/V"/>
 <part name="P+10" library="supply1" deviceset="+5V" device=""/>
 <part name="R4" library="resistor" deviceset="R-US_" device="0207/10" value="180"/>
 <part name="JP1" library="jumper" deviceset="JP2E" device=""/>
