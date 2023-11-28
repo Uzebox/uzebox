@@ -191,6 +191,7 @@ V1.3.2: Fix for SPI RAM instability. Connected pin7 (/HOLD) to VCC.</description
 <wire x1="93.0275" y1="7.62" x2="93.6625" y2="7.62" width="0.15" layer="21"/>
 <text x="16.51" y="66.04" size="1.778" layer="21">A/V</text>
 <text x="59.69" y="68.58" size="1.778" layer="21">ISP</text>
+<text x="58.42" y="6.35" size="1.778" layer="21">OMEGA</text>
 </plain>
 <libraries>
 <library name="ad725">

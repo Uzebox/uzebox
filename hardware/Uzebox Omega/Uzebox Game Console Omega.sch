@@ -27175,7 +27175,7 @@ Low profile connectors, straight&lt;p&gt;
 <text x="-66.04" y="-17.78" size="1.778" layer="91">along with this work.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</text>
 <text x="269.24" y="-30.48" size="1.778" layer="91">Calibration print X=1.005</text>
 <text x="-66.04" y="-25.4" size="1.778" layer="91">Video DAC design and SD voltage dividers contributed by Clay Cowgill.</text>
-<text x="254.254" y="-41.402" size="2.54" layer="91">F6 (PCB rev 1.4)</text>
+<text x="254.254" y="-41.402" size="2.54" layer="91">Omega (PCB rev 1.4)</text>
 <text x="218.694" y="153.162" size="1.778" layer="91">Optional Uzenet Interface</text>
 <text x="-66.04" y="-33.02" size="1.778" layer="91">Added Mini-DIN SCART connector and some cleanup by Thorsten Erdmann (Bluescreen@trektech.de)</text>
 </plain>
