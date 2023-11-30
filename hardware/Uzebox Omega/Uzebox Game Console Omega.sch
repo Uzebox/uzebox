@@ -27176,7 +27176,7 @@ Low profile connectors, straight&lt;p&gt;
 <text x="-66.04" y="-33.02" size="1.778" layer="91">along with this work.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</text>
 <text x="269.24" y="-30.48" size="1.778" layer="91">Calibration print X=1.005</text>
 <text x="-66.04" y="-40.64" size="1.778" layer="91">Video DAC design and SD voltage dividers contributed by Clay Cowgill.</text>
-<text x="254.254" y="-41.402" size="2.54" layer="91">Omega (PCB rev 1.0)</text>
+<text x="254.254" y="-41.402" size="2.54" layer="91">Omega (PCB rev 1.1)</text>
 <text x="165.354" y="145.542" size="1.778" layer="91">Optional Uzenet Interface</text>
 <text x="-66.04" y="-48.26" size="1.778" layer="91">Added Mini-DIN SCART connector and some cleanup by Thorsten Erdmann (Bluescreen@trektech.de)</text>
 <wire x1="160.02" y1="129.54" x2="304.8" y2="129.54" width="0.1524" layer="94" style="dashdot"/>
@@ -28099,16 +28099,16 @@ Low profile connectors, straight&lt;p&gt;
 <pinref part="AD725" gate="G$1" pin="HSYNC"/>
 <label x="68.58" y="86.36" size="1.778" layer="95"/>
 <pinref part="MCU" gate="G$1" pin="(XCK0/T0/PCINT8)PB0"/>
-<pinref part="JP1" gate="1" pin="1"/>
 <wire x1="86.36" y1="104.14" x2="86.36" y2="86.36" width="0.1524" layer="91"/>
 <wire x1="86.36" y1="86.36" x2="68.58" y2="86.36" width="0.1524" layer="91"/>
-<label x="241.3" y="22.86" size="1.778" layer="95"/>
 <wire x1="86.36" y1="104.14" x2="157.48" y2="104.14" width="0.1524" layer="91"/>
 <wire x1="157.48" y1="104.14" x2="241.3" y2="104.14" width="0.1524" layer="91"/>
 <wire x1="241.3" y1="104.14" x2="241.3" y2="96.52" width="0.1524" layer="91"/>
-<wire x1="256.54" y1="25.4" x2="157.48" y2="25.4" width="0.1524" layer="91"/>
-<wire x1="157.48" y1="25.4" x2="157.48" y2="104.14" width="0.1524" layer="91"/>
+<wire x1="157.48" y1="-5.08" x2="157.48" y2="104.14" width="0.1524" layer="91"/>
 <junction x="157.48" y="104.14"/>
+<pinref part="X1" gate="G$1" pin="5"/>
+<wire x1="279.4" y1="-5.08" x2="157.48" y2="-5.08" width="0.1524" layer="91"/>
+<label x="261.62" y="-5.08" size="1.778" layer="95"/>
 </segment>
 <segment>
 <wire x1="-45.72" y1="50.8" x2="-66.04" y2="50.8" width="0.1524" layer="91"/>
@@ -28146,15 +28146,16 @@ Low profile connectors, straight&lt;p&gt;
 </net>
 <net name="CVBS" class="0">
 <segment>
-<wire x1="281.94" y1="66.04" x2="279.4" y2="66.04" width="0.1524" layer="91"/>
 <pinref part="R20'" gate="G$1" pin="2"/>
 <pinref part="VIDEO" gate="G$1" pin="SIG"/>
+<wire x1="281.94" y1="66.04" x2="279.4" y2="66.04" width="0.1524" layer="91"/>
+<label x="264.16" y="22.86" size="1.778" layer="95"/>
 <pinref part="JP1" gate="1" pin="3"/>
 <wire x1="279.4" y1="66.04" x2="276.86" y2="66.04" width="0.1524" layer="91"/>
-<wire x1="261.62" y1="25.4" x2="279.4" y2="25.4" width="0.1524" layer="91"/>
-<wire x1="279.4" y1="25.4" x2="279.4" y2="66.04" width="0.1524" layer="91"/>
+<wire x1="261.62" y1="25.4" x2="261.62" y2="22.86" width="0.1524" layer="91"/>
+<wire x1="261.62" y1="22.86" x2="279.4" y2="22.86" width="0.1524" layer="91"/>
+<wire x1="279.4" y1="22.86" x2="279.4" y2="66.04" width="0.1524" layer="91"/>
 <junction x="279.4" y="66.04"/>
-<label x="264.16" y="22.86" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N$10" class="0">
@@ -28362,10 +28363,11 @@ Low profile connectors, straight&lt;p&gt;
 <net name="LUMA" class="0">
 <segment>
 <pinref part="R25'" gate="G$1" pin="1"/>
-<pinref part="X1" gate="G$1" pin="5"/>
-<wire x1="279.4" y1="-5.08" x2="231.14" y2="-5.08" width="0.1524" layer="91"/>
-<wire x1="231.14" y1="-5.08" x2="231.14" y2="40.64" width="0.1524" layer="91"/>
-<label x="261.62" y="-5.08" size="1.778" layer="95"/>
+<wire x1="231.14" y1="22.86" x2="231.14" y2="40.64" width="0.1524" layer="91"/>
+<pinref part="JP1" gate="1" pin="1"/>
+<wire x1="256.54" y1="22.86" x2="231.14" y2="22.86" width="0.1524" layer="91"/>
+<wire x1="256.54" y1="25.4" x2="256.54" y2="22.86" width="0.1524" layer="91"/>
+<label x="248.92" y="22.86" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N$11" class="0">
@@ -28918,15 +28920,6 @@ Low profile connectors, straight&lt;p&gt;
 <wire x1="271.78" y1="2.54" x2="271.78" y2="7.62" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="SYNC" class="0">
-<segment>
-<pinref part="X1" gate="G$1" pin="4"/>
-<pinref part="JP1" gate="1" pin="2"/>
-<wire x1="279.4" y1="-2.54" x2="259.08" y2="-2.54" width="0.1524" layer="91"/>
-<wire x1="259.08" y1="-2.54" x2="259.08" y2="25.4" width="0.1524" layer="91"/>
-<label x="261.62" y="-2.54" size="1.778" layer="95"/>
-</segment>
-</net>
 <net name="N$3" class="0">
 <segment>
 <wire x1="271.78" y1="149.86" x2="259.08" y2="149.86" width="0.1524" layer="91"/>
@@ -28950,6 +28943,15 @@ Low profile connectors, straight&lt;p&gt;
 <pinref part="LED2" gate="G$1" pin="DOUT"/>
 <pinref part="LED" gate="G$1" pin="2"/>
 <wire x1="99.06" y1="7.62" x2="106.68" y2="7.62" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="CVBS/LUMA" class="0">
+<segment>
+<pinref part="X1" gate="G$1" pin="4"/>
+<pinref part="JP1" gate="1" pin="2"/>
+<wire x1="279.4" y1="-2.54" x2="259.08" y2="-2.54" width="0.1524" layer="91"/>
+<wire x1="259.08" y1="-2.54" x2="259.08" y2="25.4" width="0.1524" layer="91"/>
+<label x="261.62" y="-2.54" size="1.778" layer="95"/>
 </segment>
 </net>
 </nets>
