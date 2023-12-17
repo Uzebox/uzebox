@@ -1,0 +1,1 @@
+CAD models for the Reference Uzebox PCB using type 2 SNES connectors.
