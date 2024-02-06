@@ -265,7 +265,7 @@ bool load_hex(const char *in_filename)
 	return true;
 }
 
-bool load_uze(const char *in_filename){
+bool load_uze(const char *in_filename){//implies patching an existing .uze file
 	FILE *in_file = fopen(in_filename, "r");
 	if (!in_file) return false;
 
@@ -289,7 +289,7 @@ bool load_uze(const char *in_filename){
 		}
 	}
 	fclose(in_file);
-	rom.header.progSize = addr;
+	rom.header.progSize = addr-HEADER_SIZE-1;
 	return true;
 }
 
@@ -320,10 +320,10 @@ int main(int argc,char **argv)
 	}
 
 	int mode = 0;//default create mode
-	if(strncmp(argv[1]+strlen(argv[1])-5, ".uze", 4)){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
+	if(strstr(argv[1], ".hex") == NULL){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
 		mode = 1;//patch mode
 		fprintf(stderr, "\tPatching file: [%s]->[%s]\n", argv[1], argv[2]);
-	}else
+	}else//otherwise create new .uze file
 		fprintf(stderr,"\tPacking file: [%s]->[%s]\n", argv[1], argv[2]);
 
 	chksum_crc32gentab();
@@ -474,7 +474,6 @@ int main(int argc,char **argv)
 			fprintf(stderr,"Could not process HEX file.\n");
 			return 1;
 		}
-		printf("HACK\n");
 	}else{//patch existing .uze file
 		if(!load_uze(argv[1])){
 			fprintf(stderr,"Could not process UZE file.\n");
