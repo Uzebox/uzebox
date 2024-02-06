@@ -73,20 +73,20 @@ typedef uint32_t u32;
 #pragma pack( 1 )
 typedef struct{
 	/*Header fields*/
-	u8 marker[MARKER_SIZE];	//'UZEBOX'
-	u8 version;		//header version
-	u8 target;		//AVR target (ATmega644=0, ATmega1284=1)
-	u32 progSize;		//program memory size in bytes
-	u16 year;
-	u8 name[32];
-	u8 author[32];
-	u8 icon[16*16];
-	u32 crc32;
-	u8 psupport;		//peripherals supported
-	u8 description[64];
-	u8 pdefault;		//peripherals to enable by default(Emulator)
-	u8 jamma;		//JAMMA options
-	u8 reserved[112];
+	u8 marker[MARKER_SIZE];	// 0x00-0x05: Marker 'UZEBOX'
+	u8 version;		// 0x06: Header version
+	u8 target;		// 0x07: Target UC; ATMega644 = 0, ATMega1284 = 1
+	u32 progSize;		// 0x08-0x11: Occupied program memory size
+	u16 year;		// 0x12-0x13: Release year
+	u8 name[32];		// 0x14-0x2D: Name of program (Zero terminated)
+	u8 author[32];		// 0x2E-0x4D: Name of author (Zero terminated)
+	u8 icon[16*16];		// 0x4E-0x14D: 16 x 16 icon using the Uzebox palette
+	u32 crc32;		// 0x14E-0x151: CRC of the program
+	u8 psupport;		// 0x152: Peripherals supported(emulator info)
+	u8 description[64];	// 0x153-0x192: Description (Zero terminated)
+	u8 pdefault;		// 0x193: Peripherals default(emulator behavior on start)
+	u8 jamma;		// 0x194: JAMMA Options(Rotation/Mirroring)
+	u8 reserved[112];	// 0x195-0x1FF: Future use
 }RomHeader;
 
 union ROM{
@@ -205,7 +205,7 @@ bool load_hex(const char *in_filename)
 	u16 progmemLast=0;
 	char line[128];
 	int lineNumber = 1;
-    bool warned = false;
+	bool warned = false;
 
 	FILE *in_file = fopen(in_filename,"r");
 
@@ -265,20 +265,69 @@ bool load_hex(const char *in_filename)
 	return true;
 }
 
+bool load_uze(const char *in_filename){//implies patching an existing .uze file
+	FILE *in_file = fopen(in_filename, "r");
+	if (!in_file) return false;
+
+	memset(rom.progmem+HEADER_SIZE, 0xff , MAX_PROG_SIZE);
+	int addr = 0;
+	while(!feof(in_file)){
+		if(addr < HEADER_SIZE){//eat old header data
+			fgetc(in_file);
+			addr++;
+			continue;
+		}
+
+		if(addr < MAX_PROG_SIZE+HEADER_SIZE)
+			rom.progmem[addr++] = fgetc(in_file);
+		else{
+			fprintf(stderr, "\n\t***Warning***: The hex file has instructions after\n"
+			"\tthe 60KB mark, which are being ignored and is, probably, incompatible with the\n"
+			"\tbootloader. Note: This might not be a problem if your hex is a dump from the\n "
+			"\tchip's flash.\n\n");
+                        break;
+		}
+	}
+	fclose(in_file);
+	rom.header.progSize = addr-HEADER_SIZE-1;
+	return true;
+}
+
 int main(int argc,char **argv)
 {
 
 	if (argc!=4)
 	{
 		fprintf(stderr,"%s ver %i.%i -- Packs a HEX file to binary and adds a header.\n",argv[0],VERSION_MAJOR,VERSION_MINOR);
-		fprintf(stderr,"usage: %s <input.hex> <ouput.uze> <gameinfo.properties>\n",argv[0]);
-		fprintf(stderr,"example: %s halloween.hex halloween.uze gameinfo.properties\n",argv[0]);
+		fprintf(stderr,"usage(create): %s <input.hex> <ouput.uze> <gameinfo.properties>\n",argv[0]);
+		fprintf(stderr,"creation example: %s halloween.hex halloween.uze gameinfo.properties\n",argv[0]);
+		fprintf(stderr,"usage(patch): %s <input.uze> <output.uze> <gameinfo.properties>\n",argv[0]);
+		fprintf(stderr,"patching example: %s halloween.uze hwpatched.uze gameinfo.properties\n",argv[0]);
 		return 1;
 	}
 
-	fprintf(stderr,"\tPacking file: %s\n",argv[1]);
-	
+	if(argv[1][0] == '\0'){
+		fprintf(stderr,"Error: no input file specified\n");
+		return -1;
+	}
+	if(argv[2][0] == '\0'){
+		fprintf(stderr,"Error: no output file specified\n");
+		return -1;
+	}
+	if(argv[3][0] == '\0'){
+		fprintf(stderr,"Error: no properties file specified\n");
+		return -1;
+	}
+
+	int mode = 0;//default create mode
+	if(strstr(argv[1], ".hex") == NULL){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
+		mode = 1;//patch mode
+		fprintf(stderr, "\tPatching file: [%s]->[%s]\n", argv[1], argv[2]);
+	}else//otherwise create new .uze file
+		fprintf(stderr,"\tPacking file: [%s]->[%s]\n", argv[1], argv[2]);
+
 	chksum_crc32gentab();
+	memset((void *)&rom.header, 0x00 , HEADER_SIZE);
 
 	//parse the games properties file
 	FILE *file = fopen ( argv[3], "r" );
@@ -288,13 +337,13 @@ int main(int argc,char **argv)
 		while ( fgets ( line, sizeof(line), file ) != NULL ) /* read a line */
 		{
 			if(!strncmp(line,"#",1)){
-				//ignore comment line
+				continue;//ignore comment line
 
 			}else if(!strncmp(line,"name=",5)){
 				strcpy2((char*)rom.header.name,line+5,sizeof(rom.header.name));
 				fprintf(stderr,"\tGame Name: %s\n", rom.header.name);
 
-			}else if(!strncmp(line,"desc=",5)){
+			}else if(!strncmp(line,"desc=",5)){//this is allowed to contain '\n'?
 				strcpy2((char*)rom.header.description,line+5,sizeof(rom.header.description));
 				fprintf(stderr,"\tDescription: %s\n", rom.header.description);
 
@@ -362,6 +411,54 @@ int main(int argc,char **argv)
 				rom.header.jamma |= JAMMA_FLIP_H;
 				fprintf(stderr,"\tJAMMA: Flip Vertical\n");
 
+			}else{//terminate string at '\r' or '\n', and compare to remaining possible arguments
+			
+				for(char *p=line+5; *p;++p){
+					if(*p < ' '){
+						*p=0;
+						break;
+					}
+				}
+
+				if(!strncmp(line,"icon=",5)){
+					// read 24bits/32bits raw RGB 16x16 icon (easy to export from Gimp as .raw)
+					// ordered row-major, left to right, top to bottom
+					FILE *iconfile = fopen(line+5, "rb");
+					fprintf(stderr,"\tIcon: %s\n", line+5);
+					if(iconfile){
+						fseek(iconfile, 0, SEEK_END);
+						int size = ftell(iconfile);
+						fseek(iconfile, 0, SEEK_SET);
+
+						for(int i=0,y=16; y--;){
+							fprintf(stderr, "\t\t");
+							for(int x=16; x--; ++i){
+								u8 rgb[3];
+								if(fread(&rgb, 3, 1, iconfile) < 1){
+									fprintf(stderr,"\tIcon file read error\033[0m\n");
+									y=0;
+									break;
+								}
+								if(size == 1024){ // 768=RGB, 1024=RGBA, discard alpha
+									fseek(iconfile, 1, SEEK_CUR);
+								}
+								rgb[0] &= 0xE0;
+								rgb[1] &= 0xE0;
+								rgb[2] &= 0xC0;
+								rom.header.icon[i] = (((rgb[0]) >> 5) & 7) | (((rgb[1]) >> 2) & 0x38) | ((rgb[2]) & 0xC0);
+								fprintf(stderr, "\033[38;2;%d;%d;%d;48;2;%d;%d;%dm##", rgb[0] & 255, rgb[1] & 255, rgb[2] & 255, rgb[0] & 255, rgb[1] & 255, rgb[2] & 255);
+							}
+							fprintf(stderr, "\033[0m\n");
+						}
+
+						fclose(iconfile);
+					}else{
+						fprintf(stderr,"\tIcon file error\n");
+						return 1;
+					}
+				}else{
+					fprintf(stderr,"\tUnknown Option [%s]\n", line);
+				}
 			}
 		}
 		fclose (file);
@@ -372,9 +469,16 @@ int main(int argc,char **argv)
 		return 1;
 	}
 
-	if(!load_hex(argv[1])){
-		fprintf(stderr,"Could not process HEX file.\n");
-		return 1;
+	if(mode == 0){//create new .uze
+		if(!load_hex(argv[1])){
+			fprintf(stderr,"Could not process HEX file.\n");
+			return 1;
+		}
+	}else{//patch existing .uze file
+		if(!load_uze(argv[1])){
+			fprintf(stderr,"Could not process UZE file.\n");
+			return 1;
+		}
 	}
 
 	memcpy(rom.header.marker,"UZEBOX",MARKER_SIZE);
@@ -383,8 +487,7 @@ int main(int argc,char **argv)
 	rom.header.crc32=chksum_crc32(rom.progmem+HEADER_SIZE, rom.header.progSize);
 
 	fprintf(stderr,"\tCRC32: 0x%lx\n", (long unsigned int) rom.header.crc32);
-	fprintf(stderr,"\tProgram size: %li \n",
-        (long unsigned int) rom.header.progSize);
+	fprintf(stderr,"\tProgram size: %li \n", (long unsigned int) rom.header.progSize);
 
 	//write the output file
 	FILE *out_file = fopen(argv[2],"wb");
