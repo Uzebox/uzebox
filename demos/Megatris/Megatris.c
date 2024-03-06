@@ -1275,7 +1275,7 @@ void hardDrop(void){
 void hold(void){
 
 
-	if(fields[f].canHold){
+	if(fields[f].canHold && !fields[f].locking){
 		//erase current block from field	
 		updateGhostPiece(true);	
 		drawTetramino(fields[f].currBlockX+fields[f].left,fields[f].currBlockY+fields[f].top,fields[f].currBlock,fields[f].currBlockRotation,0,true,true);
