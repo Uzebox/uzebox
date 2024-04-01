@@ -51,7 +51,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) $(PROJECT).hex $(PROJECT).eep $(PROJECT).lss $(GAME).uze size
+all: $(TARGET) $(PROJECT).hex $(PROJECT).eep $(PROJECT).lss $(GAME).uze
 
 
 ## Compile
@@ -110,10 +110,6 @@ AVRSIZEFLAGS := -A ${TARGET}
 ifneq (,$(findstring MINGW,$(UNAME)))
 AVRSIZEFLAGS := -C --mcu=${MCU} ${TARGET}
 endif
-	
-size: ${TARGET}
-	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
 
 ## Clean target
 .PHONY: clean
