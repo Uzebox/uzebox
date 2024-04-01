@@ -53,7 +53,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: ../data/tiles.inc ../data/sprites.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+all: ../data/tiles.inc ../data/sprites.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
 
 ## Regenerate the graphics include file
 ../data/tiles.inc: ../data/tiles.png ../data/tiles.xml
@@ -97,10 +97,6 @@ $(TARGET): $(OBJECTS)
 %.uze: $(TARGET)
 	@echo
 	-$(UZEBIN_DIR)packrom $(GAME).hex $(GAME).uze $(INFO)
-
-size: ${TARGET}
-	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
 
 ## Clean target
 .PHONY: clean

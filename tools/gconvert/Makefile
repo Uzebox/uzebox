@@ -97,6 +97,16 @@ RM := -rm -rf
 MTOOLS = utils/mtools
 endif
 
+## Haiku #############################
+ifeq ($(UNAME),Haiku)
+OS := LINUX
+PLATFORM := Unix
+CC := g++
+MKDIR := mkdir -p
+RM := rm -rf
+MTOOLS =
+endif
+
 ifeq ($(PLATFORM),Unknown)
         $(error Unsupported platform!)
 endif

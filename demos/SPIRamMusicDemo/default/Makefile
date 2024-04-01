@@ -56,8 +56,8 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-##all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
-all: SD_MUSIC.DAT ../data/sdMusicConfig.cfg ../data/sdPCMConfig.cfg $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss size
+##all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
+all: SD_MUSIC.DAT ../data/sdMusicConfig.cfg ../data/sdPCMConfig.cfg $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss
 
 ## Regenerate the music resources
 SD_MUSIC.DAT: ../data/sdMusicConfig.cfg ../data/sdPCMConfig.cfg
@@ -110,10 +110,6 @@ AVRSIZEFLAGS := -A ${TARGET}
 ##ifneq (,$(findstring MINGW,$(UNAME)))
 ##AVRSIZEFLAGS := -C --mcu=${MCU} ${TARGET}
 ##endif
-
-size: ${TARGET}
-	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
 
 ## Clean target
 .PHONY: clean

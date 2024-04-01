@@ -70,7 +70,7 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -111,10 +111,6 @@ $(TARGET): $(OBJECTS)
 %.uze: $(TARGET)
 	@echo
 	-$(UZEBIN_DIR)packrom $(GAME).hex $(GAME).uze $(INFO)
-
-size: ${TARGET}
-	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
 
 ## Clean target
 .PHONY: clean
