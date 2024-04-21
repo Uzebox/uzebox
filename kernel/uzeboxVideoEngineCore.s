@@ -80,6 +80,7 @@
 .global ClearVsyncFlag
 .global ReadJoypad
 .global ReadJoypadExt
+.global ReadButtons
 .global SoftReset
 .global WriteEeprom
 .global ReadEeprom
@@ -609,6 +610,89 @@ rj_p2m:
 	ret
 #endif
 	
+;*****************************
+; Reads in joypad state
+; C-callable
+;*****************************
+.section .text.ReadButtons
+ReadButtons:
+
+	; Assume latch being set here, the down edge triggering latching the
+	; controllers. Latch will be set on exit from this routine to arm it.
+	; Assume clock being set here as well.
+	cbi  _SFR_IO_ADDR(JOYPAD_OUT_PORT), JOYPAD_LATCH_PIN
+
+	; Read button states
+	ldi  r21,      16
+readbuttons_loop:
+	lpm  r20,      Z
+	lpm  r20,      Z
+	lpm  r20,      Z       ; Wait 9 cycles
+#if (SNES_MOUSE == 1)
+	rjmp .
+	lds  r20,      snesMouseEnabled
+	cpi  r20,      0
+	breq .+6               ; Wait 6 cycles if no SNES mouse active
+	ldi  r20,      ((28 * 5) / 3) ; Wait ~5us if SNES mouse active
+	dec  r20
+	brne .-4
+#else
+	lpm  r20,      Z
+	lpm  r20,      Z       ; Wait 6 cycles
+#endif
+	cbi  _SFR_IO_ADDR(JOYPAD_OUT_PORT), JOYPAD_CLOCK_PIN
+	lpm  r20,      Z       ; Wait 3 cycles
+#if (SNES_MOUSE == 1)
+	rjmp .
+	lds  r20,      snesMouseEnabled
+	cpi  r20,      0
+	breq .+6               ; Wait 6 cycles if no SNES mouse active
+	ldi  r20,      ((28 * 5) / 3) ; Wait ~5us if SNES mouse active
+	dec  r20
+	brne .-4
+#else
+	lpm  r20,      Z
+	lpm  r20,      Z       ; Wait 6 cycles
+#endif
+	lsr  r25
+	ror  r24
+	lsr  r23
+	ror  r22
+	sbis _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA1_PIN
+	ori  r25,      0x80
+	sbis _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA2_PIN
+	ori  r23,      0x80
+	sbi  _SFR_IO_ADDR(JOYPAD_OUT_PORT), JOYPAD_CLOCK_PIN
+	dec  r21
+	brne readbuttons_loop
+
+	; Prepare for next latch
+	sbi  _SFR_IO_ADDR(JOYPAD_OUT_PORT), JOYPAD_LATCH_PIN
+
+	; Write out button states
+#if (JOYSTICK != TYPE_SNES)
+	clr  r25
+	clr  r23
+#endif
+	sts  joypad1_status_lo + 0, r24
+	sts  joypad1_status_lo + 1, r25
+	sts  joypad2_status_lo + 0, r22
+	sts  joypad2_status_lo + 1, r23
+
+	; Check soft reset condition
+	subi r24, lo8(BTN_START + BTN_SELECT + BTN_Y + BTN_B)
+	sbci r25, hi8(BTN_START + BTN_SELECT + BTN_Y + BTN_B)
+	breq readbuttons_reset
+	subi r22, lo8(BTN_START + BTN_SELECT + BTN_Y + BTN_B)
+	sbci r23, hi8(BTN_START + BTN_SELECT + BTN_Y + BTN_B)
+	breq readbuttons_reset
+
+	; Done (no reset)
+	ret
+
+readbuttons_reset:
+	jmp  SoftReset
+
 ;*****************************
 ; Performs a soft-reset
 ; C-callable

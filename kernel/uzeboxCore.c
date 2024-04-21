@@ -244,79 +244,7 @@ void Initialize(void){
 
 }
 
-void ReadButtons(){
-	unsigned int p1ButtonsLo=0,p2ButtonsLo=0;
-	unsigned char i;
 
-	//latch controllers
-	JOYPAD_OUT_PORT|=_BV(JOYPAD_LATCH_PIN);
-	#if SNES_MOUSE == 1
-		if(snesMouseEnabled){
-			WaitUs(1);
-		}else{
-			Wait200ns();
-			Wait200ns();
-		}	
-	#else
-		Wait200ns();
-		Wait200ns();
-	#endif
-	JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));
-
-
-	//read button states
-	for(i=0;i<16;i++){
-
-		p1ButtonsLo>>=1;
-		p2ButtonsLo>>=1;
-
-		#if SNES_MOUSE == 1
-			if(snesMouseEnabled){
-				WaitUs(5);
-			}else{
-				Wait200ns();
-				Wait200ns();
-			}	
-		#else
-			Wait200ns();
-			Wait200ns();
-		#endif
-			
-		//pulse clock pin		
-		JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
-		
-		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsLo|=(1<<15);
-		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsLo|=(1<<15);
-		
-		JOYPAD_OUT_PORT|=_BV(JOYPAD_CLOCK_PIN);
-		
-		#if SNES_MOUSE == 1
-			if(snesMouseEnabled){
-				WaitUs(5);
-			}else{
-				Wait200ns();
-				Wait200ns();
-			}	
-		#else
-			Wait200ns();
-			Wait200ns();
-		#endif
-
-	}
-
-	#if JOYSTICK==TYPE_SNES
-		joypad1_status_lo=p1ButtonsLo;
-		joypad2_status_lo=p2ButtonsLo;
-	#else
-		joypad1_status_lo=p1ButtonsLo&0xff;
-		joypad2_status_lo=p2ButtonsLo&0xff;	
-	#endif
-
-	if(joypad1_status_lo==(BTN_START+BTN_SELECT+BTN_Y+BTN_B) || joypad2_status_lo==(BTN_START+BTN_SELECT+BTN_Y+BTN_B)){
-		SoftReset();
-	}
-
-}
 
 /**
  * Initiates teh buttons reading and detect if joypads are connected.
