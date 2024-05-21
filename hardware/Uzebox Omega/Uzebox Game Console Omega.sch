@@ -16537,15 +16537,6 @@ Source: http://products.nichicon.co.jp/en/pdf/XJA043/e-ud.pdf</description>
 </library>
 <library name="adafruit">
 <packages>
-<package name="PJ-102A">
-<wire x1="-4.6" y1="4.4" x2="4.4" y2="4.4" width="0.127" layer="21"/>
-<wire x1="4.4" y1="4.4" x2="4.4" y2="-10.2" width="0.127" layer="21"/>
-<wire x1="4.4" y1="-10.2" x2="-4.6" y2="-10.2" width="0.127" layer="21"/>
-<wire x1="-4.6" y1="-10.2" x2="-4.6" y2="4.4" width="0.127" layer="21"/>
-<pad name="RING_SW" x="-4.6" y="-6.29" drill="3" diameter="4.8" rot="R180"/>
-<pad name="TIP" x="0.1" y="-9.29" drill="3" diameter="4.8" rot="R180"/>
-<pad name="RING" x="0.1" y="-3.39" drill="3" diameter="4.8" rot="R180"/>
-</package>
 <package name="1206">
 <description>&lt;b&gt;CHICAGO MINIATURE LAMP, INC.&lt;/b&gt;&lt;p&gt;
 7022X Series SMT LEDs 1206 Package Size</description>
@@ -17323,63 +17314,6 @@ Source: http://www.osram.convergy.de/ ... LO_LS_LY L89K.pdf</description>
 <rectangle x1="-0.225" y1="0.3" x2="0.225" y2="0.975" layer="31"/>
 <rectangle x1="-0.175" y1="-0.7" x2="0.175" y2="-0.325" layer="29" rot="R180"/>
 <rectangle x1="-0.225" y1="-0.975" x2="0.225" y2="-0.3" layer="31" rot="R180"/>
-</package>
-<package name="DCJACK_2MM_SMT">
-<description>2.0/2.1mm DC Jack - SMT
-&lt;p&gt;4UConnector: 03267&lt;/p&gt;
-&lt;p&gt;Note: Small tRestrict polygon's were added to the ground pads to improve solderability when this part is used in combination with a ground pour.  By default, Eagle will product four large bridges to the ground pour significantly increasing the heat distribution on the pads and preventing lead-free solder from reflowing in certain situations.  For more details, see: http://www.microbuilder.eu/Blog/09-12-14/Reducing_Thermals_for_Large_Pads_in_Eagle.aspx&lt;/p&gt;</description>
-<wire x1="-4" y1="4.5" x2="-5" y2="3.5" width="0.127" layer="51" curve="90"/>
-<wire x1="-5" y1="3.5" x2="-5" y2="-3.5" width="0.127" layer="51"/>
-<wire x1="-5" y1="-3.5" x2="-4" y2="-4.5" width="0.127" layer="51" curve="90"/>
-<wire x1="-4" y1="-4.5" x2="10.254" y2="-4.5" width="0.127" layer="51"/>
-<wire x1="10.254" y1="-4.5" x2="10.254" y2="-1.492" width="0.127" layer="51"/>
-<wire x1="10.254" y1="-1.492" x2="9" y2="-1.492" width="0.127" layer="51"/>
-<wire x1="9" y1="-1.492" x2="9" y2="4.5" width="0.127" layer="51"/>
-<wire x1="9" y1="4.5" x2="-4" y2="4.5" width="0.127" layer="51"/>
-<wire x1="-4" y1="4.5" x2="-5" y2="3.5" width="0.127" layer="21" curve="90"/>
-<wire x1="-5" y1="3.5" x2="-5" y2="-3.5" width="0.127" layer="21"/>
-<wire x1="-5" y1="-3.5" x2="-4" y2="-4.5" width="0.127" layer="21" curve="90"/>
-<wire x1="10.254" y1="-4.5" x2="10.254" y2="-1.492" width="0.127" layer="21"/>
-<wire x1="10.254" y1="-1.492" x2="9" y2="-1.492" width="0.127" layer="21"/>
-<wire x1="9" y1="-1.492" x2="9" y2="4.5" width="0.127" layer="21"/>
-<wire x1="-1.668" y1="4.5" x2="-4" y2="4.5" width="0.127" layer="21"/>
-<wire x1="4.682" y1="4.5" x2="1.588" y2="4.5" width="0.127" layer="21"/>
-<wire x1="9" y1="4.5" x2="7.938" y2="4.5" width="0.127" layer="21"/>
-<wire x1="-4" y1="-4.5" x2="-1.684" y2="-4.5" width="0.127" layer="21"/>
-<wire x1="1.588" y1="-4.5" x2="4.666" y2="-4.5" width="0.127" layer="21"/>
-<wire x1="7.938" y1="-4.5" x2="10.254" y2="-4.5" width="0.127" layer="21"/>
-<smd name="PWR1" x="0" y="5.5" dx="2.4" dy="2" layer="1"/>
-<smd name="PWR2" x="6.2" y="5.5" dx="2.4" dy="2" layer="1"/>
-<smd name="GNDBREAK" x="6.2" y="-5.5" dx="2.4" dy="2" layer="1"/>
-<smd name="GND" x="0" y="-5.5" dx="2.4" dy="2" layer="1"/>
-<text x="0.762" y="2.794" size="1.4224" layer="21" ratio="12" rot="R90">+</text>
-<text x="-1.016" y="-3.81" size="0.8128" layer="21">GND</text>
-<hole x="0" y="0" drill="1.6"/>
-<hole x="4.5" y="0" drill="1.8"/>
-<polygon width="0.0254" layer="41" spacing="0.254">
-<vertex x="1.27" y="-5.7404"/>
-<vertex x="1.27" y="-5.2578"/>
-<vertex x="1.2954" y="-5.2578"/>
-<vertex x="1.2954" y="-5.7404"/>
-</polygon>
-<polygon width="0.0254" layer="41" spacing="0.254">
-<vertex x="-0.254" y="-4.4196"/>
-<vertex x="0.2286" y="-4.4196"/>
-<vertex x="0.2286" y="-4.445"/>
-<vertex x="-0.254" y="-4.445"/>
-</polygon>
-<polygon width="0.0254" layer="41" spacing="0.254">
-<vertex x="4.9022" y="-5.7404"/>
-<vertex x="4.9022" y="-5.2578"/>
-<vertex x="4.9276" y="-5.2578"/>
-<vertex x="4.9276" y="-5.7404"/>
-</polygon>
-<polygon width="0.0254" layer="41" spacing="0.254">
-<vertex x="6.4262" y="-4.445"/>
-<vertex x="5.9436" y="-4.445"/>
-<vertex x="5.9436" y="-4.4196"/>
-<vertex x="6.4262" y="-4.4196"/>
-</polygon>
 </package>
 <package name="DO41-10">
 <description>&lt;B&gt;DIODE&lt;/B&gt;&lt;p&gt;
@@ -21769,21 +21703,6 @@ diameter 5 mm, grid 2.54 mm</description>
 </package>
 </packages>
 <symbols>
-<symbol name="POWERJACK-1">
-<wire x1="2.54" y1="3.175" x2="0" y2="3.175" width="0.254" layer="94"/>
-<wire x1="0" y1="3.175" x2="-1.27" y2="2.54" width="0.254" layer="94"/>
-<wire x1="-1.27" y1="2.54" x2="0" y2="1.905" width="0.254" layer="94"/>
-<wire x1="0" y1="1.905" x2="2.54" y2="1.905" width="0.254" layer="94"/>
-<wire x1="2.54" y1="1.905" x2="2.54" y2="3.175" width="0.254" layer="94"/>
-<wire x1="2.54" y1="0" x2="2.54" y2="-1.27" width="0.254" layer="94"/>
-<wire x1="2.54" y1="-2.54" x2="1.27" y2="-2.54" width="0.254" layer="94"/>
-<wire x1="1.27" y1="-2.54" x2="0" y2="-1.27" width="0.254" layer="94"/>
-<wire x1="0" y1="-1.27" x2="-1.27" y2="-2.54" width="0.254" layer="94"/>
-<text x="-2.54" y="5.08" size="1.27" layer="95">&gt;NAME</text>
-<pin name="TIP" x="5.08" y="2.54" visible="off" length="short" rot="R180"/>
-<pin name="RING" x="5.08" y="-2.54" visible="off" length="short" rot="R180"/>
-<pin name="RING_SW" x="5.08" y="0" visible="off" length="short" rot="R180"/>
-</symbol>
 <symbol name="D">
 <wire x1="-1.27" y1="-1.27" x2="1.27" y2="0" width="0.254" layer="94"/>
 <wire x1="1.27" y1="0" x2="-1.27" y2="1.27" width="0.254" layer="94"/>
@@ -21860,36 +21779,6 @@ diameter 5 mm, grid 2.54 mm</description>
 </symbol>
 </symbols>
 <devicesets>
-<deviceset name="2.1MMJACK">
-<description>2.1mm x 5.5mm THM DC jack with internal switch. Digikey part #PJ-102A, 4UCON part #05537 &lt;br&gt;
-2.1mm x 5.5mm SMT DC jack with internal switch. Digikey part #PJ-002A-SMT, 4UCON part #03267
-&lt;p&gt;By microbuilder.eu &amp; adafruit.com&lt;/p&gt;</description>
-<gates>
-<gate name="G$1" symbol="POWERJACK-1" x="0" y="0"/>
-</gates>
-<devices>
-<device name="THM" package="PJ-102A">
-<connects>
-<connect gate="G$1" pin="RING" pad="RING"/>
-<connect gate="G$1" pin="RING_SW" pad="RING_SW"/>
-<connect gate="G$1" pin="TIP" pad="TIP"/>
-</connects>
-<technologies>
-<technology name=""/>
-</technologies>
-</device>
-<device name="SMT" package="DCJACK_2MM_SMT">
-<connects>
-<connect gate="G$1" pin="RING" pad="GND"/>
-<connect gate="G$1" pin="RING_SW" pad="GNDBREAK"/>
-<connect gate="G$1" pin="TIP" pad="PWR2"/>
-</connects>
-<technologies>
-<technology name=""/>
-</technologies>
-</device>
-</devices>
-</deviceset>
 <deviceset name="1N4004" prefix="D">
 <description>&lt;B&gt;DIODE&lt;/B&gt;&lt;p&gt;
 General purpose 1N400x type rectifier
@@ -26556,23 +26445,23 @@ by exp-lbrs-replace2.ulp</description>
 <wire x1="-4.191" y1="0" x2="4.191" y2="0" width="0.127" layer="21"/>
 <wire x1="4.191" y1="0" x2="4.85" y2="0" width="0.127" layer="21"/>
 <rectangle x1="4.9" y1="-10.5" x2="5.25" y2="-7.3" layer="51"/>
-<pad name="GND" x="0" y="-5" drill="1.3" diameter="1.9304" shape="long"/>
+<pad name="GND" x="0" y="-5" drill="1.3" diameter="2.5" shape="long"/>
 <text x="-4.826" y="1.1595" size="1.27" layer="25" ratio="10" rot="R90">&gt;NAME</text>
 <text x="6.096" y="1.1595" size="1.27" layer="27" ratio="10" rot="R90">&gt;VALUE</text>
-<hole x="3" y="-5" drill="1.4"/>
-<hole x="-3" y="-5" drill="1.4"/>
-<hole x="-3" y="-11" drill="1.4"/>
+<hole x="3.25" y="-5" drill="1.4"/>
+<hole x="-3.25" y="-5" drill="1.4"/>
+<hole x="-3.25" y="-11" drill="1.4"/>
 <pad name="SIGNAL" x="-5" y="-8.8" drill="1" diameter="1.9304" shape="long" rot="R90"/>
-<hole x="-3" y="-1" drill="1.4"/>
-<hole x="3" y="-1" drill="1.4"/>
-<hole x="3" y="-11" drill="1.4"/>
+<hole x="-3.25" y="-1" drill="1.4"/>
+<hole x="3.25" y="-1" drill="1.4"/>
+<hole x="3.25" y="-11" drill="1.4"/>
 <rectangle x1="-5.25" y1="-10.5" x2="-4.9" y2="-7.3" layer="51"/>
-<wire x1="-0.6" y1="-4.35" x2="-1.25" y2="-5" width="0" layer="46" curve="90"/>
-<wire x1="-1.25" y1="-5" x2="-0.6" y2="-5.65" width="0" layer="46" curve="90"/>
-<wire x1="-0.6" y1="-5.65" x2="0.6" y2="-5.65" width="0" layer="46"/>
-<wire x1="0.6" y1="-5.65" x2="1.25" y2="-5" width="0" layer="46" curve="90"/>
-<wire x1="1.25" y1="-5" x2="0.6" y2="-4.35" width="0" layer="46" curve="90"/>
-<wire x1="0.6" y1="-4.35" x2="-0.6" y2="-4.35" width="0" layer="46"/>
+<wire x1="-1.65" y1="-4.35" x2="-2.3" y2="-5" width="0" layer="46" curve="90"/>
+<wire x1="-2.3" y1="-5" x2="-1.65" y2="-5.65" width="0" layer="46" curve="90"/>
+<wire x1="-1.65" y1="-5.65" x2="1.65" y2="-5.65" width="0" layer="46"/>
+<wire x1="1.65" y1="-5.65" x2="2.3" y2="-5" width="0" layer="46" curve="90"/>
+<wire x1="2.3" y1="-5" x2="1.65" y2="-4.35" width="0" layer="46" curve="90"/>
+<wire x1="1.65" y1="-4.35" x2="-1.65" y2="-4.35" width="0" layer="46"/>
 <wire x1="-4.5" y1="-8.05" x2="-5.08" y2="-7.55" width="0" layer="46" curve="90"/>
 <wire x1="-5.08" y1="-7.55" x2="-5.5" y2="-8.05" width="0" layer="46" curve="90"/>
 <wire x1="-5.5" y1="-8.05" x2="-5.5" y2="-9.55" width="0" layer="46"/>
@@ -26641,6 +26530,51 @@ by exp-lbrs-replace2.ulp</description>
 <wire x1="4.5" y1="-9.55" x2="5" y2="-10.05" width="0" layer="46" curve="90"/>
 <wire x1="5" y1="-10.05" x2="5.5" y2="-9.55" width="0" layer="46" curve="90"/>
 <wire x1="5.5" y1="-9.55" x2="5.5" y2="-8.05" width="0" layer="46"/>
+</package>
+<package name="DCJACK">
+<wire x1="1.16" y1="-14.2" x2="-1.16" y2="-14.2" width="0" layer="46"/>
+<wire x1="-1.16" y1="-14.2" x2="-1.65" y2="-13.71" width="0" layer="46" curve="-90"/>
+<wire x1="-1.65" y1="-13.71" x2="-1.65" y2="-13.69" width="0" layer="46"/>
+<wire x1="-1.65" y1="-13.69" x2="-1.16" y2="-13.2" width="0" layer="46" curve="-90"/>
+<wire x1="-1.16" y1="-13.2" x2="1.16" y2="-13.2" width="0" layer="46"/>
+<wire x1="1.16" y1="-13.2" x2="1.65" y2="-13.69" width="0" layer="46" curve="-90"/>
+<wire x1="1.65" y1="-13.69" x2="1.65" y2="-13.71" width="0" layer="46"/>
+<wire x1="1.65" y1="-13.71" x2="1.16" y2="-14.2" width="0" layer="46" curve="-90"/>
+<wire x1="-5.3" y1="-9.69" x2="-5.3" y2="-11.51" width="0" layer="46"/>
+<wire x1="-5.3" y1="-11.51" x2="-4.81" y2="-12" width="0" layer="46" curve="90"/>
+<wire x1="-4.81" y1="-12" x2="-4.79" y2="-12" width="0" layer="46"/>
+<wire x1="-4.79" y1="-12" x2="-4.3" y2="-11.51" width="0" layer="46" curve="90"/>
+<wire x1="-4.3" y1="-11.51" x2="-4.3" y2="-9.69" width="0" layer="46"/>
+<wire x1="-4.3" y1="-9.69" x2="-4.79" y2="-9.2" width="0" layer="46" curve="90"/>
+<wire x1="-4.79" y1="-9.2" x2="-4.81" y2="-9.2" width="0" layer="46"/>
+<wire x1="-4.81" y1="-9.2" x2="-5.3" y2="-9.69" width="0" layer="46" curve="90"/>
+<wire x1="-1.4" y1="-7.61" x2="-1.4" y2="-7.59" width="0" layer="46"/>
+<wire x1="-1.4" y1="-7.59" x2="-0.91" y2="-7.1" width="0" layer="46" curve="-90"/>
+<wire x1="-0.91" y1="-7.1" x2="0.91" y2="-7.1" width="0" layer="46"/>
+<wire x1="0.91" y1="-7.1" x2="1.4" y2="-7.59" width="0" layer="46" curve="-90"/>
+<wire x1="1.4" y1="-7.59" x2="1.4" y2="-7.61" width="0" layer="46"/>
+<wire x1="1.4" y1="-7.61" x2="0.91" y2="-8.1" width="0" layer="46" curve="-90"/>
+<wire x1="0.91" y1="-8.1" x2="-0.91" y2="-8.1" width="0" layer="46"/>
+<wire x1="-0.91" y1="-8.1" x2="-1.4" y2="-7.61" width="0" layer="46" curve="-90"/>
+<wire x1="4.3" y1="0" x2="-4.3" y2="0" width="0.2032" layer="21"/>
+<wire x1="-4.3" y1="0" x2="-4.3" y2="-14.3" width="0.2032" layer="51"/>
+<wire x1="-4.3" y1="-14.3" x2="4.3" y2="-14.3" width="0.2032" layer="51"/>
+<wire x1="4.3" y1="-14.3" x2="4.3" y2="0" width="0.2032" layer="21"/>
+<wire x1="2.7" y1="-14.3" x2="4.3" y2="-14.3" width="0.2032" layer="21"/>
+<wire x1="-4.3" y1="-14.3" x2="-2.7" y2="-14.3" width="0.2032" layer="21"/>
+<wire x1="3" y1="0" x2="3" y2="-7.16" width="0.2032" layer="51" style="shortdash"/>
+<wire x1="-3" y1="0" x2="-3" y2="-7.16" width="0.2032" layer="51" style="shortdash"/>
+<wire x1="-3" y1="-7.16" x2="3" y2="-7.16" width="0.2032" layer="51" style="shortdash"/>
+<wire x1="0.9" y1="-1.16" x2="0.9" y2="-5.66" width="0.2032" layer="51" style="shortdash"/>
+<wire x1="-0.9" y1="-1.16" x2="-0.9" y2="-5.66" width="0.2032" layer="51" style="shortdash"/>
+<wire x1="0.9" y1="-1.16" x2="-0.9" y2="-1.16" width="0.2032" layer="51" curve="166.57811"/>
+<wire x1="-4.3" y1="0" x2="-4.3" y2="-7.71" width="0.2032" layer="21"/>
+<wire x1="-4.3" y1="-12.46" x2="-4.3" y2="-14.3" width="0.2032" layer="21"/>
+<pad name="1" x="0" y="-13.7" drill="1" diameter="2" shape="long"/>
+<pad name="3" x="0" y="-7.6" drill="1" diameter="2" shape="long"/>
+<pad name="2" x="-4.8" y="-10.6" drill="1" diameter="2" shape="long" rot="R270"/>
+<text x="3.81" y="-15.24" size="1.27" layer="25" rot="R180">&gt;NAME</text>
+<text x="5.08" y="0" size="1.27" layer="27" rot="R270">&gt;VALUE</text>
 </package>
 </packages>
 <symbols>
@@ -26745,6 +26679,26 @@ by exp-lbrs-replace2.ulp</description>
 <wire x1="-5.08" y1="-2.54" x2="-4.572" y2="0" width="0.1778" layer="94"/>
 <wire x1="-4.572" y1="0" x2="-4.318" y2="-1.27" width="0.1778" layer="94"/>
 </symbol>
+<symbol name="DCJACK-SWITCH">
+<wire x1="-2.54" y1="2.54" x2="-7.62" y2="2.54" width="0.1524" layer="94"/>
+<wire x1="-2.54" y1="0" x2="-5.08" y2="0" width="0.1524" layer="94"/>
+<wire x1="-5.08" y1="0" x2="-5.08" y2="-2.54" width="0.1524" layer="94"/>
+<wire x1="-2.54" y1="-2.54" x2="-5.08" y2="-2.54" width="0.1524" layer="94"/>
+<wire x1="-5.08" y1="-2.54" x2="-6.858" y2="-2.54" width="0.1524" layer="94"/>
+<wire x1="-6.858" y1="-2.54" x2="-7.62" y2="-1.016" width="0.1524" layer="94"/>
+<wire x1="-7.62" y1="-1.016" x2="-8.382" y2="-2.54" width="0.1524" layer="94"/>
+<text x="-10.16" y="3.81" size="1.778" layer="95">&gt;NAME</text>
+<text x="-10.16" y="-6.35" size="1.778" layer="96">&gt;VALUE</text>
+<rectangle x1="-8.255" y1="0.635" x2="-6.731" y2="4.445" layer="94" rot="R270"/>
+<pin name="1" x="0" y="2.54" visible="pad" length="short" direction="pas" rot="R180"/>
+<pin name="2" x="0" y="0" visible="pad" length="short" direction="pas" rot="R180"/>
+<pin name="3" x="0" y="-2.54" visible="pad" length="short" direction="pas" rot="R180"/>
+<polygon width="0.1524" layer="94">
+<vertex x="-5.08" y="-2.54"/>
+<vertex x="-5.588" y="-1.27"/>
+<vertex x="-4.572" y="-1.27"/>
+</polygon>
+</symbol>
 </symbols>
 <devicesets>
 <deviceset name="MINI-DIN-9" prefix="K">
@@ -26810,6 +26764,23 @@ by exp-lbrs-replace2.ulp</description>
 <connect gate="G$1" pin="GND" pad="GND"/>
 <connect gate="G$1" pin="SIGNAL" pad="SIGNAL_OUT"/>
 <connect gate="G$1" pin="SWITCH" pad="SIGNAL_IN"/>
+</connects>
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+</devices>
+</deviceset>
+<deviceset name="DCJACK-SWITCH" prefix="K">
+<gates>
+<gate name="G$1" symbol="DCJACK-SWITCH" x="0" y="0"/>
+</gates>
+<devices>
+<device name="" package="DCJACK">
+<connects>
+<connect gate="G$1" pin="1" pad="1"/>
+<connect gate="G$1" pin="2" pad="2"/>
+<connect gate="G$1" pin="3" pad="3"/>
 </connects>
 <technologies>
 <technology name=""/>
@@ -27269,9 +27240,6 @@ Low profile connectors, straight&lt;p&gt;
 <part name="SUPPLY11" library="supply2" deviceset="GND" device=""/>
 <part name="SUPPLY12" library="supply2" deviceset="GND" device=""/>
 <part name="R20'" library="resistor" deviceset="R-US_" device="0207/10" value="75"/>
-<part name="K1" library="adafruit" deviceset="2.1MMJACK" device="THM" value="DC IN">
-<attribute name="LABEL" value="DC IN (9-12V)"/>
-</part>
 <part name="D1" library="adafruit" deviceset="1N4004" device="" value="1N4001">
 <attribute name="PN" value="641-1310-1-ND"/>
 </part>
@@ -27382,6 +27350,7 @@ Low profile connectors, straight&lt;p&gt;
 <part name="SUPPLY21" library="supply2" deviceset="GND" device=""/>
 <part name="J1" library="Thorsten_diverses" deviceset="MICROSD-SWITCH" device=""/>
 <part name="SUPPLY23" library="supply2" deviceset="GND" device=""/>
+<part name="K1" library="Thorsten_connectors" deviceset="DCJACK-SWITCH" device="" value="9..12V DC"/>
 </parts>
 <sheets>
 <sheet>
@@ -27400,7 +27369,7 @@ Low profile connectors, straight&lt;p&gt;
 <text x="-66.04" y="-30.48" size="1.778" layer="91">You should have received a copy of the GNU General Public License</text>
 <text x="-66.04" y="-33.02" size="1.778" layer="91">along with this work.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</text>
 <text x="-66.04" y="-40.64" size="1.778" layer="91">Video DAC design and SD voltage dividers contributed by Clay Cowgill.</text>
-<text x="254.254" y="-41.402" size="2.54" layer="91">Omega (PCB rev 1.3)</text>
+<text x="254.254" y="-41.402" size="2.54" layer="91">Omega (PCB rev 1.4)</text>
 <text x="165.354" y="145.542" size="1.778" layer="91">Optional Uzenet Interface</text>
 <text x="-66.04" y="-48.26" size="1.778" layer="91">Added Mini-DIN SCART connector and some cleanup by Thorsten Erdmann (Bluescreen@trektech.de)</text>
 <wire x1="160.02" y1="129.54" x2="304.8" y2="129.54" width="0.1524" layer="94" style="dashdot"/>
@@ -27545,10 +27514,6 @@ Low profile connectors, straight&lt;p&gt;
 <instance part="R20'" gate="G$1" x="251.46" y="66.04" smashed="yes">
 <attribute name="NAME" x="247.65" y="67.5386" size="1.778" layer="95"/>
 <attribute name="VALUE" x="247.65" y="62.738" size="1.778" layer="96"/>
-</instance>
-<instance part="K1" gate="G$1" x="106.68" y="-35.56" smashed="yes">
-<attribute name="NAME" x="106.68" y="-30.988" size="1.27" layer="95"/>
-<attribute name="LABEL" x="85.852" y="-36.322" size="1.778" layer="96"/>
 </instance>
 <instance part="D1" gate="1" x="116.84" y="-33.02" smashed="yes">
 <attribute name="PN" x="116.84" y="-33.02" size="1.778" layer="96" display="off"/>
@@ -27853,6 +27818,7 @@ Low profile connectors, straight&lt;p&gt;
 <instance part="SUPPLY23" gate="GND" x="-40.64" y="83.82" smashed="yes">
 <attribute name="VALUE" x="-42.545" y="80.645" size="1.778" layer="96"/>
 </instance>
+<instance part="K1" gate="G$1" x="106.68" y="-38.1"/>
 </instances>
 <busses>
 </busses>
@@ -27976,9 +27942,7 @@ Low profile connectors, straight&lt;p&gt;
 <wire x1="160.02" y1="-43.18" x2="147.32" y2="-43.18" width="0.1524" layer="91"/>
 <wire x1="132.08" y1="-43.18" x2="132.08" y2="-40.64" width="0.1524" layer="91"/>
 <wire x1="132.08" y1="-43.18" x2="147.32" y2="-43.18" width="0.1524" layer="91"/>
-<wire x1="132.08" y1="-43.18" x2="114.3" y2="-43.18" width="0.1524" layer="91"/>
-<wire x1="114.3" y1="-43.18" x2="114.3" y2="-38.1" width="0.1524" layer="91"/>
-<wire x1="114.3" y1="-38.1" x2="111.76" y2="-38.1" width="0.1524" layer="91"/>
+<wire x1="132.08" y1="-43.18" x2="106.68" y2="-43.18" width="0.1524" layer="91"/>
 <wire x1="203.2" y1="-40.64" x2="203.2" y2="-43.18" width="0.1524" layer="91"/>
 <wire x1="203.2" y1="-43.18" x2="190.5" y2="-43.18" width="0.1524" layer="91"/>
 <wire x1="190.5" y1="-43.18" x2="177.8" y2="-43.18" width="0.1524" layer="91"/>
@@ -27992,13 +27956,14 @@ Low profile connectors, straight&lt;p&gt;
 <junction x="190.5" y="-43.18"/>
 <junction x="147.32" y="-43.18"/>
 <pinref part="SUPPLY15" gate="GND" pin="GND"/>
-<pinref part="K1" gate="G$1" pin="RING"/>
 <pinref part="C11" gate="G$1" pin="2"/>
 <pinref part="C12" gate="G$1" pin="2"/>
 <pinref part="IC1" gate="1" pin="GND"/>
 <pinref part="IC2" gate="A1" pin="GND"/>
 <pinref part="C16" gate="G$1" pin="-"/>
 <pinref part="C20" gate="G$1" pin="-"/>
+<pinref part="K1" gate="G$1" pin="3"/>
+<wire x1="106.68" y1="-40.64" x2="106.68" y2="-43.18" width="0.1524" layer="91"/>
 </segment>
 <segment>
 <pinref part="SUPPLY24" gate="GND" pin="GND"/>
@@ -28388,9 +28353,10 @@ Low profile connectors, straight&lt;p&gt;
 </net>
 <net name="N$10" class="0">
 <segment>
-<wire x1="114.3" y1="-33.02" x2="111.76" y2="-33.02" width="0.1524" layer="91"/>
-<pinref part="K1" gate="G$1" pin="TIP"/>
 <pinref part="D1" gate="1" pin="A"/>
+<pinref part="K1" gate="G$1" pin="1"/>
+<wire x1="106.68" y1="-35.56" x2="106.68" y2="-33.02" width="0.1524" layer="91"/>
+<wire x1="106.68" y1="-33.02" x2="114.3" y2="-33.02" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$9" class="0">
