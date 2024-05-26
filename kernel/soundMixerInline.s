@@ -320,7 +320,7 @@ ch5_nores:
 	ldi   ZH,      0xFF    ; Saturate from top to 0xFF
 	sts   _SFR_MEM_ADDR(OCR2A), ZH ; Output sound byte
 
-#if (UART != 0)
+#if (UART == 1)
 
 	; Read UART data (20 cycles)
 
@@ -380,6 +380,61 @@ uart_tx_out:
 
 uart_tx_end:
 
+#elif (UART == 2) //28 cycles, half duplex
+
+	lds   r0,      _SFR_MEM_ADDR(UCSR0A)	;2
+	sbrs  r0,      RXC0			;3/4 Rx Data in?
+	rjmp  uart2_tx_check			;5 No? See if we can Tx
+	rjmp  uart2_rx_in			;6 Yes? Skip Tx to keep up with Rx
+
+uart2_rx_in:					;6
+	ldi   ZL,    lo8(uart_rx_buf)		;7
+	ldi   ZH,    hi8(uart_rx_buf)		;8
+	lds   r18,   uart_rx_head		;10
+
+	clr   r1				;11
+	add   ZL,    r18			;12
+	adc   ZH,    r1				;13
+	inc   r18				;14
+	andi  r18,   (UART_RX_BUFFER_SIZE - 1)	;15 Wrap
+
+	lds   r0,    _SFR_MEM_ADDR(UDR0)	;17
+	st    Z,     r0				;19
+	sts   uart_rx_head, r18			;21
+	lpm   ZL,    Z				;24 ...
+	rjmp  .					;26 ...
+	rjmp  uart2_end				;28
+
+uart2_tx_check:					;5
+	ldi   ZL,    lo8(uart_tx_buf)		;6
+	ldi   ZH,    hi8(uart_tx_buf)		;7
+	lds   r18,   uart_tx_tail		;9
+
+	add   ZL,    r18			;10
+	adc   ZH,    r1				;11 r1 = 0
+
+	lds   r0,    _SFR_MEM_ADDR(UCSR0A)	;13
+
+	lds   r1,    uart_tx_head		;15
+	cp    r1,    r18     			;16 Is there any data in the buffer to send?
+	sbrs  r0,    UDRE0			;17/18 Data can be sent?
+	rjmp  uart2_tx_wt			;19
+	brne  uart2_tx_out			;20
+
+uart2_tx_wt:					;19
+	nop					;20
+	lpm   ZL,    Z				;23
+	lpm   ZL,    Z				;26
+	rjmp  uart2_end				;28
+
+uart2_tx_out:					;20
+	ld    r0,    Z				;22
+	sts   _SFR_MEM_ADDR(UDR0), r0		;24
+	inc   r18				;25
+	andi  r18,   (UART_TX_BUFFER_SIZE - 1)	;26 Wrap
+	sts   uart_tx_tail, r18			;28
+
+uart2_end:					;28
 #endif
 
 	pop   r18
