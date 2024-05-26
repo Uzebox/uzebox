@@ -209,7 +209,7 @@ void Initialize(void){
 		tr4_params=0b00000001; //15 bits no divider (1)
 	#endif
 
-	#if UART == 1
+	#if (UART > 0)
 		InitUartRxBuffer();
 		InitUartTxBuffer();
 	#endif
@@ -319,7 +319,7 @@ void ReadButtons(){
 }
 
 /**
- * Initiates teh buttons reading and detect if joypads are connected.
+ * Initiates the buttons reading and detect if joypads are connected.
  * When no device are plugged, the internal AVR pullup will drive the data lines high
  * otherwise the controller's shift register will drive the data lines low after 
  * completing a transfer. (The shift register's serial input pin is tied to ground)
@@ -386,7 +386,7 @@ void ReadMouseExtendedData(){
 
 
 /*
- This method activates teh code to read the mouse. 
+ This method activates the code to read the mouse. 
  Currently reading the mouse takes a much a 2.5 scanlines.
 */
 unsigned char playDevice=0,playPort=0,mouseSpriteIndex,mouseWidth,mouseHeight;
@@ -752,7 +752,7 @@ char EepromBlockExists(unsigned int blockId, u16* eepromAddr, u8* nextFreeBlockI
 }
 
 
-#if UART == 1
+#if (UART > 0)
 	/*
 	 * UART RX/TX buffer functions
 	 */
