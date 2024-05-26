@@ -441,18 +441,21 @@
 
 
 	#if SOUND_MIXER == MIXER_TYPE_INLINE
-		#define WAVE_CHANNELS 3
-		#define NOISE_CHANNELS 1
-		#define MIXER_CHAN4_TYPE 0
-		#define CHANNEL_STRUCT_SIZE 6
+		#define WAVE_CHANNELS		3
+		#define NOISE_CHANNELS		1
+		#define MIXER_CHAN4_TYPE	0
+		#define CHANNEL_STRUCT_SIZE	6
 
-		#if SOUND_CHANNEL_5_ENABLE==1
+		#if (SOUND_CHANNEL_5_ENABLE > 0)
 			#define PCM_CHANNELS 1
 			#define CHANNELS WAVE_CHANNELS+NOISE_CHANNELS+PCM_CHANNELS
 			
 			#if UART == 1
 				#define AUDIO_OUT_HSYNC_CYCLES (232)
 				#define AUDIO_OUT_VSYNC_CYCLES (232)
+			#elif UART == 2
+				#define AUDIO_OUT_HSYNC_CYCLES (217)
+				#define AUDIO_OUT_VSYNC_CYCLES (217)
 			#else
 				#define AUDIO_OUT_HSYNC_CYCLES (189)
 				#define AUDIO_OUT_VSYNC_CYCLES (189)
@@ -464,6 +467,9 @@
 			#if UART == 1
 				#define AUDIO_OUT_HSYNC_CYCLES (187)
 				#define AUDIO_OUT_VSYNC_CYCLES (187)
+			#elif UART == 2
+				#define AUDIO_OUT_HSYNC_CYCLES (172)
+				#define AUDIO_OUT_VSYNC_CYCLES (172)
 			#else
 				#define AUDIO_OUT_HSYNC_CYCLES (144)
 				#define AUDIO_OUT_VSYNC_CYCLES (144)
@@ -594,9 +600,8 @@
 
 	#ifdef HSYNC_USABLE_CYCLES 
 		#if HSYNC_USABLE_CYCLES - AUDIO_OUT_HSYNC_CYCLES <0
-			#error There is not enough CPU cycles to support the build options. Disable the UART (-DUART=0), audio channel 5 (-DSOUND_CHANNEL_5_ENABLE=0) or the inline mixer (-DSOUND_MIXER=0).
+			#error There is not enough CPU cycles to support the build options. Try half-duplex UART(-DUART=2), else disable one of: UART(-DUART=0), or audio channel 5(-DSOUND_CHANNEL_5_ENABLE=0), or the inline mixer(-DSOUND_MIXER=0).
 		#endif 
 	#endif
 
 #endif
-
