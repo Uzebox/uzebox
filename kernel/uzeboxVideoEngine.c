@@ -51,8 +51,34 @@
 
 	}
 
+	#if MAP_COMPRESSION == 1
+	void DrawMapRLE(unsigned char x,unsigned char y,const VRAM_PTR_TYPE *map) {
+		u8 mapWidth=pgm_read_byte(map++);//pgm_read_byte(&(map[0]));
+		u8 mapHeight=pgm_read_byte(map++);//pgm_read_byte(&(map[1]));
+		u8 maxVal=pgm_read_byte(map++);//pgm_read_byte(&(map[2]));//values greater than this represent repeats
+		u8 repeatVal=0;
+		u8 repeatLen=0;
+
+		for(u8 dy=0;dy<mapHeight;dy++){
+			for(u8 dx=0;dx<mapWidth;dx++){
+
+				if(repeatLen>0){
+					repeatLen--;
+				}else{
+					repeatVal=pgm_read_byte(map++);
+					if(repeatVal > maxVal){
+						repeatLen=(repeatVal-maxVal);
+						repeatVal=pgm_read_byte(map++);//repeatVal=pgm_read_byte(&(map[mapOff++]));
+					}
+				}
+				SetTile(x+dx,y+dy,repeatVal);
+			}
+		}
+	}
+	#endif
+
 	void DrawMap2(unsigned char x,unsigned char y,const char *map) __attribute__((alias("DrawMap"))) __attribute__ ((deprecated));
-#else
+#else //VRAM_ADDR_SIZE == 2
 
 	//Draws a map of tile at the specified position
 
@@ -69,6 +95,32 @@
 		}
 
 	}
+
+	#if MAP_COMPRESSION == 1
+	void DrawMapRLE(unsigned char x,unsigned char y,const VRAM_PTR_TYPE *map) {
+		u8 mapWidth=pgm_read_word(map++);
+		u8 mapHeight=pgm_read_word(map++);
+		u16 maxVal=pgm_read_word(map++);//values greater than this represent repeats
+		u16 repeatVal=0;
+		u16 repeatLen=0;
+
+		for(u8 dy=0;dy<mapHeight;dy++){
+			for(u8 dx=0;dx<mapWidth;dx++){
+
+				if(repeatLen>0){
+					repeatLen--;
+				}else{
+					repeatVal=pgm_read_word(map++);
+					if(repeatVal > maxVal){
+						repeatLen=(repeatVal-maxVal);
+						repeatVal=pgm_read_word(map++);//repeatVal=pgm_read_byte(&(map[mapOff++]));
+					}
+				}
+				SetTile(x+dx,y+dy,repeatVal);
+			}
+		}
+	}
+	#endif
 #endif
 
 
