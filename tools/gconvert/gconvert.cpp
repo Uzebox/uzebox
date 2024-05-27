@@ -49,6 +49,7 @@ int paletteIndexFromColor(unsigned char color);
 
 struct TileMap {
 	const char* varName;
+	const char* compression;
 	int left;
 	int top;
 	int width;
@@ -601,16 +602,18 @@ bool process(){
 			}
 
 			fprintf(tf,"%i,",map.width);
-			fprintf(tf,"%i",map.height);
-
+			fprintf(tf,"%i,",map.height);
 
 			int c=0;
+			int mapBuf[256*256];//probably a practical limit..
+			int mapPos=0;
+			int maxVal=0;//RLE
+			if((unsigned long)(map.width*map.height) > sizeof(mapBuf)){
+				printf("Map exceeds 64K!\n");
+				return false;
+			}
 			for(int y=map.top;y<(map.top+map.height);y++){
 				for(int x=map.left;x<(map.left+map.width);x++){
-
-					if(c%20==0)	fprintf(tf,"\n"); //wrap line
-
-					fprintf(tf,",");
 
 					//check for first tile that match pixels at the current map position
 					unsigned char* tile=getTileAt(x,y,&image);
@@ -629,17 +632,71 @@ bool process(){
 						return false;
 					}
 
-					fprintf(tf,"0x%x",index);
-
+					mapBuf[mapPos++]=index;
+					if(index>maxVal)//RLE
+						maxVal=index;
 
 					c++;
-
 				}
 			}
 
-			fprintf(tf,"};\n\n");
+			mapPos=0;
+			if(map.compression != NULL && !strcmp(map.compression,"rle")){
+				fprintf(tf,"%i,\n",maxVal);//store maximum tile value in use so repeats can be determined
+				int maxLen;
+				if(xform.mapsPointersSize==8)
+					maxLen=255-maxVal;
+				else
+					maxLen=65535-maxVal;
 
-			totalSize+=((map.height*map.width)+2)*(xform.mapsPointersSize/8);
+				int mapVal,runLen;
+				int mapBytes=0;
+				for(unsigned int i=0;i<(unsigned int)(map.width*map.height);i++){
+					mapVal=mapBuf[mapPos++];
+					runLen=0;
+					for(int j=0;j<maxLen;j++){
+						if(mapPos+j >= (map.width*map.height))
+							break;
+
+						if(mapBuf[mapPos+j] != mapVal)
+							break;
+
+						runLen++;
+					}
+					if(runLen>1){
+						fprintf(tf,"0x%x,0x%x,",maxVal+runLen,mapVal);
+						i+=runLen;
+						mapPos+=runLen;
+						mapBytes+=2;
+					}else{
+						fprintf(tf,"0x%x,",mapVal);
+						mapBytes++;
+					}
+					if((i%20)==0)
+						fprintf(tf,"\n");
+				}
+				totalSize+=(mapBytes+3)*(xform.mapsPointersSize/8);
+
+			}else if(map.compression != NULL){
+				printf("Unknown map compression type: %s\n", map.compression);
+				return false;
+
+			}else{//normal uncompressed map
+				int c=0;
+				fprintf(tf,"\n");
+				for(int y=0;y<map.height;y++){
+					for(int x=0;x<map.width;x++){
+							fprintf(tf,"0x%x,",mapBuf[mapPos++]);
+							if(c==20){
+								fprintf(tf,"\n");
+								c=0;
+							}
+							
+					}
+				}
+				totalSize+=((map.height*map.width)+2)*(xform.mapsPointersSize/8);
+			}
+			fprintf(tf,"};\n\n");
 		}
 	}
 
@@ -1158,11 +1215,13 @@ void parseXml(TiXmlDocument* doc){
 		mapCount=0;
 		for(node=mapsElem->FirstChild("map");node;node=node->NextSibling("map")){
 			maps[mapCount].varName=node->ToElement()->Attribute("var-name");
+			maps[mapCount].compression=node->ToElement()->Attribute("compression");
 
 			node->ToElement()->QueryIntAttribute("top",&maps[mapCount].top);
 			node->ToElement()->QueryIntAttribute("left",&maps[mapCount].left);
 			node->ToElement()->QueryIntAttribute("width",&maps[mapCount].width);
 			node->ToElement()->QueryIntAttribute("height",&maps[mapCount].height);
+
 			mapCount++;
 		}
 		if(mapCount>0){
