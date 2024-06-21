@@ -75,8 +75,7 @@ RM := rm -rf
 MTOOLS = 
 endif
 
-
-## FreeBSD  #############################
+## FreeBSD ############################
 ifeq ($(UNAME),FreeBSD)
 OS := LINUX
 PLATFORM := Unix
@@ -84,6 +83,16 @@ CC := g++
 MKDIR := mkdir -p
 RM := rm -rf
 MTOOLS = 
+endif
+
+## Haiku ##############################
+ifeq ($(UNAME),Haiku)
+OS := LINUX
+PLATFORM := Unix
+CC := g++
+MKDIR := mkdir -p
+RM := rm -rf
+MTOOLS =
 endif
 
 ## Mac OS #############################
