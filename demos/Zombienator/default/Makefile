@@ -113,7 +113,7 @@ endif
 	
 size: ${TARGET}
 	@echo
-	@avr-size -A ${TARGET}
+	@-avr-size -C --mcu=${MCU} ${TARGET}
 
 ## Clean target
 .PHONY: clean
