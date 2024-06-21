@@ -146,6 +146,23 @@ RM := rm -rf
 MTOOLS = 
 endif
 
+## FreeBSD #############################
+ifeq ($(UNAME),FreeBSD)
+OS := LINUX
+PLATFORM := Unix
+ifeq ($(EMSCRIPTEN_BUILD),1)
+    SDL_FLAGS :=
+    CC := emcc
+else
+    SDL_FLAGS := $(shell sdl2-config --cflags)
+    LDFLAGS += $(shell sdl2-config --libs)
+    CC := g++
+endif
+MKDIR := mkdir -p
+RM := rm -rf
+MTOOLS = 
+endif
+
 ## Mac OS #############################
 ifeq ($(UNAME),Darwin)
 OS := MACOSX
