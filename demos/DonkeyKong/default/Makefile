@@ -65,11 +65,11 @@ all: ../data/tiles0.inc ../data/tiles1.inc ../data/sprites.inc $(TARGET) $(GAME)
 
 ## Regenerate the graphics include file
 ../data/tiles0.inc: ../data/tiles0.png ../data/tiles0.xml
-	gconvert ../data/tiles0.xml
+	$(UZEBIN_DIR)gconvert ../data/tiles0.xml
 ../data/tiles1.inc: ../data/tiles1.png ../data/tiles1.xml
-	gconvert ../data/tiles1.xml
+	$(UZEBIN_DIR)gconvert ../data/tiles1.xml
 ../data/sprites.inc: ../data/sprites.png ../data/sprites.xml
-	gconvert ../data/sprites.xml
+	$(UZEBIN_DIR)gconvert ../data/sprites.xml
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -110,7 +110,7 @@ $(TARGET): $(OBJECTS)
 
 size: ${TARGET}
 	@echo
-	@avr-size -C --mcu=${MCU} ${TARGET}
+	@-avr-size -C --mcu=${MCU} ${TARGET}
 
 ## Clean target
 .PHONY: clean
