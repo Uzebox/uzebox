@@ -48,9 +48,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <vector>
+#include <cstdint>
 
-
-using namespace std;
 
 struct avr8;
 
@@ -58,7 +57,7 @@ typedef uint8_t byte_t;
 typedef uint16_t word_t;
 typedef uint32_t dword_t;
 
-class Breakpoints: public vector<dword_t> {
+class Breakpoints: public std::vector<dword_t> {
 };
 
 #define MAX_BUF 400 /* Maximum size of read/write buffers. */
