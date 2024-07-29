@@ -36,7 +36,8 @@ FILE *fin, *fout, *fcfg;
 int asBinIn;
 int asBinOut;
 int doPad;
-int doDebug;
+int doDebug = 0;
+int dpcmDebug = 0;
 int doLength;
 int doCustomName;
 char arrayName[256];
@@ -59,8 +60,14 @@ long flashCost;
 long totalFlashCost;
 int inSize,outSize,cfgSize,cfgLine,cfgEntry;
 unsigned char inBuf[1024*1024*64];
-unsigned char outBuf[1024*1024*64];
+unsigned char outBuf[sizeof(inBuf)];
+unsigned char tempBuf[sizeof(inBuf)];
+//char tempBuf[sizeof(inBuf)];
 unsigned char cfgBuf[1024*4];
+
+unsigned char accum = 0;
+unsigned char target,samples;
+unsigned char slope = 0;
 
 
 int ConvertAndWrite();
@@ -85,7 +92,7 @@ int main(int argc, char *argv[]){
 
 	while(1){/* eat any new lines the user inserted before the setup line */
 		if(fgets(lineBuf,sizeof(lineBuf)-1,fcfg) == NULL){//read the initial line
-			printf("Error: failed to read parameter line\n");
+			printf("Error: Failed to read parameter line\n");
 			goto ERROR;
 		}
 		if(lineBuf[0] != '\r' && lineBuf[0] != '\n'){/* found junk before the setup line? */
@@ -94,7 +101,7 @@ int main(int argc, char *argv[]){
 					if(lineBuf[j] == '\n')
 						break;
 					if(j == sizeof(lineBuf)-1){
-						printf("Error: failed to find setup line\n");
+						printf("Error: Failed to find setup line\n");
 						goto ERROR;
 					}
 				}
@@ -106,7 +113,7 @@ int main(int argc, char *argv[]){
 	}
 
 	if(sscanf(lineBuf," %d , %d , %ld , %ld , %d ,  %ld , %255[^ ,\n\t] , %n ",&asBinIn,&asBinOut,&dirOff,&fileOff,&doPad,&minSize,foutName,&eat) != 7){
-		printf("Error: bad format on setup line. Got \"%s\"\n",lineBuf);
+		printf("Error: Bad format on setup line. Got \"%s\"\n",lineBuf);
 		printf("\tFormat is 7 comma separated entries, as:\n\t\t0/1 = C array or binary input,\n\t\t0/1 = C array or binary output,\n\t\tdirectory start offset,\n\t\tdata start offset,\n\t\t0/1 = pad data to 512 byte sector size,\n\t\tminimum file size in bytes(pad if less)\n\t\toutput file name,\n");
 		printf("\n\tEx: 1,1,0,512,131072,1,OUTPUT.DAT\n\tbinary in, binary out, dir at 0, starting at 512, padded, pad file to 128K, to OUTPUT.DAT\n");
 		goto ERROR;
@@ -176,17 +183,40 @@ int main(int argc, char *argv[]){
 			if(lineBuf[0] == '\r' || lineBuf[0] == '\n'){/* user entered an extra line end after the entries, eat it */
 				continue;
 			}else if(lineBuf[0] == '#'){//eat the comment line
+				if(strncmp(lineBuf, "#DEBUG=1", 8) == 0){
+					doDebug = 1;
+					printf("**DCONVERT DEBUG enabled before line %d\n", cfgLine);
+				}else if(strncmp(lineBuf, "#DEBUG=0", 8) == 0){
+					doDebug = 0;
+					printf("**DCONVERT DEBUG disabled before line %d\n", cfgLine);
+				}else if(strncmp(lineBuf, "#DPCM-DEBUG=1", 13) == 0){
+					dpcmDebug = 1;
+					printf("**DCONVERT DPCM-DEBUG enabled before line %d\n", cfgLine);
+				}else if(strncmp(lineBuf, "#DPCM-DEBUG=0", 13) == 0){
+					dpcmDebug = 0;
+					printf("**DCONVERT DPCM-DEBUG disabled before line %d\n", cfgLine);
+				}
 				for(j=1;j<sizeof(lineBuf);j++){
 					if(lineBuf[j] == '\n')
 						break;
 					if(j == sizeof(lineBuf)-1){
-						printf("Error: did not find end of comment for line %d\n",cfgLine);
+						printf("Error: Did not find end of comment for line %d\n",cfgLine);
 						goto ERROR;
 					}
 				}
 				continue;
+			}else if(lineBuf[0] == ';'){/* user wants a system call to run */
+				unsigned char lbc = lineBuf[strlen(lineBuf)-1]; /* remove any '\r' or '\n' line endings */
+				if(lbc == '\r' || lbc == '\n')
+					lineBuf[strlen(lineBuf)-1] = '\0';
+				lbc = lineBuf[strlen(lineBuf)-1];
+				if(lbc == '\r' || lbc == '\n')
+					lineBuf[strlen(lineBuf)-1] = '\0';
+				printf("User system call on line %d, [%s]:\n", cfgLine, lineBuf+1);
+				system(lineBuf+1);
+				continue;
 			}else{
-				printf("Error: bad format on entry %d line %d. Got \"%s\"\n",cfgEntry+1,cfgLine+1,lineBuf);
+				printf("Error: Bad format on entry %d line %d. Got \"%s\"\n",cfgEntry+1,cfgLine+1,lineBuf);
 				goto ERROR;
 			}
 		}
@@ -196,7 +226,9 @@ int main(int argc, char *argv[]){
 		if(transformType == 0)
 			printf("Raw");
 		else if(transformType == 1)
-			printf("PCM 2bit version 1");
+			printf("Patch conversion");
+		else if(transformType == 2)
+			printf("1bit DPCM conversion");
 		else
 			printf("Unknown(using Raw)");
 		printf(", skip %d arrays, skip %d bytes, output offset:%ld\n",skipArrays,skipBytes,fileOff);
@@ -210,7 +242,7 @@ int main(int argc, char *argv[]){
 		i = ConvertAndWrite();
 
 		if(i != 1){
-			printf("Error: conversion failed for %s on entry %d, line %d, error: %d\n",finName,cfgEntry,cfgLine,i);
+			printf("ERROR: Conversion failed for %s on entry %d, line %d, error: %d\n",finName,cfgEntry,cfgLine,i);
 			goto ERROR;
 		}
 	}
@@ -225,39 +257,145 @@ DONE:
 
 
 int ConvertAndWrite(){
-	int delta,i,j,w;
+	int i,j,k,w;
 	unsigned char c1,c2,c3,t;
 	w = 0;
 	inSize = 0;
 	outSize = 0;
 	flashCost = 0;
+	accum = 0x80;
+	unsigned char up_count = 0;
+	unsigned char down_count = 0;
+	unsigned char neutral_count = 0;
 
+	for(i=0;i<sizeof(inBuf);i++)
+		inBuf[i] = outBuf[i] = 0;
+		
 	if(asBinIn){
 		while(!feof(fin)){
 			fread(inBuf+inSize,1,1,fin);
 			inSize++;
 		}
-	}else{/* C array */
+	}else{/* C array input */
 		for(i=0;i<skipArrays+1;i++)
 			while(fgetc(fin) != '{' && !feof(fin));/* eat everything up to the beginning of the array data */
 
 		if(feof(fin)){/* got to the end of the file without seeing the opening bracket of the array */
-			printf("Did not find opening bracket '{'\n");
+			printf("ERROR: Did not find opening bracket '{'\n");
 			return -1;
 		}
-		while(fscanf(fin," 0%*[xX]%x , ",&i) == 1){
-			if(skipBytes)
-				skipBytes--;
-			else
-				inBuf[inSize++] = (i & 0xFF);
+
+		if(transformType == 1){//patches input?
+			char lastc = 0;
+			while(!feof(fin)){
+				char c = fgetc(fin);
+
+				if(c == ' ' || c == '\t' || c == '\r' || (c == '\n' && lastc == '\n'))
+					continue;
+				if(c == '}')
+					break;
+				lastc = c;
+				tempBuf[inSize++] = c;
+			}
+			tempBuf[inSize] = '\0';
+			inSize = 0;
+			char *match;
+			while(1){//replace command defines with numbers...
+				match = strstr(tempBuf, "PC_ENV_SPEED");
+				if(match != NULL){memmove(match, (const char *)"0x00        ", 12);continue;}
+
+				match = strstr(tempBuf, "PC_NOISE_PARAMS");
+				if(match != NULL){memmove(match, (const char *)"0x01           ", 15);continue;}
+
+				match = strstr(tempBuf, "PC_ENV_WAVE");
+				if(match != NULL){memmove(match, (const char *)"0x02       ", 11);continue;}
+
+				match = strstr(tempBuf, "PC_NOTE_UP");
+				if(match != NULL){memmove(match, (const char *)"0x03      ", 10);continue;}
+
+				match = strstr(tempBuf, "PC_NOTE_DOWN");
+				if(match != NULL){memmove(match, (const char *)"0x04        ", 12);continue;}
+
+				match = strstr(tempBuf, "PC_NOTE_CUT");
+				if(match != NULL){memmove(match, (const char *)"0x05       ", 11);continue;}
+
+				match = strstr(tempBuf, "PC_NOTE_HOLD");
+				if(match != NULL){memmove(match, (const char *)"0x06        ", 12);continue;}
+
+				match = strstr(tempBuf, "PC_ENV_VOL");
+				if(match != NULL){memmove(match, (const char *)"0x07      ", 10);continue;}
+
+				match = strstr(tempBuf, "PC_PITCH");
+				if(match != NULL){memmove(match, (const char *)"0x08    ", 8);continue;}
+
+				match = strstr(tempBuf, "PC_TREMOLO_LEVEL");
+				if(match != NULL){memmove(match, (const char *)"0x09            ", 16);continue;}
+
+				match = strstr(tempBuf, "PC_TREMOLO_RATE");
+				if(match != NULL){memmove(match, (const char *)"0x0A           ", 15);continue;}
+
+				match = strstr(tempBuf, "PC_SLIDE");
+				if(match != NULL){memmove(match, (const char *)"0x0B    ", 8);continue;}
+
+				match = strstr(tempBuf, "PC_SLIDE_SPEED");
+				if(match != NULL){memmove(match, (const char *)"0x0C          ", 14);continue;}
+
+				match = strstr(tempBuf, "PC_LOOP_START");
+				if(match != NULL){memmove(match, (const char *)"0x0D         ", 13);continue;}
+
+				match = strstr(tempBuf, "PC_LOOP_END");
+				if(match != NULL){memmove(match, (const char *)"0x0E       ", 11);continue;}
+
+				match = strstr(tempBuf, "PATCH_END");
+				if(match != NULL){memmove(match, (const char *)"0xFF     ", 9);continue;}
+				break;
+			}
+			char *csv = strtok(tempBuf, ",");
+			int pstep = 0;
+			while(csv != NULL){
+
+				if(skipBytes){//user needs to get this correct so PATCH_END detection works..
+					skipBytes--;
+				}else{
+					i = strtol(csv, NULL, 0);
+					inBuf[inSize++] = (i & 0xFF);
+					if(inSize == sizeof(tempBuf)){
+						printf("ERROR: Found no patch end\n");
+						return -4;
+					}
+					if(i == 0xFF && ((pstep%3) == 2))//PATCH_END, ignore anything after
+						break;
+				}
+				csv = strtok(NULL, ",");
+				pstep++;
+			}
+		}else{//standard input transform(there may be a specific output transform later..)
+			while(fscanf(fin," 0%*[xX]%x , ",&i) == 1){
+				if(skipBytes)
+					skipBytes--;
+				else
+					inBuf[inSize++] = (i & 0xFF);
+			}
 		}
 		if(skipBytes){
-			printf("Read garbage while skipping bytes(or EOF)\n");
+			printf("ERROR: Read garbage while skipping bytes(or EOF)\n");
 			return -2;
 		}
 	}
 
+	inBuf[inSize] = '\0';
 	i = 0;
+	j = 0;
+	FILE *dpcmDebugFile;
+	if(dpcmDebug){
+		char dpcmDebugFileName[512];
+		snprintf(dpcmDebugFileName, 512-2, "dconvert-dpcm-debug-line%d.raw", cfgLine); 
+		dpcmDebugFile = fopen(dpcmDebugFileName,"wb");
+	}
+	if(transformType == 5)//1bit DPCM
+		slope = 2;
+	else if(transformType == 6)//2bit DPCM
+		slope = 2;
 
 	while(i < inSize){
 		if(i > sizeof(outBuf)-10){
@@ -265,15 +403,100 @@ int ConvertAndWrite(){
 			return -3;
 		}
 
-		if(transformType == 0){//raw 1:1 write
+		if(transformType == 1){//raw 1:1 write
 
 			outBuf[outSize++] = inBuf[i++];
 
-		}else{//TODO PCM compression
+		}else if(transformType > 1 && transformType < 5){
 
-			outSize++;
-			i++;
+			printf("ERROR: transformType [%d] is reserved\n", transformType);
+			return -4;
 
+		}else if(transformType == 5){//1bit "Precedent Scaling"
+
+			samples = 0;
+			for(j=0;j<8;j++){
+				target = inBuf[i++];
+				if(i == inSize){//repeat last sample if we don't end on an even multiple
+					for(k=i;k<i+8;k++)
+						inBuf[k] = inBuf[i-1];
+				}
+
+				samples >>= 1;
+				if(accum < target){
+					samples |= 0b10000000;
+					accum += slope;
+					up_count++;
+					down_count = 0;
+				}else{
+					accum -= slope;
+					down_count++;
+					up_count = 0;
+				}
+				if(++neutral_count == 6){
+					up_count = down_count = neutral_count = 0;
+					if(slope)
+						slope--;
+				}
+				//lookbehind, "Precedent Scaling"
+				if(up_count == 3 || down_count == 3){
+					up_count = down_count = neutral_count = 0;
+					if(slope < 16)
+						slope+=2;
+				}
+				if(dpcmDebug)
+					fputc(accum,dpcmDebugFile);
+			}
+			outBuf[outSize++] = samples;
+
+		}else if(transformType == 6){//2bit DPCM, "Precedent Scaling"
+			samples = 0;
+			for(j=0;j<4;j++){
+				target = inBuf[i++];
+				if(i == inSize){//repeat last sample if we don't end on an even multiple
+					for(k=i;k<i+4;k++)
+						inBuf[k] = inBuf[i-1];
+				}
+
+				samples >>= 2;
+				if(accum < target){
+					samples |= 0b00000001;
+					accum += slope;
+					up_count++;
+					down_count = 0;
+				}else{
+					accum -= slope;
+					down_count++;
+					up_count = 0;
+				}
+				if(accum < target){
+					samples |= 0b00000010;
+					accum += slope/2;
+					up_count++;
+					down_count = 0;
+				}else{
+					accum -= slope/2;
+					down_count++;
+					up_count = 0;
+				}
+				if(++neutral_count == 4){
+					up_count = down_count = neutral_count = 0;
+					if(slope>2)
+						slope-=1;
+				}
+				//lookbehind "Precedent Scaling"
+				if(up_count == 2 || down_count == 2){
+					up_count = down_count = neutral_count = 0;
+					if(slope < 16)
+						slope++;
+				}
+				if(dpcmDebug)
+					fputc(accum,dpcmDebugFile);//output simulated sample
+			}
+			outBuf[outSize++] = samples;
+		}else{//unknown output conversion
+			printf("Error: Unknown transform type [%d]\n", transformType);
+			return -5;
 		}
 	}
 
@@ -310,7 +533,7 @@ int ConvertAndWrite(){
 		}
 
 	}else{/* C array */
-		fprintf(fout,"const char %s[] PROGMEM = {/* %s */\n",arrayName,finName);
+		fprintf(fout,"const char %s[] PROGMEM = {/* %s(array %d) */\n",arrayName,finName,skipArrays);
 		w = 0;
 		for(i=0;i<outSize-padBytes;i++){/* user added padding for C version? Seems no use, assume it is in error and override. */
 			if(!doDebug)
@@ -336,6 +559,7 @@ int ConvertAndWrite(){
 	/* display statistics */
 	printf("\t\tInput data size: %d\n",inSize);
 	printf("\t\tOutput data size: %d\n",outSize);
-
+	if(dpcmDebug)
+		fclose(dpcmDebugFile);
 	return 1;
 }
