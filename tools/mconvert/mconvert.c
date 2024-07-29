@@ -166,6 +166,13 @@ int main(int argc, char *argv[]){
 			if(lineBuf[0] == '\r' || lineBuf[0] == '\n'){/* user entered an extra line end after the entries, eat it */
 				continue;
 			}else if(lineBuf[0] == '#'){//eat the comment line
+				if(strncmp(lineBuf, "#DEBUG=1", 8) == 0){
+					doDebug = 1;
+					printf("**MCONVERT DEBUG enabled before line %d\n", cfgLine);
+				}else if(strncmp(lineBuf, "#DEBUG=0", 8) == 0){
+					doDebug = 0;
+					printf("**MCONVERT DEBUG disabled before line %d\n", cfgLine);
+				}
 				for(j=1;j<sizeof(lineBuf);j++){
 					if(lineBuf[j] == '\n')
 						break;
