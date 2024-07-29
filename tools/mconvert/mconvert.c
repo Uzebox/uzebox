@@ -175,6 +175,16 @@ int main(int argc, char *argv[]){
 					}
 				}
 				continue;
+			}else if(lineBuf[0] == ';'){/* user wants a system call to run */
+				unsigned char lbc = lineBuf[strlen(lineBuf)-1]; /* remove any '\r' or '\n' line endings */
+				if(lbc == '\r' || lbc == '\n')
+					lineBuf[strlen(lineBuf)-1] = '\0';
+				lbc = lineBuf[strlen(lineBuf)-1];
+				if(lbc == '\r' || lbc == '\n')
+					lineBuf[strlen(lineBuf)-1] = '\0';
+				printf("User system call on line %d, [%s]:\n", cfgLine, lineBuf+1);
+				system(lineBuf+1);
+				continue;
 			}else{
 				printf("Error: bad format on entry %d line %d. Got \"%s\"\n",cfgEntry+1,cfgLine+1,lineBuf);
 				goto ERROR;
@@ -438,7 +448,7 @@ int ConvertAndWrite(){
 			printf("\t\tOutput data size: %ld(no loop)\n",flashCost);
 	}else{
 		if(asBin)
-			printf("\t\tOutput data size: %ld(+%d loop +%d pad)\n",(long)(outSize-sizeof(loopBuf)-padBytes),sizeof(loopBuf),padBytes);
+			printf("\t\tOutput data size: %ld(+%ld loop +%d pad)\n",(long)(outSize-sizeof(loopBuf)-padBytes),sizeof(loopBuf),padBytes);
 		else
 			printf("\t\tOutput data size: %ld\n",flashCost);//C array is meant for non-buffered player(save space)
 	}
