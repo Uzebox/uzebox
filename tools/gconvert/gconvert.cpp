@@ -50,6 +50,7 @@ int paletteIndexFromColor(unsigned char color);
 struct TileMap {
 	const char* varName;
 	const char* compression;
+	int skipOutput;
 	int left;
 	int top;
 	int width;
@@ -371,12 +372,12 @@ bool process(){
     }
 
     if((xform.width%xform.tileWidth!=0)){
-    	printf("Error: Image width must an integer multiple of the tile width.\n");
+    	printf("Error: Image width must an integer multiple of the tile width(%d).\n", xform.tileWidth);
     	return false;
     }
 
     if((xform.height%xform.tileHeight!=0)){
-    	printf("Error: Image height must be an integer multiple of the tile height.\n");
+    	printf("Error: Image height must be an integer multiple of the tile height(%d).\n", xform.tileHeight);
     	return false;
     }
 	
@@ -592,6 +593,9 @@ bool process(){
 				return false;
 			}
 
+			if(map.skipOutput)
+				continue;
+
 			fprintf(tf,"#define %s_WIDTH %i\n",toUpperCase(map.varName),map.width);
 			fprintf(tf,"#define %s_HEIGHT %i\n",toUpperCase(map.varName),map.height);
 
@@ -600,7 +604,7 @@ bool process(){
 			}else{
 				fprintf(tf,"const int %s[] PROGMEM ={\n",map.varName);
 			}
-
+			
 			fprintf(tf,"%i,",map.width);
 			fprintf(tf,"%i,",map.height);
 
@@ -723,6 +727,96 @@ bool process(){
 		fprintf(tf,"};\n");
 		totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight);
 
+	}else if(strcmp(xform.outputType,"2bpp")==0){
+		if(xform.palette.numColors == 0) {
+			printf("Error using 2bpp but no palette specified!\n");
+		}
+		else{
+			bool invalidColor=false;
+			/*Export tileset in 2 bits per pixel format*/
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
+			fprintf(tf,"const char %s[] PROGMEM ={\n",xform.tilesVarName);
+	
+			int c=0,t=0;
+			unsigned char b;
+			vector<unsigned char*>::iterator it;
+			for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+	
+				unsigned char* tile=*it;
+	
+				for(int y=0;y<xform.tileHeight;y++){
+					//pack 4 pixels in one byte
+					for(int x=0;x<xform.tileWidth;x+=4){
+						int first,second,third,fourth;
+						first = tile[(y*xform.tileWidth)+x+0];
+						if(x+1 < xform.tileWidth)//support arbitrary widths
+							second = tile[(y*xform.tileWidth)+x+1];
+						else
+							second = xform.palette.transparentColor;
+						if(x+2 < xform.tileWidth)
+							third = tile[(y*xform.tileWidth)+x+2];
+						else
+							third = xform.palette.transparentColor;
+						if(x+3 < xform.tileWidth)
+							fourth = tile[(y*xform.tileWidth)+x+3];
+						else
+							fourth = xform.palette.transparentColor;
+
+						if(first != xform.palette.transparentColor){
+							first = paletteIndexFromColor(first);
+							if(first == -1){
+								invalidColor=true;
+								first=0;
+							}
+						}
+						else first = 0x4;
+						
+						if(second != xform.palette.transparentColor){
+							second = paletteIndexFromColor(second);
+							if(second == -1){
+								invalidColor=true;
+								second=0;
+							}
+						}
+						else second = 0x4;
+
+						if(third != xform.palette.transparentColor){
+							third = paletteIndexFromColor(third);
+							if(third == -1){
+								invalidColor=true;
+								third=0;
+							}
+						}
+						else third = 0x4;
+
+						if(fourth != xform.palette.transparentColor){
+							fourth = paletteIndexFromColor(fourth);
+							if(fourth == -1){
+								invalidColor=true;
+								fourth=0;
+							}
+						}
+						else fourth = 0x4;
+
+						b  = (first & 0x3);
+						b |= (second & 0x3) << 2;
+						b |= (third & 0x3) << 4;
+						b |= (fourth & 0x3) << 6;
+						fprintf(tf," 0x%x,",b);
+					}
+					c++;
+				}
+				fprintf(tf,"\t\t //tile:%i\n",t);
+				t++;
+			}
+			fprintf(tf,"};\n\n");
+			totalSize+=(uniqueTiles.size()*(xform.tileWidth/4)*xform.tileHeight);
+			totalSize+=(xform.tileWidth%4?(xform.tileWidth):0);
+			
+			if(invalidColor){
+				printf("Warning: colors in input image not included in palette");
+			}
+		}
 	}else if(strcmp(xform.outputType,"3bpp")==0){
 		if(xform.palette.numColors == 0) {
 			printf("Error using 3bpp but no palette specified!\n");
@@ -808,9 +902,13 @@ bool process(){
 				for(int y=0;y<xform.tileHeight;y++){
 					//pack 2 pixels in one byte
 					for(int x=0;x<xform.tileWidth;x+=2){
-						int first = tile[(y*xform.tileWidth)+x];
-						int second = tile[(y*xform.tileWidth)+x+1];
-						
+						int first,second;
+						first = tile[(y*xform.tileWidth)+x];
+						if(x+1 < xform.tileWidth)//support arbitrary widths
+							second = tile[(y*xform.tileWidth)+x+1];
+						else
+							second = xform.palette.transparentColor;
+
 						if(first != xform.palette.transparentColor){
 							first = paletteIndexFromColor(first);
 							if(first == -1){
@@ -831,6 +929,67 @@ bool process(){
 						
 						b  = (first & 0xF);
 						b |= (second & 0xF) << 4;
+						fprintf(tf," 0x%x,",b);
+					}
+					c++;
+				}
+				fprintf(tf,"\t\t //tile:%i\n",t);
+				t++;
+			}
+			fprintf(tf,"};\n\n");
+			totalSize+=(uniqueTiles.size()*xform.tileHeight*xform.tileHeight/2);
+			
+			if(invalidColor){
+				printf("Warning: colors in input image not included in palette");
+			}
+		}
+	}else if(strcmp(xform.outputType,"m748-4")==0){
+		if(xform.palette.numColors == 0) {
+			printf("Error using m748-4(4bpp) but no palette specified!\n");
+		}
+		else{
+			bool invalidColor=false;
+			/*Export tileset in 4 bits per pixel format*/
+		    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
+			fprintf(tf,"const char %s[] PROGMEM ={\n",xform.tilesVarName);
+	
+			int c=0,t=0;
+			unsigned char b;
+			vector<unsigned char*>::iterator it;
+			for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+	
+				unsigned char* tile=*it;
+	
+				for(int y=0;y<xform.tileHeight;y++){
+					//pack 2 pixels in one byte
+					for(int x=0;x<xform.tileWidth;x+=2){
+						int first,second;
+						first = tile[(y*xform.tileWidth)+x];
+						if(x+1 < xform.tileWidth)//support arbitrary widths
+							second = tile[(y*xform.tileWidth)+x+1];
+						else
+							second = xform.palette.transparentColor;
+
+						if(first != xform.palette.transparentColor){
+							first = paletteIndexFromColor(first);
+							if(first == -1){
+								invalidColor=true;
+								first=0;
+							}
+						}
+						else first = 0xF;
+						
+						if(second != xform.palette.transparentColor){
+							second = paletteIndexFromColor(second);
+							if(second == -1){
+								invalidColor=true;
+								second=0;
+							}
+						}
+						else second = 0xF;
+						
+						b  = (second & 0xF);
+						b |= (first & 0xF) << 4;
 						fprintf(tf," 0x%x,",b);
 					}
 					c++;
@@ -1216,7 +1375,8 @@ void parseXml(TiXmlDocument* doc){
 		for(node=mapsElem->FirstChild("map");node;node=node->NextSibling("map")){
 			maps[mapCount].varName=node->ToElement()->Attribute("var-name");
 			maps[mapCount].compression=node->ToElement()->Attribute("compression");
-
+			const char* skipOutput=node->ToElement()->Attribute("skip-output");
+			maps[mapCount].skipOutput=(skipOutput!=NULL && strstr(skipOutput,"true"));
 			node->ToElement()->QueryIntAttribute("top",&maps[mapCount].top);
 			node->ToElement()->QueryIntAttribute("left",&maps[mapCount].left);
 			node->ToElement()->QueryIntAttribute("width",&maps[mapCount].width);
