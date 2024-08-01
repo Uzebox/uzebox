@@ -31,7 +31,7 @@ TOOLS += midiconv
 TOOLS_DEP += packrom
 TOOLS_DEP += gconvert
 TOOLS_DEP += mconvert
-TOOLS_DEP += dconvert
+#TOOLS_DEP += dconvert
 
 ######################################
 # Demos
