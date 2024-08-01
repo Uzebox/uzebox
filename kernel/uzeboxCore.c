@@ -61,6 +61,10 @@ extern unsigned char sound_enabled;
 u8 joypadsConnectionStatus;
 //u16 prng_state=0;
 
+#ifndef NO_EEPROM_FORMAT
+	#define NO_EEPROM_FORMAT 0
+#endif
+
 #if (NO_EEPROM_FORMAT == 0)
 const u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 								   (u8)(EEPROM_SIGNATURE>>8),	//
