@@ -1023,14 +1023,4 @@ void debug_str_r(char* data,u8 size, bool hex){
 	}
 
 }
-
-void debug_whisper(unsigned char port, unsigned char val){
-	if(!port){
-		u8 volatile * const _waddr0 = (u8 *)0x39;
-		*_waddr0 = val;
-	}else{
-		u8 volatile * const _waddr1 = (u8 *)0x3A;
-		*_waddr1 = val;
-	}
-}
 #endif
