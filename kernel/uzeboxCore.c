@@ -654,13 +654,14 @@ void FormatEeprom2(u16 *ids, u8 count) {
 }
 	
 //returns true if the EEPROM has been setup to work with the kernel.
-bool isEepromFormatted(){
 #if (NO_EEPROM_FORMAT == 0)
+bool isEepromFormatted(){
+
 	unsigned id;
 	id=ReadEeprom(0)+(ReadEeprom(1)<<8);
 	return (id==EEPROM_SIGNATURE);
-#endif
 }
+#endif
 
 /*
  * Reads the power button status. 
