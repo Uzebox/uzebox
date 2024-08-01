@@ -123,6 +123,19 @@
 	extern	 u8 GetSongSpeed();
 	extern bool IsSongPlaying();
 
+	#ifndef NO_PC_TREMOLO
+		#define	NO_PC_TREMOLO	0
+	#endif
+	#ifndef NO_PC_SLIDE
+		#define NO_PC_SLIDE	0
+	#endif
+	#ifndef NO_PC_LOOP
+		#define NO_PC_LOOP	0
+	#endif
+	#ifndef NO_CHAN_EXPRESSION
+		#define NO_CHAN_EXPRESSION	0
+	#endif
+
 	/*
 	 * Controllers functions
 	 */
