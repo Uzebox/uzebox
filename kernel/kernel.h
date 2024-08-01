@@ -80,8 +80,8 @@
 			struct SubChannelsStruct type;	
 		}channels;
 
-		int pcmLoopLenght;
-		const char *pcmLoopEnd;			//PCM channel's absolute adress of PCM loop end.
+		int pcmLoopLength;
+		const char *pcmLoopEnd;			//PCM channel's absolute address of PCM loop end.
 	};
 
 
@@ -92,6 +92,13 @@
 
 	typedef void (*VsyncCallBackFunc)(void);
 	typedef void (*HsyncCallBackFunc)(void);
+#if (PATCH_RAM_SOURCE != 0)
+	extern u8 UserRamPatchCallback(u8 patch, u8 pos);
+#endif
+#if (WAVE_RAM_SOURCE != 0)
+	extern void UserRamWaveCallback(u8 wave, u8 chan);
+	extern u8 ram_waves[];
+#endif
 
 	#define TRACK_FLAGS_SLIDING		8
 	#define TRACK_FLAGS_ALLOCATED	16
@@ -113,24 +120,27 @@
 
 		#if MUSIC_ENGINE == MOD
 			const char *patternPos;
-		#else
+		#elif NO_CHAN_EXPRESSION == 0
 			unsigned char expressionVol;
 		#endif
-
-		u8 loopCount; 
-
-		s16 slideStep;		//used to slide to note
-		u8  slideNote;		//target note
-		u8	slideSpeed;		//fixed point 4:4, 1:0= 1/16 half note per frame
-
-		unsigned char tremoloPos;
-		unsigned char tremoloLevel;
-		unsigned char tremoloRate;
+		#if NO_PC_LOOP == 0
+			u8 loopCount; 
+		#endif
+		#if NO_PC_SLIDE == 0
+			s16 slideStep;		//used to slide to note
+			u8  slideNote;		//target note
+			u8  slideSpeed;		//fixed point 4:4, 1:0= 1/16 half note per frame
+		#endif
+		#if NO_PC_TREMOLO == 0
+			unsigned char tremoloPos;
+			unsigned char tremoloLevel;
+			unsigned char tremoloRate;
+		#endif
 
 		unsigned char trackVol;
 		unsigned char noteVol;
 		unsigned char envelopeVol;		//(0-255)
-		char envelopeStep;				//signed, amount of envelope change each frame +127/-128
+		char envelopeStep;			//signed, amount of envelope change each frame +127/-128
 		
 		unsigned char patchNo;
 		unsigned char fxPatchNo;
