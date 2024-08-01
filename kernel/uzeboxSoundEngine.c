@@ -1217,7 +1217,7 @@ void TriggerCommon(Track* track,u8 patch,u8 volume,u8 note){
 			mixer.channels.type.pcm.positionFrac=0;
 			const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
 			mixer.channels.type.pcm.position=pos;				
-			mixer.pcmLoopLenght=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
+			mixer.pcmLoopLength=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
 			mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
 			SetMixerNote(track->channel,note);
 		#endif	
@@ -1246,7 +1246,7 @@ void TriggerCommon(Track* track,u8 patch,u8 volume,u8 note){
 				mixer.channels.type.pcm.positionFrac=0;
 				const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
 				mixer.channels.type.pcm.position=pos;
-				mixer.pcmLoopLenght=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
+				mixer.pcmLoopLength=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
 				mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
 			}else{
 				SetMixerWave(track->channel,0);
