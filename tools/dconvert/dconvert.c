@@ -37,7 +37,7 @@ int asBinIn;
 int asBinOut;
 int doPad;
 int doDebug = 0;
-int dpcmDebug = 0;
+int adpcmDebug = 0;
 int doLength;
 int doCustomName;
 char arrayName[256];
@@ -189,12 +189,12 @@ int main(int argc, char *argv[]){
 				}else if(strncmp(lineBuf, "#DEBUG=0", 8) == 0){
 					doDebug = 0;
 					printf("**DCONVERT DEBUG disabled before line %d\n", cfgLine);
-				}else if(strncmp(lineBuf, "#DPCM-DEBUG=1", 13) == 0){
-					dpcmDebug = 1;
-					printf("**DCONVERT DPCM-DEBUG enabled before line %d\n", cfgLine);
-				}else if(strncmp(lineBuf, "#DPCM-DEBUG=0", 13) == 0){
-					dpcmDebug = 0;
-					printf("**DCONVERT DPCM-DEBUG disabled before line %d\n", cfgLine);
+				}else if(strncmp(lineBuf, "#ADPCM-DEBUG=1", 13) == 0){
+					adpcmDebug = 1;
+					printf("**DCONVERT ADPCM-DEBUG enabled before line %d\n", cfgLine);
+				}else if(strncmp(lineBuf, "#ADPCM-DEBUG=0", 13) == 0){
+					adpcmDebug = 0;
+					printf("**DCONVERT ADPCM-DEBUG disabled before line %d\n", cfgLine);
 				}
 				for(j=1;j<sizeof(lineBuf);j++){
 					if(lineBuf[j] == '\n')
@@ -227,8 +227,12 @@ int main(int argc, char *argv[]){
 			printf("Raw");
 		else if(transformType == 1)
 			printf("Patch conversion");
-		else if(transformType == 2)
-			printf("1bit DPCM conversion");
+		else if(transformType == 5)
+			printf("1bit ADPCM conversion");
+		else if(transformType == 6)
+			printf("2bit ADPCM conversion");
+		else if(transformType == 7)
+			printf("4bit ADPCM conversion");
 		else
 			printf("Unknown(using Raw)");
 		printf(", skip %d arrays, skip %d bytes, output offset:%ld\n",skipArrays,skipBytes,fileOff);
@@ -386,16 +390,18 @@ int ConvertAndWrite(){
 	inBuf[inSize] = '\0';
 	i = 0;
 	j = 0;
-	FILE *dpcmDebugFile;
-	if(dpcmDebug){
-		char dpcmDebugFileName[512];
-		snprintf(dpcmDebugFileName, 512-2, "dconvert-dpcm-debug-line%d.raw", cfgLine); 
-		dpcmDebugFile = fopen(dpcmDebugFileName,"wb");
+	FILE *adpcmDebugFile;
+	if(adpcmDebug){
+		char adpcmDebugFileName[512];
+		snprintf(adpcmDebugFileName, 512-2, "dconvert-adpcm-debug-line%d.raw", cfgLine); 
+		adpcmDebugFile = fopen(adpcmDebugFileName,"wb");
 	}
-	if(transformType == 5)//1bit DPCM
+	if(transformType == 5)//1bit ADPCM
 		slope = 2;
-	else if(transformType == 6)//2bit DPCM
+	else if(transformType == 6)//2bit ADPCM
 		slope = 2;
+	else if(transformType == 7)//4bit ADPCM
+		slope = 7;
 
 	while(i < inSize){
 		if(i > sizeof(outBuf)-10){
@@ -403,11 +409,11 @@ int ConvertAndWrite(){
 			return -3;
 		}
 
-		if(transformType == 1){//raw 1:1 write
+		if(transformType == 0){//raw 1:1 write
 
 			outBuf[outSize++] = inBuf[i++];
 
-		}else if(transformType > 1 && transformType < 5){
+		}else if(transformType > 0 && transformType < 5){
 
 			printf("ERROR: transformType [%d] is reserved\n", transformType);
 			return -4;
@@ -444,12 +450,12 @@ int ConvertAndWrite(){
 					if(slope < 16)
 						slope+=2;
 				}
-				if(dpcmDebug)
-					fputc(accum,dpcmDebugFile);
+				if(adpcmDebug)
+					fputc(accum,adpcmDebugFile);
 			}
 			outBuf[outSize++] = samples;
 
-		}else if(transformType == 6){//2bit DPCM, "Precedent Scaling"
+		}else if(transformType == 6){//2bit ADPCM, "Precedent Scaling"
 			samples = 0;
 			for(j=0;j<4;j++){
 				target = inBuf[i++];
@@ -460,7 +466,7 @@ int ConvertAndWrite(){
 
 				samples >>= 2;
 				if(accum < target){
-					samples |= 0b00000001;
+					samples |= 0b10000000;
 					accum += slope;
 					up_count++;
 					down_count = 0;
@@ -470,7 +476,7 @@ int ConvertAndWrite(){
 					up_count = 0;
 				}
 				if(accum < target){
-					samples |= 0b00000010;
+					samples |= 0b01000000;
 					accum += slope/2;
 					up_count++;
 					down_count = 0;
@@ -490,8 +496,75 @@ int ConvertAndWrite(){
 					if(slope < 16)
 						slope++;
 				}
-				if(dpcmDebug)
-					fputc(accum,dpcmDebugFile);//output simulated sample
+				if(adpcmDebug)
+					fputc(accum,adpcmDebugFile);//output simulated sample
+			}
+			outBuf[outSize++] = samples;
+		}else if(transformType == 7){//4bit ADPCM, "Precedent Scaling"
+			samples = 0;
+
+			for(j=0;j<2;j++){
+				target = inBuf[i++];
+				if(i == inSize){//repeat last sample if we don't end on an even multiple
+					for(k=i;k<i+2;k++)
+						inBuf[k] = inBuf[i-1];
+				}
+
+				samples >>= 4;
+				if(accum < target){
+					samples |= 10000000;
+					accum += slope;
+					up_count++;
+					down_count = 0;
+				}else{
+					accum -= slope;
+					down_count++;
+					up_count = 0;
+				}
+				if(accum < target){
+					samples |= 10000000;
+					accum += slope/2;
+					up_count++;
+					down_count = 0;
+				}else{
+					accum -= slope/2;
+					down_count++;
+					up_count = 0;
+				}
+				if(accum < target){
+					samples |= 10000000;
+					accum += slope/4;
+					up_count++;
+					down_count = 0;
+				}else{
+					accum -= slope/4;
+					down_count++;
+					up_count = 0;
+				}
+				if(accum < target){
+					samples |= 10000000;
+					accum += slope/8;
+					up_count++;
+					down_count = 0;
+				}else{
+					accum -= slope/8;
+					down_count++;
+					up_count = 0;
+				}
+
+				if(++neutral_count > 2){
+					up_count = down_count = neutral_count = 0;
+					if(slope>4)
+						slope--;
+				}
+				//lookbehind "Precedent Scaling"
+				if(up_count > 3 || down_count > 3){
+					up_count = down_count = neutral_count = 0;
+					if(slope < 24)
+						slope+=2;
+				}
+				if(adpcmDebug)
+					fputc(accum,adpcmDebugFile);//output simulated sample
 			}
 			outBuf[outSize++] = samples;
 		}else{//unknown output conversion
@@ -559,7 +632,7 @@ int ConvertAndWrite(){
 	/* display statistics */
 	printf("\t\tInput data size: %d\n",inSize);
 	printf("\t\tOutput data size: %d\n",outSize);
-	if(dpcmDebug)
-		fclose(dpcmDebugFile);
+	if(adpcmDebug)
+		fclose(adpcmDebugFile);
 	return 1;
 }
