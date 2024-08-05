@@ -108,6 +108,8 @@ struct ConvertionDefinition {
 	bool isBackgroundTiles;		/*indicate the tileset is made of background tiles (vs tiles for sprites).
 								  Depending on the mode, it will be placed in different memory section.*/
 	bool removeDuplicateTiles;	//Remove identical tiles from the output tileset and ajust maps accordingly
+	int skipBefore;				//Remove tiles prior to this value(doesn't change map indices, useful for foregrounds)
+	int skipAfter;				//Remove tiles after this value
 
 	int width;			//total image width in pixels
 	int height;			//total image height in pixels
@@ -308,7 +310,7 @@ bool processMegaMap(FILE* tf, MegaMapContainer* megaMapContainer, vector<MapCont
 		        }
                 megaTileCandidate.clear();
                 counter = 0;
-                fprintf(tf, "0x%x", index);
+                fprintf(tf, "0x%02X", index);
                 c++;
                 originX += megaMapContainer->megaTileWidth;
                 if (originX == mapWidth){
@@ -336,7 +338,7 @@ bool processMegaMap(FILE* tf, MegaMapContainer* megaMapContainer, vector<MapCont
         if (c % (megaMapContainer->megaTileWidth*megaMapContainer->megaTileHeight) == 0){
             fprintf(tf, "\n");
         }
-        fprintf(tf, "0x%x", megaMapContainer->data.at(i));
+        fprintf(tf, "0x%02X", megaMapContainer->data.at(i));
         if (i != megaMapContainer->data.size()-1){
             fprintf(tf, ",");
         }
@@ -404,6 +406,10 @@ bool process(){
 	printf("Output file: %s\n",xform.outputFile);
 	printf("Output type: %s\n",xform.outputType);
 	printf("Remove duplicate tiles: %s\n",xform.removeDuplicateTiles?"true":"false");
+	if(xform.skipBefore != -1)
+		printf("Skip before: %d\n",xform.skipBefore);
+	if(xform.skipAfter != -1)
+		printf("Skip after: %d\n",xform.skipAfter);
 
 	printf("Tiles variable name: %s\n",xform.tilesVarName);
 	if(xform.maps!=NULL){
@@ -564,7 +570,7 @@ bool process(){
                         delete[] tile;
 
                         if(index==-1){
-                            printf("Map tile not found in tilset!\n");
+                            printf("Map tile not found in tileset!\n");
                             return false;
                         }
                        mapContainer->data.push_back(index); 
@@ -605,8 +611,7 @@ bool process(){
 				fprintf(tf,"const int %s[] PROGMEM ={\n",map.varName);
 			}
 			
-			fprintf(tf,"%i,",map.width);
-			fprintf(tf,"%i,",map.height);
+			fprintf(tf,"%i,%i,",map.width,map.height);
 
 			int c=0;
 			int mapBuf[256*256];//probably a practical limit..
@@ -668,15 +673,15 @@ bool process(){
 						runLen++;
 					}
 					if(runLen>1){
-						fprintf(tf,"0x%x,0x%x,",maxVal+runLen,mapVal);
+						fprintf(tf,"0x%02X,0x%02X,",maxVal+runLen,mapVal);
 						i+=runLen;
 						mapPos+=runLen;
 						mapBytes+=2;
 					}else{
-						fprintf(tf,"0x%x,",mapVal);
+						fprintf(tf,"0x%02X,",mapVal);
 						mapBytes++;
 					}
-					if((i%20)==0)
+					if(i != 0 && (i%map.width) == 0)
 						fprintf(tf,"\n");
 				}
 				totalSize+=(mapBytes+3)*(xform.mapsPointersSize/8);
@@ -686,16 +691,12 @@ bool process(){
 				return false;
 
 			}else{//normal uncompressed map
-				int c=0;
 				fprintf(tf,"\n");
 				for(int y=0;y<map.height;y++){
 					for(int x=0;x<map.width;x++){
-							fprintf(tf,"0x%x,",mapBuf[mapPos++]);
-							if(c==20){
+							fprintf(tf,"0x%02X,",mapBuf[mapPos++]);
+							if(x == map.width-1)
 								fprintf(tf,"\n");
-								c=0;
-							}
-							
 					}
 				}
 				totalSize+=((map.height*map.width)+2)*(xform.mapsPointersSize/8);
@@ -710,18 +711,29 @@ bool process(){
 	    fprintf(tf,"#define %s_SIZE %i\n",toUpperCase(xform.tilesVarName),(int)uniqueTiles.size());
 	    fprintf(tf,"const char %s[] PROGMEM={\n",xform.tilesVarName);
 
-		int c=0,t=0;
+		int w=0,t=0,n=0;
 		vector<unsigned char*>::iterator it;
 		for(it=uniqueTiles.begin();it < uniqueTiles.end();it++){
+			n++;
+			if(n-1 < xform.skipBefore)
+				continue;
+			
+			if(xform.skipAfter != -1 && n-1 > xform.skipAfter)
+				continue;
 
 			unsigned char* tile=*it;
-
+			fprintf(tf,"\t //tile:%i\n",t);
 			for(int index=0;index<(xform.tileWidth*xform.tileHeight);index++){
-				if(c>0)fprintf(tf,",");
-				fprintf(tf," 0x%x",tile[index]);
-				c++;
+				if((index%xform.tileWidth) == 0)
+					fprintf(tf,"\t");
+				fprintf(tf," 0x%02X",tile[index]);
+				if(index != ((xform.tileWidth*xform.tileHeight)-1))
+					fprintf(tf,",");
+				if(++w == xform.tileWidth){
+					w = 0;
+					fprintf(tf,"\n");
+				}
 			}
-			fprintf(tf,"\t\t //tile:%i\n",t);
 			t++;
 		}
 		fprintf(tf,"};\n");
@@ -802,7 +814,7 @@ bool process(){
 						b |= (second & 0x3) << 2;
 						b |= (third & 0x3) << 4;
 						b |= (fourth & 0x3) << 6;
-						fprintf(tf," 0x%x,",b);
+						fprintf(tf," 0x%02X,",b);
 					}
 					c++;
 				}
@@ -867,7 +879,7 @@ bool process(){
 						
 						b  = (first & 0xF);
 						b |= (second & 0xF) << 4;
-						fprintf(tf," 0x%x,",b);
+						fprintf(tf," 0x%02X,",b);
 					}
 					c++;
 				}
@@ -929,7 +941,7 @@ bool process(){
 						
 						b  = (first & 0xF);
 						b |= (second & 0xF) << 4;
-						fprintf(tf," 0x%x,",b);
+						fprintf(tf," 0x%02X,",b);
 					}
 					c++;
 				}
@@ -990,7 +1002,7 @@ bool process(){
 						
 						b  = (second & 0xF);
 						b |= (first & 0xF) << 4;
-						fprintf(tf," 0x%x,",b);
+						fprintf(tf," 0x%02X,",b);
 					}
 					c++;
 				}
@@ -1041,7 +1053,7 @@ bool process(){
 						b  = (first & 0xF);
 						b |= (second & 0xF) << 4;
 						b = PaletteConversionTable[b];
-						fprintf(tf," 0x%x,",b);
+						fprintf(tf," 0x%02X,",b);
 					}
 					c++;
 				}
@@ -1076,7 +1088,7 @@ bool process(){
 				for(int x=0;x<xform.tileWidth;x++){
 					if(tile[y*xform.tileWidth+x]!=0) b|=(0x80>>x);
 				}
-				fprintf(tf," 0x%x",b);
+				fprintf(tf," 0x%02X",b);
 				c++;
 			}
 			fprintf(tf,"\t\t //tile:%i\n",t);
@@ -1109,9 +1121,9 @@ bool process(){
 				if(xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]){
 					fprintf(tf,"0x02,0x2D,"); 										//08 b9       	mov r16,r2
 				}else{
-					fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); 	//01 e0       	ldi	r16, pixel color	; 1
+					fprintf(tf,"0x%02X,0x%02X,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, pixel color	; 1
 				}
-				fprintf(tf,"0x08,0xb9,"); 											//08 b9       	out	0x08, r16
+				fprintf(tf,"0x08,0xB9,"); 											//08 b9       	out	0x08, r16
 				fprintf(tf,"0x19,0x91,"); 											//19 91       	ld	r17, Y+
 				pos++;
 
@@ -1119,52 +1131,52 @@ bool process(){
 				if(xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]){
 					fprintf(tf,"0x02,0x2D,"); 										//08 b9       	mov r16,r2
 				}else{
-					fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); 	//01 e0       	ldi	r16, pixel color	; 1
+					fprintf(tf,"0x%02X,0x%02X,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, pixel color	; 1
 				}
-				fprintf(tf,"0x08,0xb9,"); 											//08 b9       	out	0x08, r16
-				fprintf(tf,"0x15,0x9f,");									 		//15 9f       	mul	r17, r21
+				fprintf(tf,"0x08,0xB9,"); 											//08 b9       	out	0x08, r16
+				fprintf(tf,"0x15,0x9F,");									 		//15 9f       	mul	r17, r21
 				pos++;
 
 				//pixel 2
 				if(xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]){
 					fprintf(tf,"0x02,0x2D,"); 										//08 b9       	mov r16,r2
 				}else{
-					fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); 	//01 e0       	ldi	r16, pixel color	; 1
+					fprintf(tf,"0x%02X,0x%02X,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, pixel color	; 1
 				}
-				fprintf(tf,"0x08,0xb9,"); 											//08 b9       	out	0x08, r16
-				fprintf(tf,"0x08,0x0e,"); 											//08 0e       	add	r0, r24
-				fprintf(tf,"0x19,0x1e,"); 											//19 1e       	adc	r1, r25
+				fprintf(tf,"0x08,0xB9,"); 											//08 b9       	out	0x08, r16
+				fprintf(tf,"0x08,0x0E,"); 											//08 0e       	add	r0, r24
+				fprintf(tf,"0x19,0x1E,"); 											//19 1e       	adc	r1, r25
 				pos++;
 
 				//pixel 3
 				if(xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]){
 					fprintf(tf,"0x02,0x2D,"); 										//08 b9       	mov r16,r2
 				}else{
-					fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); 	//01 e0       	ldi	r16, pixel color	; 1
+					fprintf(tf,"0x%02X,0x%02X,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, pixel color	; 1
 				}
-				fprintf(tf,"0x08,0xb9,"); 											//08 b9       	out	0x08, r16
-				fprintf(tf,"0xf9,0x01,"); 											//f9 01       	movw r30, r18
-				fprintf(tf,"0x4a,0x95,"); 											//4a 95       	dec	r20
+				fprintf(tf,"0x08,0xB9,"); 											//08 b9       	out	0x08, r16
+				fprintf(tf,"0xF9,0x01,"); 											//f9 01       	movw r30, r18
+				fprintf(tf,"0x4A,0x95,"); 											//4a 95       	dec	r20
 				pos++;
 
 				//pixel 4
 				if(xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]){
 					fprintf(tf,"0x02,0x2D,"); 										//08 b9       	mov r16,r2
 				}else{
-					fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); 	//01 e0       	ldi	r16, pixel color	; 1
+					fprintf(tf,"0x%02X,0x%02X,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, pixel color	; 1
 				}
-				fprintf(tf,"0x08,0xb9,"); 											//08 b9       	out	0x08, r16
-				fprintf(tf,"0x09,0xf0,");											//09 f0       	breq	.+2
-				fprintf(tf,"0xf0,0x01,"); 											//f0 01       	movw	r30, r0
+				fprintf(tf,"0x08,0xB9,"); 											//08 b9       	out	0x08, r16
+				fprintf(tf,"0x09,0xF0,");											//09 f0       	breq	.+2
+				fprintf(tf,"0xF0,0x01,"); 											//f0 01       	movw	r30, r0
 				pos++;
 
 				//pixel 5
 				if(xform.backgroundColor!=-1 && xform.backgroundColor==tile[pos]){
 					fprintf(tf,"0x02,0x2D,"); 										//08 b9       	mov r16,r2
 				}else{
-					fprintf(tf,"0x%x,0x%x,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); 	//01 e0       	ldi	r16, pixel color	; 1
+					fprintf(tf,"0x%02X,0x%02X,",tile[pos]&0xf,0xe0|(tile[pos]>>4)); //01 e0       	ldi	r16, pixel color	; 1
 				}
-				fprintf(tf,"0x08,0xb9,"); 											//08 b9       	out	0x08, r16
+				fprintf(tf,"0x08,0xB9,"); 											//08 b9       	out	0x08, r16
 				fprintf(tf,"0x09,0x94 "); 											//09 94       	ijmp
 
 				c++;
@@ -1291,7 +1303,7 @@ bool process(){
 		for(c=0;c < xform.palette.numColors;c++){
 			if(c>0)fprintf(tf,",");
 			b=xform.palette.colors[c];
-			fprintf(tf," 0x%x",b);
+			fprintf(tf," 0x%02X",b);
 		}
 		fprintf(tf,"\n};\n");
 		totalSize+=xform.palette.numColors;
@@ -1299,7 +1311,16 @@ bool process(){
 	
 	fclose(tf);
 	free(image.buffer);
-	printf("File exported successfully!\nUnique tiles found: %i\nTotal size (tiles + maps): %i bytes\n",(int)uniqueTiles.size(),totalSize);
+	printf("File exported successfully!\nUnique tiles found: %i\n",(int)uniqueTiles.size());
+	int total_skipped = 0;
+	if(xform.skipBefore != -1)
+		total_skipped += xform.skipBefore;
+	if(xform.skipAfter != -1 && xform.skipAfter < (int)uniqueTiles.size()-1)
+		total_skipped += ((int)uniqueTiles.size()-1-xform.skipAfter);
+	if(total_skipped != 0)
+		printf("Skipped: %i(before indice %i, after indice %i)\n",total_skipped,xform.skipBefore,xform.skipAfter);
+
+	printf("Total size (tiles + maps): %i bytes\n",totalSize);
 
 
 	return true;
@@ -1319,6 +1340,10 @@ void parseXml(TiXmlDocument* doc){
 	input->QueryIntAttribute("tile-width",&xform.tileWidth);
 	input->QueryIntAttribute("tile-height",&xform.tileHeight);
 	xform.inputType=input->Attribute("type");
+	input->QueryIntAttribute("skipBefore",&xform.skipBefore);
+	input->QueryIntAttribute("skipAfter",&xform.skipAfter);
+	if(xform.skipBefore == 0 && xform.skipAfter == 0)
+		xform.skipBefore = xform.skipAfter = -1;
 
 	//output
 	TiXmlElement* output=root->FirstChildElement("output");
@@ -1326,6 +1351,7 @@ void parseXml(TiXmlDocument* doc){
 	TiXmlElement* tiles=output->FirstChildElement("tiles");
 	xform.tilesVarName=tiles->Attribute("var-name");
     xform.outputType=output->Attribute("type");
+
 	const char* isBackgroundTiles=output->Attribute("isBackgroundTiles");
     xform.isBackgroundTiles=isBackgroundTiles && (isBackgroundTiles!=NULL && strstr(isBackgroundTiles,"true"));
 	if(output->QueryIntAttribute("background-color",&xform.backgroundColor)==TIXML_NO_ATTRIBUTE){
