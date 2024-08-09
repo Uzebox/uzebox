@@ -1,0 +1,104 @@
+Uzebox BOM Rev. F5 - Part footprints compatible with Uzebox PCB Rev 1.3.3 (Oct. 2023)
+
+Parts sourced from Digikey
+
+---------------------------------------------------------------------------------
+
+1   CP-002A-ND                  CONN POWER JACK 2.1MM               (U5)    
+
+1   CP-1421-ND                  CONN RCA JACK R/A YELLOW PCB        (VIDEO)
+
+1   CP-1420-ND                  CONN RCA JACK R/A WHITE PCB         (AUDIO)
+
+1   CP-2240-ND                  CONN MINI-DIN 4 PIN FEMALE PCB      (SVIDEO)
+
+1   609-2845-ND                 CONN HEADER 6POS DUAL VERT PCB      (ISP)
+
+1   10129381-916001BLF-ND       CONN HEADER VERT 16POS 2.54MM       (EXT)
+
+1   3M5471-ND                   SOCKET IC OPEN FRAME 40POS .6"      
+
+2   TS02-66-43-BK-100-LCR-D     6MM LIGHT TOUCH SWITCH 100GF        (POWER,RESET)
+
+1   732-3816-1-ND               CONN SD CARD PUSH-PUSH R/A SMD      (SD/MMC)
+
+
+
+3   399-9718-ND                 CAP CER 18PF 100V 5% NP0 RADIAL     (C1,C2,C18)
+
+3   P19607CT-ND                 CAP ALUM 10UF 20% 50V RADIAL        (C8,C9,C13)
+
+2   399-ESK105M350AE3AA-ND      CAP ELECT 1UF 50V VR RADIAL         (C16,C20)
+
+6   478-3192-ND                 CAP CER .10UF 50V 20% RADIAL        (C3,C4,C5,C6,C7,C12)
+
+1   478-5733-ND                 CAP CER .33UF 50V Z5U 20% RADIAL    (C11)
+
+3   493-1041-ND                 CAP 220UF 16V ELECT VR RADIAL       (C10,C14,C15)
+
+
+
+4   301XBK-ND                   RES 301 OHM 1/4W 1% METAL FILM      (R2,R26,R27,R28)    
+
+3   562XBK-ND                   RES 562 OHM 1/4W 1% METAL FILM      (R29,R30,R31)
+
+3   3.16KXBK-ND                 RES 3.16K OHM 1/4W 1% METAL FILM    (R1,R8,R22)
+
+3   1.58KXBK-ND                 RES 1.58K OHM 1/4W 1% METAL FILM    (R5,R9,R17)
+
+4   806XBK-ND                   RES 806 OHM 1/4W 1% METAL FILM      (R3,R6,R10,R18)
+
+6   75.0XBK-ND                  RES 75.0 OHM 1/4W 1% METAL FILM     (R7,R11,R19,R20,R24,R25)
+
+
+
+1   ATMEGA644A-PU               IC MCU AVR 64K FLASH 40-DIP         (MCU)
+
+1   AD725ARZ-ND                 IC ENCODER RGB TO NTSC 16-SOIC      (U2) See alternative source below(*)
+
+1   MC7805ACTGOS-ND             IC REG POS 1A 5V                    (IC2)
+
+1   641-1310-1-ND               1N4001 DIODE RECTIFIER 1A 50V DO-41 (D1)
+
+1   887-1256-ND                 CRYSTAL 28.63636 MHZ 18PF           (XTAL)
+
+1   RLB0914-680KL-ND            INDUCTOR 68UH 10% RADIAL            (L1)
+
+1   MCP1700-3302E/TO-ND         IC LDO REG 250MA 3.3V TO-92-3       (IC1)
+
+1   67-1056-ND                  LED 3MM SHORT LENS GREEN DIFF       (LED1)
+
+4   SJ5303-7-ND                 BUMPON HEMISPHERE .44X.20 CLEAR 
+
+
+
+ --Optional Uzenet Interface-- 
+
+1   23LC1024-I/P-ND             IC SRAM 1MBIT SPI/QUAD 8DIP         (U6)
+
+1   MCP1700-3302E/TO-ND         IC LDO REG 250MA 3.3V TO-92-3       (IC3)
+
+1   AE9986-ND                   CONN IC DIP SOCKET 8POS TIN         (To match U1) (or equivalent)
+
+2   445-8417-ND                 CAP CER 1UF 16V X7R RADIAL          (C17,C22) (or equivalent)
+
+1   1528-1438-ND                ESP-12F WIFI Module                 (ESP12)
+
+
+
+Parts sourced elsewhere
+
+------------------------------------------------------------------------------------
+
+1   PRT-12769               SD/MMC Socket (Alternate source)        (SD/MMC)                        https://www.sparkfun.com/products/12769
+
+1   AD725ARZ (*)            IC ENCODER RGB TO NTSC 16-SOIC (alternate, much cheaper source) (U2)    https://vi.aliexpress.com/item/33022801012.html
+
+2   SNES Connectors         (Straight pin version) AliExpress.com   (SNESP1,SNESP2)                 Prefered model: https://vi.aliexpress.com/item/32828261927.html, Alternative model: https://vi.aliexpress.com/item/32838396935.html
+
+1   PCB Rev 1.3.3           JLCPCB.com PCB Manufacturing service                                    See the following on how to order: https://uzebox.org/forums/viewtopic.php?p=33217#p33217
+
+1   364-1253-ND             9V 600ma DC wall mount, Positive Center, Barrel Plug, 2.1mm I.D. x 5.5mm O.D. x 9.5mm
+
+2   SNES Controllers        AliExpress.com                                                          https://vi.aliexpress.com/item/4000234518443.html
+

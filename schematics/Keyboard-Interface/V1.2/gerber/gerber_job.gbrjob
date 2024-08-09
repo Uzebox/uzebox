@@ -1,0 +1,24 @@
+{
+    "Header": {
+        "Comment": "All values are metric (mm)",
+        "CreationDate": "2022-09-21T00:52:53Z",
+        "GenerationSoftware": {
+            "Application": "EAGLE",
+            "Vendor": "Autodesk",
+            "Version": "9.6.2"
+        },
+        "Part": "Single"
+    },
+    "Overall": {
+        "BoardThickness": 1.57,
+        "LayerNumber": 2,
+        "Name": {
+            "ProjectId": "keyboard adapter"
+        },
+        "Owner": "Alec Bourque <uze@belogic.com>",
+        "Size": {
+            "X": 37.54,
+            "Y": 19
+        }
+    }
+}

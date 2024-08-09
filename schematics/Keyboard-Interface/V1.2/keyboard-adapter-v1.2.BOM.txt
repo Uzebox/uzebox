@@ -1,0 +1,10 @@
+Uzebox Keyboard Adapter V1.2 BOM. All parts from Digikey or otherwise noted.
+
+Qty P/N			 			Description							Schematic Identifier
+----------------------------------------------------------------------------------------
+1	CP-2260-ND				CONN RCPT FMALE MINI DIN 6P SLDR	(PS2)
+1   AE9986-ND				CONN IC DIP SOCKET 8POS TIN			(Match U1)
+1   ATTINY85-20PU-ND		IC MCU 8BIT 8KB FLASH 8DIP			(U1)
+1	1849-PR20203VBDN-ND 	PIN HEADER THR 2x6 .100"			(J1)
+2	13-CFR25SJT-52-10KCT-ND	RES 10K OHM 5% 1/4W AXIAL			(R1,R2)
+2	CFR-25JB-52-1K			RES 1K OHM 5% 1/4W AXIAL			(R3,R4)
