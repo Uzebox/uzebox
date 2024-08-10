@@ -726,9 +726,8 @@ bool process(){
 			for(int index=0;index<(xform.tileWidth*xform.tileHeight);index++){
 				if((index%xform.tileWidth) == 0)
 					fprintf(tf,"\t");
-				fprintf(tf," 0x%02X",tile[index]);
-				if(index != ((xform.tileWidth*xform.tileHeight)-1))
-					fprintf(tf,",");
+				fprintf(tf," 0x%02X,",tile[index]);
+
 				if(++w == xform.tileWidth){
 					w = 0;
 					fprintf(tf,"\n");
