@@ -166,6 +166,13 @@ int main(int argc, char *argv[]){
 			if(lineBuf[0] == '\r' || lineBuf[0] == '\n'){/* user entered an extra line end after the entries, eat it */
 				continue;
 			}else if(lineBuf[0] == '#'){//eat the comment line
+				if(strncmp(lineBuf, "#DEBUG=1", 8) == 0){
+					doDebug = 1;
+					printf("**MCONVERT DEBUG enabled before line %d\n", cfgLine);
+				}else if(strncmp(lineBuf, "#DEBUG=0", 8) == 0){
+					doDebug = 0;
+					printf("**MCONVERT DEBUG disabled before line %d\n", cfgLine);
+				}
 				for(j=1;j<sizeof(lineBuf);j++){
 					if(lineBuf[j] == '\n')
 						break;
@@ -174,6 +181,16 @@ int main(int argc, char *argv[]){
 						goto ERROR;
 					}
 				}
+				continue;
+			}else if(lineBuf[0] == ';'){/* user wants a system call to run */
+				unsigned char lbc = lineBuf[strlen(lineBuf)-1]; /* remove any '\r' or '\n' line endings */
+				if(lbc == '\r' || lbc == '\n')
+					lineBuf[strlen(lineBuf)-1] = '\0';
+				lbc = lineBuf[strlen(lineBuf)-1];
+				if(lbc == '\r' || lbc == '\n')
+					lineBuf[strlen(lineBuf)-1] = '\0';
+				printf("User system call on line %d, [%s]:\n", cfgLine, lineBuf+1);
+				system(lineBuf+1);
 				continue;
 			}else{
 				printf("Error: bad format on entry %d line %d. Got \"%s\"\n",cfgEntry+1,cfgLine+1,lineBuf);
@@ -438,7 +455,7 @@ int ConvertAndWrite(){
 			printf("\t\tOutput data size: %ld(no loop)\n",flashCost);
 	}else{
 		if(asBin)
-			printf("\t\tOutput data size: %ld(+%d loop +%d pad)\n",(long)(outSize-sizeof(loopBuf)-padBytes),sizeof(loopBuf),padBytes);
+			printf("\t\tOutput data size: %ld(+%ld loop +%d pad)\n",(long)(outSize-sizeof(loopBuf)-padBytes),sizeof(loopBuf),padBytes);
 		else
 			printf("\t\tOutput data size: %ld\n",flashCost);//C array is meant for non-buffered player(save space)
 	}

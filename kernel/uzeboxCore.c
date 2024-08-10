@@ -61,6 +61,11 @@ extern unsigned char sound_enabled;
 u8 joypadsConnectionStatus;
 //u16 prng_state=0;
 
+#ifndef NO_EEPROM_FORMAT
+	#define NO_EEPROM_FORMAT 0
+#endif
+
+#if (NO_EEPROM_FORMAT == 0)
 const u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 								   (u8)(EEPROM_SIGNATURE>>8),	//
 								   EEPROM_HEADER_VER,			//(u8)				
@@ -77,7 +82,7 @@ const u8 eeprom_format_table[] PROGMEM ={(u8)EEPROM_SIGNATURE,		//(u16)
 								   0,0,0,0,0,0,0,0,0 			//(u8[9])reserved
 								   };
 
-
+#endif
 
 extern void wdt_randomize(void);
 
@@ -185,9 +190,9 @@ void Initialize(void){
 		ptr=(u8*)(val&0xff);
 		*ptr=val>>8;
 	}
-
+#if (NO_EEPROM_FORMAT == 0)
 	if(!isEepromFormatted()) FormatEeprom();
-
+#endif
 	//InitSoundPort(); //ramp-up sound to avoid click
 
 	#if SOUND_MIXER == MIXER_TYPE_VSYNC
@@ -606,7 +611,7 @@ unsigned char DetectControllers(){
 	
 // Format eeprom, wiping all data to zero
 void FormatEeprom(void) {
-
+#if (NO_EEPROM_FORMAT == 0)
    // Set sig. so we don't format next time
    for (u8 i = 0; i < sizeof(eeprom_format_table); i++) {
 	 WriteEeprom(i,pgm_read_byte(&eeprom_format_table[i]));
@@ -617,11 +622,12 @@ void FormatEeprom(void) {
 	  WriteEeprom(i,(u8)EEPROM_FREE_BLOCK);
 	  WriteEeprom(i+1,(u8)(EEPROM_FREE_BLOCK>>8));
    }
-   
+#endif
 }
 
 // Format eeprom, saving data specified in ids
 void FormatEeprom2(u16 *ids, u8 count) {
+#if (NO_EEPROM_FORMAT == 0)
    u8 j;
    u16 id;
 
@@ -644,14 +650,18 @@ void FormatEeprom2(u16 *ids, u8 count) {
 		 WriteEeprom(i*EEPROM_BLOCK_SIZE+1,(u8)(EEPROM_FREE_BLOCK>>8));
 	  }
    }
+#endif
 }
 	
 //returns true if the EEPROM has been setup to work with the kernel.
+#if (NO_EEPROM_FORMAT == 0)
 bool isEepromFormatted(){
+
 	unsigned id;
 	id=ReadEeprom(0)+(ReadEeprom(1)<<8);
 	return (id==EEPROM_SIGNATURE);
 }
+#endif
 
 /*
  * Reads the power button status. 
@@ -1004,8 +1014,7 @@ void debug_str_p(const char* data){
 	}
 }
 
-void debug_str_r(char* data,u8 size, bool hex)
-{
+void debug_str_r(char* data,u8 size, bool hex){
 	for(u8 i=0;i<size;i++){
 		if(hex){
 			debug_hex(data[i]);	

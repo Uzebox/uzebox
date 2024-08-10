@@ -24,6 +24,19 @@
 #include <avr/pgmspace.h>
 #include "uzebox.h"
 
+#ifndef NO_CHAN_EXPRESSION
+	#define NO_CHAN_EXPRESSION 0
+#endif
+#ifndef NO_PC_TREMOLO
+	#define NO_PC_TREMOLO 0
+#endif
+#ifndef NO_PC_SLIDE
+	#define NO_PC_SLIDE 0
+#endif
+#ifndef NO_PC_LOOP
+	#define NO_PC_LOOP 0
+#endif
+
 #define CONTROLER_VOL 7
 #define CONTROLER_EXPRESSION 11
 #define CONTROLER_TREMOLO 92
@@ -62,7 +75,7 @@ u8 step;
 
 	unsigned int ReadVarLen(const char **songPos);
 
-	const char *songPos; 
+	const char *songPos;
 	const char *songStart;
 	const char *loopStart;
 	
@@ -104,7 +117,7 @@ u8 step;
 	u8 currentStep;
 	u8 modChannels;
 	u8 songLength;
-	const char *songPos; 
+	const char *songPos;
 	const char *songStart;
 	const char *loopStart;
 	const u16 *patternOffsets;
@@ -195,25 +208,27 @@ void PatchCommand08(Track* track, char param){
  * Command 09: Set tremolo level
  * Param:
 */
-
+#if NO_PC_TREMOLO == 0
 void PatchCommand09(Track* track, char param){
 	track->tremoloLevel=param;
 }
-
+#endif
 /*
  * Command 10: Set tremolo rate
  * Param:
 */
+#if NO_PC_TREMOLO == 0
 void PatchCommand10(Track* track, char param){
 	track->tremoloRate=param;
 }
-
+#endif
 
 /*
  * Command 11: Pitch slide (linear) 
  * Param: (+/-) half steps to slide to
 */
 
+#if NO_PC_SLIDE == 0
 void PatchCommand11(Track* track, char param){
 	//slide to note from current note
 	s16 currentStep,targetStep,delta;	
@@ -229,24 +244,28 @@ void PatchCommand11(Track* track, char param){
 	track->flags|=TRACK_FLAGS_SLIDING;
 	track->slideNote=track->note+param;
 }
-
+#endif
 
 /*
  * Command 12: Pitch slide speed 
  * Param: slide speed (fixed 4:4)
  */
+#if NO_PC_SLIDE == 0
 void PatchCommand12(Track* track, char param){
 	track->slideSpeed=param;
 }
+#endif
 
 /*
  *  Command 13: Loop start
  * Description: Defines the start of a loop. Works in conjunction with command 14 (PC_LOOP_END).
  *		 Param: loop count
  */
+#if NO_PC_LOOP == 0
 void PatchCommand13(Track* track, char param){
 	track->loopCount=(u8)param;
 }
+#endif
 
 /*
  *  Command 14: Loop end
@@ -266,6 +285,7 @@ void PatchCommand13(Track* track, char param){
  *					0,PATCH_END  
  *				};
  */
+#if NO_PC_LOOP == 0
 void PatchCommand14(Track* track, char param){
 	if(track->loopCount>0){
 		//track->patchCommandStreamPos=track->loopStart;
@@ -284,9 +304,31 @@ void PatchCommand14(Track* track, char param){
 		track->loopCount--;
 	}
 }
+#endif
 
-
-const PatchCommand patchCommands[] PROGMEM ={&PatchCommand00,&PatchCommand01,&PatchCommand02,&PatchCommand03,&PatchCommand04,&PatchCommand05,&PatchCommand06,&PatchCommand07,&PatchCommand08,&PatchCommand09,&PatchCommand10,&PatchCommand11,&PatchCommand12,&PatchCommand13,&PatchCommand14};
+const PatchCommand patchCommands[] PROGMEM ={
+&PatchCommand00,
+&PatchCommand01,
+&PatchCommand02,
+&PatchCommand03,
+&PatchCommand04,
+&PatchCommand05,
+&PatchCommand06,
+&PatchCommand07,
+&PatchCommand08,
+#if (NO_PC_TREMOLO == 0 && NO_PC_SLIDE == 0 && NO_PC_LOOP == 0)
+	&PatchCommand09,
+	&PatchCommand10,
+#endif
+#if (NO_PC_SLIDE == 0 && NO_PC_LOOP == 0)
+	&PatchCommand11,
+	&PatchCommand12,
+#endif
+#if (NO_PC_LOOP == 0)
+	&PatchCommand13,
+	&PatchCommand14
+#endif
+};
 
 const Patch *patchPointers;
 
@@ -310,8 +352,12 @@ void InitMusicPlayer(const Patch *patchPointersParam){
 		tracks[t].noteVol=0;
 		tracks[t].trackVol=DEFAULT_TRACK_VOL;
 		tracks[t].patchNo=DEFAULT_PATCH;
+	#if NO_PC_TREMOLO == 0
 		tracks[t].tremoloRate=24; //~6hz
+	#endif
+	#if NO_PC_SLIDE == 0
 		tracks[t].slideSpeed=0x10;
+	#endif
 	}
 
 }
@@ -321,7 +367,9 @@ void InitMusicPlayer(const Patch *patchPointersParam){
 	void StartSong(const char *song){
 		for(unsigned char t=0;t<CHANNELS;t++){
 			tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);// priority=0;
-			tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+			#if NO_CHAN_EXPRESSION == 0
+				tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+			#endif
 		}
 
 		songPos=song+1; //skip first delta-time
@@ -343,7 +391,9 @@ void InitMusicPlayer(const Patch *patchPointersParam){
 		void StartSong(){
 			for(unsigned char t=0;t<CHANNELS;t++){
 				tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);
-				tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+				#if NO_CHAN_EXPRESSION == 0
+					tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+				#endif
 			}
 
 			songPos		= 0;
@@ -360,7 +410,9 @@ void InitMusicPlayer(const Patch *patchPointersParam){
 		void StartSong(const char *song){
 			for(unsigned char t=0;t<CHANNELS;t++){
 				tracks[t].flags&=(~TRACK_FLAGS_PRIORITY);
-				tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+				#if NO_CHAN_EXPRESSION == 0
+					tracks[t].expressionVol=DEFAULT_EXPRESSION_VOL;
+				#endif
 			}
 
 			songPos		= song;
@@ -460,9 +512,9 @@ u8 GetSongSpeed(){
 
 
 void ProcessMusic(void){
-	u8 c1,c2,tmp,trackVol;
+	u8 c1,c2,trackVol;
 	s16 vol;
-	u16 uVol,tVol;
+	u16 uVol;
 	u8 channel;
 	Track* track;
 
@@ -484,7 +536,7 @@ void ProcessMusic(void){
 
 		//if volumes reaches zero and no more patch command, explicitly end playing on track
 		//if(vol==0 && track->patchCommandStreamPos==NULL) track->flags&=~(TRACK_FLAGS_PLAYING);
-
+#if NO_PC_SLIDE == 0
 		if(track->flags & TRACK_FLAGS_SLIDING){
 
 			mixer.channels.all[trackNo].step+=track->slideStep;
@@ -494,9 +546,10 @@ void ProcessMusic(void){
 				(track->slideStep<0 && mixer.channels.all[trackNo].step<=tStep))
 			{					
 				mixer.channels.all[trackNo].step = tStep;					
-				track->flags &= ~(TRACK_FLAGS_SLIDING);	
+				track->flags &= ~(TRACK_FLAGS_SLIDING);
 			}
 		}
+#endif
 	}
 
 
@@ -537,7 +590,7 @@ void ProcessMusic(void){
 					channel=lastStatus&0x0f;
 				
 					//get next data byte		
-					if(c1&0x80) c1=pgm_read_byte(songPos++); 
+					if(c1&0x80) c1=pgm_read_byte(songPos++);
 
 					switch(lastStatus&0xf0){
 
@@ -558,14 +611,20 @@ void ProcessMusic(void){
 						
 							if(c1==CONTROLER_VOL){
 								tracks[channel].trackVol=c2<<1;
-							}else if(c1==CONTROLER_EXPRESSION){
-								tracks[channel].expressionVol=c2<<1;
-							}else if(c1==CONTROLER_TREMOLO){
-								tracks[channel].tremoloLevel=c2<<1;
-							}else if(c1==CONTROLER_TREMOLO_RATE){
-								tracks[channel].tremoloRate=c2<<1;
 							}
-						
+						#if NO_CHAN_EXPRESSION == 0
+							else if(c1==CONTROLER_EXPRESSION){
+								tracks[channel].expressionVol=c2<<1;
+							}
+						#endif
+						#if NO_PC_TREMOLO == 0
+							else if(c1==CONTROLER_TREMOLO){
+								tracks[channel].tremoloLevel=c2<<1;
+								
+							}else if(c1==CONTROLER_TREMOLO_RATE){
+									tracks[channel].tremoloRate=c2<<1;
+							}
+						#endif
 							break;
 
 						//program change
@@ -670,12 +729,16 @@ void ProcessMusic(void){
 						
 						if(c2 == 0b00000000)//Channel Volume
 							tracks[channel].trackVol=c1<<1;
+					#if NO_CHAN_EXPRESSION == 0
 						else if(c2 == 0b00001000)//Expression
 							tracks[channel].expressionVol=c1<<1;
+					#endif
+					#if NO_PC_TREMOLO == 0
 						else if(c2 == 0b00010000)//Tremolo Volume
 							tracks[channel].tremoloLevel=c1<<1;
 						else//c2 = 0b00011000//Tremolo Rate
 							tracks[channel].tremoloRate=c1<<1;
+					#endif
 					}
 				}
 		
@@ -864,14 +927,19 @@ void ProcessMusic(void){
 							
 							if(c1==CONTROLER_VOL){
 								tracks[channel].trackVol=c2<<1;
-							}else if(c1==CONTROLER_EXPRESSION){
+							}
+						#if NO_CHAN_EXPRESSION == 0
+							else if(c1==CONTROLER_EXPRESSION){
 								tracks[channel].expressionVol=c2<<1;
-							}else if(c1==CONTROLER_TREMOLO){
+							}
+						#endif
+						#if NO_PC_TREMOLO == 0
+							else if(c1==CONTROLER_TREMOLO){
 								tracks[channel].tremoloLevel=c2<<1;
 							}else if(c1==CONTROLER_TREMOLO_RATE){
 								tracks[channel].tremoloRate=c2<<1;
 							}
-
+						#endif
 						}							
 						break;
 
@@ -916,13 +984,19 @@ void ProcessMusic(void){
 									
 									if(c1==CONTROLER_VOL){
 										tracks[channel].trackVol=c2<<1;
-									}else if(c1==CONTROLER_EXPRESSION){
+									}
+								#if NO_CHAN_EXPRESSION == 0
+									else if(c1==CONTROLER_EXPRESSION){
 										tracks[channel].expressionVol=c2<<1;
-									}else if(c1==CONTROLER_TREMOLO){
+									}
+								#endif
+								#if NO_PC_TREMOLO == 0
+									else if(c1==CONTROLER_TREMOLO){
 										tracks[channel].tremoloLevel=c2<<1;
 									}else if(c1==CONTROLER_TREMOLO_RATE){
 										tracks[channel].tremoloRate=c2<<1;
 									}
+								#endif
 								}
 								break;
 						
@@ -999,34 +1073,41 @@ void ProcessMusic(void){
 				uVol>>=8;
 				
 				#if MUSIC_ENGINE == MIDI
-					uVol=(uVol*track->expressionVol)+0x100;
+					#if NO_CHAN_EXPRESSION == 0
+						uVol=(uVol*track->expressionVol)+0x100;
+					#else
+						uVol=(uVol*DEFAULT_EXPRESSION_VOL)+0x100;
+					#endif
 					uVol>>=8;
 				#endif
 				
 				uVol=(uVol*masterVolume)+0x100;
 				uVol>>=8;
 
-				if(track->tremoloLevel>0){
-					#if (INCLUDE_DEFAULT_WAVES != 0)
-						tmp=pgm_read_byte(&(waves[track->tremoloPos]));
-					#else
-						tmp=0;
-					#endif
-					tmp-=128; //convert to unsigned
+				#if NO_PC_TREMOLO == 0
+					if(track->tremoloLevel>0){
+						u8 tmp;
+						#if (INCLUDE_DEFAULT_WAVES != 0)
+							tmp=pgm_read_byte(&(waves[track->tremoloPos]));
+						#else
+							tmp=0;
+						#endif
+						tmp-=128; //convert to unsigned
 
-					tVol=(track->tremoloLevel*tmp)+0x100;
-					tVol>>=8;
+						u16 tVol=(track->tremoloLevel*tmp)+0x100;
+						tVol>>=8;
 					
-					uVol=(uVol*(0xff-tVol))+0x100;
-					uVol>>=8;
-				}
-
+						uVol=(uVol*(0xff-tVol))+0x100;
+						uVol>>=8;
+					}
+				#endif
 			
 			}else{
 				uVol=0;
 			}	
-
+		#if NO_PC_TREMOLO == 0
 			track->tremoloPos+=track->tremoloRate;	
+		#endif
 
 		}else{
 			uVol=0;
@@ -1098,23 +1179,29 @@ u8 SongBufRead(){//this name is a bit dubious for the flash only(no buffer) vers
 
 
 void TriggerCommon(Track* track,u8 patch,u8 volume,u8 note){
-		
+
 	bool isFx = (track->flags&TRACK_FLAGS_PRIORITY);
 
-	track->envelopeStep=0; 
-	track->envelopeVol=0xff; 
+	track->envelopeStep=0;
+	track->envelopeVol=0xff;
 	track->noteVol=volume;
 	track->patchPlayingTime=0;
 	track->flags&=(~(TRACK_FLAGS_HOLD_ENV|TRACK_FLAGS_SLIDING));
+	track->note=note;
+#if NO_PC_TREMOLO == 0
 	track->tremoloLevel=0;
 	track->tremoloPos=0;
-	track->note=note;
-	track->loopCount=0;
-
-#if MUSIC_ENGINE == MIDI || MUSIC_ENGINE == STREAM
-	track->expressionVol=DEFAULT_EXPRESSION_VOL;
 #endif
 
+#if NO_PC_LOOP == 0
+	track->loopCount=0;
+#endif
+
+#if NO_CHAN_EXPRESSION == 0
+	#if MUSIC_ENGINE == MIDI || MUSIC_ENGINE == STREAM
+		track->expressionVol=DEFAULT_EXPRESSION_VOL;
+	#endif
+#endif
 	#if SOUND_MIXER == MIXER_TYPE_INLINE
 
 		if(track->channel==3){
@@ -1126,13 +1213,13 @@ void TriggerCommon(Track* track,u8 patch,u8 volume,u8 note){
 		#if SOUND_CHANNEL_5_ENABLE==1		
 
 		}else if(track->channel==4){
-				//PCM channel					
-				mixer.channels.type.pcm.positionFrac=0;
-				const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
-				mixer.channels.type.pcm.position=pos;				
-				mixer.pcmLoopLenght=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
-				mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
-				SetMixerNote(track->channel,note);
+			//PCM channel					
+			mixer.channels.type.pcm.positionFrac=0;
+			const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
+			mixer.channels.type.pcm.position=pos;				
+			mixer.pcmLoopLength=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
+			mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
+			SetMixerNote(track->channel,note);
 		#endif	
 
 		}else{					
@@ -1159,7 +1246,7 @@ void TriggerCommon(Track* track,u8 patch,u8 volume,u8 note){
 				mixer.channels.type.pcm.positionFrac=0;
 				const char *pos=(const char*)pgm_read_word(&(patchPointers[patch].pcmData));
 				mixer.channels.type.pcm.position=pos;
-				mixer.pcmLoopLenght=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
+				mixer.pcmLoopLength=pgm_read_word(&(patchPointers[patch].loopEnd))-pgm_read_word(&(patchPointers[patch].loopStart));
 				mixer.pcmLoopEnd=pos+pgm_read_word(&(patchPointers[patch].loopEnd));
 			}else{
 				SetMixerWave(track->channel,0);

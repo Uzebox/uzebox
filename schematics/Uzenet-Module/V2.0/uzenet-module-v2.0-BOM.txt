@@ -1,0 +1,9 @@
+Uzenet Module V2.0 BOM - All parts from Digikey or otherwise noted
+Note: Parts footprints compatible with Uzenet PCB Rev 2.0
+--------------------------------------------------------------
+1   23LC1024-I/P-ND         IC SRAM 1MBIT SPI/QUAD 8DIP     (U1)
+1   ESP-12F                 WIFI Module                     (U2) (AliExpress: https://vi.aliexpress.com/item/32264795859.html , https://vi.aliexpress.com/item/1005005145206867.html)
+1   MCP1700-3302E/TO-ND     IC REG LINEAR 3.3V 250MA TO92-3 (U3)
+1   AE9986-ND               CONN IC DIP SOCKET 8POS TIN     (To match U1) (or equivalent)
+2   445-8417-ND             CAP CER 1UF 16V X7R RADIAL      (C1,C2) (or equivalent)
+1   612-SSM-108-F-DV-ND     CONN RCPT 16POS 0.1 GOLD SMD    (JP1) (or equivalent)
