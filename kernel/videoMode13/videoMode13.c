@@ -106,7 +106,7 @@
 		u8 x2, y2;
 		s8 xOffset, yOffset;
 		u8 x, y;
-		u8* src =(sprites[sprNo].tileIndex*(TILE_HEIGHT*TILE_WIDTH/2))
+		u8* src =(u8*)(sprites[sprNo].tileIndex*(TILE_HEIGHT*TILE_WIDTH/2))
 				+sprites_tile_banks[flags>>6];	//add bank adress		
 		u8* dst = &ram_tiles[ramTileIndex*(TILE_HEIGHT*TILE_WIDTH/2)];
 		
