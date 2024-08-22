@@ -141,6 +141,11 @@ void PatchCommand01(Track* track, char param){
 	#if MIXER_CHAN4_TYPE == 0
 		mixer.channels.type.noise.barrel=0x0101;
 		mixer.channels.type.noise.params=param;
+
+		#if SOUND_MIXER == 1
+			mixer.channels.type.noise.divider=param; // fixes missing voice problem with the optimized inline mixer
+		#endif
+
 	#endif
 }
 /*
