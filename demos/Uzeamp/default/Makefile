@@ -1,5 +1,5 @@
 ###############################################################################
-# Makefile for the project SpriteDemo
+# Makefile for the project Uzeamp
 ###############################################################################
 
 ## General Flags
@@ -10,11 +10,14 @@ TARGET = $(GAME).elf
 CC = avr-gcc
 INFO=../gameinfo.properties
 
+## Tools path
+UZEBIN_DIR = ../../../bin/
+
 ## Kernel settings
-## Notes: SCREEN_TILES_V=27 is required to recover some CPU because with the mouse & sprites, it would randomly crash
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DUZEBOX -DUZEAMP -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DRAM_TILES_COUNT=12 -DCENTER_ADJUSTMENT=0
-KERNEL_OPTIONS += -DMAX_SPRITES=4 -DSCREEN_TILES_V=27 -DVRAM_TILES_V=27 -DFIRST_RENDER_LINE=24 -DENABLE_MIXER=0 -DSNES_MOUSE=0
+KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DRAM_TILES_COUNT=1 -DCENTER_ADJUSTMENT=0  -DSNES_MOUSE=0 -DSCROLLING=0
+KERNEL_OPTIONS += -DMAX_SPRITES=1 -DSCREEN_TILES_V=24 -DVRAM_TILES_V=24 -DFIRST_RENDER_LINE=24 -DENABLE_MIXER=0 
+KERNEL_OPTIONS += -DPF_USE_DIR=1 -DPF_USE_LSEEK=1 -DPF_USE_WRITE=0 -DPF_USE_READ=1 
 
 
 ## Options common to compile, link and assembly rules
@@ -22,7 +25,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder
+CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -O3 -fsigned-char -ffunction-sections -fno-toplevel-reorder
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
@@ -47,7 +50,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o mmc.o mmc_lib.o $(GAME).o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o pff.o diskio.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -56,7 +59,11 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+all: ../data/tiles.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+
+## Regenerate the graphics include file
+../data/tiles.inc: ../data/tiles.png ../data/gconvert.xml
+	$(UZEBIN_DIR)gconvert ../data/gconvert.xml
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
@@ -74,12 +81,14 @@ uzeboxSoundEngine.o: $(KERNEL_DIR)/uzeboxSoundEngine.c
 uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-mmc.o: $(KERNEL_DIR)/mmc.s
-	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
-
-mmc_lib.o: $(KERNEL_DIR)/mmc_lib.c
+terminal.o: ../terminal.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
-
+	
+diskio.o: $(KERNEL_DIR)/petitfatfs/diskio.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+	
+pff.o: $(KERNEL_DIR)/petitfatfs/pff.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
 $(GAME).o: ../Uzeamp.c
@@ -114,7 +123,7 @@ size: ${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze
+	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze ../data/tiles.inc ../data/tiles.inc
 
 
 ## Other dependencies

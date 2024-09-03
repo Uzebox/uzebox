@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="../data/tiles.png" type="png" tile-width="8" tile-height="8" />
+    <output file="../data/tiles.inc">
+        <tiles var-name="main_tileset" />
+        <maps pointers-size="8">
+        	<map var-name="map_hCursor" left="0" top="4" width="2" height="1"/>
+			
+			<map var-name="map_main" left="0" top="5" width="30" height="24"/>	
+			
+			<map var-name="map_digitSep" left="0" top="29" width="1" height="3"/>
+			<map var-name="map_digit0" left="1" top="29" width="2" height="3"/>
+			<map var-name="map_digit1" left="3" top="29" width="2" height="3"/>
+			<map var-name="map_digit2" left="5" top="29" width="2" height="3"/>
+			<map var-name="map_digit3" left="7" top="29" width="2" height="3"/>
+			<map var-name="map_digit4" left="9" top="29" width="2" height="3"/>
+			<map var-name="map_digit5" left="11" top="29" width="2" height="3"/>
+			<map var-name="map_digit6" left="13" top="29" width="2" height="3"/>
+			<map var-name="map_digit7" left="15" top="29" width="2" height="3"/>
+			<map var-name="map_digit8" left="17" top="29" width="2" height="3"/>
+			<map var-name="map_digit9" left="19" top="29" width="2" height="3"/>
+			<map var-name="map_digitBlank" left="21" top="29" width="2" height="3"/>
+			
+			<map var-name="map_overlay" left="21" top="29" width="8" height="2"/>
+			<map var-name="map_meterBarOff" left="21" top="31" width="1" height="1"/>
+			<map var-name="map_meterBarOn" left="22" top="31" width="1" height="1"/>			
+			<map var-name="map_loopOn" left="5" top="23" width="2" height="1"/>
+			<map var-name="map_loopOff" left="27" top="29" width="2" height="1"/>
+		</maps>	
+    </output>
+</gfx-xform>
