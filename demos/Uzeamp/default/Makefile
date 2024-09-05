@@ -110,15 +110,16 @@ $(TARGET): $(OBJECTS)
 %.uze: $(TARGET)
 	-$(UZEBIN_DIR)packrom $(GAME).hex $@ $(INFO)
 
-UNAME := $(shell sh -c 'uname -s 2>/dev/null || echo not')
-AVRSIZEFLAGS := -A ${TARGET}
-ifneq (,$(findstring MINGW,$(UNAME)))
+## Conditional setting based on whether avr-size supports -C
+ifeq ($(shell avr-size --help | grep '\-C' >/dev/null && echo yes ),yes)
 AVRSIZEFLAGS := -C --mcu=${MCU} ${TARGET}
+else
+AVRSIZEFLAGS := -A ${TARGET}
 endif
 
 size: ${TARGET}
-	@echo
-	@avr-size ${AVRSIZEFLAGS}
+	echo
+	avr-size ${AVRSIZEFLAGS}
 
 ## Clean target
 .PHONY: clean
