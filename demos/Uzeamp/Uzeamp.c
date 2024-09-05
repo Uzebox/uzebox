@@ -57,14 +57,18 @@
 #include <petitfatfs/diskio.h>
 #include "data/tiles.inc"
 
-#define BFONT 0
-#define SFONT 1
-#define BLANK 0
+#define BFONT 	0
+#define SFONT	1
+#define BLANK 	0
+#define OK		0
 
-#define PLAYER_STOPPED 		0x00
-#define PLAYER_STARTED 		0x01
-#define PLAYER_PAUSED  		0x02
-#define PLAYER_SONG_ENDED  	0x03
+#define PLAYER_STOPPED 			0x00
+#define PLAYER_STARTED 			0x01
+#define PLAYER_PAUSED  			0x02
+#define PLAYER_SONG_ENDED  		0x03
+
+#define ERR_INVALID_FORMAT		0x01
+#define ERR_INVALID_STRUCTURE	0x02
 
 /**
  * Struct representing the wave file header
@@ -93,28 +97,37 @@ typedef struct{
 
 } RIFFheader;
 
+typedef struct{
+	//data chunk
+	unsigned char subchunkID[4];
+	unsigned long subchunkSize;
+	unsigned char buffer[];
+} RIFFDataChunk;
+
 /**
  * Union struct to save space
  */
 typedef union {
 	unsigned char buffer[512];
 	RIFFheader riffHeader;
+	RIFFDataChunk dataChunk;
 } SdSector;
 
 /**
- * Wave files information read from the directory 
+ * Wave files information read from the directory
  */
 typedef struct {
 	char filename[13]; //8.3 + 0 terminator
 	unsigned long currentSector;
 	unsigned long sectorsCount;
 	unsigned long position;
+	unsigned long riffDataOffset;
 } SdFile;
 
 void animateTextLine(char *infoSongStr, bool reset);
 int findTag(char *tag, char *dest,unsigned int destLenght,unsigned char dataOffset);
 u8  getChar(int index);
-int loadWaveInfoBlock(SdFile *file);
+u8 loadWaveInfoBlock(SdFile *file);
 void initSdCard();
 void printDigits(unsigned long currentSectorNo );
 void printFilePlayingTime(unsigned char x,unsigned char y,unsigned long songSize);
@@ -131,14 +144,14 @@ FATFS fs;			// Work area (file system object) for the volume
 FILINFO fno;		//File object
 DIR dir;			// Directory object
 WORD br;			// File read count
-FRESULT res;		// Petit FatFs function common result code
+FRESULT fres;		// Petit FatFs function common result code
 
 //Global vars
 SdSector sector;	//buffer to hold an SD sector and RIFF header
 SdFile files[16];	//infos about the files found on the card
 u16 playingFile=0;	//file in the files[] array currently selected
 u8  player_status=PLAYER_STOPPED;	//current status of the player
-char infoSong[104];	//Buffer for the artist name and display info used in the scroller
+char infoSong[128];	//Buffer for the artist name and display info used in the scroller
 s16 frameMaxSample=0;//loudest sample played in the last vsync
 
 /**
@@ -188,13 +201,13 @@ int main(){
 
 	//Open the SD card's root directory and search for up to 10 wave files
 	cursorX=3;cursorY=11;fileCount=0;
-    res = pf_opendir(&dir, "/");
+    fres = pf_opendir(&dir, "/");
     int i=0;
     u8 j;
-    if (res == FR_OK) {
+    if (fres == FR_OK) {
         while (1) {
-            res = pf_readdir(&dir, &fno);
-            if (res != FR_OK || fno.fname[0] == 0) break;
+            fres = pf_readdir(&dir, &fno);
+            if (fres != FR_OK || fno.fname[0] == 0) break;
 			char *pos = strstr(fno.fname, ".WAV");
 			if(pos != NULL){
 				strcpy(files[i].filename,  fno.fname);
@@ -207,7 +220,7 @@ int main(){
 			}
         }
     }else{
-    	sdError(0,res);
+    	sdError(0,fres);
     }
 
     /**
@@ -332,7 +345,7 @@ int main(){
 		updateVuMeter();
    }
 
-} 
+}
 
 
 /**
@@ -399,8 +412,8 @@ void processPlayer()
 	if(mix_bank==1) buf+=MIX_BANK_SIZE;
 
 	if(player_status == PLAYER_STARTED){
-		res=pf_read(buf,MIX_BANK_SIZE,&bytesRead);
-		if(res!=FR_OK) sdError(1,res);
+		fres=pf_read(buf,MIX_BANK_SIZE,&bytesRead);
+		if(fres!=FR_OK) sdError(1,fres);
 		//if( files[playingFile].currentSector == files[playingFile].sectorsCount){
 		if(bytesRead < MIX_BANK_SIZE || files[playingFile].currentSector == files[playingFile].sectorsCount){
 			//clear the ring buffer to avoid clicks
@@ -434,16 +447,24 @@ void startSong(long firstSector, bool loadInfoBlock){
 	//display a loading message for large files (pf_lseek is very slow on large files)
 	animateTextLine("... LOADING ... LOADING ... LOADING",true);
 
-	res=pf_open(files[playingFile].filename);
-	if(res!=FR_OK) sdError(2,res);
+	fres=pf_open(files[playingFile].filename);
+	if(fres!=FR_OK) sdError(2,fres);
 
 	if(loadInfoBlock){
-		loadWaveInfoBlock(&files[playingFile]);
+		u8 res=loadWaveInfoBlock(&files[playingFile]);
+		if(res==ERR_INVALID_FORMAT){
+			animateTextLine("UNSUPPORTED WAVE FILE FORMAT...MUST BE 15734Hz, 8BITS, MONO. SEE UZEBOX.ORG/WIKI/UZEAMP...",true);
+			return;
+		}else if(res==ERR_INVALID_STRUCTURE){
+			animateTextLine("UNSUPPORTED WAVE FILE STRUCTURE...",true);
+			return;
+		}
 	}
 
 	//Advance read pointer beginning of audio data
-	res=pf_lseek((firstSector*512)+ (sizeof(sector.riffHeader) + 1));
-	if(res!=FR_OK) sdError(3,res);
+	//res=pf_lseek((firstSector*512)+ (sizeof(sector.riffHeader) + 1));
+	fres=pf_lseek((firstSector*512)+files[playingFile].riffDataOffset );
+	if(fres!=FR_OK) sdError(3,fres);
 
 	animateTextLine(infoSong,true);
 
@@ -458,17 +479,22 @@ void startSong(long firstSector, bool loadInfoBlock){
  * see: https://www.robotplanet.dk/audio/wav_meta_data/
  * 		http://soundfile.sapp.org/doc/WaveFormat/
  *
- * Limitation: required meta data must fit with a single sector (512 bytes).
+ * Limitations:
+ *- required meta data must fit with a single sector (512 bytes).
+ *- metadata must be either right after data chunk (usually put there by most tools)
+ *  or right after fmt chunk (like ffmpeg)
+ *- keep metadata to just title and artist to avoid issues (other be ignored anyway)
  */
-int loadWaveInfoBlock(SdFile *file){
+
+u8 loadWaveInfoBlock(SdFile *file){
 	unsigned long infoBlockStartAddr;
-	unsigned char i,pos,c;
+	u8 i,pos,c;
 	u16 bytesRead=0;
 	char infoTemp[48];
 
 	//Read the first sector to get the Riff header
-	res=pf_read(sector.buffer, 512,&bytesRead);
-	if(res!=FR_OK) sdError(4,res);
+	fres=pf_read(sector.buffer, 512,&bytesRead);
+	if(fres!=FR_OK) sdError(4,fres);
 
 	//check if its a valid WAV file
 	if(	sector.riffHeader.format[0]=='W' &&
@@ -476,19 +502,46 @@ int loadWaveInfoBlock(SdFile *file){
 		sector.riffHeader.format[2]=='V' &&
 		sector.riffHeader.format[3]=='E'){
 
-		file->sectorsCount=(sector.riffHeader.subchunk2Size/512);
+		//next chunk is always "fmt ", check if wave is correct format
+		//Support 15750hz used by old .wav files as well as the correct 15734hz
+		if(sector.riffHeader.audioFormat!=1 || sector.riffHeader.numChannels!=1
+				|| !(sector.riffHeader.sampleRate ==15734 || sector.riffHeader.sampleRate==15750)
+				|| sector.riffHeader.bitsPerSample!=8){
+			return ERR_INVALID_FORMAT;
+		}
 
-		//compute the address of the meta data that resides after the sound data
-		//Starts with the chunk ID "INFO"
-		infoBlockStartAddr=sector.riffHeader.subchunk2Size + sizeof(sector.riffHeader) + 1;
+		//check if the next chunk is sound data ou metadata
+		if(	sector.riffHeader.subchunk2ID[0]=='d' &&
+			sector.riffHeader.subchunk2ID[1]=='a' &&
+			sector.riffHeader.subchunk2ID[2]=='t' &&
+			sector.riffHeader.subchunk2ID[3]=='a'){
 
-		//advance read pointer to meta data start
-		res=pf_lseek(infoBlockStartAddr);
-		if(res!=FR_OK) sdError(5,res);
+			//compute the address of the meta data that resides after the sound data
+			//Starts with the chunk ID "INFO"
+			infoBlockStartAddr=sector.riffHeader.subchunk2Size + sizeof(sector.riffHeader) + 1;
 
-		//read the meta data
-		res=pf_read(sector.buffer, 512,&bytesRead);
-		if(res!=FR_OK) sdError(6,res);
+			//advance read pointer to meta data start
+			fres=pf_lseek(infoBlockStartAddr);
+			if(fres!=FR_OK) sdError(5,fres);
+
+			//read the meta data
+			fres=pf_read(sector.buffer, 512,&bytesRead);
+			if(fres!=FR_OK) sdError(6,fres);
+
+			file->sectorsCount=(sector.riffHeader.subchunk2Size/512);
+			file->riffDataOffset=(sizeof(sector.riffHeader) + 1);
+
+		}else if(sector.riffHeader.subchunk2ID[0]=='L' &&
+				 sector.riffHeader.subchunk2ID[1]=='I' &&
+				 sector.riffHeader.subchunk2ID[2]=='S' &&
+				 sector.riffHeader.subchunk2ID[3]=='T'){
+
+				file->sectorsCount=(sector.riffHeader.chunkSize-sector.riffHeader.subchunk1Size-sector.riffHeader.subchunk2Size)/512;
+				file->riffDataOffset=36+18+sector.riffHeader.subchunk2Size;
+		}else{
+			//unrecognized structure
+			return ERR_INVALID_STRUCTURE;
+		}
 
 		if(findTag("INFO",NULL,0,0)==0){
 			//find the artist name metadata
@@ -522,11 +575,11 @@ int loadWaveInfoBlock(SdFile *file){
 			return 0;
 		}else{
 			infoSong[0]=0;
-			return 1;
+			return ERR_INVALID_STRUCTURE;
 		}
 	}
 
-	return -1;
+	return ERR_INVALID_FORMAT;
 }
 
 /**
@@ -685,7 +738,7 @@ void animateTextLine(char *infoSongStr, bool reset){
 			if(pos>=(songLen+4)) pos=0;
 		}
 	}
-	
+
 	wait++;
 
 }
@@ -730,8 +783,8 @@ void PrintString2_P(u8 x, u8 y, const char *str, u8 font){
 void initSdCard(){
 	//try 10 times to initialize then fail
 	for(u8 i=0;i<10;i++){
-		res=pf_mount(&fs);
-		if(res==FR_OK){
+		fres=pf_mount(&fs);
+		if(fres==FR_OK){
 			Fill(3,12,24,10,BLANK);
 			return;
 		}
