@@ -19,9 +19,9 @@
  *
  *  ---
  *
- *  Uzeamp is a music player that supports standard WAVE files, 8-bit mono with 15734Hz sampling rate.
+ *  Uzeamp is a music player that supports standard WAVE files encoded in 8-bit mono with 15734Hz sampling rate.
  *
- *  Features
+ *  Features:
  *  - Plays WAV files, 8-bit unsigned mono file at 15734Hz (the NTSC line rate).
  *  - Supports WAV file metadata extension for song name and artist.
  *  - Supports FAT16/FAT32, SD and SDHC, file fragmentation
@@ -30,20 +30,12 @@
  *  - VU meter
  *  - Auto-play next song
  *
- * Controls
- * - Start: Start/pause songs
- * - Select: Change skins or color scheme
- * - Up/Down: Select song
- * - Left/Right shoulder: Fast-forward the song. Press A at the same to fast-forward faster.
-
- * Known Issues & Limitations
- * - All WAV files must be in the root directory, no more than 11 files
- * - Longhty songs takes a long time to start due to the use of PetitFatFS inefficient cluster chain resolution.
+ *  Compatible WAVE files can be made using FFMPEG. This will produce a file in the correct format and striping
+ *  all metadata from the orginal file while adding custom song title and artist name.
  *
- *  Compatible WAVE files can be made using FFMPEG:
- *  ffmpeg -i input.mp3 -f wav -bitexact -acodec pcm_u8 -ac 1 -ar 15734 -metadata title="<song title>" -metadata artist="<son gartist>"  output.wav
+ *  ffmpeg -i input.mp3 -f wav -bitexact -acodec pcm_u8 -ac 1 -ar 15734 -map_metadata -1 -metadata title="<song title>" -metadata artist="<song artist>"  output.wav
  *
- *  See the wiki page for details: https://uzebox.org/wiki/Uzeamp1.0
+ *  See the wiki page for details: https://uzebox.org/wiki/Uzeamp
 */
 
 #include <stdbool.h>
@@ -61,6 +53,13 @@
 #define SFONT	1
 #define BLANK 	0
 #define OK		0
+#define MAX_DISP_FILES 	11
+#define MAX_FILES 		32
+#define CURSOR_INIT_X	3
+#define CURSOR_INIT_Y	11
+#define VU_METER_Y_OFFSET 5
+
+#define WAVE_PCM 1
 
 #define PLAYER_STOPPED 			0x00
 #define PLAYER_STARTED 			0x01
@@ -69,6 +68,7 @@
 
 #define ERR_INVALID_FORMAT		0x01
 #define ERR_INVALID_STRUCTURE	0x02
+#define ERR_NOT_FOUND			0x03
 
 /**
  * Struct representing the wave file header
@@ -118,6 +118,7 @@ typedef union {
  */
 typedef struct {
 	char filename[13]; //8.3 + 0 terminator
+	char songTime[9];
 	unsigned long currentSector;
 	unsigned long sectorsCount;
 	unsigned long position;
@@ -129,8 +130,7 @@ int findTag(char *tag, char *dest,unsigned int destLenght,unsigned char dataOffs
 u8  getChar(int index);
 u8 loadWaveInfoBlock(SdFile *file);
 void initSdCard();
-void printDigits(unsigned long currentSectorNo );
-void printFilePlayingTime(unsigned char x,unsigned char y,unsigned long songSize);
+void drawDigits(unsigned long currentSectorNo );
 void PrintChar2(u8 x,u8 y,char ch,u8 font);
 void PrintString2(u8 x, u8 y, char *str, u8 font);
 void PrintString2_P(u8 x, u8 y, const char *str, u8 font);
@@ -138,6 +138,10 @@ void processPlayer();
 void sdError(u8 code,u8 res);
 void startSong(long SectorNo,bool loadInfoBlock);
 void updateVuMeter();
+void updateProgressBar(unsigned long currentSector);
+void updateFilesList();
+bool process(bool buttonPressed,u8 buttonID,bool repeatOn);
+void getFilePlayingTime(unsigned long songSize,char *buffer);
 
 //PetitFS vars
 FATFS fs;			// Work area (file system object) for the volume
@@ -146,98 +150,113 @@ DIR dir;			// Directory object
 WORD br;			// File read count
 FRESULT fres;		// Petit FatFs function common result code
 
-//Global vars
-SdSector sector;	//buffer to hold an SD sector and RIFF header
-SdFile files[16];	//infos about the files found on the card
-u16 playingFile=0;	//file in the files[] array currently selected
-u8  player_status=PLAYER_STOPPED;	//current status of the player
-char infoSong[128];	//Buffer for the artist name and display info used in the scroller
-s16 frameMaxSample=0;//loudest sample played in the last vsync
+//Global variables
+SdSector sector;				//buffer to hold an SD sector and RIFF header
+SdFile files[MAX_FILES];		//infos about the files found on the card
+u8 fileCount=0;					//number of files loaded in files[]
+u16 playingFile=0;				//file in the files[] array currently selected
+u8  player_status=PLAYER_STOPPED;//current status of the player
+char infoSong[129];				//Buffer for the artist name and display info used in the scroller
+s16 frameMaxSample=0;			//loudest sample played in the last vsync (vu meter)
+u8 selectedSongIndex=0;
 
 /**
  * User callback invoqued on each VSYNC (60 fps)
  */
 void VsyncCallBack(void){
 	processPlayer();
-	animateTextLine(NULL,false);
 }
 
 /**
- * Used for debugging and printing with printf()
+ * Used for debugging and printing with printf().
+ * Escape characters are suported:
+ * \n - Line feed
+ * \r - Back to beginning of the same line
+ * \f - Back to top of the screen
  */
-int cons_putchar_printf(char c, FILE *stream) {
-	static u8 x=1,y=1;
+int putchar_printf(char c, FILE *stream) {
+	static u8 x=0,y=0;
 	if(c=='\n'){
 		x=1;y++;
+	}else if(c=='\r'){
+		x=1;
+	}else if(c=='\f'){
+		x=1;y=1;
 	}else if(c>=' ' && c <= '~'){
 		PrintChar2(x++,y,c,BFONT);
 	}
 	return 0;
 }
-static FILE stream = FDEV_SETUP_STREAM(cons_putchar_printf, NULL, _FDEV_SETUP_WRITE);
+static FILE stream = FDEV_SETUP_STREAM(putchar_printf, NULL, _FDEV_SETUP_WRITE);
 
 
 int main(){
 	//Skins data. Uzed to mask bits in the video port's data direction register hence altering the displayed colors.
-	u8 currentSkin=0,cursorX,cursorY,cursorDelay,cursorState,fileCount;
+	u8 currentSkin=0,cursorDelay,cursorState,cursorX,cursorY,cursorPrevY;
 	u8 skins[]={0xff,0xfc,0xe7,0xbe,0xbd,0x77,0x3e,0x27};
-	u16 joy,selectedSongIndex;
+	u16 buttons;
 	bool cueing;
 	long cueSector;
 
 	stdout=&stream;
 	SetTileTable(main_tileset);
-	SetSpritesTileTable(main_tileset);
+	//SetSpritesTileTable(main_tileset);
 	SetUserPreVsyncCallback(&VsyncCallBack);
-	SetRenderingParameters(FIRST_RENDER_LINE+8,192); //Lower lines to render to give PFF enough free cycle
-
-	//Draw the GUI then draw the song's timestamps
+	//Draw the overall GUI
 	DrawMap(0,0,map_main);
-	DrawMap(18,4,map_overlay);
-	for(int i=0;i<8;i++)DrawMap2(18+i,6,map_meterBarOff);
-	printDigits(0);
+	//Draw the vu meter
+	DrawMap(19,VU_METER_Y_OFFSET-1,map_overlaVuMeter);
+	for(int i=0;i<8;i++)DrawMap2(19+i,VU_METER_Y_OFFSET,map_vuMeterBarOff); //vu meter
+	//Draw the wave file parameters
+	DrawMap(19,VU_METER_Y_OFFSET+1,map_overlayParams);
+	//draw progress bar
+	SetTile(2,8,128);SetTile(27,8,138);//beginning+end
+	for(u8 i=0;i<24;i++)SetTile(i+3,8,129);
+
+	drawDigits(0);
 
 	initSdCard();
 
-	//Open the SD card's root directory and search for up to 10 wave files
-	cursorX=3;cursorY=11;fileCount=0;
+	//Open the SD card's root directory and search for up to MAX_FILES wave files
+	fileCount=0;
     fres = pf_opendir(&dir, "/");
-    int i=0;
-    u8 j;
+
     if (fres == FR_OK) {
         while (1) {
             fres = pf_readdir(&dir, &fno);
             if (fres != FR_OK || fno.fname[0] == 0) break;
 			char *pos = strstr(fno.fname, ".WAV");
 			if(pos != NULL){
-				strcpy(files[i].filename,  fno.fname);
-				for(j=cursorX;j<22;j++) PrintChar2(cursorX+j,cursorY+i,'_',BFONT); //erase line
-				PrintString2(cursorX,cursorY+i,files[i].filename,BFONT);
-				printFilePlayingTime(cursorX+16,cursorY+i,fno.fsize);
-				i++;
+				strcpy(files[fileCount].filename,  fno.fname);
+				for(u8 i=0;i<8;i++)files[fileCount].songTime[i]='_'; //init buffer
+				getFilePlayingTime(fno.fsize,files[fileCount].songTime);
+				//files[fileCount].fileSize=fno.fsize;
 				fileCount++;
-				if(i>10) break;
+				if(fileCount==MAX_FILES) break;
 			}
         }
     }else{
     	sdError(0,fres);
     }
+    updateFilesList();
+
 
     /**
      * Main loop that operate the GUI
      */
     cueSector=0;
-    selectedSongIndex=0;
     cueing=false;
     cursorState=1;cursorDelay=0;
+    selectedSongIndex=0;
+    cursorX=CURSOR_INIT_X;cursorY=cursorPrevY=CURSOR_INIT_Y;
 
   	while(1)
   	{
 		WaitVsync(1);
-		joy=ReadJoypad(0);
+		buttons=ReadJoypad(0);
 
 		//Start a new song, pause and resume the same song
-		if(joy&BTN_START){
+		if(process(buttons&BTN_START,0,false)){
 			if(player_status == PLAYER_STARTED && selectedSongIndex==playingFile){
 				player_status = PLAYER_PAUSED;
 			}else if(selectedSongIndex!=playingFile || player_status == PLAYER_STOPPED){
@@ -246,39 +265,50 @@ int main(){
 			}else{
 				player_status = PLAYER_STARTED;
 			}
-			while(ReadJoypad(0)!=0);
+			//while(ReadJoypad(0)!=0);
 		}
 
 		//Move cursor up
-		if(joy&BTN_UP){
-			PrintChar2(cursorX-1,cursorY+selectedSongIndex,' ',BFONT);
-			if(selectedSongIndex>0)selectedSongIndex--;
-			while(ReadJoypad(0)!=0);
+		if(process(buttons&BTN_UP,1,true)){
+			if(selectedSongIndex>0){
+				if(cursorY>CURSOR_INIT_Y && selectedSongIndex<(MAX_DISP_FILES))cursorY--;
+				selectedSongIndex--;
+				cursorState=1;
+				cursorDelay=0;
+				updateFilesList();
+			}
+			//while(ReadJoypad(0)!=0);
 		}
 
 		//Move cursor down
-		if(joy&BTN_DOWN){
-			PrintChar2(cursorX-1,cursorY+selectedSongIndex,' ',BFONT);
-			if(selectedSongIndex<(fileCount-1))selectedSongIndex++;
-			while(ReadJoypad(0)!=0);
+		if(process(buttons&BTN_DOWN,2,true)){
+
+			if(selectedSongIndex<(fileCount-1)){
+				if(selectedSongIndex<(MAX_DISP_FILES-1))cursorY++;
+				selectedSongIndex++;
+				cursorState=1;
+				cursorDelay=0;
+				updateFilesList();
+			}
+			//while(ReadJoypad(0)!=0);
 		}
 
 		//Cycle through the various color schemes
-		if(joy&BTN_SELECT){
+		if(process(buttons&BTN_SELECT,3,false)){
 			currentSkin++;
 			if(currentSkin==sizeof(skins))currentSkin=0;
 			DDRC=skins[currentSkin];
-			while(ReadJoypad(0)!=0);
+			//while(ReadJoypad(0)!=0);
 		}
 
 		//Fast forward the song. Pressing A button at the same time will cue faster
-		if(joy&BTN_SR){
+		if(buttons&BTN_SR){
 			if(player_status == PLAYER_STARTED){
 				if(!cueing){
 					cueSector=files[playingFile].currentSector;
 				}
 				cueSector+=50;//fast-forward
-				if(joy&BTN_A)cueSector+=400;//fast-forwards even faster
+				if(buttons&BTN_A)cueSector+=400;//fast-forwards even faster
 
 				if(cueSector>=(files[playingFile].sectorsCount-20)){
 					cueSector=files[playingFile].sectorsCount-20;
@@ -288,13 +318,13 @@ int main(){
 		}
 
 		//Fast backward the song. Pressing A button at the same time will cue faster
-		if(joy&BTN_SL){
+		if(buttons&BTN_SL){
 			if(player_status == PLAYER_STARTED){
 				if(!cueing){
 					cueSector=files[playingFile].currentSector;
 				}
 				cueSector-=100; //fast-backward
-				if(joy&BTN_A)cueSector-=400;//fast-backwards even faster
+				if(buttons&BTN_A)cueSector-=400;//fast-backwards even faster
 				if(cueSector<0){
 					cueSector=0;
 				}
@@ -305,9 +335,10 @@ int main(){
 		//Check if there is more songs to play
 		if(player_status == PLAYER_SONG_ENDED){
 			if(selectedSongIndex<(fileCount-1)){
-				PrintChar2(cursorX-1,cursorY+selectedSongIndex,' ',BFONT); //erase current cursor
+				if(selectedSongIndex<(MAX_DISP_FILES-1))cursorY++;
 				selectedSongIndex++;
 				playingFile=selectedSongIndex;
+				updateFilesList();
 				startSong(0, true);
 			}else{
 				player_status = PLAYER_STOPPED;
@@ -316,25 +347,28 @@ int main(){
 
 		//When releasing the fast-forward/fast-backward button
 		//stop the song then restart it at the new position
-		if( (joy&BTN_SL)==0 && (joy&BTN_SR)==0 && cueing==true){
+		if( (buttons&BTN_SL)==0 && (buttons&BTN_SR)==0 && cueing==true){
 			cueing=false;
 			startSong(cueSector,false);
 		}
 
-
 		//update digits and cue slider
 		if(cueing){
-			printDigits(cueSector);
-		}else if(player_status == PLAYER_STARTED){
-			printDigits(files[playingFile].currentSector);
+			drawDigits(cueSector);
+			updateProgressBar(cueSector);
+		}else if(player_status == PLAYER_STARTED || player_status == PLAYER_STOPPED){
+			drawDigits(files[playingFile].currentSector);
+			updateProgressBar(files[playingFile].currentSector);
 		}
 
 		//update the cursor
+		PrintChar2(cursorX-1,cursorPrevY,' ',BFONT); //erase previous cursor location
+		cursorPrevY=cursorY;
 		if(player_status != PLAYER_STARTED)cursorState=1;
 		if(cursorState == 1){
-			PrintChar2(cursorX-1,cursorY+selectedSongIndex,'^',BFONT);
+			PrintChar2(cursorX-1,cursorY,'^',BFONT);
 		}else{
-			PrintChar2(cursorX-1,cursorY+selectedSongIndex,' ',BFONT);
+			PrintChar2(cursorX-1,cursorY,' ',BFONT);
 		}
 		cursorDelay++;
 		if(cursorDelay>20){
@@ -343,10 +377,76 @@ int main(){
 		}
 
 		updateVuMeter();
+		animateTextLine(NULL,false);
    }
 
 }
+/**
+ * Handle auto-repeat
+ */
+bool process(bool buttonPressed,u8 buttonID,bool repeatOn){
+	static u8 autoRepeatDelay[4],autoRepeatRate[4];
 
+
+	if(!(buttonPressed)){
+		autoRepeatRate[buttonID]=20;
+		autoRepeatDelay[buttonID]=0;
+		return false;
+	}
+
+	if(buttonPressed && autoRepeatDelay[buttonID]==0){
+		autoRepeatDelay[buttonID]=autoRepeatRate[buttonID];
+		return true;
+	}
+	if(autoRepeatDelay[buttonID]>0 && repeatOn){
+		autoRepeatDelay[buttonID]--;
+		if(autoRepeatDelay[buttonID]==0){
+			autoRepeatRate[buttonID]=4;
+		}
+	}
+	return false;
+}
+
+/**
+ * Redraws the whole file list windows accounting for the selected song and scrolling
+ */
+void updateFilesList(){
+	u8 disp=0;
+	if(selectedSongIndex>=MAX_DISP_FILES){
+		disp=selectedSongIndex-MAX_DISP_FILES+1;
+	}
+	for(u8 i=0;(i<MAX_DISP_FILES && i<fileCount);i++){
+		for(u8 j=CURSOR_INIT_X+5;j<16;j++) PrintChar2(CURSOR_INIT_X+j,i+11,'_',BFONT); //erase line
+		PrintString2(CURSOR_INIT_X,i+11,files[i+disp].filename,BFONT);
+		PrintString2(CURSOR_INIT_X+16,i+11,files[i+disp].songTime,BFONT);
+	}
+}
+
+/**
+ * Draws the progress bar
+ */
+void updateProgressBar(unsigned long currentSector){
+	if(files[playingFile].sectorsCount==0 && currentSector==0) return;
+
+	SetTile(3,8,128); //beginning
+	SetTile(26,8,138); //end
+
+	//bar is 24 tiles wide * 8 = 192 pixels
+	u8 pixels=192*currentSector/files[playingFile].sectorsCount;
+	u8 fullTiles=pixels/8;
+	u8 tilePixels=pixels%8;
+
+	for(u8 i=0;i<24;i++){
+		if(i<fullTiles){
+			SetTile(i+3,8,137);
+		}else if(tilePixels>0){
+			SetTile(i+3,8,129+tilePixels);
+			tilePixels=0;
+		}else{
+			SetTile(i+3,8,129);
+		}
+	}
+}
 
 /**
  * Display a simple vu meter.
@@ -388,9 +488,9 @@ void updateVuMeter(){
 
 		for (int i = 0; i < 8; i++) {
 			if (i < current_segments) {
-				DrawMap2(18+i,6,map_meterBarOn);
+				DrawMap2(19+i,VU_METER_Y_OFFSET,map_vuMeterBarOn);
 			} else {
-				DrawMap2(18+i,6,map_meterBarOff);
+				DrawMap2(19+i,VU_METER_Y_OFFSET,map_vuMeterBarOff);
 			}
 		}
 		wait=0;
@@ -414,7 +514,6 @@ void processPlayer()
 	if(player_status == PLAYER_STARTED){
 		fres=pf_read(buf,MIX_BANK_SIZE,&bytesRead);
 		if(fres!=FR_OK) sdError(1,fres);
-		//if( files[playingFile].currentSector == files[playingFile].sectorsCount){
 		if(bytesRead < MIX_BANK_SIZE || files[playingFile].currentSector == files[playingFile].sectorsCount){
 			//clear the ring buffer to avoid clicks
 			for(int i=0;i<MIX_BUF_SIZE;i++)	mix_buf[i] = 0x80;
@@ -485,12 +584,12 @@ void startSong(long firstSector, bool loadInfoBlock){
  *  or right after fmt chunk (like ffmpeg)
  *- keep metadata to just title and artist to avoid issues (other be ignored anyway)
  */
-
+u8 debug=0;
 u8 loadWaveInfoBlock(SdFile *file){
 	unsigned long infoBlockStartAddr;
-	u8 i,pos,c;
+	u8 i,pos=0,c;
 	u16 bytesRead=0;
-	char infoTemp[48];
+	char infoTemp[64];
 
 	//Read the first sector to get the Riff header
 	fres=pf_read(sector.buffer, 512,&bytesRead);
@@ -504,7 +603,7 @@ u8 loadWaveInfoBlock(SdFile *file){
 
 		//next chunk is always "fmt ", check if wave is correct format
 		//Support 15750hz used by old .wav files as well as the correct 15734hz
-		if(sector.riffHeader.audioFormat!=1 || sector.riffHeader.numChannels!=1
+		if(sector.riffHeader.audioFormat!=WAVE_PCM || sector.riffHeader.numChannels!=1
 				|| !(sector.riffHeader.sampleRate ==15734 || sector.riffHeader.sampleRate==15750)
 				|| sector.riffHeader.bitsPerSample!=8){
 			return ERR_INVALID_FORMAT;
@@ -519,6 +618,14 @@ u8 loadWaveInfoBlock(SdFile *file){
 			//compute the address of the meta data that resides after the sound data
 			//Starts with the chunk ID "INFO"
 			infoBlockStartAddr=sector.riffHeader.subchunk2Size + sizeof(sector.riffHeader) + 1;
+			file->sectorsCount=(sector.riffHeader.subchunk2Size/512);
+			file->riffDataOffset=(sizeof(sector.riffHeader) + 1);
+
+			//return if no INFO chunk after audio data
+			if(infoBlockStartAddr>=sector.riffHeader.chunkSize){
+				strcpy_P(infoSong,PSTR("UNTITLED"));
+				return OK;
+			}
 
 			//advance read pointer to meta data start
 			fres=pf_lseek(infoBlockStartAddr);
@@ -527,9 +634,6 @@ u8 loadWaveInfoBlock(SdFile *file){
 			//read the meta data
 			fres=pf_read(sector.buffer, 512,&bytesRead);
 			if(fres!=FR_OK) sdError(6,fres);
-
-			file->sectorsCount=(sector.riffHeader.subchunk2Size/512);
-			file->riffDataOffset=(sizeof(sector.riffHeader) + 1);
 
 		}else if(sector.riffHeader.subchunk2ID[0]=='L' &&
 				 sector.riffHeader.subchunk2ID[1]=='I' &&
@@ -543,36 +647,51 @@ u8 loadWaveInfoBlock(SdFile *file){
 			return ERR_INVALID_STRUCTURE;
 		}
 
+		file->currentSector=0;
+
 		if(findTag("INFO",NULL,0,0)==0){
+
+			//printf("here");while(1);
+
+
 			//find the artist name metadata
-			findTag("IART",infoTemp,sizeof(infoTemp),4);
-			//append to the concatenated artist name
-			pos=0;
-			if(infoTemp[0]!=0){
-				i=0;
-				while(i<sizeof(infoTemp)){
-					c=infoTemp[i++];
-					if(c==0) break;
-					infoSong[pos++]=c;
+			if(findTag("IART",infoTemp,sizeof(infoTemp),4)==OK){
+				//append to the concatenated artist name
+				pos=0;
+				if(infoTemp[0]!=0){
+					i=0;
+					while(i<sizeof(infoTemp)){
+						c=infoTemp[i++];
+						if(c==0) break;
+						infoSong[pos++]=c;
+					}
+					if(pos!=0){
+						infoSong[pos++]=' ';
+						infoSong[pos++]='-';
+						infoSong[pos++]=' ';
+					}
 				}
-				infoSong[pos++]=' ';
-				infoSong[pos++]='-';
-				infoSong[pos++]=' ';
 			}
 
 			//search for the song name
-			findTag("INAM",infoTemp,sizeof(infoTemp),4);
-
-			if(infoTemp[0]!=0){
-				i=0;
-				while(i<sizeof(infoTemp)){
-					c=infoTemp[i++];
-					if(c==0) break;
-					infoSong[pos++]=c;
+			if(findTag("INAM",infoTemp,sizeof(infoTemp),4)==OK){
+				if(infoTemp[0]!=0){
+					i=0;
+					while(i<sizeof(infoTemp)){
+						c=infoTemp[i++];
+						if(c==0) break;
+						infoSong[pos++]=c;
+					}
 				}
 			}
-			infoSong[pos]=0;
-			return 0;
+
+			//return if no INFO chunk after audio data
+			if(pos==0){
+				strcpy_P(infoSong,PSTR("UNTITLED"));
+			}else{
+				infoSong[pos]=0;
+			}
+			return OK;
 		}else{
 			infoSong[0]=0;
 			return ERR_INVALID_STRUCTURE;
@@ -603,27 +722,29 @@ int findTag(char *tag, char *dest,unsigned int destLenght,unsigned char dataOffs
 				}
 				dest[j]=0;
 			}
-			return 0; //found!
+			return OK; //found!
 		}
 
 		i++;
-		if(i>512){
+		if(i>=512){
 			dest[0]=0;
-			return -1; //not found!
+			return ERR_NOT_FOUND; //not found!
 		}
 	}
+
 }
 
 unsigned char getChar(int index){
-	char c=sector.buffer[index];
-	if(c>=97) c-=32;
+	u8 c=sector.buffer[index];
+	if(c>=0x7d) c='?'; //clip unsupported characters above ascii 127
+	if(c>=97) c-=32; //convert lowercase to uppercase
 	return c;
 }
 
 /**
  * Draw the song's timestamp digits
  */
-void printDigits(unsigned long currentSectorNo ){
+void drawDigits(unsigned long currentSectorNo ){
 	unsigned long hours,minutes,seconds,temp;
 	unsigned char digit1, digit2,x=3;
 	//15734 bytes/sec @ 512bytes/sector
@@ -654,10 +775,7 @@ void printDigits(unsigned long currentSectorNo ){
 
 }
 
-/**
- * Computes and display the song'ss play time based on the file size
- */
-void printFilePlayingTime(unsigned char x,unsigned char y,unsigned long songSize){
+void getFilePlayingTime(unsigned long songSize,char *buffer){
 	unsigned long hours,minutes,seconds,temp;
 	unsigned char digit1, digit2;
 
@@ -677,20 +795,22 @@ void printFilePlayingTime(unsigned char x,unsigned char y,unsigned long songSize
 	//print hours
 	digit1=(hours/10)%10;
 	digit2=hours%10;
-	if(hours>0 && digit1>0) PrintChar2(x,y,digit1+'0',BFONT);
-	if(hours>0) PrintChar2(x+1,y,digit2+'0',BFONT);
-	if(hours>0) PrintChar2(x+2,y,':',BFONT);
+	if(hours>0 && digit1>0) buffer[0]=digit1+'0';
+	if(hours>0) buffer[1]=digit2+'0';
+	if(hours>0) buffer[2]=':';
 
 	digit1=(minutes/10)%10;
 	digit2=minutes%10;
-	if(hours>0 || digit1>0)PrintChar2(x+3,y,digit1+'0',BFONT);
-	if(hours>0 || minutes>0)PrintChar2(x+4,y,digit2+'0',BFONT);
-	PrintChar2(x+5,y,':',BFONT);
+	if(hours>0 || digit1>0)buffer[3]=digit1+'0';
+	if(hours>0 || minutes>0)buffer[4]=digit2+'0';
+	buffer[5]=':';
 
 	digit1=(seconds/10)%10;
 	digit2=seconds%10;
-	PrintChar2(x+6,y,digit1+'0',BFONT);
-	PrintChar2(x+7,y,digit2+'0',BFONT);
+	buffer[6]=digit1+'0';
+	buffer[7]=digit2+'0';
+
+	buffer[8]=0;
 }
 
 /**
@@ -780,6 +900,10 @@ void PrintString2_P(u8 x, u8 y, const char *str, u8 font){
 	}
 }
 
+/**
+ * Initialize the SD card, polling up to 5 seconds
+ * and displays an error message if unsuccessful
+ */
 void initSdCard(){
 	//try 10 times to initialize then fail
 	for(u8 i=0;i<10;i++){

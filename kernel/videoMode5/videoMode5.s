@@ -26,27 +26,23 @@
 ; ----
 ; Type:			Tile-based
 ; Cycles/Pixel: 6
-; Tile Size: 	6x8
-; Resolution: 	240x224 pixels (40x28 tiles)
+; Tile Size: 	6x8 or 8x8
+; Resolution: 	240x224 pixels - 40x28 tiles (for 6x8) or 30x28 tiles (for 8x8)
 ; Sprites: 		No
 ; Scrolling: 	No
 ;
 ; Description
 ; -----------
-; This video mode is tile-based and does not support 
-; sprites or scrolling. Tile are 6x8 pixels
-; (6 horizontally by 8 vertically). The VRAM is organized as
-; a 40x28 array of 8-bit indexes, hence no more than 256 tiles 
-; can be displayed simultaneously.
-; After initialization, the tile set to use and font index
-; must be defined by calling SetTileTable() and SetFontTilesIndex().
+; This video mode is tile-based and does not support
+; sprites or scrolling. Tile are 6x8 pixels (default)
+; or 8x8 pixels with the use of the -DTILE_WIDTH=8 build
+; variable. The VRAM is organized as 40x28 array of
+; 8-bit indexes, hence no more than 256 tiles can be
+; displayed simultaneously. After initialization,
+; the tile set to use and font index must be defined
+; by calling SetTileTable() and SetFontTilesIndex().
 ;
-; Note: This mode is very similar to mode 1, but uses 8-bit indexes
-; hence halving the VRAM requirement. Use this mode when more
-; RAM is reuqired by the game logic.
-; 
 ;***************************************************************
-
 .global vram
 .global SetTile
 .global ClearVram
@@ -71,15 +67,15 @@ sub_video_mode5:
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)
 
-	;total scanlines to draw	
-	lds r10,render_lines_count	
+	;total scanlines to draw
+	lds r10,render_lines_count
 
 	clr r22
 	ldi r23,TILE_WIDTH ;tile width in pixels
 
-next_text_line:	
-	rcall hsync_pulse 
-	
+next_text_line:
+	rcall hsync_pulse
+
 	WAIT r19,261 - AUDIO_OUT_HSYNC_CYCLES + CENTER_ADJUSTMENT
 
 	;***draw line***
@@ -89,23 +85,23 @@ next_text_line:
 
 	dec r10
 	breq text_frame_end
-	
+
 	lpm ;3 nop
 	inc r22
 
 	cpi r22,8 ;last char line? 1
-	breq next_text_row 
-	
+	breq next_text_row
+
 	;wait to align with next_tile_row instructions (+1 cycle for the breq)
 	lpm ;3 nop
 	lpm ;3 nop
 	lpm ;3 nop
 	nop
 
-	rjmp next_text_line	
+	rjmp next_text_line
 
 next_text_row:
-	clr r22		;current char line			;1	
+	clr r22		;current char line			;1
 
 	clr r0
 	ldi r19,VRAM_TILES_H
@@ -120,7 +116,7 @@ next_text_row:
 text_frame_end:
 
 	ldi r19,5
-	dec r19			
+	dec r19
 	brne .-4
 	rjmp .
 
@@ -146,13 +142,13 @@ text_frame_end:
 ; r22     = Y offset in tile row (0-7)
 ; r23 	  = tile width in bytes
 ; Y       = VRAM adress to draw from (must not be modified)
-; 
+;
 ; cycles  = 1495
 ;*************************************************
 render_tile_line:
 
 	movw XL,YL			;copy current VRAM pointer to X
-	ldi r17,TILE_HEIGHT*TILE_WIDTH	
+	ldi r17,TILE_HEIGHT*TILE_WIDTH
 
 	;////////////////////////////////////////////
 	;Compute the adress of the first tile to draw
@@ -164,17 +160,17 @@ render_tile_line:
 	adc r25,r1
 
 	ld r20,X+			;load first tile index from VRAM
-	mul r20,r17			;multiply tile index by tile size	
+	mul r20,r17			;multiply tile index by tile size
 	add r0,r24			;add tileset adress
 	adc r1,r25
 	movw ZL,r0	 		;copy to Z, the only register that can read from flash
 
 	ldi r18,SCREEN_TILES_H ;load the number of horizontal tiles to draw
 
-mode5_loop:	
+mode5_loop:
 	lpm r16,Z+			;get pixel 0 from flash
 	out VIDEO_PORT,r16	;and output it to the video DAC
-	
+
 	ld	r20,X+			;load next tile index from VRAM
 
 	lpm r16,Z+			;get pixel 1 from flash
@@ -197,13 +193,22 @@ mode5_loop:
 	lpm r16,Z+			;get pixel 4 from flash
 	out VIDEO_PORT,r16	;and output it to the video DAC
 
+	#if TILE_WIDTH == 8
 	lpm r16,Z+			;get pixel 5 from flash
+	rjmp .
+	out VIDEO_PORT,r16	;and output it to the video DAC
+
+	lpm r16,Z+			;get pixel 6 from flash
+	rjmp .
+	out VIDEO_PORT,r16	;and output it to the video DAC
+	#endif
+
+	lpm r16,Z+			;get last pixel from flash
 	movw ZL,r20			;load the next tile's adress in Z
 	dec r18				;decrement horizontal tiles to draw
-	
-	out VIDEO_PORT,r16	;and output it to the video DAC
-	brne mode5_loop		
 
+	out VIDEO_PORT,r16	;and output it to the video DAC
+	brne mode5_loop
 
 	rjmp .				;2 cycles delay
 	nop					;1 cycle delay
@@ -220,7 +225,7 @@ mode5_loop:
 ;************************************
 .section .text.ClearVram
 ClearVram:
-	//init vram		
+	//init vram
 	ldi r30,lo8(VRAM_SIZE)
 	ldi r31,hi8(VRAM_SIZE)
 
@@ -236,7 +241,7 @@ fill_vram_loop:
 
 	ret
 
-	
+
 ;***********************************
 ; SET TILE 8bit mode
 ; C-callable
@@ -248,7 +253,7 @@ fill_vram_loop:
 SetTile:
 
 	clr r25
-	clr r23	
+	clr r23
 
 	ldi r18,VRAM_TILES_H
 
@@ -280,7 +285,7 @@ SetFont:
 	ldi r18,VRAM_TILES_H
 
 	mul r22,r18		;calculate Y line addr in vram
-	
+
 	add r0,r24		;add X offset
 	adc r1,r25
 
@@ -318,5 +323,5 @@ SetFont:
 .section .text.SetTileTable
 SetTileTable:
 	sts tile_table_lo,r24
-	sts tile_table_hi,r25	
+	sts tile_table_hi,r25
 	ret
