@@ -15,8 +15,7 @@ UZEBIN_DIR = ../../../bin/
 
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DRAM_TILES_COUNT=1 -DCENTER_ADJUSTMENT=0  -DSNES_MOUSE=0 -DSCROLLING=0
-KERNEL_OPTIONS += -DMAX_SPRITES=1 -DSCREEN_TILES_V=24 -DVRAM_TILES_V=24 -DFIRST_RENDER_LINE=24 -DENABLE_MIXER=0 
+KERNEL_OPTIONS  = -DVIDEO_MODE=5 -DINTRO_LOGO=0 -DFIRST_RENDER_LINE=32 -DFRAME_LINES=192 -DENABLE_MIXER=0 -DTILE_WIDTH=8 -DVRAM_TILES_V=25
 KERNEL_OPTIONS += -DPF_USE_DIR=1 -DPF_USE_LSEEK=1 -DPF_USE_WRITE=0 -DPF_USE_READ=1 
 
 
@@ -33,7 +32,7 @@ CFLAGS += $(KERNEL_OPTIONS)
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
 ASMFLAGS += $(CFLAGS)
-ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
+ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2 
 
 ## Linker flags
 LDFLAGS = $(COMMON)
@@ -118,13 +117,13 @@ AVRSIZEFLAGS := -A ${TARGET}
 endif
 
 size: ${TARGET}
-	echo
-	avr-size ${AVRSIZEFLAGS}
+	@echo
+	@avr-size ${AVRSIZEFLAGS}
 
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(GAME).* dep/* *.uze ../data/tiles.inc ../data/tiles.inc
+	-rm -rf $(OBJECTS) $(GAME).* dep/* *.hex *.uze ../data/tiles.inc ../data/tiles.inc
 
 
 ## Other dependencies

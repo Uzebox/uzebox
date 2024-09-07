@@ -13,16 +13,8 @@ eeprom.bin
 *.uze
 *.dll
 *.exe
-
 *.log
 *.bak
 gdb-script.cfg
 /.metadata/
-
-demos/Uzeamp/default/JCRZ-The-Mission.wav
-
-demos/Uzeamp/default/KEN.wav
-
-demos/Uzeamp/default/MAKEBA.WAV
-
-demos/Uzeamp/default/Re-Drum-Moon-Walk.wav
+*.WAV

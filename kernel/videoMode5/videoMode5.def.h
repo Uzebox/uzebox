@@ -1,7 +1,7 @@
 /*
  *  Uzebox(tm) Video Mode 5 defines
  *  Copyright (C) 2011  Alec Bourque
- *  
+ *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
@@ -18,7 +18,7 @@
  *  Uzebox is a reserved trade mark
 */
 
-/** 
+/**
  * ==============================================================================
  *
  * This file contains global defines for video mode 5
@@ -33,14 +33,31 @@
 #define VMODE_FUNC sub_video_mode5
 
 #define TILE_HEIGHT 8
-#define TILE_WIDTH 6	
-#define VRAM_TILES_H 40 
+
+#ifndef TILE_WIDTH
+	#define TILE_WIDTH 6
+#endif
+
+#ifndef VRAM_TILES_H
+	#if TILE_WIDTH == 6
+		#define VRAM_TILES_H 40
+	#else
+		#define VRAM_TILES_H 30
+	#endif
+#endif
+
 #ifndef VRAM_TILES_V
 	#define VRAM_TILES_V 28
 #endif
-#define SCREEN_TILES_H 40
-#define SCREEN_TILES_V 28 
-#define FIRST_RENDER_LINE 20
+#ifndef SCREEN_TILES_H
+	#define SCREEN_TILES_H VRAM_TILES_H
+#endif
+#ifndef SCREEN_TILES_V
+	#define SCREEN_TILES_V VRAM_TILES_V
+#endif
+#ifndef FIRST_RENDER_LINE
+	#define FIRST_RENDER_LINE 20
+#endif
 #define VRAM_SIZE VRAM_TILES_H*VRAM_TILES_V
 #define VRAM_ADDR_SIZE 1 //in bytes
 #define VRAM_PTR_TYPE char
