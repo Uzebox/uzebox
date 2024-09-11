@@ -1,0 +1,16 @@
+ESP-12F programming Jig V2.1 BOM - All parts from Digikey
+For 3V or 5V FTDI FT232 cables
+
+Note: Parts footprints compatible with PCB Rev 2.1
+-------------------------------------------------------------------------------------------
+2x   399-6596-ND             CAP ALUM 1UF 20% 50V RADIAL TH              (C16,C20)
+1x   399-9776-ND             0.1 µF ±20% 50V Ceramic Capacitor Radial    (C12)
+1x   1528-1438-ND            ESP8266 WiFi 802.11b/g/n Transceiver Module (ESP12)
+2x   CKN9098-ND              SWITCH TACTILE SPST-NO 0.05A 12V            (ESP_RST, ESP_PROG)
+1x   MCP1700-3302E/TO-ND     IC REG LINEAR 3.3V 250MA TO92-3             (IC1)
+1x   2057-PH1RB-06-UA-ND     Conn Header TH, Right Angle 6 pos 2.54mm    (FTDI)
+1x   10129378-902001BLF-ND   CONN HEADER VERT 2POS 2.54MM                (JP1)
+1x   S9337-ND                CONN JUMPER SHORTING .100" GOLD
+8x   ED9008-ND               CONTACT SPRING LOADED T/H GOLD  *OR*   2x  2057-2PH1-08-UA-ND      CONN HEADER VERT 8POS 2MM
+
+
