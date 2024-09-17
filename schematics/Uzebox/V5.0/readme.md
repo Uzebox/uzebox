@@ -1,4 +1,4 @@
-Schematic and PCB design files for the Uzebox reference design version 5.0. Assembly guide is included.
+### Schematic and PCB design files for the Uzebox reference design V5.0
 
 <img src="assets/uzebox-1.jpg" alt="Uzebox V5.0" width="260" > <img src="assets/uzebox-pcb-1.png" alt="Uzebox V5.0" width="260" > <img src="assets/uzebox-pcb-2.png" alt="Uzebox V5.0" width="260" >
 
@@ -19,6 +19,9 @@ Schematic and PCB design files for the Uzebox reference design version 5.0. Asse
 * Replaced the MIDI interface with Uzenet interface
 * Added second ISP footprint for 90 deg connectors
 * New footprint for SD card connector (see BOM)
+
+### Assembly guide
+* The assembly guide is part of the project [here](Uzebox-V5.0-assembly-guide.md).
 
 ### Notes
 * Schematic and PCB design files are provided in EAGLE format (.sch, .brd)

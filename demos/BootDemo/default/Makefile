@@ -124,6 +124,6 @@ size: $(OUTDIR)/${TARGET}
 ## Clean target
 .PHONY: clean
 clean:
-	rm -rf $(DIRS)
-	rm *.hex
-	rm *.uze
+	-rm -rf $(DIRS)
+	-rm *.hex
+	-rm *.uze

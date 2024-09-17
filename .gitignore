@@ -18,3 +18,10 @@ eeprom.bin
 gdb-script.cfg
 /.metadata/
 *.WAV
+
+.metadata/
+
+*.wav
+
+*.a
+

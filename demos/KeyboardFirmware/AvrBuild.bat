@@ -1,2 +1,5 @@
-@ECHO OFF
-"C:\Program Files\Atmel\AVR Tools\AvrAssembler2\avrasm2.exe" -S "C:\work\uzebox\trunk\demos\KeyboardFirmware\labels.tmp" -fI -W+ie -C V2 -o "C:\work\uzebox\trunk\demos\KeyboardFirmware\KeyboardFirmware.hex" -d "C:\work\uzebox\trunk\demos\KeyboardFirmware\KeyboardFirmware.obj" -e "C:\work\uzebox\trunk\demos\KeyboardFirmware\KeyboardFirmware.eep" -m "C:\work\uzebox\trunk\demos\KeyboardFirmware\KeyboardFirmware.map" "C:\work\uzebox\trunk\demos\KeyboardFirmware\KeyboardFirmware.asm"
+@ECHO ON
+rem avrasm2.exe from atmel studio must be on the path
+rem set incdir to point on atmel include files
+set incdir="C:\Program Files (x86)\Microchip\Studio\7.0\packs\atmel\ATtiny_DFP\1.10.348\avrasm\inc"
+avrasm2.exe -I %incdir% -S labels.tmp -fI -W+ie -C V2 -o KeyboardFirmware.hex -d KeyboardFirmware.obj -e KeyboardFirmware.eep -m KeyboardFirmware.map KeyboardFirmware.asm
