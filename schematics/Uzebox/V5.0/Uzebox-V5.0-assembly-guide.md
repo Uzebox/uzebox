@@ -19,6 +19,7 @@ For Uzebox Revision V5.0 (aka F5)
 | 7 | 15-Nov-2016 | A.Bourque | Added notes for PCB rev 1.3.1 and references to the Uzenet interface. |
 | 8 | 13-Aug-2024 | A.Bourque | Ported the assembly guide to GitHub and added minor improvements. |
 | 9 | 28-Aug-2024 | D.MacDonald | Several additions and improvements. |
+| 10 | 17-Sep-2024 | D.MacDonald | Add solder flux to Tools Required, video cable + SNES controller to Other parts required lists |
 
 ## Parts list verification
 > [!IMPORTANT]  
@@ -75,10 +76,13 @@ To assemble this kit you will need the following tools:
 | <img src="assets/guide/image37.png" alt="Shear Cutters" width="150" >  | Regular cutters will do fine, but shear cutters will do a better job. |
 | <img src="assets/guide/image28.png" alt="LED" width="150" >  | A basic multimeter is not essential but highly recommended for verifications and troubleshooting. |
 | <img src="assets/guide/avrispmk2.jpg" alt="AVRISpmk2" width="150" >  | An AVR ISP programmer. Required to flash the Atmega644 if you are building the Uzebox from scratch. See [this section](#recommended-avr-isp-programmers) for a list of recommended AVR ISP programmers. Alternately, you can flash the Atmega using [avrdude](https://uzebox.org/wiki/Avrdude) and the GPIO header of a Raspberry Pi or similar.|
+| <img src="assets/guide/image63.jpg" alt="Solder flux" width="150" >  | Solder flux. Makes it easier to solder the SNES connectors, SD card socket and the AD725.|
 
 ## Other parts required
 
 | <img src="assets/guide/image55.jpg" alt="power supply" width="150" >  | A standard 7-12VDC power supply with a center-positive, 5.5x2.1mm tip. |
+| <img src="assets/guide/image64.jpg" alt="Composite or S-Video cable" width="150" >  | Composite or S-Video cable. |
+| <img src="assets/guide/image65.png" alt="SNES controller" width="150" >  | A SNES controller. |
 | :---: | :---- |
 
 
