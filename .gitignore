@@ -17,3 +17,10 @@ eeprom.bin
 *.log
 *.bak
 gdb-script.cfg
+
+.metadata/
+
+*.wav
+
+*.a
+
