@@ -82,7 +82,7 @@ To assemble this kit you will need the following tools:
 
 | <img src="assets/guide/image55.jpg" alt="power supply" width="150" >  | A standard 7-12VDC power supply with a center-positive, 5.5x2.1mm tip. |
 | <img src="assets/guide/image64.jpg" alt="Composite or S-Video cable" width="150" >  | Composite or S-Video cable. |
-| <img src="assets/guide/image65.png" alt="SNES controller" width="150" >  | A SNES controller. |
+| <img src="assets/guide/image65.png" alt="SNES controller" width="150" >  | A [SNES controller.](https://uzebox.org/wiki/FAQ#Where_can_I_buy_Uzebox_compatible_controllers?) |
 | :---: | :---- |
 
 
