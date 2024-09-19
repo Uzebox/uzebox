@@ -44,6 +44,7 @@
 #include <string.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+#include <avr/wdt.h>
 #include <uzebox.h>
 #include <petitfatfs/pff.h>
 #include <petitfatfs/diskio.h>
@@ -54,10 +55,14 @@
 #define BLANK 	0
 #define OK		0
 #define MAX_DISP_FILES 	11
-#define MAX_FILES 		32
+#define MAX_FILES 		128
 #define CURSOR_INIT_X	3
 #define CURSOR_INIT_Y	11
 #define VU_METER_Y_OFFSET 5
+
+#define SCROLL_NONE	0
+#define SCROLL_UP	1
+#define SCROLL_DOWN	2
 
 #define WAVE_PCM 1
 
@@ -65,6 +70,7 @@
 #define PLAYER_STARTED 			0x01
 #define PLAYER_PAUSED  			0x02
 #define PLAYER_SONG_ENDED  		0x03
+#define PLAYER_LOADING  		0x04
 
 #define ERR_INVALID_FORMAT		0x01
 #define ERR_INVALID_STRUCTURE	0x02
@@ -117,31 +123,41 @@ typedef union {
  * Wave files information read from the directory
  */
 typedef struct {
-	char filename[13]; //8.3 + 0 terminator
-	char songTime[9];
+	char filename[9];				//fat16 filename minus extension
+	unsigned long fileSize;
+} SdFile;
+
+typedef struct {
+	char filename[13];
+	char info[129];					//Buffer for the artist name and display info used in the scroller
 	unsigned long currentSector;
 	unsigned long sectorsCount;
 	unsigned long position;
 	unsigned long riffDataOffset;
-} SdFile;
+} Song;
+
 
 void animateTextLine(char *infoSongStr, bool reset);
+void animateTextLine_P(const char *infoSongStr, bool reset);
 int findTag(char *tag, char *dest,unsigned int destLenght,unsigned char dataOffset);
 u8  getChar(int index);
+void getFilePlayingTime(unsigned long songSize,char *buffer);
 u8 loadWaveInfoBlock(SdFile *file);
 void initSdCard();
 void drawDigits(unsigned long currentSectorNo );
+void PrintByte2(u8 x,u8 y,u8 val,bool zeropad,u8 maxDigits, u8 font);
 void PrintChar2(u8 x,u8 y,char ch,u8 font);
 void PrintString2(u8 x, u8 y, char *str, u8 font);
 void PrintString2_P(u8 x, u8 y, const char *str, u8 font);
 void processPlayer();
 void sdError(u8 code,u8 res);
+void setString(char *str,char c,u8 maxLen);
 void startSong(long SectorNo,bool loadInfoBlock);
 void updateVuMeter();
 void updateProgressBar(unsigned long currentSector);
-void updateFilesList();
+void updateFilesList(u8 scrollType);
 bool process(bool buttonPressed,u8 buttonID,bool repeatOn);
-void getFilePlayingTime(unsigned long songSize,char *buffer);
+
 
 //PetitFS vars
 FATFS fs;			// Work area (file system object) for the volume
@@ -154,17 +170,18 @@ FRESULT fres;		// Petit FatFs function common result code
 SdSector sector;				//buffer to hold an SD sector and RIFF header
 SdFile files[MAX_FILES];		//infos about the files found on the card
 u8 fileCount=0;					//number of files loaded in files[]
-u16 playingFile=0;				//file in the files[] array currently selected
-u8  player_status=PLAYER_STOPPED;//current status of the player
-char infoSong[129];				//Buffer for the artist name and display info used in the scroller
-s16 frameMaxSample=0;			//loudest sample played in the last vsync (vu meter)
-u8 selectedSongIndex=0;
+u16 playingFileIndex=0;			//file in the files[] array currently selected
+u8  playerStatus=PLAYER_STOPPED;//current status of the player
+s16 vuFrameMaxSample=0;			//loudest sample played in the last vsync (vu meter)
+u8 cursorSongIndex=0;			//Song index at the cursor
+Song currentSong;				//Variables for the current song
 
 /**
  * User callback invoqued on each VSYNC (60 fps)
  */
 void VsyncCallBack(void){
 	processPlayer();
+	if(playerStatus ==  PLAYER_LOADING) animateTextLine_P(NULL,false);
 }
 
 /**
@@ -217,6 +234,8 @@ int main(){
 
 	initSdCard();
 
+	PrintString2_P(10,15,PSTR("LOADING..."),BFONT);
+
 	//Open the SD card's root directory and search for up to MAX_FILES wave files
 	fileCount=0;
     fres = pf_opendir(&dir, "/");
@@ -227,10 +246,14 @@ int main(){
             if (fres != FR_OK || fno.fname[0] == 0) break;
 			char *pos = strstr(fno.fname, ".WAV");
 			if(pos != NULL){
-				strcpy(files[fileCount].filename,  fno.fname);
-				for(u8 i=0;i<8;i++)files[fileCount].songTime[i]='_'; //init buffer
-				getFilePlayingTime(fno.fsize,files[fileCount].songTime);
-				//files[fileCount].fileSize=fno.fsize;
+				for(u8 i=0;i<8;i++){
+					if(fno.fname[i]=='.'){
+						files[fileCount].filename[i]=0;
+						break;
+					}
+					files[fileCount].filename[i]=fno.fname[i];
+				}
+				files[fileCount].fileSize=fno.fsize;
 				fileCount++;
 				if(fileCount==MAX_FILES) break;
 			}
@@ -238,7 +261,7 @@ int main(){
     }else{
     	sdError(0,fres);
     }
-    updateFilesList();
+    updateFilesList(SCROLL_NONE);
 
 
     /**
@@ -247,7 +270,7 @@ int main(){
     cueSector=0;
     cueing=false;
     cursorState=1;cursorDelay=0;
-    selectedSongIndex=0;
+    cursorSongIndex=0;
     cursorX=CURSOR_INIT_X;cursorY=cursorPrevY=CURSOR_INIT_Y;
 
   	while(1)
@@ -257,40 +280,37 @@ int main(){
 
 		//Start a new song, pause and resume the same song
 		if(process(buttons&BTN_START,0,false)){
-			if(player_status == PLAYER_STARTED && selectedSongIndex==playingFile){
-				player_status = PLAYER_PAUSED;
-			}else if(selectedSongIndex!=playingFile || player_status == PLAYER_STOPPED){
-				playingFile=selectedSongIndex;
+			if(playerStatus == PLAYER_STARTED && cursorSongIndex==playingFileIndex){
+				playerStatus = PLAYER_PAUSED;
+			}else if(cursorSongIndex!=playingFileIndex || playerStatus == PLAYER_STOPPED){
+				playingFileIndex=cursorSongIndex;
 				startSong(0, true);
 			}else{
-				player_status = PLAYER_STARTED;
+				playerStatus = PLAYER_STARTED;
 			}
-			//while(ReadJoypad(0)!=0);
 		}
 
 		//Move cursor up
 		if(process(buttons&BTN_UP,1,true)){
-			if(selectedSongIndex>0){
-				if(cursorY>CURSOR_INIT_Y && selectedSongIndex<(MAX_DISP_FILES))cursorY--;
-				selectedSongIndex--;
+			if(cursorSongIndex>0){
+				if(cursorY>CURSOR_INIT_Y && cursorSongIndex<(MAX_DISP_FILES))cursorY--;
+				cursorSongIndex--;
 				cursorState=1;
 				cursorDelay=0;
-				updateFilesList();
+				updateFilesList(SCROLL_DOWN);
 			}
-			//while(ReadJoypad(0)!=0);
 		}
 
 		//Move cursor down
 		if(process(buttons&BTN_DOWN,2,true)){
 
-			if(selectedSongIndex<(fileCount-1)){
-				if(selectedSongIndex<(MAX_DISP_FILES-1))cursorY++;
-				selectedSongIndex++;
+			if(cursorSongIndex<(fileCount-1)){
+				if(cursorSongIndex<(MAX_DISP_FILES-1))cursorY++;
+				cursorSongIndex++;
 				cursorState=1;
 				cursorDelay=0;
-				updateFilesList();
+				updateFilesList(SCROLL_UP);
 			}
-			//while(ReadJoypad(0)!=0);
 		}
 
 		//Cycle through the various color schemes
@@ -298,30 +318,29 @@ int main(){
 			currentSkin++;
 			if(currentSkin==sizeof(skins))currentSkin=0;
 			DDRC=skins[currentSkin];
-			//while(ReadJoypad(0)!=0);
 		}
 
 		//Fast forward the song. Pressing A button at the same time will cue faster
 		if(buttons&BTN_SR){
-			if(player_status == PLAYER_STARTED){
+			if(playerStatus == PLAYER_STARTED){
 				if(!cueing){
-					cueSector=files[playingFile].currentSector;
+					cueSector=currentSong.currentSector;
 				}
 				cueSector+=50;//fast-forward
 				if(buttons&BTN_A)cueSector+=400;//fast-forwards even faster
 
-				if(cueSector>=(files[playingFile].sectorsCount-20)){
-					cueSector=files[playingFile].sectorsCount-20;
+				if(cueSector>=(currentSong.sectorsCount-20)){
+					cueSector=currentSong.sectorsCount-20;
 				}
-					cueing=true;
+				cueing=true;
 			}
 		}
 
 		//Fast backward the song. Pressing A button at the same time will cue faster
 		if(buttons&BTN_SL){
-			if(player_status == PLAYER_STARTED){
+			if(playerStatus == PLAYER_STARTED){
 				if(!cueing){
-					cueSector=files[playingFile].currentSector;
+					cueSector=currentSong.currentSector;
 				}
 				cueSector-=100; //fast-backward
 				if(buttons&BTN_A)cueSector-=400;//fast-backwards even faster
@@ -333,15 +352,15 @@ int main(){
 		}
 
 		//Check if there is more songs to play
-		if(player_status == PLAYER_SONG_ENDED){
-			if(selectedSongIndex<(fileCount-1)){
-				if(selectedSongIndex<(MAX_DISP_FILES-1))cursorY++;
-				selectedSongIndex++;
-				playingFile=selectedSongIndex;
-				updateFilesList();
+		if(playerStatus == PLAYER_SONG_ENDED){
+			if(cursorSongIndex<(fileCount-1)){
+				if(cursorSongIndex<(MAX_DISP_FILES-1))cursorY++;
+				cursorSongIndex++;
+				playingFileIndex=cursorSongIndex;
+				updateFilesList(SCROLL_UP);
 				startSong(0, true);
 			}else{
-				player_status = PLAYER_STOPPED;
+				playerStatus = PLAYER_STOPPED;
 			}
 		}
 
@@ -356,15 +375,15 @@ int main(){
 		if(cueing){
 			drawDigits(cueSector);
 			updateProgressBar(cueSector);
-		}else if(player_status == PLAYER_STARTED || player_status == PLAYER_STOPPED){
-			drawDigits(files[playingFile].currentSector);
-			updateProgressBar(files[playingFile].currentSector);
+		}else if(playerStatus == PLAYER_STARTED || playerStatus == PLAYER_STOPPED){
+			drawDigits(currentSong.currentSector);
+			updateProgressBar(currentSong.currentSector);
 		}
 
 		//update the cursor
 		PrintChar2(cursorX-1,cursorPrevY,' ',BFONT); //erase previous cursor location
 		cursorPrevY=cursorY;
-		if(player_status != PLAYER_STARTED)cursorState=1;
+		if(playerStatus != PLAYER_STARTED)cursorState=1;
 		if(cursorState == 1){
 			PrintChar2(cursorX-1,cursorY,'^',BFONT);
 		}else{
@@ -401,7 +420,7 @@ bool process(bool buttonPressed,u8 buttonID,bool repeatOn){
 	if(autoRepeatDelay[buttonID]>0 && repeatOn){
 		autoRepeatDelay[buttonID]--;
 		if(autoRepeatDelay[buttonID]==0){
-			autoRepeatRate[buttonID]=4;
+			autoRepeatRate[buttonID]=3;
 		}
 	}
 	return false;
@@ -410,29 +429,81 @@ bool process(bool buttonPressed,u8 buttonID,bool repeatOn){
 /**
  * Redraws the whole file list windows accounting for the selected song and scrolling
  */
-void updateFilesList(){
+void updateFilesList(u8 scrollType){
+	char timebuf[9];
 	u8 disp=0;
-	if(selectedSongIndex>=MAX_DISP_FILES){
-		disp=selectedSongIndex-MAX_DISP_FILES+1;
+	u8 byteDigits;
+
+	//calculate how much space we need to allocate for the file number
+	if(fileCount<10){
+		byteDigits=1;
+	}else if(fileCount<100){
+		byteDigits=2;
+	}else{
+		byteDigits=3;
 	}
-	for(u8 i=0;(i<MAX_DISP_FILES && i<fileCount);i++){
-		for(u8 j=CURSOR_INIT_X+5;j<16;j++) PrintChar2(CURSOR_INIT_X+j,i+11,'_',BFONT); //erase line
-		PrintString2(CURSOR_INIT_X,i+11,files[i+disp].filename,BFONT);
-		PrintString2(CURSOR_INIT_X+16,i+11,files[i+disp].songTime,BFONT);
+
+	if(cursorSongIndex>=MAX_DISP_FILES && scrollType==SCROLL_UP){
+		disp=cursorSongIndex-MAX_DISP_FILES+1;
+
+		//scroll up content of window
+		for(u8 y=11;y<11+MAX_DISP_FILES-1;y++){
+			for(u8 x=CURSOR_INIT_X;x<27;x++){
+				vram[(VRAM_TILES_H*y)+x]=vram[(VRAM_TILES_H*(y+1))+x];
+			}
+		}
+		//add new file at bottom
+		for(u8 j=1;j<16;j++) PrintChar2(CURSOR_INIT_X+j,MAX_DISP_FILES+10,'_',BFONT); //erase line
+		PrintByte2(CURSOR_INIT_X+byteDigits-1,MAX_DISP_FILES+10,MAX_DISP_FILES+disp,true,byteDigits,BFONT);
+		PrintChar2(CURSOR_INIT_X+byteDigits,MAX_DISP_FILES+10,'.',BFONT);
+		PrintString2(CURSOR_INIT_X+byteDigits+1,MAX_DISP_FILES+10,files[MAX_DISP_FILES+disp-1].filename,BFONT);
+		setString(timebuf,'_',8);	//init time string buffer;
+		getFilePlayingTime(files[MAX_DISP_FILES+disp-1].fileSize,timebuf);
+		PrintString2(CURSOR_INIT_X+16,MAX_DISP_FILES+10,timebuf,BFONT);
+
+	}else if(cursorSongIndex>=MAX_DISP_FILES-1 && scrollType==SCROLL_DOWN){
+		disp=cursorSongIndex-MAX_DISP_FILES+1;
+
+		//scroll down content of window
+		for(u8 y=9+MAX_DISP_FILES;y>9;y--){
+			for(u8 x=CURSOR_INIT_X;x<27;x++){
+				vram[(VRAM_TILES_H*(y+1))+x]=vram[(VRAM_TILES_H*y)+x];
+			}
+		}
+		//add new file at top
+		for(u8 j=1;j<16;j++) PrintChar2(CURSOR_INIT_X+j,11,'_',BFONT); 			//erase line
+		PrintByte2(CURSOR_INIT_X+byteDigits-1,11,disp+1,true,byteDigits,BFONT);	//file number
+		PrintChar2(CURSOR_INIT_X+byteDigits,11,'.',BFONT);						//separator
+		PrintString2(CURSOR_INIT_X+byteDigits+1,11,files[disp].filename,BFONT);	//filename
+		setString(timebuf,'_',8);												//init time string buffer;
+		getFilePlayingTime(files[disp].fileSize,timebuf);						//compute song lenght
+		PrintString2(CURSOR_INIT_X+16,11,timebuf,BFONT);						//print song lenght
+
+	}else if(scrollType==SCROLL_NONE){
+		for(u8 i=0;(i<MAX_DISP_FILES && i<fileCount);i++){
+			for(u8 j=1;j<16;j++) PrintChar2(CURSOR_INIT_X+j,i+11,'_',BFONT); //erase line
+			PrintByte2(CURSOR_INIT_X+byteDigits-1,i+11,i+disp+1,true,byteDigits,BFONT);
+			PrintChar2(CURSOR_INIT_X+byteDigits,i+11,'.',BFONT);
+			PrintString2(CURSOR_INIT_X+byteDigits+1,i+11,files[i+disp].filename,BFONT);
+			setString(timebuf,'_',8);												//init time string buffer;
+			getFilePlayingTime(files[i+disp].fileSize,timebuf);						//compute song lenght
+			PrintString2(CURSOR_INIT_X+16,i+11,timebuf,BFONT);						//print song lenght
+		}
 	}
+
 }
 
 /**
  * Draws the progress bar
  */
 void updateProgressBar(unsigned long currentSector){
-	if(files[playingFile].sectorsCount==0 && currentSector==0) return;
+	if(currentSong.sectorsCount==0 && currentSector==0) return;
 
 	SetTile(3,8,128); //beginning
 	SetTile(26,8,138); //end
 
 	//bar is 24 tiles wide * 8 = 192 pixels
-	u8 pixels=192*currentSector/files[playingFile].sectorsCount;
+	u8 pixels=192*currentSector/currentSong.sectorsCount;
 	u8 fullTiles=pixels/8;
 	u8 tilePixels=pixels%8;
 
@@ -511,16 +582,16 @@ void processPlayer()
 
 	if(mix_bank==1) buf+=MIX_BANK_SIZE;
 
-	if(player_status == PLAYER_STARTED){
+	if(playerStatus == PLAYER_STARTED){
 		fres=pf_read(buf,MIX_BANK_SIZE,&bytesRead);
 		if(fres!=FR_OK) sdError(1,fres);
-		if(bytesRead < MIX_BANK_SIZE || files[playingFile].currentSector == files[playingFile].sectorsCount){
+		if(bytesRead < MIX_BANK_SIZE || currentSong.currentSector == currentSong.sectorsCount){
 			//clear the ring buffer to avoid clicks
 			for(int i=0;i<MIX_BUF_SIZE;i++)	mix_buf[i] = 0x80;
-			player_status = PLAYER_SONG_ENDED;
+			playerStatus = PLAYER_SONG_ENDED;
 		}
-		files[playingFile].position += MIX_BANK_SIZE;
-		files[playingFile].currentSector = files[playingFile].position / 512;
+		currentSong.position += MIX_BANK_SIZE;
+		currentSong.currentSector = currentSong.position / 512;
 
 	}else{
 		//if not playing, clear half-buffer
@@ -538,37 +609,39 @@ void processPlayer()
  */
 void startSong(long firstSector, bool loadInfoBlock){
 	//first insure the vsync player is stopped
-	player_status = PLAYER_STOPPED;
+	playerStatus =  PLAYER_LOADING;
 
-	files[playingFile].currentSector=firstSector;
-	files[playingFile].position = firstSector * 512;
+	currentSong.currentSector=firstSector;
+	currentSong.position=firstSector * 512;
 
 	//display a loading message for large files (pf_lseek is very slow on large files)
-	animateTextLine("... LOADING ... LOADING ... LOADING",true);
+	animateTextLine_P(PSTR("... LOADING ... LOADING ... LOADING"),true);
 
-	fres=pf_open(files[playingFile].filename);
+	strcpy(currentSong.filename,files[playingFileIndex].filename);
+	strcat(currentSong.filename,".WAV");
+
+	fres=pf_open(currentSong.filename);
 	if(fres!=FR_OK) sdError(2,fres);
 
 	if(loadInfoBlock){
-		u8 res=loadWaveInfoBlock(&files[playingFile]);
+		u8 res=loadWaveInfoBlock(&files[playingFileIndex]);
 		if(res==ERR_INVALID_FORMAT){
-			animateTextLine("UNSUPPORTED WAVE FILE FORMAT...MUST BE 15734Hz, 8BITS, MONO. SEE UZEBOX.ORG/WIKI/UZEAMP...",true);
+			animateTextLine_P(PSTR("UNSUPPORTED WAVE FILE FORMAT...MUST BE 15734Hz, 8BITS, MONO. SEE UZEBOX.ORG/WIKI/UZEAMP..."),true);
 			return;
 		}else if(res==ERR_INVALID_STRUCTURE){
-			animateTextLine("UNSUPPORTED WAVE FILE STRUCTURE...",true);
+			animateTextLine_P(PSTR("UNSUPPORTED WAVE FILE STRUCTURE..."),true);
 			return;
 		}
 	}
 
 	//Advance read pointer beginning of audio data
-	//res=pf_lseek((firstSector*512)+ (sizeof(sector.riffHeader) + 1));
-	fres=pf_lseek((firstSector*512)+files[playingFile].riffDataOffset );
+	fres=pf_lseek((firstSector*512)+currentSong.riffDataOffset);
 	if(fres!=FR_OK) sdError(3,fres);
 
-	animateTextLine(infoSong,true);
+	animateTextLine(currentSong.info,true);
 
 	//Activate vsync handler to process audio audio
-	player_status = PLAYER_STARTED;
+	playerStatus = PLAYER_STARTED;
 }
 
 
@@ -618,12 +691,12 @@ u8 loadWaveInfoBlock(SdFile *file){
 			//compute the address of the meta data that resides after the sound data
 			//Starts with the chunk ID "INFO"
 			infoBlockStartAddr=sector.riffHeader.subchunk2Size + sizeof(sector.riffHeader) + 1;
-			file->sectorsCount=(sector.riffHeader.subchunk2Size/512);
-			file->riffDataOffset=(sizeof(sector.riffHeader) + 1);
+			currentSong.sectorsCount=(sector.riffHeader.subchunk2Size/512);
+			currentSong.riffDataOffset=(sizeof(sector.riffHeader) + 1);
 
 			//return if no INFO chunk after audio data
 			if(infoBlockStartAddr>=sector.riffHeader.chunkSize){
-				strcpy_P(infoSong,PSTR("UNTITLED"));
+				strcpy_P(currentSong.info,PSTR("UNTITLED"));
 				return OK;
 			}
 
@@ -640,14 +713,15 @@ u8 loadWaveInfoBlock(SdFile *file){
 				 sector.riffHeader.subchunk2ID[2]=='S' &&
 				 sector.riffHeader.subchunk2ID[3]=='T'){
 
-				file->sectorsCount=(sector.riffHeader.chunkSize-sector.riffHeader.subchunk1Size-sector.riffHeader.subchunk2Size)/512;
-				file->riffDataOffset=36+18+sector.riffHeader.subchunk2Size;
+			currentSong.sectorsCount=(sector.riffHeader.chunkSize-sector.riffHeader.subchunk1Size-sector.riffHeader.subchunk2Size)/512;
+				currentSong.riffDataOffset=36+18+sector.riffHeader.subchunk2Size;
 		}else{
 			//unrecognized structure
 			return ERR_INVALID_STRUCTURE;
 		}
 
-		file->currentSector=0;
+		//file->currentSector=0;
+		currentSong.currentSector=0;
 
 		if(findTag("INFO",NULL,0,0)==0){
 
@@ -663,12 +737,12 @@ u8 loadWaveInfoBlock(SdFile *file){
 					while(i<sizeof(infoTemp)){
 						c=infoTemp[i++];
 						if(c==0) break;
-						infoSong[pos++]=c;
+						currentSong.info[pos++]=c;
 					}
 					if(pos!=0){
-						infoSong[pos++]=' ';
-						infoSong[pos++]='-';
-						infoSong[pos++]=' ';
+						currentSong.info[pos++]=' ';
+						currentSong.info[pos++]='-';
+						currentSong.info[pos++]=' ';
 					}
 				}
 			}
@@ -680,20 +754,20 @@ u8 loadWaveInfoBlock(SdFile *file){
 					while(i<sizeof(infoTemp)){
 						c=infoTemp[i++];
 						if(c==0) break;
-						infoSong[pos++]=c;
+						currentSong.info[pos++]=c;
 					}
 				}
 			}
 
 			//return if no INFO chunk after audio data
 			if(pos==0){
-				strcpy_P(infoSong,PSTR("UNTITLED"));
+				strcpy_P(currentSong.info,PSTR("UNTITLED"));
 			}else{
-				infoSong[pos]=0;
+				currentSong.info[pos]=0;
 			}
 			return OK;
 		}else{
-			infoSong[0]=0;
+			currentSong.info[0]=0;
 			return ERR_INVALID_STRUCTURE;
 		}
 	}
@@ -862,7 +936,55 @@ void animateTextLine(char *infoSongStr, bool reset){
 	wait++;
 
 }
+/**
+ * Scrolls information in flash
+ */
+void animateTextLine_P(const char *infoSongStr, bool reset){
+	static const char *infoSongStrCopy;
+	static unsigned char pos=0,wait=0;
+	unsigned char curPos=pos,c;
 
+	if(infoSongStr==NULL){
+		//animate previous setted string
+		infoSongStr=infoSongStrCopy;
+	}else{
+		infoSongStrCopy=infoSongStr;
+	}
+
+	size_t songLen=strlen_P(infoSongStr);
+
+	if(reset){
+		pos=0;
+		curPos=0;
+		if(songLen<=24){
+			for(char i=0;i<24;i++)PrintChar2(3+i,7,' ',SFONT);
+			PrintString2_P(3,7,infoSongStr,SFONT);
+		}
+		wait=20;
+	}
+
+	if(wait>=20){
+		if(songLen>24){
+			for(int i=0;i<24;i++){
+				if(curPos>=songLen){
+					c=32;
+				}else{
+					c=pgm_read_byte(&(infoSongStr[curPos]));
+				}
+				PrintChar2(i+3,7,c,SFONT);
+				curPos++;
+				if(curPos>=(songLen+4)) curPos=0;
+			}
+
+			wait=0;
+			pos++;
+			if(pos>=(songLen+4)) pos=0;
+		}
+	}
+
+	wait++;
+
+}
 /**
  * Custom function that prints a string in RAM and supports 2 fonts.
  * Each must be 32 chars long and located at the beginning of the tile set.
@@ -886,6 +1008,24 @@ void PrintChar2(u8 x,u8 y,char c,u8 font){
 	SetTile(x,y,c-32);
 }
 
+void PrintByte2(u8 x,u8 y,u8 val,bool zeropad,u8 maxDigits, u8 font){
+	unsigned char c,i;
+
+	for(i=0;i<maxDigits;i++){
+		c=val%10;
+		if(val>0 || i==0){
+			SetTile(x--,y,c+'0'-32+(font?64:0));
+		}else{
+			if(zeropad){
+				SetTile(x--,y,c+'0'-32+(font?64:0));
+			}else{
+				SetFont(x--,y,' '-32+(font?64:0));
+			}
+		}
+		val=val/10;
+	}
+}
+
 /**
  * Custom function that prints a string in FLASH and supports 2 fonts.
  * See PrintString2 for restrictions.
@@ -901,6 +1041,14 @@ void PrintString2_P(u8 x, u8 y, const char *str, u8 font){
 }
 
 /**
+ * Fills the specified string with the specified character upton maxLen.
+ */
+void setString(char *str,char c,u8 maxLen){
+	for(u8 i=0;i<maxLen;i++)str[i]=c;
+}
+
+
+/**
  * Initialize the SD card, polling up to 5 seconds
  * and displays an error message if unsuccessful
  */
@@ -909,18 +1057,18 @@ void initSdCard(){
 	for(u8 i=0;i<10;i++){
 		fres=pf_mount(&fs);
 		if(fres==FR_OK){
-			Fill(3,12,24,10,BLANK);
+			Fill(3,11,24,11,BLANK);
 			return;
 		}
 
-		PrintString2_P(6,16,PSTR("INITIALIZING SD..."),BFONT);
+		PrintString2_P(6,15,PSTR("INITIALIZING SD..."),BFONT);
 
 		//deassert sd card and wait
 		PORTD &= ~(1<<6);
 		WaitVsync(30);
 	}
 
-	PrintString2_P(5,16,PSTR("NO SD CARD DETECTED!"),BFONT);
+	PrintString2_P(5,15,PSTR("NO SD CARD DETECTED!"),BFONT);
 	while(1);
 }
 
@@ -930,14 +1078,17 @@ void initSdCard(){
  * to help debugging.
  */
 void sdError(u8 locationCode,u8 pffCode){
-	player_status = PLAYER_STOPPED;
+	playerStatus = PLAYER_STOPPED;
 	PORTD &= ~(1<<6); //deassert sd card
 
-	Fill(2,12,26,10,BLANK);
-	PrintString2_P(7,14,PSTR("SD CARD ERROR!"),BFONT);
-	PrintString2_P(8,16,PSTR("PFF CODE:"),BFONT);
-	PrintString2_P(8,17,PSTR("LOC CODE:"),BFONT);
-	PrintByte(19,16,pffCode,true);
-	PrintByte(19,17,locationCode,true);
+	Fill(2,11,26,11,BLANK);
+//	PrintString2_P(7,14,PSTR("SD CARD ERROR!"),BFONT);
+//	PrintString2_P(8,16,PSTR("PFF CODE:"),BFONT);
+//	PrintString2_P(8,17,PSTR("LOC CODE:"),BFONT);
+//	PrintByte(19,16,pffCode,true);
+//	PrintByte(19,17,locationCode,true);
+
+	initSdCard();
+	wdt_enable(WDTO_15MS);		//Enable the watchdog timer to reset the console
 	while(1);
 }
