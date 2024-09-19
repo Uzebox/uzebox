@@ -6,7 +6,6 @@ dep
 eeprom.bin
 *.o
 *.lss
-*.hex
 *.elf
 *.eep
 *.map
@@ -19,9 +18,7 @@ gdb-script.cfg
 /.metadata/
 *.WAV
 
-.metadata/
-
-*.wav
-
 *.a
-
+*.wav
+.metadata/
+roms/
