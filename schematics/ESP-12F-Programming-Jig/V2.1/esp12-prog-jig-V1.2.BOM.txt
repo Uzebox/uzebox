@@ -11,6 +11,6 @@ Note: Parts footprints compatible with PCB Rev 2.1
 1x   2057-PH1RB-06-UA-ND     Conn Header TH, Right Angle 6 pos 2.54mm    (FTDI)
 1x   10129378-902001BLF-ND   CONN HEADER VERT 2POS 2.54MM                (JP1)
 1x   S9337-ND                CONN JUMPER SHORTING .100" GOLD
-8x   ED9008-ND               CONTACT SPRING LOADED T/H GOLD  *OR*   2x  2057-2PH1-08-UA-ND      CONN HEADER VERT 8POS 2MM
+8x   ED9008-ND               CONTACT SPRING LOADED T/H GOLD  *OR*   	2x  2057-2RS1-08-G-ND      RECEPTACLE STRIP 8P 2.0MM PITCH
 
 

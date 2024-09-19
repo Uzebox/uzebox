@@ -13,6 +13,7 @@ A jig to program the ESP-12E/F modules based on Espressif's ESP8266 Wi-fi module
 
 ### Notes
 * See the the [Uzebox WIKI](https://uzebox.org/wiki/ESP8266_Manual_Upgrade) on the software and procedure required to upgrade the ESP8266 firmware.
+* A 3D printed enclosure is available [here](https://github.com/Uzebox/uzebox/tree/master/cad/Enclosures/ESP-12F-Programming-Jig/V1.2).
 * Schematic and PCB design files are provided in EAGLE format (.sch, .brd)
 * The provided Gerber files can simply be zipped toghether and directly uploaded to PCB manufacturer such as [JLCPCB](https://jlcpcb.com/) and [PCBWay](https://www.pcbway.com/).
 
