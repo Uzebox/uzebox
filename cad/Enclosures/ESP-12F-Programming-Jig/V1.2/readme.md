@@ -4,6 +4,8 @@
 
 ### Notes
 * Models provided in .3MF and Autodesk Fusion360 zipped project format. 
+* Requires 4 screws: M2.6 x 10mm
+* Latch pin can be 3d printed (model included)
 
 ### Compatible with the folowing schematic and PCB
 * [ESP-12 jig PCB](https://github.com/Uzebox/uzebox/tree/master/schematics/ESP-12F-Programming-Jig/V2.1)
