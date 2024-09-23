@@ -19,7 +19,7 @@ For Uzebox Revision V5.0 (aka F5)
 | 7 | 15-Nov-2016 | A.Bourque | Added notes for PCB rev 1.3.1 and references to the Uzenet interface. |
 | 8 | 13-Aug-2024 | A.Bourque | Ported the assembly guide to GitHub and added minor improvements. |
 | 9 | 28-Aug-2024 | D.MacDonald | Several additions and improvements. |
-| 10 | 17-Sep-2024 | D.MacDonald | Add solder flux to "Tools Required" table and add a video cable and a SNES controller to the "Other parts required" table. |
+| 10 | 17-Sep-2024 | D.MacDonald | Add solder flux, a video cable and a SNES controller to the "Other parts required" table. |
 
 ## Parts list verification
 > [!IMPORTANT]  
