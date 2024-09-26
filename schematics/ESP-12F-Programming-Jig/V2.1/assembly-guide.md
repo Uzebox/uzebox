@@ -12,7 +12,7 @@ For PCB revision 1.2+
 
 ## Parts list verification
 > [!IMPORTANT]  
-> Ensure you have all the required parts before starting, 
+> Ensure you have all the required parts before starting.  See [the BOM](esp12-prog-jig-V1.2.BOM.txt) for the Digikey parts list.
 
 <!--
 > [!TIP] 
@@ -20,7 +20,7 @@ For PCB revision 1.2+
 -->
 | Component Image | Schematic Reference | Description |
 | ----- | ----- | ----- |
-| <img src="assets/guide/header_6pos_90deg.jpg" alt="Header" width="250" > | FTDI 		 | Header, 90 degrees 		 |
+| <img src="assets/guide/header_6pos_90deg.jpg" alt="Header" width="250" > | FTDI 		 | 90 degrees header, 2.5mm pitch		 |
 | <img src="assets/guide/tactile_sw.jpg" alt="Tactile Switche" width="250" >  | ESP_RST, ESP_PROG  | Tactile 	switch (2x)				 |
 | <img src="assets/guide/cap_100nF.jpg" alt=".100nF capactito" width="250" >  | C12 | 100nF ceramic capacitor ***(5V version)***	 |
 | <img src="assets/guide/cap_1uF.png" alt="1uF Capacitor" width="250" >  | C16,C20  | 1uF electrolytic capacitor (2x) ***(5V version)***			 		 |
