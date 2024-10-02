@@ -22,3 +22,4 @@ gdb-script.cfg
 *.wav
 .metadata/
 roms/
+demos/Basic/default/esp.cfg
