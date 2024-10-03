@@ -321,7 +321,8 @@ const static u8 highlow_tab[] PROGMEM = {
 
 #define STACK_DEPTH	5
 #define STACK_SIZE (sizeof(struct stack_for_frame)*STACK_DEPTH)
-#define VAR_SIZE sizeof(s16)//Size of variables in bytes
+#define VAR_SIZE sizeof(u16)//Size of variables in bytes
+#define VAT_TYPE u16
 
 static u8 *stack_limit;
 static u8 *program_start;
