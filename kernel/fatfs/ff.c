@@ -100,6 +100,12 @@
 #include "diskio.h"		/* Declarations of low level disk I/O functions */
 
 
+//HACKS this should probably be a user function
+DWORD get_fattime(void){
+	return 0;
+}
+
+
 /*--------------------------------------------------------------------------
 
    Module Private Definitions
