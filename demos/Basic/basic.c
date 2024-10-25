@@ -1,5 +1,7 @@
 /**
- * Best time for Mandelbrot: 12.1 seconds with floats
+ * Best time for Mandelbrot: 9.48 seconds with floats -O3
+
+ * https://en.wikipedia.org/wiki/Rugg/Feldman_benchmarks
  */
 
 #include <avr/io.h>
@@ -21,8 +23,6 @@
 
 #define wait_spi_ram_byte() asm volatile("lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t nop \n\t" : : : "r0", "r1"); //wait 19 cycles
 
-#define TOKEN 1
-#define RUNPCODE
 //#define DBGPCODE
 
 #ifdef DBGPCODE
@@ -62,47 +62,34 @@ typedef struct {
 }stack_frame;
 
 
-enum pcodes{
+enum opcodes{
 	OP_LD_BYTE=0x80, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN,
-	OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,
+	OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,
 	OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF,
 	OP_IF, OP_CMP_GT, OP_CMP_GE,
 	OP_ADD,	OP_SUB,	OP_MUL,	OP_DIV,
-	OP_FUNC_TICKS,
-	OP_FUNC_CHR,
+	OP_FUNC_TICKS,OP_FUNC_CHR,
 	OP_CLS,
-	OP_BREAK,
+	OP_BREAK,OP_END,
 	//OP_CMP_NE, OP_CMP_LT, OP_CMP_LE,
 };
 
+//number of parameters required for each opcodes
+//const u8 opcodes_param_cnt[] PROGMEM = {
+const u8 opcodes_param_cnt[] PROGMEM = {
+	1,2,4,1,1,	//OP_LD_BYTE, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN
+	1,1,2,2,2,	//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,
+	0,0,0,0,	//OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF
+	0,0,0,		//OP_IF, OP_CMP_GT, OP_CMP_GE
+	0,0,0,0,	//P_ADD,OP_SUB,	OP_MUL,	OP_DIV
+	0,0,		//OP_FUNC_TICKS,OP_FUNC_CHR
+	0,			//OP_CLS
+	0,0			//OP_BREAK,OP_END,
+};
 
 enum vars{
-	VAR_A=0,
-	VAR_B,
-	VAR_C,
-	VAR_D,
-	VAR_E,
-	VAR_F,
-	VAR_G,
-	VAR_H,
-	VAR_I,
-	VAR_J,
-	VAR_K,
-	VAR_L,
-	VAR_M,
-	VAR_N,
-	VAR_O,
-	VAR_P,
-	VAR_Q,
-	VAR_R,
-	VAR_S,
-	VAR_T,
-	VAR_U,
-	VAR_V,
-	VAR_W,
-	VAR_X,
-	VAR_Y,
-	VAR_Z
+	VAR_A=0, VAR_B, VAR_C, VAR_D, VAR_E, VAR_F, VAR_G, VAR_H, VAR_I, VAR_J, VAR_K, VAR_L, VAR_M,
+	VAR_N, VAR_O, VAR_P, VAR_Q, VAR_R, VAR_S, VAR_T, VAR_U, VAR_V, VAR_W, VAR_X, VAR_Y, VAR_Z
 };
 
 enum ERRORS{
@@ -153,7 +140,6 @@ static u8 *current_line;
 static u16 current_line_no;
 static u8 error_code;
 u8 prog_mem[RAM_SIZE];
-static u8 table_index;
 
 static u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
 static u16 pcode_sp=PCODE_STACK_DEPTH;
@@ -170,7 +156,7 @@ static s8 stack_ptr=STACK_DEPTH;
 const u8 token_mand[] PROGMEM={
 10,0,5,OP_CLS,EOL,
 20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
-30,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
+30,0,12,OP_LD_BYTE, 1, OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
 40,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
 50,0,20,OP_LD_FLOAT,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_FLOAT,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
 60,0,20,OP_LD_FLOAT,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_FLOAT,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
@@ -183,14 +169,13 @@ const u8 token_mand[] PROGMEM={
 130,0,17,OP_LD_BYTE, 2, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_MUL, OP_LD_VAR, VAR_D, OP_ADD, OP_ASSIGN, VAR_Y, EOL,
 140,0,8,OP_LD_VAR, VAR_E, OP_ASSIGN, VAR_X, EOL,
 150,0,6,OP_LOOP_NEXT, VAR_I, EOL,
-160,0,11,OP_LD_VAR, VAR_I, OP_LD_BYTE, 126 ,OP_ADD, OP_FUNC_CHR, OP_PRINT_CHAR, EOL,
+160,0,10,OP_LD_VAR, VAR_I, OP_LD_BYTE, 126 ,OP_ADD, OP_PRINT_CHAR, EOL,
 170,0,6,OP_LOOP_NEXT, VAR_B, EOL,
 180,0,5,OP_CRLF, EOL,
 190,0,6,OP_LOOP_NEXT, VAR_A, EOL,
 200,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
 210,0,12,OP_FUNC_TICKS, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
 220,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',0,EOL,
-
 0,0
 };
 
@@ -222,21 +207,19 @@ int main(){
 	}
 
 	program_start = prog_mem;
-	//sp = prog_mem+sizeof(prog_mem);	//Needed for printnum
-	//stack_limit = prog_mem+sizeof(prog_mem)-STACK_SIZE;
 	program_end = program_start+(sizeof(token_mand)-2);
-	//pcode_sp = pcode_stack+sizeof(pcode_stack-1);
 	txtpos = program_start;
 
-	u16 opcounter=0; //for debug
-	u16 linecounter=0; //for debug
+//	u16 opcounter=0; //for debug
+//	u16 linecounter=0; //for debug
 
-	u8 c,c2,vi,var;
+	u8 c1,var,opcode;
+	u16 i1;
 	VAR_TYPE v1,v2;
-	bool res, found;
+	bool found, stop=false;
 	stack_frame *sf;
-	u8* currpos;
 	error_code=0;
+
 	do{
 		current_line=txtpos;
 		current_line_no= (txtpos[1]<<8)+txtpos[0];
@@ -244,45 +227,41 @@ int main(){
 
 		PCODE_DEBUG("%i) <pos:%02x,cl:%02x>",current_line_no,(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start);
 		while(1){
-			table_index = (*txtpos++);
+			opcode = (*txtpos++);
 
-			switch(table_index){
+			switch(opcode){
 				case OP_LD_BYTE:
-					//push the next byte
-					c=*txtpos++;
-					push_value(c);
-					PCODE_DEBUG("[LDB %i] ",c);
+					c1=*txtpos++;
+					push_value(c1);
+					PCODE_DEBUG("[LDB %i] ",c1);
 					break;
 
 				case OP_LD_WORD:
-					//push the 2 next bytes
-					c=*txtpos++;
-					c2=*txtpos++;
-					push_value((c2<<8)+c);
-					PCODE_DEBUG("[LDB %i] ",(c2<<8)+c);
+					i1=(*((int16_t*)txtpos));
+					txtpos+=2;
+					push_value(i1);
+					PCODE_DEBUG("[LDB %i] ",i1);
 					break;
 
 				case OP_LD_FLOAT:
-					for(u8 i=0;i<4;i++){
-						type_converter.bytes[i]=*txtpos++;
-					}
-
+					type_converter.i=(*((int32_t*)txtpos));
+					txtpos+=4;
 					push_value(type_converter.f);
 					PCODE_DEBUG("[LDF %g] ",type_converter.f);
 					break;
 
 				case OP_LD_VAR:
-					vi=*txtpos++;
-					v1=pcode_vars[vi];
+					c1=*txtpos++;
+					v1=pcode_vars[c1];
 					push_value(v1);
-					PCODE_DEBUG("[LDV %c:%g] ",vi+65,v1);
+					PCODE_DEBUG("[LDV %c:%g] ",c1+65,v1);
 					break;
 
 				case OP_ASSIGN:
 					//Get variable value
-					c=*txtpos++;
-					pcode_vars[c]=pop_value();
-					PCODE_DEBUG("[LET %c] ",c+65,pcode_vars[c]);
+					c1=*txtpos++;
+					pcode_vars[c1]=pop_value();
+					PCODE_DEBUG("[LET %c] ",c1+65,pcode_vars[c1]);
 					break;
 
 				case OP_LOOP_FOR:
@@ -295,17 +274,17 @@ int main(){
 					VAR_TYPE terminal = pop_value();
 					VAR_TYPE initial = pop_value();
 					VAR_TYPE step = pop_value();
-					c=*txtpos++; //get variable index (0-25)
-					pcode_vars[c]=initial;
+					c1=*txtpos++; //get variable index (0-25)
+					pcode_vars[c1]=initial;
 
-					sf->frame_type = STACK_FRAME_TYPE_FOR;
-					sf->for_var = c;
-					sf->terminal = terminal;
-					sf->step		 = step;
-					sf->txt_pos	 = txtpos;
-					sf->current_line = current_line;
+					sf->frame_type 	= STACK_FRAME_TYPE_FOR;
+					sf->for_var 	= c1;
+					sf->terminal 	= terminal;
+					sf->step		= step;
+					sf->txt_pos	 	= txtpos;
+					sf->current_line= current_line;
 
-					PCODE_DEBUG("[FOR %c %g-%g step %g] ",c+65,initial,terminal,step);
+					PCODE_DEBUG("[FOR %c %g-%g step %g] ",c1+65,initial,terminal,step);
 					break;
 
 				case OP_LOOP_NEXT:
@@ -348,50 +327,65 @@ int main(){
 						}
 
 						//check if we saved the NEXT position from a previous loop.
-						currpos=txtpos;
+						u8* currpos=txtpos;
 						if(currpos[0]!=0 || currpos[1]!=0){
 							txtpos=(u8*)((u16)program_start+ (currpos[1]<<8)+currpos[0]);
 							//Pop the stack and drop out of the loop
 							stack_ptr++;
 							break;
 						}
+						txtpos+=2; //skip the jump adress
 
-						//scan the code to find a NEXT token
+						u16 iteration=0;
 						found=false;
 						while(1){
-								current_line +=	 current_line[sizeof(LINENUM)];
-								current_line_no= (current_line[1]<<8)+current_line[0];
+							while(*txtpos != EOL){
+								if(*txtpos == OP_LOOP_NEXT){
+									txtpos++;
 
-								if(current_line >= program_end){
-									error_code=ERR_EXIT_WITHOUT_FOR;
-									break;
-								}
-								txtpos = current_line+sizeof(LINENUM)+sizeof(char);
-
-								while(*txtpos != EOL){
-									if(*txtpos++ == OP_LOOP_NEXT){
-
-										//NEXT found, find the variable
-										var=*txtpos++ ;
-										if(var >= 26){
-											error_code=ERR_ILLEGAL_ARGUMENT;
-											break;
-										}
-
-										//Drop out of the loopand pop the stack
-										stack_ptr++;
-
-										//store the NEXT location in the program for a future loop
-										//This store the adress relative to the beginning of the prog_mem array
-										currpos[0]=((u16)txtpos-(u16)program_start)&0xff;
-										currpos[1]=((u16)txtpos-(u16)program_start)>>8;
-										found=true;
+									//NEXT found, find the variable
+									var=*txtpos++ ;
+									if(var >= 26){
+										error_code=ERR_ILLEGAL_ARGUMENT;
 										break;
 									}
+
+									//Drop out of the loopand pop the stack
+									stack_ptr++;
+
+									//store the NEXT location in the program for a future loop
+									//This store the adress relative to the beginning of the prog_mem array
+									currpos[0]=((u16)txtpos-(u16)program_start)&0xff;
+									currpos[1]=((u16)txtpos-(u16)program_start)>>8;
+									found=true;
+									break;
+
+								}else{
+									//advance to next token
+									opcode=(*txtpos++);
+									//get opcode's params count to skip over it
+									c1=pgm_read_byte(&(opcodes_param_cnt[opcode-0x80]));
+									txtpos+=c1;
+
+									iteration++;
 								}
-								if(found)break;
+
 							}
+
+							if(found || error_code != ERR_OK) break;
+
+							current_line +=	 current_line[sizeof(LINENUM)];
+							current_line_no= (current_line[1]<<8)+current_line[0];
+							txtpos = current_line+sizeof(LINENUM)+sizeof(char);
+						};
+
 						break;
+
+				case OP_GOTO:
+					break;
+
+				case OP_GOSUB:
+					break;
 
 				case OP_PRINT:
 					v1=pop_value();
@@ -402,16 +396,16 @@ int main(){
 				case OP_PRINT_LSTR:
 					PCODE_DEBUG("[PRN LSTR] ");
 					while(1){
-						c=*txtpos++;
-						if(c==0)break;
-						terminal_SendChar(c);
+						c1=*txtpos++;
+						if(c1==0)break;
+						terminal_SendChar(c1);
 					}
 					break;
 
 				case OP_PRINT_CHAR:
-					c=pop_value();
-					terminal_SendChar(c);
-					PCODE_DEBUG("[PCHR] %c",c);
+					c1=pop_value();
+					terminal_SendChar(c1);
+					PCODE_DEBUG("[PCHR] %c",c1);
 					break;
 
 				case OP_CRLF:
@@ -422,8 +416,8 @@ int main(){
 				case OP_IF:
 					v1=pop_value();
 					PCODE_DEBUG("[IF %g] ",v1);
-					if(v1==0){
-						//skip to end of line
+					if(!v1){
+						//skip to the EOL character
 						txtpos=current_line+(current_line[2]-1);
 						PCODE_DEBUG("[SKIP %02x]",(u16)txtpos-(u16)program_start);
 					}
@@ -439,8 +433,7 @@ int main(){
 				case OP_CMP_GE:
 					v2=pop_value();
 					v1=pop_value();
-					res = (v1 >= v2);
-					push_value(res);
+					push_value(v1 >= v2);
 					PCODE_DEBUG("[CMP %i>=%i %i] ",v1,v2,(u8)res);
 					break;
 
@@ -485,11 +478,15 @@ int main(){
 					break;
 
 				case OP_CLS:
-					//terminal_Clear();
+					terminal_Clear();
 					PCODE_DEBUG("[CLS] ");
 					break;
 
 				case OP_BREAK:
+					break;
+
+				case OP_END:
+					stop=true;
 					break;
 			};
 
@@ -497,18 +494,17 @@ int main(){
 				printError(error_code, current_line_no);
 				break;
 			}
-
-			opcounter++;
-			if(*txtpos == EOL)break;
+			//opcounter++;
+			if(*txtpos == EOL || stop)break;
 
 		}; //while(*txtpos++ != EOL);
 
-		if(error_code)break;
+		if(error_code || stop)break;
 
 		txtpos++;
-		linecounter++;
+		//linecounter++;
 		PCODE_DEBUG("\n");
-	}while(!(txtpos[0]==0 && txtpos[1]==0));
+	}while(*((u16*)txtpos)); //did we reached the end of the program?
 
 //	dumpstack();
 //	dumpvars();
@@ -523,11 +519,19 @@ void printError(u8 error_code, u16 line_number){
 }
 
 static inline void push_value(VAR_TYPE v){
+	if(pcode_sp==0){
+		printf_P("opcode stack overflow!");
+		while(1);
+	}
 	pcode_stack[--pcode_sp] = v;
 	//if(pcode_sp<pcode_sp_min) pcode_sp_min=pcode_sp;
 }
 
 static inline VAR_TYPE pop_value(){
+	if(pcode_sp==PCODE_STACK_DEPTH){
+		printf_P("opcode stack overflow!");
+		while(1);
+	}
 	return pcode_stack[pcode_sp++];
 }
 /**
@@ -540,17 +544,29 @@ __attribute__((unused)) void dumpmem(u16 start_addr,u8 rows){
 		u8 width=8;
 	#endif
 
+	u16 addr;
 	printf_P(PSTR("\n"));
 	for(u8 i=0;i<rows;i++){
-		printf_P(PSTR("%04x: "),(i*width)+start_addr);
+		printf_P(PSTR("%04x:"),(i*width)+start_addr);
 
+		//print the hexadecimal colums
 		for(u8 j=0;j<width;j++){
-			printf_P(PSTR("%02x "),prog_mem[((i*width)+j)+(start_addr)]);
+			addr=(i*width)+j+start_addr;
+
+			if(addr==((u16)txtpos-(u16)program_start)){
+				printf_P(PSTR(">"));
+			}else{
+				printf_P(PSTR(" "));
+			}
+
+			printf_P(PSTR("%02x"),prog_mem[addr]);
+
 			#if SCREEN_TILES_H>40
 				if(j==7)printf_P(PSTR(" "));
 			#endif
 		}
 
+		//print the ascii representation side
 		for(u8 j=0;j<width;j++){
 			u8 c=prog_mem[((i*width)+j)+(start_addr)];
 			if(c<32 || c>'~') c='.';
@@ -607,15 +623,14 @@ __attribute__((unused)) void dumpstack(){
  * Dumps all variables
  */
 __attribute__((unused)) void dumpvars(){
-	printf_P(PSTR("\n"));
-	for(int i=0;i<3;i++){
-		for(int j=0;j<8;j++){
-			printf_P(PSTR("%c=%g, "),((i*8)+j)+'A',pcode_vars[(i*6)+j]);
-		}
-		printf_P(PSTR("\n"));
+	printf_P(PSTR("\n\n"));
+	for(int i=0;i<26;i++){
+		printf_P(PSTR("%c=%g, "),i+'A',pcode_vars[i]);
 	}
-	//printf_P(PSTR("Y=%g, "),pcode_vars[VAR_Y]);
-	printf_P(PSTR("Z=%g\n"),pcode_vars[VAR_Z]);
-	printf_P(PSTR("pcode stack: size=%i,sp_min=%i\n "),PCODE_STACK_DEPTH, pcode_sp_min);
+	printf_P(PSTR("\n"));
+
+	printf_P(PSTR("[txtpos=0x%02x] [current_line=0x%02x] [current_line_no=%i]\n[pcode-stack size=%i,sp_min=%i] [loop-stack size=%i,ptr=%i]  \n"),
+			(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start,current_line_no,
+			PCODE_STACK_DEPTH, pcode_sp_min,STACK_DEPTH,stack_ptr);
 
 }
