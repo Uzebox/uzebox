@@ -19,12 +19,7 @@
 	#include "data/fat_pixels.inc"
 #endif
 
-
 #define wait_spi_ram_byte() asm volatile("lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t nop \n\t" : : : "r0", "r1"); //wait 19 cycles
-
-#define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
-#define Wait100ns() asm volatile("lpm\n\t");
-
 
 #define TOKEN 1
 #define RUNPCODE
@@ -36,43 +31,18 @@
     #define PCODE_DEBUG(...)
 #endif
 
-
-#define PM_INPUT	0
-#define PM_OUTPUT	1
-#define CONSOLE_BAUD 9600
-#define VERSION "0.2"
 #define RAM_SIZE 1000
 #define STACK_DEPTH	5
-#define STACK_SIZE (sizeof(struct stack_for_frame)*STACK_DEPTH)
 #define VAR_TYPE float//type used for number variables
 #define VAR_SIZE sizeof(VAR_TYPE)//Size of variables in bytes
-#define VAR_TYPE_STR 0
-#define VAR_TYPE_NUM 1
-#define STRING_BUFFER_SIZE 2 //string buffer
-#define HIGHLOW_HIGH	1
-#define HIGHLOW_UNKNOWN	4
 #define PCODE_STACK_DEPTH 5
-
-////////////////////
-//ASCII Characters
-#define CR	'\r'
-#define NL	'\n'
-#define LF	0x0a
-#define TAB	'\t'
-#define BACKSP	'\b'
-#define SPACE	 ' '
-#define SQUOTE	'\''
-#define DQUOTE	'\"'
-#define CTRLC	0x03
-#define CTRLH	0x08
-#define CTRLS	0x13
-#define CTRLX	0x18
-#define STACK_GOSUB_FRAME 2
-#define STACK_FOR_FRAME 1
 #define EOL 0xff
 
-#define STACK_FOR 'F'
-#define STACK_GOSUB 'G'
+#define STACK_FRAME_TYPE_GOSUB 	2
+#define STACK_FRAME_TYPE_FOR 	1
+
+#define CR	'\r'
+#define NL	'\n'
 
 typedef u16 LINENUM;
 
@@ -81,16 +51,6 @@ union {
 	int32_t i;
 	uint8_t bytes[sizeof(VAR_TYPE)];
 }type_converter;
-
-struct stack_for_frame{
-	u8 frame_type;
-	u8 for_var;
-	s16 terminal;
-	s16 step;
-	u8 *current_line;
-	u8 *txt_pos;
-//	u8 *exit_pos;
-};
 
 typedef struct {
 	u8 frame_type;
@@ -102,90 +62,19 @@ typedef struct {
 }stack_frame;
 
 
-typedef union {
-	float f;
-	int	i;
-	u8 c;
-	u8* s;
-} PVar;
-
-typedef struct {
-	u8 data_type;
-	PVar var;
-}pcode_stack_frame;
-
-struct stack_gosub_frame{
-	char frame_type;
-	u8 *current_line;
-	u8 *txtpos;
-};
-
-
-enum pcode_var_type{
-	TYPE_FLOAT=0,
-	TYPE_INT,
-	TYPE_CHAR,
-	TYPE_STRING
-};
-
-
-
 enum pcodes{
-	OP_CMD_CLS=0x80,
-	OP_LD_BYTE,
-	OP_LD_FLOAT,
-	OP_ASSIGN,
-	OP_LOOP_FOR,
-	OP_LD_VAR,
-	OP_FUNC_CHR,
-	OP_PRINT_CHAR,
-	OP_LOOP_NEXT,
-	OP_PRINT,
-	OP_PRINT_LSTR, //print literral string
-	OP_CRLF,
-	OP_IF,
-	OP_CMP_GT,
-	OP_CMP_GE,
-	OP_ADD,
-	OP_SUB,
-	OP_MUL,
-	OP_DIV,
+	OP_LD_BYTE=0x80, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN,
+	OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,
+	OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF,
+	OP_IF, OP_CMP_GT, OP_CMP_GE,
+	OP_ADD,	OP_SUB,	OP_MUL,	OP_DIV,
 	OP_FUNC_TICKS,
-	OP_LOOP_EXIT,
+	OP_FUNC_CHR,
+	OP_CLS,
 	OP_BREAK,
-
-//	OP_LD_INT,
-//	OP_LD_DBL,
-
-
-//	OP_CMP_NE,
-
-//	OP_CMP_LT,
-//	OP_CMP_LE,
-//	OP_OUT_BYTE,
-//	OP_OUT_INT,
-//	OP_OUT_DBL,
-//	OP_OUT_STR,
-//	OP_LOOP_EXIT,
-
-//	OP_FUNC_0P,
-//	OP_FUNC_1P,
-
-
-
+	//OP_CMP_NE, OP_CMP_LT, OP_CMP_LE,
 };
-enum commands{
-	CMD_CLS,
-	CMD_PRINT,
-	CMD_EXIT,
 
-};
-enum param_type{
-	LITTERAL_STR,
-	LITTERAL_NUM,
-	EXPR_STR,
-	EXPR_NUM
-};
 
 enum vars{
 	VAR_A=0,
@@ -248,38 +137,27 @@ const char* const error_messages[] PROGMEM ={
 		error_07_msg,
 };
 
-
-void printmsgNoNL(const char *msg){};
-void printmsg(const char *msg){};
-void dumpmem(u16 start_addr,u8 rows);
-void dumpstack();
-void dumpvars();
+static void dumpmem(u16 start_addr,u8 rows);
+static void dumpstack();
+static void dumpvars();
 static void push_value(VAR_TYPE v);
 static VAR_TYPE pop_value();
-void printError(u8 error_code, u16 line_no);
-void stop();
+static void printError(u8 error_code, u16 line_no);
+
 
 static u8 *txtpos;
-static u8 *tempsp;
 static u32 timer_ticks;
-static u8 *stack_limit;
 static u8 *program_start;
 static u8 *program_end;
 static u8 *current_line;
 static u16 current_line_no;
 static u8 error_code;
-
-static u8 dummy=0xcc;
-static u8 *sp;
-
-
 u8 prog_mem[RAM_SIZE];
 static u8 table_index;
 
 static u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
 static u16 pcode_sp=PCODE_STACK_DEPTH;
 static VAR_TYPE pcode_stack[PCODE_STACK_DEPTH];
-
 static VAR_TYPE pcode_vars[26]; //A-Z
 static stack_frame stack[STACK_DEPTH];
 static s8 stack_ptr=STACK_DEPTH;
@@ -290,15 +168,15 @@ static s8 stack_ptr=STACK_DEPTH;
 //2.5 0x00,0x00,0x20,0x40
 //1.0 0x00,0x00,0x80,0x3f
 const u8 token_mand[] PROGMEM={
-10,0,5,OP_CMD_CLS,EOL,
+10,0,5,OP_CLS,EOL,
 20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
-30,0,10,OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
-40,0,10,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
+30,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
+40,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
 50,0,20,OP_LD_FLOAT,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_FLOAT,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
 60,0,20,OP_LD_FLOAT,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_FLOAT,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
 70,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_X, EOL,
 80,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_Y, EOL,
-90,0,10,OP_LD_BYTE, 0, OP_LD_BYTE, 14, OP_LOOP_FOR, VAR_I, EOL,
+90,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 14, OP_LOOP_FOR, VAR_I, EOL,
 100,0,17,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_ADD, OP_ASSIGN, VAR_F, EOL,
 110,0,13,OP_LD_VAR, VAR_F, OP_LD_BYTE, 4, OP_CMP_GT, OP_IF, OP_LOOP_EXIT, 0, 0, EOL,
 120,0,20,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_SUB, OP_LD_VAR, VAR_C, OP_ADD, OP_ASSIGN, VAR_E, EOL,
@@ -344,8 +222,8 @@ int main(){
 	}
 
 	program_start = prog_mem;
-	sp = prog_mem+sizeof(prog_mem);	//Needed for printnum
-	stack_limit = prog_mem+sizeof(prog_mem)-STACK_SIZE;
+	//sp = prog_mem+sizeof(prog_mem);	//Needed for printnum
+	//stack_limit = prog_mem+sizeof(prog_mem)-STACK_SIZE;
 	program_end = program_start+(sizeof(token_mand)-2);
 	//pcode_sp = pcode_stack+sizeof(pcode_stack-1);
 	txtpos = program_start;
@@ -353,7 +231,7 @@ int main(){
 	u16 opcounter=0; //for debug
 	u16 linecounter=0; //for debug
 
-	u8 c,vi,var;
+	u8 c,c2,vi,var;
 	VAR_TYPE v1,v2;
 	bool res, found;
 	stack_frame *sf;
@@ -369,11 +247,6 @@ int main(){
 			table_index = (*txtpos++);
 
 			switch(table_index){
-				case OP_CMD_CLS:
-					//terminal_Clear();
-					PCODE_DEBUG("[CLS] ");
-					break;
-
 				case OP_LD_BYTE:
 					//push the next byte
 					c=*txtpos++;
@@ -381,23 +254,22 @@ int main(){
 					PCODE_DEBUG("[LDB %i] ",c);
 					break;
 
-				case OP_LD_FLOAT:
+				case OP_LD_WORD:
+					//push the 2 next bytes
+					c=*txtpos++;
+					c2=*txtpos++;
+					push_value((c2<<8)+c);
+					PCODE_DEBUG("[LDB %i] ",(c2<<8)+c);
+					break;
 
+				case OP_LD_FLOAT:
 					for(u8 i=0;i<4;i++){
 						type_converter.bytes[i]=*txtpos++;
 					}
 
 					push_value(type_converter.f);
-					PCODE_DEBUG("[LDF %g] ",u.f);
+					PCODE_DEBUG("[LDF %g] ",type_converter.f);
 					break;
-
-				case OP_ASSIGN:
-					//Get variable value
-					c=*txtpos++;
-					pcode_vars[c]=pop_value();
-					PCODE_DEBUG("[LET %c] ",c+65,pcode_vars[c]);
-					break;
-
 
 				case OP_LD_VAR:
 					vi=*txtpos++;
@@ -406,16 +278,11 @@ int main(){
 					PCODE_DEBUG("[LDV %c:%g] ",vi+65,v1);
 					break;
 
-				case OP_FUNC_CHR:
-					v1=pop_value(); //TODO
-					push_value(v1);
-					PCODE_DEBUG("[CHR] ");
-					break;
-
-				case OP_PRINT_CHAR:
-					c=pop_value();
-					terminal_SendChar(c);
-					PCODE_DEBUG("[PCHR] %c",c);
+				case OP_ASSIGN:
+					//Get variable value
+					c=*txtpos++;
+					pcode_vars[c]=pop_value();
+					PCODE_DEBUG("[LET %c] ",c+65,pcode_vars[c]);
 					break;
 
 				case OP_LOOP_FOR:
@@ -427,18 +294,18 @@ int main(){
 
 					VAR_TYPE terminal = pop_value();
 					VAR_TYPE initial = pop_value();
-					VAR_TYPE step=1; //TODO
+					VAR_TYPE step = pop_value();
 					c=*txtpos++; //get variable index (0-25)
 					pcode_vars[c]=initial;
 
-					sf->frame_type = STACK_FOR_FRAME;
+					sf->frame_type = STACK_FRAME_TYPE_FOR;
 					sf->for_var = c;
 					sf->terminal = terminal;
 					sf->step		 = step;
 					sf->txt_pos	 = txtpos;
 					sf->current_line = current_line;
 
-					PCODE_DEBUG("[FOR %c %g-%g] ",c+65,initial,terminal);
+					PCODE_DEBUG("[FOR %c %g-%g step %g] ",c+65,initial,terminal,step);
 					break;
 
 				case OP_LOOP_NEXT:
@@ -452,7 +319,7 @@ int main(){
 					u8 var_id=*txtpos++;
 					PCODE_DEBUG("[NEXT %c] ",var_id+65);
 
-					if(stack[stack_ptr].frame_type != STACK_FOR_FRAME || stack[stack_ptr].for_var!=var_id){
+					if(stack[stack_ptr].frame_type != STACK_FRAME_TYPE_FOR || stack[stack_ptr].for_var!=var_id){
 						error_code=ERR_INVALID_NESTING;
 						break;
 					}
@@ -541,6 +408,12 @@ int main(){
 					}
 					break;
 
+				case OP_PRINT_CHAR:
+					c=pop_value();
+					terminal_SendChar(c);
+					PCODE_DEBUG("[PCHR] %c",c);
+					break;
+
 				case OP_CRLF:
 					terminal_SendChar(NL);
 					terminal_SendChar(CR);
@@ -605,6 +478,17 @@ int main(){
 					PCODE_DEBUG("[TICKS = %08x ] ",ticks);
 					break;
 
+				case OP_FUNC_CHR:
+					v1=pop_value(); //TODO
+					push_value(v1);
+					PCODE_DEBUG("[CHR] ");
+					break;
+
+				case OP_CLS:
+					//terminal_Clear();
+					PCODE_DEBUG("[CLS] ");
+					break;
+
 				case OP_BREAK:
 					break;
 			};
@@ -638,24 +522,18 @@ void printError(u8 error_code, u16 line_number){
 	printf_P(PSTR("\n"));
 }
 
-static void push_value(VAR_TYPE v){
-	if(pcode_sp==0){
-		printf("pcode stack overflow!");  //TODO return correct error code
-		while(1);
-	}
-	pcode_sp--;
-	pcode_stack[pcode_sp] = v;
-
-	if(pcode_sp<pcode_sp_min) pcode_sp_min=pcode_sp;
+static inline void push_value(VAR_TYPE v){
+	pcode_stack[--pcode_sp] = v;
+	//if(pcode_sp<pcode_sp_min) pcode_sp_min=pcode_sp;
 }
 
-static VAR_TYPE pop_value(){
-	VAR_TYPE v = pcode_stack[pcode_sp];
-	pcode_sp++;
-	return v;
+static inline VAR_TYPE pop_value(){
+	return pcode_stack[pcode_sp++];
 }
-
-void dumpmem(u16 start_addr,u8 rows){
+/**
+ * Dumps a selcted range of memory
+ */
+__attribute__((unused)) void dumpmem(u16 start_addr,u8 rows){
 	#if SCREEN_TILES_H>40
 		u8 width=16;
 	#else
@@ -682,8 +560,10 @@ void dumpmem(u16 start_addr,u8 rows){
 	}
 
 }
-
-void dumpstack(){
+/**
+ * Dumps the LOOP/GOSUB stack
+ */
+__attribute__((unused)) void dumpstack(){
 
 	printf_P(PSTR("\n"));
 
@@ -723,7 +603,10 @@ void dumpstack(){
 		printf_P(PSTR(">\n"));
 	}
 }
-void dumpvars(){
+/**
+ * Dumps all variables
+ */
+__attribute__((unused)) void dumpvars(){
 	printf_P(PSTR("\n"));
 	for(int i=0;i<3;i++){
 		for(int j=0;j<8;j++){
@@ -735,14 +618,4 @@ void dumpvars(){
 	printf_P(PSTR("Z=%g\n"),pcode_vars[VAR_Z]);
 	printf_P(PSTR("pcode stack: size=%i,sp_min=%i\n "),PCODE_STACK_DEPTH, pcode_sp_min);
 
-}
-
-
-void stop(){
-if(pcode_vars[VAR_B]==1 ){
-		dumpvars();
-	//	dumpstack();
-//		//dumpmem(0,9);
-//		//while(1);
-	}
 }
