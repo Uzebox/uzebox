@@ -32,11 +32,13 @@
 #endif
 
 #define RAM_SIZE 1000
-#define STACK_DEPTH	5
-#define VAR_TYPE float//type used for number variables
-#define VAR_SIZE sizeof(VAR_TYPE)//Size of variables in bytes
-#define PCODE_STACK_DEPTH 5
-#define EOL 0xff
+#define STACK_DEPTH	5				//depth of the for-loop/gosum stack
+#define PCODE_STACK_DEPTH 5			//depth of the internal parameter passing statck
+#define VAR_TYPE float				//type used for number variables
+#define VAR_SIZE sizeof(VAR_TYPE)	//Size of variables in bytes
+#define EOL   0xff					//denotes the end of the bytecode line
+#define EOS   0x00					//Used to delimitate the end of a string
+#define EOSNL 0x1					//User to delimitate the end of a string that should end with a new line
 
 #define STACK_FRAME_TYPE_GOSUB 	2
 #define STACK_FRAME_TYPE_FOR 	1
@@ -63,7 +65,7 @@ typedef struct {
 
 
 enum opcodes{
-	OP_LD_BYTE=0x80, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN,
+	OP_LD_BYTE=0x80, OP_LD_WORD, OP_LD_DWORD, OP_LD_VAR, OP_ASSIGN,
 	OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,
 	OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF,
 	OP_IF, OP_CMP_GT, OP_CMP_GE,
@@ -130,7 +132,7 @@ static void dumpvars();
 static void push_value(VAR_TYPE v);
 static VAR_TYPE pop_value();
 static void printError(u8 error_code, u16 line_no);
-
+static u16 execute();
 
 static u8 *txtpos;
 static u32 timer_ticks;
@@ -141,13 +143,28 @@ static u16 current_line_no;
 static u8 error_code;
 u8 prog_mem[RAM_SIZE];
 
-static u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
-static u16 pcode_sp=PCODE_STACK_DEPTH;
-static VAR_TYPE pcode_stack[PCODE_STACK_DEPTH];
 static VAR_TYPE pcode_vars[26]; //A-Z
+
+static u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
+static u16 pcode_float_sp=PCODE_STACK_DEPTH;
+static VAR_TYPE pcode_float_stack[PCODE_STACK_DEPTH];
 static stack_frame stack[STACK_DEPTH];
 static s8 stack_ptr=STACK_DEPTH;
 
+const u8 token_rf_benchmark1[] PROGMEM={
+10,0,5,OP_CLS,EOL,
+15,0,20,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','1',0,OP_CRLF, EOL,
+20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+30,0,8,OP_PRINT_LSTR,'S',0,OP_CRLF,EOL,
+40,0,13,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_WORD, 0xe8,0x03, OP_LOOP_FOR, VAR_K, EOL,	//1 to 1000
+50,0,6,OP_LOOP_NEXT, VAR_K, EOL,
+70,0,8,OP_PRINT_LSTR,'E',0,OP_CRLF,EOL,
+80,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+90,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+100,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
+110,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',0,OP_CRLF,EOL,
+0,0
+};
 
 //0.10938=0x9f,0x02,0xe0,0x3d
 //0.09090=0xc7,0x29,0xba,0x3d
@@ -158,8 +175,8 @@ const u8 token_mand[] PROGMEM={
 20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 30,0,12,OP_LD_BYTE, 1, OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
 40,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
-50,0,20,OP_LD_FLOAT,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_FLOAT,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
-60,0,20,OP_LD_FLOAT,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_FLOAT,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
+50,0,20,OP_LD_DWORD,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_DWORD,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
+60,0,20,OP_LD_DWORD,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_DWORD,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
 70,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_X, EOL,
 80,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_Y, EOL,
 90,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 14, OP_LOOP_FOR, VAR_I, EOL,
@@ -173,8 +190,9 @@ const u8 token_mand[] PROGMEM={
 170,0,6,OP_LOOP_NEXT, VAR_B, EOL,
 180,0,5,OP_CRLF, EOL,
 190,0,6,OP_LOOP_NEXT, VAR_A, EOL,
+195,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
 200,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-210,0,12,OP_FUNC_TICKS, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
+210,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
 220,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',0,EOL,
 0,0
 };
@@ -202,9 +220,19 @@ int main(){
 	terminal_SetCursorVisible(true);
 
 	//copy the tokenised program in SRAM
-	for(u16 i=0;i<sizeof(token_mand)-2;i++){
-		prog_mem[i]=pgm_read_byte(&(token_mand[i]));
-	}
+	//for(u16 i=0;i<sizeof(token_mand)-2;i++) prog_mem[i]=pgm_read_byte(&(token_mand[i]));
+	for(u16 i=0;i<sizeof(token_rf_benchmark1)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark1[i]));
+
+	execute();
+
+//	dumpstack();
+//	dumpvars();
+	printf_P(PSTR("\nOk\n>"));
+	while(1);
+
+}
+
+u16 execute(){
 
 	program_start = prog_mem;
 	program_end = program_start+(sizeof(token_mand)-2);
@@ -240,14 +268,14 @@ int main(){
 					i1=(*((int16_t*)txtpos));
 					txtpos+=2;
 					push_value(i1);
-					PCODE_DEBUG("[LDB %i] ",i1);
+					PCODE_DEBUG("[LDW %i] ",i1);
 					break;
 
-				case OP_LD_FLOAT:
+				case OP_LD_DWORD:
 					type_converter.i=(*((int32_t*)txtpos));
 					txtpos+=4;
 					push_value(type_converter.f);
-					PCODE_DEBUG("[LDF %g] ",type_converter.f);
+					PCODE_DEBUG("[LDD %g] ",type_converter.f);
 					break;
 
 				case OP_LD_VAR:
@@ -364,6 +392,7 @@ int main(){
 									//advance to next token
 									opcode=(*txtpos++);
 									//get opcode's params count to skip over it
+									//TODO: add case to support litteral strings ending with zero
 									c1=pgm_read_byte(&(opcodes_param_cnt[opcode-0x80]));
 									txtpos+=c1;
 
@@ -506,33 +535,31 @@ int main(){
 		PCODE_DEBUG("\n");
 	}while(*((u16*)txtpos)); //did we reached the end of the program?
 
-//	dumpstack();
-//	dumpvars();
-	printf_P(PSTR("\nOk\n>"));
-	while(1);
-
+	return error_code;
 }
+
 
 void printError(u8 error_code, u16 line_number){
 	printf_P((PGM_P)pgm_read_word(&(error_messages[error_code])), line_number);
 	printf_P(PSTR("\n"));
 }
 
+
 static inline void push_value(VAR_TYPE v){
-	if(pcode_sp==0){
-		printf_P("opcode stack overflow!");
+	if(pcode_float_sp==0){
+		printf_P("opcode float stack overflow!");
 		while(1);
 	}
-	pcode_stack[--pcode_sp] = v;
+	pcode_float_stack[--pcode_float_sp] = v;
 	//if(pcode_sp<pcode_sp_min) pcode_sp_min=pcode_sp;
 }
 
 static inline VAR_TYPE pop_value(){
-	if(pcode_sp==PCODE_STACK_DEPTH){
-		printf_P("opcode stack overflow!");
+	if(pcode_float_sp==PCODE_STACK_DEPTH){
+		printf_P("opcode float stack overflow!");
 		while(1);
 	}
-	return pcode_stack[pcode_sp++];
+	return pcode_float_stack[pcode_float_sp++];
 }
 /**
  * Dumps a selcted range of memory
