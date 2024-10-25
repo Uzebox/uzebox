@@ -1,0 +1,86 @@
+RETURN X (P1)
+RETURN X (P2)
+RETURN X*X (P1*P2)
+RETURN Y (P2)
+RETURN Y (P3)
+RETURN Y*Y (P2*P3)
+RETURN (P1*P2)+(P3*P4)
+
+GETVAR X 	-> N1
+GETVAR X 	-> N2
+MUL    N1,N2-> T1
+GETVAR Y	-> N3
+GETVAR Y	-> N4	
+MUL    N3,N4-> T2
+SUB    T1,T2-> T3
+GETVAR C-> 	   N1
+ADD    T3,N1   T4 
+SETVAR 4,T4    (var A)
+
+
+//17 pcodes
+expression(){
+	byte=txtpos++;
+	
+	switch(pcode){
+		case GETVAR:
+			VAR temp=variables[txtpos++];
+			push(temp);
+			break;
+		case SETVAR:
+			variables[txtpos++]=pop();
+			break;
+		case MUL:
+			VAR temp=pop()*pop();
+			push(temp)
+			break;
+		case DIV:
+			break;
+		case SUB:
+			VAR tmp1=pop();
+			VAR temp2=pop();
+			VAR temp3=tmp2-tmp1;
+			push(temp3)
+			break;	
+		case ADD:
+			VAR tmp1=pop();
+			VAR temp2=pop();
+			VAR temp3=tmp2+tmp1;
+			push(temp3)
+			break;	
+		case AND, OR, XOR, NOT:
+			break;
+		case FUNC:
+			VAR tmp=function(txtpos++);
+			push(temp);
+			break;
+		case RELOP_GE:
+			VAR temp1=pop();
+			VAR temp2=pop();
+			if(temp1>=temp2) push(1) else push(0);
+			break;
+		case RELOP_NE:
+		case RELOP_NE_BANG:
+			b = expr2();
+			if(a != b) return 1;
+			break;
+		case RELOP_GT:
+			b = expr2();
+			if(a > b) return 1;
+			break;
+		case RELOP_EQ:
+			b = expr2();
+			if(a == b) return 1;
+			break;
+		case RELOP_LE:
+			b = expr2();
+			if(a <= b) return 1;
+			break;
+		case RELOP_LT:
+			b = expr2();
+			if(a < b) return 1;
+			break;		
+			
+	}
+
+

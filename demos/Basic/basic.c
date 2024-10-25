@@ -1,171 +1,59 @@
+/**
+ * Best time for Mandelbrot: 12.1 seconds with floats
+ */
+
 #include <avr/io.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
+#include <math.h>
 #include <avr/pgmspace.h>
+#include <avr/interrupt.h>
 #include <uzebox.h>
-#include <fatfs/ffconf.h>
-#include <fatfs/ff.h>
-#include <fatfs/diskio.h>
 #include <keyboard.h>
 #include "terminal.h"
+
+#if VIDEO_MODE == 5
+	#include "data/font6x8-full.inc"
+	#include "data/fat_pixels.inc"
+#endif
+
+
+#define wait_spi_ram_byte() asm volatile("lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t nop \n\t" : : : "r0", "r1"); //wait 19 cycles
 
 #define Wait200ns() asm volatile("lpm\n\tlpm\n\t");
 #define Wait100ns() asm volatile("lpm\n\t");
 
-#define kAutorunFilename "AUTORUN.BAS"
 
+#define TOKEN 1
+#define RUNPCODE
+//#define DBGPCODE
 
-//uint8_t analog_reference = DEFAULT;
-void analogReference(uint8_t mode){
-}
-
-u16 analogRead(u8 pin){
-	return 0;
-}
-u8 digitalRead(u8 pin){
-	return 0;
-}
-
-void analogWrite(u8 pin, u16 val){
-}
-
-void digitalWrite(u8 pin, u8 val){
-}
-
-void tone(u8 f, u8 d){
-}
-
-void noTone(){
-}
-
-#define PM_INPUT	0
-#define PM_OUTPUT	1
-void pinMode(u8 pin, u8 mode){
-}
-
-
-void vsyncCallback(){
-	//KeyboardPoll();			//checks for new keys
-	terminal_VsyncCallback();	//used to poll the keyboard
-}
-
-void delay(u8 ms){
-	s16 time = ms;
-	while(time > 0){
-		if(GetVsyncFlag()){
-			WaitVsync(1);
-			time -= 16;
-			continue;
-		}
-		for(u16 i=0;i<1000;i++){
-			for(u8 j=0;j<5;j++){
-				Wait200ns();
-			}
-		}
-		time--;
-	}
-}
-
-#define kConsoleBaud 9600
-#define kVersion "0.2"
-#define kRamSize 512
-FATFS fs;
-FIL f;
-//DIR d;
-u16 bytesWritten;
-u16 bytesRead;
-u8 sd_initialized = 0;
-
-
-//#define NO_SPI_RAM 1
-
-#ifndef NO_SPI_RAM
-	#include <spiram.h>
-
-	uint16_t spiram_cursor = 0;
-	uint16_t spiram_state = 0;
-
-	uint8_t SpiRamCursorInit(){
-		spiram_cursor = kRamSize;
-		spiram_state = 0;
-		if(!SpiRamInit())
-			return 0;
-		SpiRamSeqReadStart((kRamSize<<16)&0xFF, (uint16_t)kRamSize&0xFFFF);
-		return 1;
-	}
-
-	uint8_t SpiRamCursorRead(uint16_t addr){
-		if(spiram_state){//in a sequential write?
-			SpiRamSeqWriteEnd();
-			asm("nop");asm("nop");
-			SpiRamSeqReadStart(0, addr);
-			asm("nop");asm("nop");
-			spiram_state = 0;
-			spiram_cursor = addr+1;
-			return SpiRamSeqReadU8();
-		}
-		if(spiram_cursor != addr){//current sequential read position doesn't match?
-			SpiRamSeqReadEnd();
-			asm("nop");asm("nop");
-			SpiRamSeqReadStart(0, addr);
-			asm("nop");asm("nop");
-			spiram_cursor = addr+1;
-			return SpiRamSeqReadU8();
-		}
-		spiram_cursor++;
-		return SpiRamSeqReadU8();
-	}
-
-	void SpiRamCursorWrite(uint16_t addr, uint8_t val){
-		if(!spiram_state){//in a sequential read?
-			SpiRamSeqReadEnd();
-			asm("nop");asm("nop");
-			SpiRamSeqWriteStart(0, addr);
-			spiram_state = 1;
-			spiram_cursor = addr+1;
-			asm("nop");asm("nop");
-			SpiRamSeqWriteU8(val);
-			return;
-		}
-		if(spiram_cursor != addr){//current sequential write position doesn't match?
-			SpiRamSeqWriteEnd();
-			asm("nop");asm("nop");
-			SpiRamSeqWriteStart(0, addr);
-			spiram_cursor = addr+1;
-			asm("nop");asm("nop");
-			SpiRamSeqWriteU8(val);
-			return;
-		}
-		spiram_cursor++;
-		SpiRamSeqWriteU8(val);
-	}
+#ifdef DBGPCODE
+	#define PCODE_DEBUG(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
+#else
+    #define PCODE_DEBUG(...)
 #endif
 
 
+#define PM_INPUT	0
+#define PM_OUTPUT	1
+#define CONSOLE_BAUD 9600
+#define VERSION "0.2"
+#define RAM_SIZE 1000
+#define STACK_DEPTH	5
+#define STACK_SIZE (sizeof(struct stack_for_frame)*STACK_DEPTH)
+#define VAR_TYPE float//type used for number variables
+#define VAR_SIZE sizeof(VAR_TYPE)//Size of variables in bytes
+#define VAR_TYPE_STR 0
+#define VAR_TYPE_NUM 1
+#define STRING_BUFFER_SIZE 2 //string buffer
+#define HIGHLOW_HIGH	1
+#define HIGHLOW_UNKNOWN	4
+#define PCODE_STACK_DEPTH 5
+
 ////////////////////
-	//functions defined elsehwere
-	void cmd_Files();
-	char *filenameWord();
-
-//some settings based things
-
-u8 inhibitOutput = 0;
-static u8 runAfterLoad = 0;
-static u8 triggerRun = 0;
-
-//these will select, at runtime, where IO happens through for load/save
-enum{
-	kStreamSerial = 0,
-	kStreamFile,
-	kStreamKeyboard,
-	kStreamScreen
-};
-static u8 inStream = kStreamKeyboard;
-static u8 outStream = kStreamScreen;
-
-
-////////////////////////////////////////////////////////////////////////////////
 //ASCII Characters
 #define CR	'\r'
 #define NL	'\n'
@@ -179,84 +67,52 @@ static u8 outStream = kStreamScreen;
 #define CTRLH	0x08
 #define CTRLS	0x13
 #define CTRLX	0x18
+#define STACK_GOSUB_FRAME 2
+#define STACK_FOR_FRAME 1
+#define EOL 0xff
+
+#define STACK_FOR 'F'
+#define STACK_GOSUB 'G'
 
 typedef u16 LINENUM;
 
-static u8 program[kRamSize];
-//static const char *sentinel = "HELLO";
-static u8 *txtpos,*list_line, *tmptxtpos;
-static u8 expression_error;
-static u8 *tempsp;
-
-/***********************************************************/
-//Keyword table and constants - the last character has 0x80 added to it
-const static u8 keywords[] PROGMEM = {
-	'L','I','S','T'+0x80,
-	'L','O','A','D'+0x80,
-	'N','E','W'+0x80,
-	'R','U','N'+0x80,
-	'S','A','V','E'+0x80,
-	'N','E','X','T'+0x80,
-	'L','E','T'+0x80,
-	'I','F'+0x80,
-	'G','O','T','O'+0x80,
-	'G','O','S','U','B'+0x80,
-	'R','E','T','U','R','N'+0x80,
-	'R','E','M'+0x80,
-	'F','O','R'+0x80,
-	'I','N','P','U','T'+0x80,
-	'P','R','I','N','T'+0x80,
-	'P','O','K','E'+0x80,
-	'S','T','O','P'+0x80,
-	'B','Y','E'+0x80,
-	'F','I','L','E','S'+0x80,
-	'M','E','M'+0x80,
-	'?'+ 0x80,
-	'\''+ 0x80,
-	'A','W','R','I','T','E'+0x80,
-	'D','W','R','I','T','E'+0x80,
-	'D','E','L','A','Y'+0x80,
-	'E','N','D'+0x80,
-	'R','S','E','E','D'+0x80,
-	'C','H','A','I','N'+0x80,
-	'T','O','N','E','W'+0x80,
-	'T','O','N','E'+0x80,
-	'N','O','T','O','N','E'+0x80,
-	'C','L','S'+0x80,
-	0
-};
-
-enum{//by moving the command list to an enum, we can easily remove sections above and below simultaneously to selectively obliterate functionality.
-	KW_LIST = 0,
-	KW_LOAD, KW_NEW, KW_RUN, KW_SAVE,
-	KW_NEXT, KW_LET, KW_IF,
-	KW_GOTO, KW_GOSUB, KW_RETURN,
-	KW_REM,
-	KW_FOR,
-	KW_INPUT, KW_PRINT,
-	KW_POKE,
-	KW_STOP, KW_BYE,
-	KW_FILES,
-	KW_MEM,
-	KW_QMARK, KW_QUOTE,
-	KW_AWRITE, KW_DWRITE,
-	KW_DELAY,
-	KW_END,
-	KW_RSEED,
-	KW_CHAIN,
-	KW_TONEW, KW_TONE, KW_NOTONE,
-	KW_CLS,
-	KW_DEFAULT /* always the final one*/
-};
+union {
+	float f;
+	int32_t i;
+	uint8_t bytes[sizeof(VAR_TYPE)];
+}type_converter;
 
 struct stack_for_frame{
-	char frame_type;
-	char for_var;
+	u8 frame_type;
+	u8 for_var;
 	s16 terminal;
 	s16 step;
 	u8 *current_line;
-	u8 *txtpos;
+	u8 *txt_pos;
+//	u8 *exit_pos;
 };
+
+typedef struct {
+	u8 frame_type;
+	u8 for_var;
+	s16 terminal;
+	s16 step;
+	u8 *current_line;
+	u8 *txt_pos;
+}stack_frame;
+
+
+typedef union {
+	float f;
+	int	i;
+	u8 c;
+	u8* s;
+} PVar;
+
+typedef struct {
+	u8 data_type;
+	PVar var;
+}pcode_stack_frame;
 
 struct stack_gosub_frame{
 	char frame_type;
@@ -264,505 +120,214 @@ struct stack_gosub_frame{
 	u8 *txtpos;
 };
 
-const static u8 func_tab[] PROGMEM = {
-'P','E','E','K'+0x80,
-'A','B','S'+0x80,
-'A','R','E','A','D'+0x80,
-'D','R','E','A','D'+0x80,
-'R','N','D'+0x80,
-0
-};
-#define FUNC_PEEK	0
-#define FUNC_ABS	1
-#define FUNC_AREAD	2
-#define FUNC_DREAD	3
-#define FUNC_RND	4
-#define FUNC_UNKNOWN	5
 
-const static u8 to_tab[] PROGMEM = {
-	'T','O'+0x80,
-	0
+enum pcode_var_type{
+	TYPE_FLOAT=0,
+	TYPE_INT,
+	TYPE_CHAR,
+	TYPE_STRING
 };
 
-const static u8 step_tab[] PROGMEM = {
-	'S','T','E','P'+0x80,
-	0
+
+
+enum pcodes{
+	OP_CMD_CLS=0x80,
+	OP_LD_BYTE,
+	OP_LD_FLOAT,
+	OP_ASSIGN,
+	OP_LOOP_FOR,
+	OP_LD_VAR,
+	OP_FUNC_CHR,
+	OP_PRINT_CHAR,
+	OP_LOOP_NEXT,
+	OP_PRINT,
+	OP_PRINT_LSTR, //print literral string
+	OP_CRLF,
+	OP_IF,
+	OP_CMP_GT,
+	OP_CMP_GE,
+	OP_ADD,
+	OP_SUB,
+	OP_MUL,
+	OP_DIV,
+	OP_FUNC_TICKS,
+	OP_LOOP_EXIT,
+	OP_BREAK,
+
+//	OP_LD_INT,
+//	OP_LD_DBL,
+
+
+//	OP_CMP_NE,
+
+//	OP_CMP_LT,
+//	OP_CMP_LE,
+//	OP_OUT_BYTE,
+//	OP_OUT_INT,
+//	OP_OUT_DBL,
+//	OP_OUT_STR,
+//	OP_LOOP_EXIT,
+
+//	OP_FUNC_0P,
+//	OP_FUNC_1P,
+
+
+
+};
+enum commands{
+	CMD_CLS,
+	CMD_PRINT,
+	CMD_EXIT,
+
+};
+enum param_type{
+	LITTERAL_STR,
+	LITTERAL_NUM,
+	EXPR_STR,
+	EXPR_NUM
 };
 
-const static u8 relop_tab[] PROGMEM = {
-	'>','='+0x80,
-	'<','>'+0x80,
-	'>'+0x80,
-	'='+0x80,
-	'<','='+0x80,
-	'<'+0x80,
-	'!','='+0x80,
-	0
+enum vars{
+	VAR_A=0,
+	VAR_B,
+	VAR_C,
+	VAR_D,
+	VAR_E,
+	VAR_F,
+	VAR_G,
+	VAR_H,
+	VAR_I,
+	VAR_J,
+	VAR_K,
+	VAR_L,
+	VAR_M,
+	VAR_N,
+	VAR_O,
+	VAR_P,
+	VAR_Q,
+	VAR_R,
+	VAR_S,
+	VAR_T,
+	VAR_U,
+	VAR_V,
+	VAR_W,
+	VAR_X,
+	VAR_Y,
+	VAR_Z
 };
 
-#define RELOP_GE	0
-#define RELOP_NE	1
-#define RELOP_GT	2
-#define RELOP_EQ	3
-#define RELOP_LE	4
-#define RELOP_LT	5
-#define RELOP_NE_BANG	6
-#define RELOP_UNKNOWN	7
-
-const static u8 highlow_tab[] PROGMEM = {
-	'H','I','G','H'+0x80,
-	'H','I'+0x80,
-	'L','O','W'+0x80,
-	'L','O'+0x80,
-	0
+enum ERRORS{
+	ERR_OK=0,
+	ERR_INTERNAL_ERROR,			//Generic Internal error
+	ERR_STACK_OVERFLOW,			//For-Gosub nesting too deep (increment STACK_DEPTH)
+	ERR_NEXT_WITHOUT_FOR,		//next encountered without a for
+	ERR_INVALID_NESTING,		//Invalid nesting of for-next loops and/or gosub-return statements
+	ERR_EXIT_WITHOUT_FOR,		//EXIT encoutered with no FOR or bad nesting
+	ERR_FOR_WITHOUT_NEXT,
+	ERR_ILLEGAL_ARGUMENT,
 };
-#define HIGHLOW_HIGH	1
-#define HIGHLOW_UNKNOWN	4
 
-#define STACK_DEPTH	5
-#define STACK_SIZE (sizeof(struct stack_for_frame)*STACK_DEPTH)
-#define VAR_SIZE sizeof(u16)//Size of variables in bytes
-#define VAT_TYPE u16
 
+const char error_00_msg[] PROGMEM = "";	//Error code 0 represents OK /no errors
+const char error_01_msg[] PROGMEM = "Internal Error";
+const char error_02_msg[] PROGMEM = "Stack Overflow in %i";
+const char error_03_msg[] PROGMEM = "NEXT without FOR in %i";
+const char error_04_msg[] PROGMEM = "Invalid NEXT nesting in %i";
+const char error_05_msg[] PROGMEM = "EXIT without FOR in %i";
+const char error_06_msg[] PROGMEM = "FOR without NEXT in %i";
+const char error_07_msg[] PROGMEM = "Illegal Argument in %i";
+
+const char* const error_messages[] PROGMEM ={
+		error_00_msg,
+		error_01_msg,
+		error_02_msg,
+		error_03_msg,
+		error_04_msg,
+		error_05_msg,
+		error_06_msg,
+		error_07_msg,
+};
+
+
+void printmsgNoNL(const char *msg){};
+void printmsg(const char *msg){};
+void dumpmem(u16 start_addr,u8 rows);
+void dumpstack();
+void dumpvars();
+static void push_value(VAR_TYPE v);
+static VAR_TYPE pop_value();
+void printError(u8 error_code, u16 line_no);
+void stop();
+
+static u8 *txtpos;
+static u8 *tempsp;
+static u32 timer_ticks;
 static u8 *stack_limit;
 static u8 *program_start;
 static u8 *program_end;
-///////static u8 *stack;//Software stack for things that should go on the CPU stack
-static u8 *variables_begin;
 static u8 *current_line;
+static u16 current_line_no;
+static u8 error_code;
+
+static u8 dummy=0xcc;
 static u8 *sp;
-#define STACK_GOSUB_FLAG 'G'
-#define STACK_FOR_FLAG 'F'
+
+
+u8 prog_mem[RAM_SIZE];
 static u8 table_index;
-static LINENUM linenum;
 
-static const char okmsg[]		PROGMEM = "Ok";
-static const char whatmsg[]		PROGMEM = "Syntax error"; //"What? ";
-static const char howmsg[]		PROGMEM = "How?";
-static const char sorrymsg[]		PROGMEM = "Sorry!";
-static const char initmsg[]		PROGMEM = "UzeBASIC " kVersion;
-static const char memorymsg[]		PROGMEM = " bytes free.";
+static u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
+static u16 pcode_sp=PCODE_STACK_DEPTH;
+static VAR_TYPE pcode_stack[PCODE_STACK_DEPTH];
 
-static const char breakmsg[]		PROGMEM = "\nBreak!";
-//static const char unimplimentedmsg[]	PROGMEM = "Unimplemented";
-static const char backspacemsg[]	PROGMEM = "\b \b";
-static const char indentmsg[]		PROGMEM = "    ";
-static const char sderrormsg[]		PROGMEM = "ERROR: Failed to initialize SD Card, read/write is disabled.";
-static const char sdsuccessmsg[]	PROGMEM = "SUCCESS: SD is initialized";
-static const char sdfilemsg[]		PROGMEM = "ERROR: File Operation failed.";
-static const char dirextmsg[]		PROGMEM = "(dir)";
-static const char slashmsg[]		PROGMEM = "/";
-static const char spacemsg[]		PROGMEM = " ";
+static VAR_TYPE pcode_vars[26]; //A-Z
+static stack_frame stack[STACK_DEPTH];
+static s8 stack_ptr=STACK_DEPTH;
 
-static s16 inchar();
-static void outchar(char c);
-static void line_terminator();
-static s16 expression();
-static bool breakcheck();
-/***************************************************************************/
-static void ignore_blanks(){
-	while(*txtpos == SPACE || *txtpos == TAB)
-		txtpos++;
+
+//0.10938=0x9f,0x02,0xe0,0x3d
+//0.09090=0xc7,0x29,0xba,0x3d
+//2.5 0x00,0x00,0x20,0x40
+//1.0 0x00,0x00,0x80,0x3f
+const u8 token_mand[] PROGMEM={
+10,0,5,OP_CMD_CLS,EOL,
+20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+30,0,10,OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
+40,0,10,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
+50,0,20,OP_LD_FLOAT,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_FLOAT,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
+60,0,20,OP_LD_FLOAT,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_FLOAT,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
+70,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_X, EOL,
+80,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_Y, EOL,
+90,0,10,OP_LD_BYTE, 0, OP_LD_BYTE, 14, OP_LOOP_FOR, VAR_I, EOL,
+100,0,17,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_ADD, OP_ASSIGN, VAR_F, EOL,
+110,0,13,OP_LD_VAR, VAR_F, OP_LD_BYTE, 4, OP_CMP_GT, OP_IF, OP_LOOP_EXIT, 0, 0, EOL,
+120,0,20,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_SUB, OP_LD_VAR, VAR_C, OP_ADD, OP_ASSIGN, VAR_E, EOL,
+130,0,17,OP_LD_BYTE, 2, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_MUL, OP_LD_VAR, VAR_D, OP_ADD, OP_ASSIGN, VAR_Y, EOL,
+140,0,8,OP_LD_VAR, VAR_E, OP_ASSIGN, VAR_X, EOL,
+150,0,6,OP_LOOP_NEXT, VAR_I, EOL,
+160,0,11,OP_LD_VAR, VAR_I, OP_LD_BYTE, 126 ,OP_ADD, OP_FUNC_CHR, OP_PRINT_CHAR, EOL,
+170,0,6,OP_LOOP_NEXT, VAR_B, EOL,
+180,0,5,OP_CRLF, EOL,
+190,0,6,OP_LOOP_NEXT, VAR_A, EOL,
+200,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+210,0,12,OP_FUNC_TICKS, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
+220,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',0,EOL,
+
+0,0
+};
+
+void vsyncCallback(){
+	timer_ticks++;
+	terminal_VsyncCallback();	//used to poll the keyboard
 }
 
-
-/***************************************************************************/
-static void scantable(const u8 *table){
-	s16 i = 0;
-	table_index = 0;
-	while(1){
-		//if(GetVsyncFlag()) WaitVsync(1);
-		if(pgm_read_byte(table) == 0)//run out of table entries?
-			return;
-
-		if(txtpos[i] == pgm_read_byte(table)){//do we match this character?
-			i++;
-			table++;
-		}else{//do we match the last character of keywork (with 0x80 added)? If so, return
-			if(txtpos[i]+0x80 == pgm_read_byte(table)){
-				txtpos += i+1;//Advance the pointer to following the keyword
-				ignore_blanks();
-				return;
-			}
-			while((pgm_read_byte(table) & 0x80) == 0)//Forward to the end of this keyword
-				table++;
-
-			table++;////Now move on to the first character of the next word...
-			table_index++;
-			ignore_blanks();//...and reset the position index
-			i = 0;
-		}
-	}
-}
-
-/***************************************************************************/
-static void pushb(u8 b){
-	sp--;
-	*sp = b;
-}
-
-/***************************************************************************/
-static u8 popb(){
-	u8 b;
-	b = *sp;
-	sp++;
-	return b;
-}
-
-/***************************************************************************/
-void printnum(s16 num){
-	s16 digits = 0;
-
-	if(num < 0){
-		num = -num;
-		outchar('-');
-	}
-	do{
-		pushb(num%10+'0');
-		num = num/10;
-		digits++;
-	}
-	while (num > 0);
-
-	while(digits > 0){
-		outchar(popb());
-		digits--;
-	}
-}
-
-void printUnum(u16 num){
-	s16 digits = 0;
-
-	do{
-		pushb(num%10+'0');
-		num = num/10;
-		digits++;
-	}
-	while(num > 0);
-
-	while(digits > 0){
-		outchar(popb());
-		digits--;
-	}
-}
-
-/***************************************************************************/
-static u16 testnum(){
-	u16 num = 0;
-	ignore_blanks();
-
-	while(*txtpos>= '0' && *txtpos <= '9'){
-		if(num >= 0xFFFF/10){//trap overflows
-			num = 0xFFFF;
-			break;
-		}
-
-		num = num *10 + *txtpos - '0';
-		txtpos++;
-	}
-	return num;
-}
-
-/***************************************************************************/
-static u8 print_quoted_string(){
-	s16 i=0;
-	u8 delim = *txtpos;
-	if(delim != '"' && delim != '\'')
-		return 0;
-	txtpos++;
-
-	while(txtpos[i] != delim){//check we have a closing delimiter
-		if(txtpos[i] == NL)
-			return 0;
-		i++;
-	}
-
-	while(*txtpos != delim){//print the characters
-		outchar(*txtpos);
-		txtpos++;
-	}
-	txtpos++;//skip over the last delimiter
-	return 1;
-}
-
-
-/***************************************************************************/
-void printmsgNoNL(const char *msg){
-	while(pgm_read_byte(msg) != 0){
-		outchar(pgm_read_byte(msg++));
-	}
-}
-
-/***************************************************************************/
-void printmsg(const char *msg){
-	printmsgNoNL(msg);
-	line_terminator();
-}
-
-/***************************************************************************/
-static void getln(char prompt){
-	outchar(prompt);
-	txtpos = program_end+sizeof(LINENUM);
-
-	while(1){
-		if(GetVsyncFlag()) WaitVsync(1);
-		char c = inchar();
-		switch(c){
-		case NL:
-			//break;
-		case CR:
-			line_terminator();
-			txtpos[0] = NL;//Terminate all strings with a NL
-			return;
-		case BACKSP:
-			if(txtpos == program_end+sizeof(LINENUM))
-				break;
-			txtpos--;
-			printmsgNoNL(backspacemsg);
-			break;
-		default://We need to leave at least one space to allow us to shuffle the line into order
-			if(txtpos == variables_begin-2){
-				outchar(BACKSP);
-			}else{
-				txtpos[0] = c;
-				txtpos++;
-				outchar(c);
-			}
-		}
-	}
-}
-
-/***************************************************************************/
-static u8 *findline(){
-	u8 *line = program_start;
-	while(1){
-		if(line == program_end)
-			return line;
-
-		if(((LINENUM *)line)[0] >= linenum)
-			return line;
-
-		line += line[sizeof(LINENUM)];//Add the line length onto the current address, to get to the next line
-	}
-}
-
-/***************************************************************************/
-static void toUppercaseBuffer(){
-	u8 *c = program_end+sizeof(LINENUM);
-	u8 quote = 0;
-
-	while(*c != NL){
-		//Are we in a quoted string?
-		if(*c == quote)
-			quote = 0;
-		else if(*c == '"' || *c == '\'')
-			quote = *c;
-		else if(quote == 0 && *c >= 'a' && *c <= 'z')
-			*c = *c + 'A' - 'a';
-		c++;
-	}
-}
-
-/***************************************************************************/
-void printline(){
-	LINENUM line_num;
-
-	line_num = *((LINENUM *)(list_line));
-	list_line += sizeof(LINENUM) + sizeof(char);
-
-	//Output the line
-	printnum(line_num);
-	outchar(' ');
-	while(*list_line != NL){
-		outchar(*list_line);
-		list_line++;
-	}
-	list_line++;
-	line_terminator();
-}
-
-/***************************************************************************/
-static s16 expr4(){
-	//fix provided by Jurg Wullschleger wullschleger@gmail.com for whitespace and unary operations
-	ignore_blanks();
-
-	if(*txtpos == '-'){
-		txtpos++;
-		return -expr4();
-	}
-	//end fix
-
-	if(*txtpos == '0'){
-		txtpos++;
-		return 0;
-	}
-
-	if(*txtpos >= '1' && *txtpos <= '9'){
-		s16 a = 0;
-		do{
-			a = a*10 + *txtpos - '0';
-			txtpos++;
-		}
-		while(*txtpos >= '0' && *txtpos <= '9');
-		return a;
-	}
-
-	//Is it a function or variable reference?
-	if(txtpos[0] >= 'A' && txtpos[0] <= 'Z'){
-		s16 a;
-		//Is it a variable reference (single alpha)
-		if(txtpos[1] < 'A' || txtpos[1] > 'Z'){
-			a = ((s16 *)variables_begin)[*txtpos - 'A'];
-			txtpos++;
-			return a;
-		}
-
-		//Is it a function with a single parameter
-		scantable(func_tab);
-		if(table_index == FUNC_UNKNOWN)
-			goto EXPR4_ERROR;
-
-		u8 f = table_index;
-
-		if(*txtpos != '(')
-			goto EXPR4_ERROR;
-
-		txtpos++;
-		a = expression();
-		if(*txtpos != ')')
-			goto EXPR4_ERROR;
-		txtpos++;
-		switch(f){
-		case FUNC_PEEK:
-			if(a < kRamSize){
-				return program[a];
-			}else{
-				return SpiRamCursorRead(a);
-			}
-		case FUNC_ABS:
-			if(a < 0)
-				return -a;
-			return a;
-
-		case FUNC_AREAD:
-			pinMode(a, PM_INPUT);
-			return analogRead(a);
-		case FUNC_DREAD:
-			pinMode(a, PM_INPUT);
-			return digitalRead(a);
-
-		case FUNC_RND:
-			return(GetPrngNumber(0) % a);
-		}
-	}
-
-	if(*txtpos == '('){
-		txtpos++;
-		s16 a = expression();
-		if(*txtpos != ')')
-			goto EXPR4_ERROR;
-
-		txtpos++;
-		return a;
-	}
-
-EXPR4_ERROR:
-	expression_error = 1;
-	return 0;
-}
-
-/***************************************************************************/
-static s16 expr3(){
-	s16 a = expr4();
-	ignore_blanks();//fix for eg:	100 a = a + 1
-
-	while(1){
-		s16 b;
-		if(*txtpos == '*'){
-			txtpos++;
-			b = expr4();
-			a *= b;
-		}else if(*txtpos == '/'){
-			txtpos++;
-			b = expr4();
-			if(b != 0)
-				a /= b;
-			else
-				expression_error = 1;
-		}else
-			return a;
-	}
-}
-
-/***************************************************************************/
-static s16 expr2(){
-	s16 a;
-
-	if(*txtpos == '-' || *txtpos == '+')
-		a = 0;
-	else
-		a = expr3();
-
-	while(1){
-		s16 b;
-		if(*txtpos == '-'){
-			txtpos++;
-			b = expr3();
-			a -= b;
-		}else if(*txtpos == '+'){
-			txtpos++;
-			b = expr3();
-			a += b;
-		}else
-			return a;
-	}
-}
-/***************************************************************************/
-static s16 expression(){
-	s16 a = expr2();
-	s16 b;
-
-	//Check if we have an error
-	if(expression_error)	return a;
-
-	scantable(relop_tab);
-	if(table_index == RELOP_UNKNOWN)
-		return a;
-
-	switch(table_index){
-	case RELOP_GE:
-		b = expr2();
-		if(a >= b) return 1;
-		break;
-	case RELOP_NE:
-	case RELOP_NE_BANG:
-		b = expr2();
-		if(a != b) return 1;
-		break;
-	case RELOP_GT:
-		b = expr2();
-		if(a > b) return 1;
-		break;
-	case RELOP_EQ:
-		b = expr2();
-		if(a == b) return 1;
-		break;
-	case RELOP_LE:
-		b = expr2();
-		if(a <= b) return 1;
-		break;
-	case RELOP_LT:
-		b = expr2();
-		if(a < b) return 1;
-		break;
-	}
-	return 0;
-}
-
-/***************************************************************************/
 int main(){
 	//bind the terminal receiver to stdout
 	stdout = &TERMINAL_STREAM;
+	#if VIDEO_MODE == 5
+		SetTileTable(font);
+	#endif
+	SetFontTilesIndex(0);
 
 	//register interrupt handler to process keystrokes, timers, etc
 	SetUserPreVsyncCallback(&vsyncCallback);
@@ -773,862 +338,411 @@ int main(){
 	terminal_SetAutoWrap(true);
 	terminal_SetCursorVisible(true);
 
-
-	GetPrngNumber(GetTrueRandomSeed());
-	if(GetPrngNumber(0) == 0)
-		GetPrngNumber(0xACE);
-
-//	InitMusicPlayer(patches);
-	SetMasterVolume(224);
-	DDRA |= (1<<PA6);//enable Uzenet module
-	PORTD |=(1<<PD3);//reset module
-	UBRR0H = 0;
-	UBRR0L = 185;//9600
-	UCSR0A = (1<<U2X0);//double speed
-	UCSR0C = (1<<UCSZ01)+(1<<UCSZ00)+(0<<USBS0);//8N1
-	UCSR0B = (1<<RXEN0)+(1<<TXEN0);//enable TX & RX
-
-	/////Serial.println(sentinel);
-	printmsg(initmsg);
-
-	sd_initialized = 0;//try 10 times to initialize else fail
-	printmsgNoNL(PSTR("Initializing SD..."));
-	for(u8 i=0;i<10;i++){
-		if(f_mount(0, &fs) != FR_OK){//if(f_mount(&fs, "", 1) != FR_OK){
-			PORTD &= ~(1<<6);//deassert card
-			WaitVsync(30);//wait
-			continue;
-		}else{
-			printmsg(PSTR("Success!"));
-			sd_initialized = 1;
-			break;
-		}
-	}
-	if(!sd_initialized){
-		printmsg(PSTR("ERROR"));
+	//copy the tokenised program in SRAM
+	for(u16 i=0;i<sizeof(token_mand)-2;i++){
+		prog_mem[i]=pgm_read_byte(&(token_mand[i]));
 	}
 
-	outStream = kStreamScreen;
-	inStream = kStreamKeyboard;
-	inhibitOutput = 0;
+	program_start = prog_mem;
+	sp = prog_mem+sizeof(prog_mem);	//Needed for printnum
+	stack_limit = prog_mem+sizeof(prog_mem)-STACK_SIZE;
+	program_end = program_start+(sizeof(token_mand)-2);
+	//pcode_sp = pcode_stack+sizeof(pcode_stack-1);
+	txtpos = program_start;
 
-	printmsgNoNL(PSTR("Searching for "));
-	printmsgNoNL(PSTR(kAutorunFilename));
-	printmsgNoNL(PSTR("..."));
-	if(f_open(&f, kAutorunFilename, FA_OPEN_EXISTING|FA_READ) == FR_OK){//try to load autorun file if present
-		printmsg(PSTR("Loaded"));
-		program_end = program_start;
-		inStream = kStreamFile;
-		inhibitOutput = 1;
-		runAfterLoad = 1;
-	}else
-		printmsg(PSTR("Not Found"));
-	u8 *start;
-	u8 *newEnd;
-	u8 linelen;
-	u8 isDigital;
-	u8 alsoWait = 0;
-	s16 val,val2;
-	u8 var;
-	char *filename;
+	u16 opcounter=0; //for debug
+	u16 linecounter=0; //for debug
 
-	program_start = program;
-	program_end = program_start;
-	sp = program+sizeof(program);	//Needed for printnum
-	stack_limit = program+sizeof(program)-STACK_SIZE;
-	variables_begin = stack_limit - 27*VAR_SIZE;
+	u8 c,vi,var;
+	VAR_TYPE v1,v2;
+	bool res, found;
+	stack_frame *sf;
+	u8* currpos;
+	error_code=0;
+	do{
+		current_line=txtpos;
+		current_line_no= (txtpos[1]<<8)+txtpos[0];
+		txtpos+=sizeof(LINENUM)+sizeof(char); //skip line number and line lenght
 
-	//memory free
-	printnum(variables_begin-program_end);
-	printmsg(memorymsg);
+		PCODE_DEBUG("%i) <pos:%02x,cl:%02x>",current_line_no,(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start);
+		while(1){
+			table_index = (*txtpos++);
 
-WARMSTART:
-	//this signifies that it is running in 'direct' mode.
-	current_line = 0;
-	sp = program+sizeof(program);
-	printmsg(okmsg);
+			switch(table_index){
+				case OP_CMD_CLS:
+					//terminal_Clear();
+					PCODE_DEBUG("[CLS] ");
+					break;
 
-PROMPT:
-	if(triggerRun){
-		triggerRun = 0;
-		current_line = program_start;
-		goto EXECLINE;
-	}
+				case OP_LD_BYTE:
+					//push the next byte
+					c=*txtpos++;
+					push_value(c);
+					PCODE_DEBUG("[LDB %i] ",c);
+					break;
 
-	getln('>');
-	toUppercaseBuffer();
-//printmsg(PSTR("."));
-	txtpos = program_end+sizeof(u16);
-	while(*txtpos != NL)//find the end of the freshly entered line
-		txtpos++;
+				case OP_LD_FLOAT:
 
-	u8 *dest;//move it to the end of program_memory
-	dest = variables_begin-1;
-	while(1){
-		*dest = *txtpos;
-		if(txtpos == program_end+sizeof(u16))
-			break;
-		dest--;
-		txtpos--;
-	}
-	txtpos = dest;
-
-	linenum = testnum();//now see if we have a line number
-	ignore_blanks();
-	if(linenum == 0)
-		goto DIRECT;
-
-	if(linenum == 0xFFFF)
-		goto QHOW;
-
-	linelen = 0;
-	while(txtpos[linelen] != NL)//find the length of what's left, including the (not yet populated) line header
-		linelen++;
-	linelen++;//Include the NL in the line length
-	linelen += sizeof(u16)+sizeof(char);//Add space for the line number and line length
-
-	//Now we have the number, add the line header.
-	txtpos -= 3;
-
-	*((u16 *)txtpos) = linenum;
-	txtpos[sizeof(LINENUM)] = linelen;
-
-
-	//Merge it into the rest of the program
-	start = findline();
-
-	//If a line with that number exists, then remove it
-	if(start != program_end && *((LINENUM *)start) == linenum){
-		u8 *dest, *from;
-		unsigned tomove;
-
-		from = start + start[sizeof(LINENUM)];
-		dest = start;
-
-		tomove = program_end - from;
-		while(tomove > 0){
-			*dest = *from;
-			from++;
-			dest++;
-			tomove--;
-		}
-		program_end = dest;
-	}
-
-	if(txtpos[sizeof(LINENUM)+sizeof(char)] == NL)//If the line has no txt, it was just a delete
-		goto PROMPT;
-
-
-
-	//Make room for the new line, either all in one hit or lots of little shuffles
-	while(linelen > 0){
-		u16 tomove;
-		u8 *from,*dest;
-		u16 space_to_make;
-
-		space_to_make = txtpos - program_end;
-
-		if(space_to_make > linelen)
-			space_to_make = linelen;
-		newEnd = program_end+space_to_make;
-		tomove = program_end - start;
-
-
-		//Source and destination - as these areas may overlap we need to move bottom up
-		from = program_end;
-		dest = newEnd;
-		while(tomove > 0){
-			from--;
-			dest--;
-			*dest = *from;
-			tomove--;
-		}
-
-		//Copy over the bytes into the new space
-		for(tomove = 0; tomove < space_to_make; tomove++){
-			*start = *txtpos;
-			txtpos++;
-			start++;
-			linelen--;
-		}
-		program_end = newEnd;
-	}
-	goto PROMPT;
-
-//UNIMPLEMENTED:
-//	printmsg(unimplimentedmsg);
-//	goto PROMPT;
-
-QHOW:
-	printmsg(howmsg);
-	goto PROMPT;
-
-QWHAT:
-	line_terminator();
-	printmsgNoNL(whatmsg);
-	if(current_line != NULL){
-		printmsgNoNL(PSTR(" in "));
-		u8 tmp = *txtpos;
-		if(*txtpos != NL)
-			*txtpos = '^';
-		list_line = current_line;
-		printline();
-		*txtpos = tmp;
-	}else{
-		line_terminator();
-	}
-	printmsg(okmsg);
-	goto PROMPT;
-
-QSORRY:
-	printmsg(sorrymsg);
-	goto WARMSTART;
-
-RUN_NEXT_STATEMENT:
-	while(*txtpos == ':')
-		txtpos++;
-	ignore_blanks();
-	if(*txtpos == NL)
-		goto EXECNEXTLINE;
-	goto INTERPRET_AT_TXT_POS;
-
-DIRECT:
-	txtpos = program_end+sizeof(LINENUM);
-	if(*txtpos == NL)
-		goto PROMPT;
-
-INTERPRET_AT_TXT_POS:
-	if(breakcheck()){
-		printmsg(breakmsg);
-		goto WARMSTART;
-	}
-
-	scantable(keywords);
-
-	switch(table_index){
-	case KW_DELAY:
-			expression_error = 0;
-			val = expression();
-			delay(val);
-			goto EXECNEXTLINE;
-	case KW_FILES:
-		goto FILES;
-	case KW_LIST:
-		goto LIST;
-	case KW_CHAIN:
-		goto CHAIN;
-	case KW_LOAD:
-		goto LOAD;
-	case KW_MEM:
-		goto MEM;
-	case KW_NEW:
-		if(txtpos[0] != NL)
-			goto QWHAT;
-		program_end = program_start;
-		goto PROMPT;
-	case KW_RUN:
-		current_line = program_start;
-		goto EXECLINE;
-	case KW_SAVE:
-		goto SAVE;
-	case KW_NEXT:
-		goto NEXT;
-	case KW_LET:
-		goto ASSIGNMENT;
-	case KW_IF:
-		expression_error = 0;
-		s16 val = expression();
-		if(expression_error || *txtpos == NL)
-			goto QHOW;
-		if(val != 0)
-			goto INTERPRET_AT_TXT_POS;
-		goto EXECNEXTLINE;
-
-	case KW_GOTO:
-		expression_error = 0;
-		linenum = expression();
-		if(expression_error || *txtpos != NL)
-			goto QHOW;
-		current_line = findline();
-		goto EXECLINE;
-
-	case KW_GOSUB:
-		goto GOSUB;
-	case KW_RETURN:
-		goto GOSUB_RETURN;
-	case KW_REM:
-	case KW_QUOTE:
-		goto EXECNEXTLINE;	//Ignore line completely
-	case KW_FOR:
-		goto FORLOOP;
-	case KW_INPUT:
-		goto INPUT;
-	case KW_PRINT:
-	case KW_QMARK:
-		goto PRINT;
-	case KW_POKE:
-		goto POKE;
-	case KW_END:
-	case KW_STOP:
-		//This is the easy way to end - set the current line to the end of program attempt to run it
-		if(txtpos[0] != NL)
-			goto QWHAT;
-		current_line = program_end;
-		goto EXECLINE;
-	case KW_BYE://Leave the basic interperater
-		goto WARMSTART;
-
-	case KW_AWRITE:	//AWRITE <pin>, HIGH|LOW
-		isDigital = 0;
-		goto AWRITE;
-	case KW_DWRITE:	//DWRITE <pin>, HIGH|LOW
-		isDigital = 1;
-		goto DWRITE;
-
-	case KW_RSEED:
-		goto RSEED;
-
-	case KW_TONEW:
-		alsoWait = 1;
-	case KW_TONE:
-		goto TONEGEN;
-	case KW_NOTONE:
-		goto TONESTOP;
-	case KW_CLS:
-		goto CLS;
-
-	case KW_DEFAULT:
-		goto ASSIGNMENT;
-	default:
-		break;
-	}
-
-EXECNEXTLINE:
-	if(GetVsyncFlag()) WaitVsync(1);
-	if(current_line == NULL) goto PROMPT;//Processing direct commands?
-	current_line +=	 current_line[sizeof(LINENUM)];
-
-EXECLINE:
-	if(GetVsyncFlag()) WaitVsync(1);
-	if(current_line == program_end) goto WARMSTART;//Out of lines to run
-	txtpos = current_line+sizeof(LINENUM)+sizeof(char);
-	goto INTERPRET_AT_TXT_POS;
-
-INPUT:
-		ignore_blanks();
-		if(*txtpos < 'A' || *txtpos > 'Z') goto QWHAT;
-		var = *txtpos;
-		txtpos++;
-		ignore_blanks();
-		if(*txtpos != NL && *txtpos != ':') goto QWHAT;
-INPUTAGAIN:
-		tmptxtpos = txtpos;
-		getln('?');
-		toUppercaseBuffer();
-		txtpos = program_end+sizeof(u16);
-		ignore_blanks();
-		expression_error = 0;
-		val = expression();
-		if(expression_error)
-			goto INPUTAGAIN;
-		((s16 *)variables_begin)[var-'A'] = val;
-		txtpos = tmptxtpos;
-
-		goto RUN_NEXT_STATEMENT;
-
-FORLOOP:
-		ignore_blanks();
-		if(*txtpos < 'A' || *txtpos > 'Z') goto QWHAT;
-		var = *txtpos;
-		txtpos++;
-		ignore_blanks();
-		if(*txtpos != '=') goto QWHAT;
-		txtpos++;
-		ignore_blanks();
-
-		expression_error = 0;
-		s16 initial = expression();
-		if(expression_error) goto QWHAT;
-
-		scantable(to_tab);
-		if(table_index != 0) goto QWHAT;
-
-		s16 terminal = expression();
-		if(expression_error) goto QWHAT;
-
-		scantable(step_tab);
-		s16 step;
-		if(table_index == 0){
-			step = expression();
-			if(expression_error) goto QWHAT;
-		}else{
-			step = 1;
-		}
-		ignore_blanks();
-		if(*txtpos != NL && *txtpos != ':') goto QWHAT;
-
-
-		if(!expression_error && *txtpos == NL){
-			struct stack_for_frame *f;
-			if(sp + sizeof(struct stack_for_frame) < stack_limit) goto QSORRY;
-
-			sp -= sizeof(struct stack_for_frame);
-			f = (struct stack_for_frame *)sp;
-			((s16 *)variables_begin)[var-'A'] = initial;
-			f->frame_type = STACK_FOR_FLAG;
-			f->for_var = var;
-			f->terminal = terminal;
-			f->step		 = step;
-			f->txtpos	 = txtpos;
-			f->current_line = current_line;
-			goto RUN_NEXT_STATEMENT;
-		}
-	goto QHOW;
-
-GOSUB:
-	expression_error = 0;
-	linenum = expression();
-	if(!expression_error && *txtpos == NL){
-		struct stack_gosub_frame *f;
-		if(sp + sizeof(struct stack_gosub_frame) < stack_limit)
-			goto QSORRY;
-
-		sp -= sizeof(struct stack_gosub_frame);
-		f = (struct stack_gosub_frame *)sp;
-		f->frame_type = STACK_GOSUB_FLAG;
-		f->txtpos = txtpos;
-		f->current_line = current_line;
-		current_line = findline();
-		goto EXECLINE;
-	}
-	goto QHOW;
-
-NEXT:
-	ignore_blanks();//find the variable name
-	if(*txtpos < 'A' || *txtpos > 'Z') goto QHOW;
-	txtpos++;
-	ignore_blanks();
-	if(*txtpos != ':' && *txtpos != NL) goto QWHAT;
-
-GOSUB_RETURN:
-	tempsp = sp;
-	while(tempsp < program+sizeof(program)-1){//walk up the stack frames and find the frame we want(if present)
-		switch(tempsp[0]){
-		case STACK_GOSUB_FLAG:
-			if(table_index == KW_RETURN){
-				struct stack_gosub_frame *f = (struct stack_gosub_frame *)tempsp;
-				current_line	= f->current_line;
-				txtpos			= f->txtpos;
-				sp += sizeof(struct stack_gosub_frame);
-				goto RUN_NEXT_STATEMENT;
-			}
-			//This is not the loop you are looking for... so Walk back up the stack
-			tempsp += sizeof(struct stack_gosub_frame);
-			break;
-		case STACK_FOR_FLAG:
-			//Flag, Var, Final, Step
-			if(table_index == KW_NEXT){
-				struct stack_for_frame *f = (struct stack_for_frame *)tempsp;
-				//Is the the variable we are looking for?
-				if(txtpos[-1] == f->for_var){
-					s16 *varaddr = ((s16 *)variables_begin) + txtpos[-1] - 'A';
-					*varaddr = *varaddr + f->step;
-					//Use a different test depending on the sign of the step increment
-					if((f->step > 0 && *varaddr <= f->terminal) || (f->step < 0 && *varaddr >= f->terminal)){
-						//We have to loop so don't pop the stack
-						txtpos = f->txtpos;
-						current_line = f->current_line;
-						goto RUN_NEXT_STATEMENT;
+					for(u8 i=0;i<4;i++){
+						type_converter.bytes[i]=*txtpos++;
 					}
-					//We've run to the end of the loop. drop out of the loop, popping the stack
-					sp = tempsp + sizeof(struct stack_for_frame);
-					goto RUN_NEXT_STATEMENT;
-				}
+
+					push_value(type_converter.f);
+					PCODE_DEBUG("[LDF %g] ",u.f);
+					break;
+
+				case OP_ASSIGN:
+					//Get variable value
+					c=*txtpos++;
+					pcode_vars[c]=pop_value();
+					PCODE_DEBUG("[LET %c] ",c+65,pcode_vars[c]);
+					break;
+
+
+				case OP_LD_VAR:
+					vi=*txtpos++;
+					v1=pcode_vars[vi];
+					push_value(v1);
+					PCODE_DEBUG("[LDV %c:%g] ",vi+65,v1);
+					break;
+
+				case OP_FUNC_CHR:
+					v1=pop_value(); //TODO
+					push_value(v1);
+					PCODE_DEBUG("[CHR] ");
+					break;
+
+				case OP_PRINT_CHAR:
+					c=pop_value();
+					terminal_SendChar(c);
+					PCODE_DEBUG("[PCHR] %c",c);
+					break;
+
+				case OP_LOOP_FOR:
+					if(stack_ptr == 0){
+						error_code=ERR_STACK_OVERFLOW;
+						break;
+					}
+					sf=&stack[--stack_ptr];
+
+					VAR_TYPE terminal = pop_value();
+					VAR_TYPE initial = pop_value();
+					VAR_TYPE step=1; //TODO
+					c=*txtpos++; //get variable index (0-25)
+					pcode_vars[c]=initial;
+
+					sf->frame_type = STACK_FOR_FRAME;
+					sf->for_var = c;
+					sf->terminal = terminal;
+					sf->step		 = step;
+					sf->txt_pos	 = txtpos;
+					sf->current_line = current_line;
+
+					PCODE_DEBUG("[FOR %c %g-%g] ",c+65,initial,terminal);
+					break;
+
+				case OP_LOOP_NEXT:
+					if(stack_ptr==STACK_DEPTH){
+						//nothing on the stack!
+						error_code=ERR_NEXT_WITHOUT_FOR;
+						break;
+					}
+
+					//get the NEXT variable
+					u8 var_id=*txtpos++;
+					PCODE_DEBUG("[NEXT %c] ",var_id+65);
+
+					if(stack[stack_ptr].frame_type != STACK_FOR_FRAME || stack[stack_ptr].for_var!=var_id){
+						error_code=ERR_INVALID_NESTING;
+						break;
+					}
+					stack_frame *sf=&stack[stack_ptr];
+					s16 current=pcode_vars[(u8)sf->for_var]+=sf->step;	//increment the loop variable with the STEP value
+
+					//Use a different test depending on the sign of the step increment
+					if((sf->step > 0 && current <= sf->terminal) || (sf->step < 0 && current >= sf->terminal)){
+						//We have to loop so don't pop the stack
+						txtpos = sf->txt_pos;
+						current_line = sf->current_line;
+						PCODE_DEBUG("<L: pos:%02x, cl:%02x, %c=%i>",(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start,var_id+'A',current);
+					}else{
+						//We've run to the end of the loop. drop out of the loop, popping the stack
+						stack_ptr++;
+					}
+					break;
+
+				case OP_LOOP_EXIT:
+						PCODE_DEBUG("[EXIT] ");
+
+						if(stack_ptr==STACK_DEPTH){
+							//nothing on the stack!
+							error_code=ERR_EXIT_WITHOUT_FOR;
+							break;
+						}
+
+						//check if we saved the NEXT position from a previous loop.
+						currpos=txtpos;
+						if(currpos[0]!=0 || currpos[1]!=0){
+							txtpos=(u8*)((u16)program_start+ (currpos[1]<<8)+currpos[0]);
+							//Pop the stack and drop out of the loop
+							stack_ptr++;
+							break;
+						}
+
+						//scan the code to find a NEXT token
+						found=false;
+						while(1){
+								current_line +=	 current_line[sizeof(LINENUM)];
+								current_line_no= (current_line[1]<<8)+current_line[0];
+
+								if(current_line >= program_end){
+									error_code=ERR_EXIT_WITHOUT_FOR;
+									break;
+								}
+								txtpos = current_line+sizeof(LINENUM)+sizeof(char);
+
+								while(*txtpos != EOL){
+									if(*txtpos++ == OP_LOOP_NEXT){
+
+										//NEXT found, find the variable
+										var=*txtpos++ ;
+										if(var >= 26){
+											error_code=ERR_ILLEGAL_ARGUMENT;
+											break;
+										}
+
+										//Drop out of the loopand pop the stack
+										stack_ptr++;
+
+										//store the NEXT location in the program for a future loop
+										//This store the adress relative to the beginning of the prog_mem array
+										currpos[0]=((u16)txtpos-(u16)program_start)&0xff;
+										currpos[1]=((u16)txtpos-(u16)program_start)>>8;
+										found=true;
+										break;
+									}
+								}
+								if(found)break;
+							}
+						break;
+
+				case OP_PRINT:
+					v1=pop_value();
+					PCODE_DEBUG("[PRN VAR %g] ",v1);
+					printf_P(PSTR("%g"),v1);
+					break;
+
+				case OP_PRINT_LSTR:
+					PCODE_DEBUG("[PRN LSTR] ");
+					while(1){
+						c=*txtpos++;
+						if(c==0)break;
+						terminal_SendChar(c);
+					}
+					break;
+
+				case OP_CRLF:
+					terminal_SendChar(NL);
+					terminal_SendChar(CR);
+					break;
+
+				case OP_IF:
+					v1=pop_value();
+					PCODE_DEBUG("[IF %g] ",v1);
+					if(v1==0){
+						//skip to end of line
+						txtpos=current_line+(current_line[2]-1);
+						PCODE_DEBUG("[SKIP %02x]",(u16)txtpos-(u16)program_start);
+					}
+					break;
+
+				case OP_CMP_GT:
+					v2=pop_value();
+					v1=pop_value();
+					push_value(v1 > v2);
+					PCODE_DEBUG("[CMP %g>%g %i] ",v1,v2,v1 > v2);
+					break;
+
+				case OP_CMP_GE:
+					v2=pop_value();
+					v1=pop_value();
+					res = (v1 >= v2);
+					push_value(res);
+					PCODE_DEBUG("[CMP %i>=%i %i] ",v1,v2,(u8)res);
+					break;
+
+				case OP_ADD:
+					v2=pop_value();
+					v1=pop_value();
+					push_value(v1+v2);
+					PCODE_DEBUG("[ADD] ");
+					break;
+
+				case OP_SUB:
+					v2=pop_value();
+					v1=pop_value();
+					push_value(v1-v2);
+					PCODE_DEBUG("[SUB] ");
+					break;
+
+				case OP_MUL:
+					v2=pop_value();
+					v1=pop_value();
+					push_value(v1*v2);
+					PCODE_DEBUG("[MUL] ");
+					break;
+
+				case OP_DIV:
+					v2=pop_value();
+					v1=pop_value();
+					push_value(v1/v2);
+					PCODE_DEBUG("[DIV] ");
+					break;
+
+				case OP_FUNC_TICKS:
+					u32 ticks=timer_ticks;
+					push_value(ticks);
+					PCODE_DEBUG("[TICKS = %08x ] ",ticks);
+					break;
+
+				case OP_BREAK:
+					break;
+			};
+
+			if(error_code){
+				printError(error_code, current_line_no);
+				break;
 			}
-			//This is not the loop you are looking for... so Walk back up the stack
-			tempsp += sizeof(struct stack_for_frame);
-			break;
-		default:
-			printmsg(PSTR("Stack is stuffed!\n"));
-			goto WARMSTART;
-		}
-	}
-	//Didn't find the variable we've been looking for
-	goto QHOW;
 
-ASSIGNMENT:
-	if(*txtpos < 'A' || *txtpos > 'Z') goto QHOW;
-	s16 *pvar = (s16 *)variables_begin + *txtpos - 'A';
-	txtpos++;
-	ignore_blanks();
+			opcounter++;
+			if(*txtpos == EOL)break;
 
-	if (*txtpos != '=') goto QWHAT;
-	txtpos++;
-	ignore_blanks();
-	expression_error = 0;
-	val = expression();
-	if(expression_error) goto QWHAT;
-	if(*txtpos != NL && *txtpos != ':') goto QWHAT;//check that we are at the end of the statement
-	*pvar = val;
-	goto RUN_NEXT_STATEMENT;
+		}; //while(*txtpos++ != EOL);
 
-CLS:
-	//erase screen
-	terminal_Clear();
-	goto RUN_NEXT_STATEMENT;
+		if(error_code)break;
 
-POKE:
-	expression_error = 0;
-	val = expression();//work out where to put it
-	if(expression_error) goto QWHAT;
-	//u8 *address = (u8 *)val;
-
-	ignore_blanks();//check for a comma
-	if (*txtpos != ',') goto QWHAT;
-	txtpos++;
-	ignore_blanks();
-	expression_error = 0;
-	val = expression();//get the value to assign
-	if(expression_error) goto QWHAT;
-	//printf("Poke %p value %i\n",address, (u8)value);
-	//Check that we are at the end of the statement
-	if(*txtpos != NL && *txtpos != ':') goto QWHAT;
-	goto RUN_NEXT_STATEMENT;
-
-LIST:
-	linenum = testnum();//Retuns 0 if no line found.
-
-	//Should be EOL
-	if(txtpos[0] != NL)
-		goto QWHAT;
-
-	//Find the line
-	list_line = findline();
-	while(list_line != program_end)
-		printline();
-	goto WARMSTART;
-
-PRINT:
-	//If we have an empty list then just put out a NL
-	if(*txtpos == ':'){
-		line_terminator();
 		txtpos++;
-		goto RUN_NEXT_STATEMENT;
+		linecounter++;
+		PCODE_DEBUG("\n");
+	}while(!(txtpos[0]==0 && txtpos[1]==0));
+
+//	dumpstack();
+//	dumpvars();
+	printf_P(PSTR("\nOk\n>"));
+	while(1);
+
+}
+
+void printError(u8 error_code, u16 line_number){
+	printf_P((PGM_P)pgm_read_word(&(error_messages[error_code])), line_number);
+	printf_P(PSTR("\n"));
+}
+
+static void push_value(VAR_TYPE v){
+	if(pcode_sp==0){
+		printf("pcode stack overflow!");  //TODO return correct error code
+		while(1);
 	}
-	if(*txtpos == NL){
-		goto EXECNEXTLINE;
+	pcode_sp--;
+	pcode_stack[pcode_sp] = v;
+
+	if(pcode_sp<pcode_sp_min) pcode_sp_min=pcode_sp;
+}
+
+static VAR_TYPE pop_value(){
+	VAR_TYPE v = pcode_stack[pcode_sp];
+	pcode_sp++;
+	return v;
+}
+
+void dumpmem(u16 start_addr,u8 rows){
+	#if SCREEN_TILES_H>40
+		u8 width=16;
+	#else
+		u8 width=8;
+	#endif
+
+	printf_P(PSTR("\n"));
+	for(u8 i=0;i<rows;i++){
+		printf_P(PSTR("%04x: "),(i*width)+start_addr);
+
+		for(u8 j=0;j<width;j++){
+			printf_P(PSTR("%02x "),prog_mem[((i*width)+j)+(start_addr)]);
+			#if SCREEN_TILES_H>40
+				if(j==7)printf_P(PSTR(" "));
+			#endif
+		}
+
+		for(u8 j=0;j<width;j++){
+			u8 c=prog_mem[((i*width)+j)+(start_addr)];
+			if(c<32 || c>'~') c='.';
+			printf_P(PSTR("%c"),c);
+		}
+		printf_P(PSTR("\r\n"));
 	}
 
-	while(1){
-		ignore_blanks();
-		if(print_quoted_string()){
-			;
-		}else if(*txtpos == '"' || *txtpos == '\''){
-			goto QWHAT;
+}
+
+void dumpstack(){
+
+	printf_P(PSTR("\n"));
+
+	u8 sel;
+	u16 cl,pos;
+	for(u8 i=0;i<STACK_DEPTH;i++){
+
+		if(i==stack_ptr){
+			sel='>';
 		}else{
-			s16 e;
-			expression_error = 0;
-			e = expression();
-			if(expression_error)
-				goto QWHAT;
-			printnum(e);
+			sel=' ';
 		}
-
-		//At this point we have three options, a comma or a new line
-		if(*txtpos == ','){
-			txtpos++;	//Skip the comma and move onto the next
-		}else if(txtpos[0] == ';' && (txtpos[1] == NL || txtpos[1] == ':')){
-			txtpos++;//This has to be the end of the print - no newline
-			break;
-		}else if(*txtpos == NL || *txtpos == ':'){
-			line_terminator();	//The end of the print statement
-			break;
-		}else
-			goto QWHAT;
-	}
-	goto RUN_NEXT_STATEMENT;
-
-MEM:
-	//memory free
-	printnum(variables_begin-program_end);
-	printmsg(memorymsg);
-	goto RUN_NEXT_STATEMENT;
-
-
-	/*************************************************/
-AWRITE://AWRITE <pin>,val
-DWRITE:
-	expression_error = 0;
-	s16 pinNo = expression();//get the pin number
-	if(expression_error) goto QWHAT;
-
-	ignore_blanks();//check for a comma
-	if (*txtpos != ',') goto QWHAT;
-	txtpos++;
-	ignore_blanks();
-
-	//u8 *txtposBak = txtpos;
-	scantable(highlow_tab);
-	if(table_index != HIGHLOW_UNKNOWN){
-		if(table_index <= HIGHLOW_HIGH){
-			val = 1;
+		if((u16)stack[i].txt_pos !=0){
+			pos=(u16)stack[i].txt_pos-(u16)program_start;
 		}else{
-			val = 0;
+			pos=0;
 		}
-	}else{//and the value (numerical)
-		expression_error = 0;
-		val = expression();
-		if(expression_error) goto QWHAT;
-	}
-	pinMode(pinNo, PM_OUTPUT);
-	if(isDigital){
-		digitalWrite(pinNo, val);
-	}else{
-		analogWrite(pinNo, val);
-	}
-	goto RUN_NEXT_STATEMENT;
-
-FILES:
-	cmd_Files();
-	goto WARMSTART;
-
-CHAIN:
-	runAfterLoad = 1;
-
-LOAD:
-	program_end = program_start;//clear the program
-	expression_error = 0;
-	filename = filenameWord();//work out the filename
-	if(expression_error) goto QWHAT;
-
-	if(f_open(&f, (const char*)filename, FA_READ) == FR_OK){
-		inStream = kStreamFile;//this will kickstart a series of events to read in from the file.
-		inhibitOutput = 1;
-	}else{
-		printmsg(sdfilemsg);
-	}
-
-	goto WARMSTART;
-
-SAVE:
-	expression_error = 0;
-	filename = filenameWord();//work out the filename
-	if(expression_error) goto QWHAT;
-
-	//open the file(overwrite if existing), switch over to file output
-	if(f_open(&f, (const char *)filename, FA_WRITE) == FR_OK){//|FA_CREATE_ALWAYS
-		outStream = kStreamFile;
-	}else{
-		printmsg(sdfilemsg);
-	}
-
-	list_line = findline();//copied from "List"
-	while(list_line != program_end)
-		printline();
-
-	outStream = kStreamScreen;//go back to standard output, close the file
-	f_close(&f);
-	goto WARMSTART;
-
-RSEED:
-	expression_error = 0;
-	val = expression();//get pin number
-	if(expression_error) goto QWHAT;
-
-	GetPrngNumber(val);
-	goto RUN_NEXT_STATEMENT;
-
-TONESTOP:
-	noTone();
-	goto RUN_NEXT_STATEMENT;
-
-TONEGEN://TONE freq, duration
-	expression_error = 0;
-	val = expression();//get the frequency(if 0, turn off tone)
-	if(expression_error) goto QWHAT;
-	if(val == 0) goto TONESTOP;
-	ignore_blanks();
-	if (*txtpos != ',') goto QWHAT;
-	txtpos++;
-	ignore_blanks();
-	expression_error = 0;
-	val2 = expression();//get the duration(if 0, turn off tone0
-	if(expression_error) goto QWHAT;
-	if(val2 == 0) goto TONESTOP;
-
-	tone(val, val2);//frequency, duration
-	if(alsoWait){
-		delay(val2);
-		alsoWait = 0;
-	}
-
-	goto RUN_NEXT_STATEMENT;
-	return 0;
-}
-
-//returns 1 if the character is valid in a filename
-static s16 isValidFnChar(char c){
-	if(c >= '0' && c <= '9') return 1;//number
-	if(c >= 'A' && c <= 'Z') return 1;//LETTER
-	if(c >= 'a' && c <= 'z') return 1;//letter (for completeness)
-	if(c == '_') return 1;
-	if(c == '+') return 1;
-	if(c == '.') return 1;
-	if(c == '~') return 1;	//Window~1.txt
-
-	return 0;
-}
-
-char *filenameWord(){
-	//SDL - I wasn't sure if this functionality existed above, so I figured i'd put it here
-	u8 * ret = txtpos;
-	expression_error = 0;
-
-	//make sure there are no quotes or spaces, search for valid characters
-	//while(*txtpos == SPACE || *txtpos == TAB || *txtpos == SQUOTE || *txtpos == DQUOTE) txtpos++;
-	while(!isValidFnChar(*txtpos)) txtpos++;
-	ret = txtpos;
-
-	if(*ret == '\0'){
-		expression_error = 1;
-		return (char *)ret;
-	}
-
-	//now, find the next nonfnchar
-	txtpos++;
-	while(isValidFnChar(*txtpos)) txtpos++;
-	if(txtpos != ret) *txtpos = '\0';
-
-	//set the error code if we've got no string
-	if(*ret == '\0'){
-		expression_error = 1;
-	}
-
-	return (char *)ret;
-}
-
-/***************************************************************************/
-static void line_terminator(){
-	outchar(NL);
-	outchar(CR);
-}
-
-/***********************************************************/
-static bool breakcheck(){
-	//if(UartUnreadCount())
-	//return UartReadChar() == CTRLC;
-	//return 0;
-
-
-	if(terminal_HasChar()){
-		if(terminal_GetChar()==CTRL_C){
-			return true;
-		}
-	}
-
-
-	//if(KeyboardHasKey()){
-	//	char c=KeyboardGetKey(true);
-	//	if((c=='C' || c=='c') &&(KeyboardGetModifiers() && KB_FLAG_CTRL)){
-	//		return CTRL_C;
-	//	}
-	//}
-	return false;
-}
-/***********************************************************/
-static s16 inchar(){
-	s16 v;
-	switch(inStream){
-	case(kStreamKeyboard):
-
-		//why blocking?
-		while(1){
-			while(!terminal_HasChar()){}
-			v=terminal_GetChar();
-			return v;
+		if((u16)stack[i].current_line !=0){
+			cl=(u16)stack[i].current_line-(u16)program_start;
+		}else{
+			cl=0;
 		}
 
-		break;
-	case(kStreamFile):
-		if(GetVsyncFlag()) WaitVsync(1);
-		f_read(&f, &v, 1, &bytesRead);
-		if(bytesRead != 1){
-			f_close(&f);
-			goto INCHAR_LOADFINISH;
-		}
-		if(v == NL) v=CR;//file translate
-
-		return v;
-		break;
-	 case(kStreamSerial):
-	default:
-		while(1){
-			if(GetVsyncFlag()) WaitVsync(1);
-			if(UartUnreadCount())
-				return UartReadChar();
-		}
+		printf_P(PSTR("%c[%i] type:%03i var:%c to:%i step:%i cl:0x%02x pos:0x%02x ")
+			,sel,
+			i,
+			stack[i].frame_type,
+			stack[i].for_var+'A',
+			stack[i].terminal,
+			stack[i].step,
+			cl,
+			pos
+		);
+		printf_P(PSTR("\n"));
 	}
-
-INCHAR_LOADFINISH:
-	inStream = kStreamKeyboard;
-	inhibitOutput = 0;
-
-	if(runAfterLoad){
-		runAfterLoad = 0;
-		triggerRun = 1;
-	}
-	return NL;//trigger a prompt.
-}
-
-/***********************************************************/
-static void outchar(char c){
-	if(inhibitOutput) return;
-
-	if(outStream == kStreamScreen){
-		//ConsolePrintChar(c);
-		terminal_SendChar(c);
-	}else if(outStream == kStreamFile){
-		f_write(&f, &c, 1, &bytesWritten);
-	}else{
-		while(IsUartTxBufferFull());
-		UartSendChar(c);
+	if(stack_ptr==STACK_DEPTH){
+		printf_P(PSTR(">\n"));
 	}
 }
-
-void cmd_Files(){
-	DIR d;
-	if(f_opendir(&d, "/") != FR_OK)
-		return;
-	FILINFO entry;
-
-	while(1){
-		if(GetVsyncFlag()) WaitVsync(1);
-		if(f_readdir(&d, &entry) != FR_OK || entry.fname[0] == 0)
-			break;
-		//common header
-		printmsgNoNL(indentmsg);
-		printmsgNoNL((const char *)entry.fname);
-		if(entry.fattrib & AM_DIR){
-			printmsgNoNL(slashmsg);
-			u8 found_end = 0;
-			for(u8 i=0; i<13 ; i++){
-				if(entry.fname[i] == '\0')
-					found_end = 1;
-				if(found_end)
-					printmsgNoNL(spacemsg);
-			}
-			printmsgNoNL(dirextmsg);
-		}else{//file ending
-			u8 found_end = 0;
-			for(u8 i=0; i<13 ; i++){
-				if(entry.fname[i] == '\0')
-					found_end = 1;
-				if(found_end)
-					printmsgNoNL(spacemsg);
-			}
-			printUnum(entry.fsize);
+void dumpvars(){
+	printf_P(PSTR("\n"));
+	for(int i=0;i<3;i++){
+		for(int j=0;j<8;j++){
+			printf_P(PSTR("%c=%g, "),((i*8)+j)+'A',pcode_vars[(i*6)+j]);
 		}
-		line_terminator();
+		printf_P(PSTR("\n"));
 	}
-	f_close(&f);
+	//printf_P(PSTR("Y=%g, "),pcode_vars[VAR_Y]);
+	printf_P(PSTR("Z=%g\n"),pcode_vars[VAR_Z]);
+	printf_P(PSTR("pcode stack: size=%i,sp_min=%i\n "),PCODE_STACK_DEPTH, pcode_sp_min);
+
+}
+
+
+void stop(){
+if(pcode_vars[VAR_B]==1 ){
+		dumpvars();
+	//	dumpstack();
+//		//dumpmem(0,9);
+//		//while(1);
+	}
 }

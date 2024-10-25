@@ -1,0 +1,18 @@
+5 CLS
+10 FOR A=0 TO 21
+20 FOR B=0 TO 70
+30 C = B*3.5/32-2.5
+40 D = A*2/22-1
+50 X = 0
+60 Y = 0
+70 FOR I=0 TO 14
+80 IF X*X+Y*Y > 4 GOTO 130
+90 E = X*X-Y*Y+C
+100 Y = 2*X*Y+D
+110 X = E
+120 NEXT I
+130 I = I-1
+140 rem print "@";
+150 NEXT B
+155 PRINT " "
+170 NEXT A

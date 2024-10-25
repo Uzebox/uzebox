@@ -245,4 +245,6 @@ extern void terminal_ClearLine(u8 row, u8 startColumn, u8 endColumn);
  */
 extern void terminal_SetAutoWrap(bool autowrap);
 
+extern void terminal_ProcessKey(u8 c);
+
 #endif /* TERMINAL_H_ */

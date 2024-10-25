@@ -29,6 +29,12 @@
 #define CUR_TILE 			123
 #define XMIT_BUF_SIZE 		32	//must be a power of 2
 
+#if VIDEO_MODE==0
+	#define MAX_TILE 139
+#else
+	#define MAX_TILE 150
+#endif
+
 const char ESC_KEY_UP_DEC[]		PROGMEM = "\x1bOA";
 const char ESC_KEY_UP[]			PROGMEM = "\x1b[A";
 const char ESC_KEY_DOWN_DEC[]  	PROGMEM = "\x1bOB";
@@ -60,8 +66,10 @@ bool DECCKM=false;				//Enable DEC escape sequences for extended keyboard keys
 bool DECAWM=false;				//Enables Auto-wrap mode
 
 //display list definition for video mode 80
+#if VIDEO_MODE==0
 m80_dlist_tdef dlist[1];
 m80_cursor_tdef cursor;
+#endif
 
 //Terminal control variables
 u8 cx=X_ORIGIN,cy=Y_ORIGIN;		//set cursor default position
@@ -75,18 +83,18 @@ u8 scroll_top_margin;
 u8 scroll_bottom_margin;
 
 
-//ANSI filter variables
-bool escaping=false, is_ansi=false, csi_extension=false;
-char csi_buffer[32];
-u8 command_line;
-u8 csi_ptr;
-u8 csi_params[10];
-u8 csi_param_ptr;
-u8 csi_param_count;
-u16 esc_pos=0;
-char escape_buf[20];
-char param_buf[7];
-char parsed_param[7];
+////ANSI filter variables
+//bool escaping=false, is_ansi=false, csi_extension=false;
+//char csi_buffer[32];
+//u8 command_line;
+//u8 csi_ptr;
+//u8 csi_params[10];
+//u8 csi_param_ptr;
+//u8 csi_param_count;
+//u16 esc_pos=0;
+//char escape_buf[20];
+//char param_buf[7];
+//char parsed_param[7];
 
 //circular buffer and pointers to holds ansi data for the output stream
 u8 xmit_buf[XMIT_BUF_SIZE];
@@ -101,29 +109,31 @@ FILE TERMINAL_STREAM = FDEV_SETUP_STREAM(cons_putchar_printf, NULL, _FDEV_SETUP_
  */
 void terminal_Init(){
 
-#ifdef JTAG_DEBUG
-	//must use different colors because JTAG needs some
-	//pins used by the video DAC
-	dlist[0].bgc = 0x00; //dark
-	dlist[0].fgc = 0xff; //light
-#else
-	//dlist[0].bgc = 10; //dark amber
-	//dlist[0].fgc = 38; //light amber
-	dlist[0].bgc = 0; //black
-	dlist[0].fgc = 0xff; //40; //green
-#endif
-	dlist[0].vramrow = 0U;
-	dlist[0].tilerow = 0U;
-	dlist[0].next = 0U;   // End of Display List
-	m80_dlist = &dlist[0];
+#if VIDEO_MODE==0
+	#ifdef JTAG_DEBUG
+		//must use different colors because JTAG needs some
+		//pins used by the video DAC
+		dlist[0].bgc = 0x00; //dark
+		dlist[0].fgc = 0xff; //light
+	#else
+		dlist[0].bgc = 10; //dark amber
+		dlist[0].fgc = 38; //light amber
+		//dlist[0].bgc = 0; //black
+		//dlist[0].fgc = 0xff; //40; //green
+	#endif
+		dlist[0].vramrow = 0U;
+		dlist[0].tilerow = 0U;
+		dlist[0].next = 0U;   // End of Display List
+		m80_dlist = &dlist[0];
 
-	cursor.x=0;
-	cursor.y=0;
-	cursor.blinkrate=30;
-	cursor.currdelay=30;
-	cursor.active=false;
-	cursor.state=0;
-	m80_cursor = &cursor;
+		cursor.x=0;
+		cursor.y=0;
+		cursor.blinkrate=30;
+		cursor.currdelay=30;
+		cursor.active=false;
+		cursor.state=0;
+		m80_cursor = &cursor;
+#endif
 
 	//Terminal control variables
 	cx=X_ORIGIN;
@@ -134,17 +144,17 @@ void terminal_Init(){
 	cursorEnable=true;
 	debugEcho=false;
 	inverseVideo=false;
-	escaping=false;
-	is_ansi=false;
-	csi_extension=false;
-	esc_pos=0;
+//	escaping=false;
+//	is_ansi=false;
+//	csi_extension=false;
+//	esc_pos=0;
 	xmit_headPtr=0;
 	xmit_tailPtr=0;
 	DECCKM=false;
 	DECAWM=false;
 
 	scroll_top_margin=0;
-	scroll_bottom_margin=24;
+	scroll_bottom_margin=SCREEN_TILES_V-1;
 }
 
 /*
@@ -154,8 +164,8 @@ int cons_putchar_printf(char c, FILE *stream) {
 	//filter the stream for ANSI escape sequences and UTF-8 characters
 	//filters return false to stop the filter chain and true
 	//to continue or print the received char
-	if(!ansi_filter(c))return 0;
-	if(!utf8_filter(c))return 0;
+	//if(!ansi_filter(c))return 0;
+	//if(!utf8_filter(c))return 0;
 	cons_char(c);
     return 0;
 }
@@ -364,17 +374,23 @@ void terminal_MoveCursor(u8 x,u8 y){
 	cx=x;
 	cy=y;
 
+#if VIDEO_MODE==0
 	//update mode80 cursor
 	cursor.x=x;
 	cursor.y=y;
+#endif
 }
 
 void terminal_SetCursorVisible(bool visible){
+#if VIDEO_MODE==0
 	cursor.active=visible;
+#endif
 }
 
 void terminal_SetCursorBlinkRate(u8 rate){
+#if VIDEO_MODE==0
 	cursor.blinkrate=rate;
+#endif
 }
 
 /*
@@ -402,13 +418,13 @@ void terminal_VerticalScrollUp(bool clearNewLine){
 
 		}
 	}
-
+#if VIDEO_MODE==0
 	if(dlist[0].vramrow == SCREEN_TILES_V-1){
 		dlist[0].vramrow = 0;
 	}else{
 		dlist[0].vramrow++;
 	}
-
+#endif
 	if(scroll_bottom_margin == (SCREEN_TILES_V-1)){
 		terminal_ClearLine(SCREEN_TILES_V-1,0,SCREEN_TILES_H-1);
 	}else{
@@ -426,38 +442,50 @@ void terminal_VerticalScrollDown(bool clearNewLine){
 			copyLine(i+1,i);
 		}
 	}
-
+#if VIDEO_MODE==0
 	if(dlist[0].vramrow == 0){
 		dlist[0].vramrow = SCREEN_TILES_V-1;
 	}else{
 		dlist[0].vramrow--;
 	}
-
+#endif
 	if(clearNewLine){
 		terminal_ClearLine(0,0,SCREEN_TILES_H-1);
 	}
 }
 
 void terminal_SetColors(u8 foreground,u8 background){
+#if VIDEO_MODE==0
 	dlist[0].fgc = foreground;
 	dlist[0].bgc = background;
+#endif
 }
 
 void terminal_PutCharAtLoc(u8 x,u8 y, u8 character,u8 attributes){
 	//if inverse attribute is on, use 2nd bank of font which color is inverted
-
+#if VIDEO_MODE==0
 	y+=dlist[0].vramrow;	//Add scrolling offset
+#endif
 	if(y>=VRAM_TILES_V) y-=VRAM_TILES_V;
-
+#if VIDEO_MODE==0
 	SetTile(x,y,character-32+(attributes!=0?128:0));
+#else
+	SetTile(x,y,character-32);
+#endif
 }
 
 u8 	terminal_GetCharAtLoc(u8 x,u8 y){
+#if VIDEO_MODE==0
 	return GetTile(x,y);
+#else
+	return 0;
+#endif
 }
 
 void terminal_ClearLine(u8 row, u8 startColumn, u8 endColumn){
+#if VIDEO_MODE==0
 	row+=dlist[0].vramrow;	//Add scrolling offset
+#endif
 	if(row>=VRAM_TILES_V) row-=VRAM_TILES_V;
 	u16 pos=(row*VRAM_TILES_H)+startColumn;
 	for(u8 i=startColumn;i<=endColumn;i++){
@@ -470,11 +498,14 @@ void terminal_ClearLine(u8 row, u8 startColumn, u8 endColumn){
  * Accounts for scrolling offset.
  */
 void copyLine(u8 src, u8 dest){
+#if VIDEO_MODE==0
 	src+=dlist[0].vramrow;	//Add scrolling offset
+#endif
 	if(src>=VRAM_TILES_V) src-=VRAM_TILES_V;
 	u16 srcpos=(src*VRAM_TILES_H);
-
+#if VIDEO_MODE==0
 	dest+=dlist[0].vramrow;	//Add scrolling offset
+#endif
 	if(dest>=VRAM_TILES_V) dest-=VRAM_TILES_V;
 	u16 destpos=(dest*VRAM_TILES_H);
 
@@ -505,7 +536,7 @@ void cons_char(unsigned char c){
 			break;
 
 		case 10: //line feed (\n)
-			//if(cy==(SCREEN_TILES_V-1)){
+			cx=X_ORIGIN;
 			if(cy==(scroll_bottom_margin)){
 				terminal_VerticalScrollUp(true);
 			}else{
@@ -522,7 +553,7 @@ void cons_char(unsigned char c){
 			cx=X_ORIGIN;
 			break;
 
-		case 32 ... 139:
+		case 32 ... MAX_TILE:
 			if(cx<SCREEN_TILES_H){
 				terminal_PutCharAtLoc(cx++,cy,c, inverseVideo?TERM_ATTR_INVERSE_VIDEO:0);
 			}else if(DECAWM){
@@ -558,381 +589,381 @@ void cons_char(unsigned char c){
 
 	terminal_MoveCursor(cx,cy);
 }
-
-/**
- * Filter to detect supported ANSI Escape sequence. Used to display
- * bullets and box drawing characters.
- *
- * ANSI escape sequences are in the form: ESC[5;20f
- *
- * Input: 	c = character to filter
- * Output:  0 = caller should end filter chain
- * 			1 = caller should continue with next filter or print the char
- */
-bool ansi_filter(u8 c){
-	if(escaping){
-		if(is_ansi){
-			csi_buffer[csi_ptr++]=c;
-			if(c >= 0x40 && c <= 0x7f){ //received end command marker
-				//parse the escape sequence
-				command_line=c;
-				csi_ptr=0;
-				csi_param_count=0;
-				csi_param_ptr=0;
-				while(1) {
-					c=csi_buffer[csi_ptr];
-
-					if(c == command_line){ //end marker
-						if(csi_ptr>0){
-							csi_buffer[csi_ptr]=0; //add string terminator for atoi
-							csi_params[csi_param_count++]=atoi(csi_buffer+csi_param_ptr);
-						}else if(csi_param_count>0){
-							csi_params[csi_param_count++]=0xff;	//empty param marker
-						}
-						break;
-					}else if(c==';'){		//param separator
-						if(csi_ptr>0){
-							csi_buffer[csi_ptr]=0; //add string terminator for atoi
-							csi_params[csi_param_count++]=atoi(csi_buffer+csi_param_ptr);
-						}else{
-							csi_params[csi_param_count++]=0xff;	//empty param marker
-						}
-						csi_param_ptr=csi_ptr+1;
-					}else if(c=='?'){
-						csi_param_ptr+=1;
-						csi_extension=true;
-					}
-
-					csi_ptr++;
-				};
-
-				switch(c){
-					case 'A':			//move up one line, stop at top of screen
-						if(csi_param_count==0){
-							if(cy>Y_ORIGIN) cy--;
-							}else{
-							cy-=csi_params[0];
-						}
-						terminal_MoveCursor(cx,cy);
-						break;
-
-					case 'B':			//move down one line, stop at bottom of screen
-						if(csi_param_count==0){
-							if(cy<(SCREEN_TILES_V-1)) cy++;
-							}else{
-							cy+=csi_params[0];
-						}
-						terminal_MoveCursor(cx,cy);
-						break;
-
-					case 'C':			//move forward one position, stop at right edge of screen
-						if(csi_param_count==0){
-							cx++;
-							}else{
-							cx+=csi_params[0];
-						}
-						if(cx>=SCREEN_TILES_H)cx=(SCREEN_TILES_H-1);
-						terminal_MoveCursor(cx,cy);
-						break;
-
-					case 'D':			//move backwards one position, Same as BackSpace, stop at left edge of screen
-
-						if(csi_param_count==0){
-							if(cx>X_ORIGIN) cx--;
-							}else{
-							cx-=csi_params[0];
-						}
-						terminal_MoveCursor(cx,cy);
-						break;
-
-					case 'd': //vertical Position Absolute
-						break;
-
-					case 'g': //tabulation Clear
-						//needed for lynx - ESC[3g on Scramworks
-						break;
-
-					case 'G': //horizontal absolute tab. Moves the cursor to column n (default 1).
-						//needed for lynx on Scramworks
-						break;
-
-					case 'h':
-						if(csi_extension){
-							if(csi_params[0]==25){	//Show cursor
-								terminal_SetCursorVisible(true);
-								}else if(csi_params[0]==7){					//DECAWM - AutoWrap Mode, start newline after column 80
-								DECAWM=true;
-								}else if(csi_params[0]==1){					//DECCKM—Cursor Keys Mode
-								DECCKM=true;
-							}
-						}
-						break;
-
-					case 'H':					//cursor position -- All cases covered
-					case 'f':
-						if(csi_param_count==0){
-							//no coordinates,move to origin
-							 //console_SetCursor(CONS_X_ORIGIN,CONS_Y_ORIGIN);
-							 cx=X_ORIGIN;
-							 cy=Y_ORIGIN;
-						}else{
-
-							if(csi_params[0]==0xff){
-								cy=Y_ORIGIN;
-							}else{
-								cy=csi_params[0];
-								if(cy==0) cy=1;
-								cy= cy - 1 + Y_ORIGIN;
-							}
-							if(csi_params[1]==0xff){
-								cx=X_ORIGIN;
-							}else{
-								cx=csi_params[1];
-								if(cx==0) cx=1;
-								cx= cx - 1 + X_ORIGIN;
-							}
-
-							//clip
-							if(cy>=SCREEN_TILES_V)cy=SCREEN_TILES_V-1; //row
-							if(cx>=SCREEN_TILES_H)cx=SCREEN_TILES_H-1; //column
-
-						}
-						terminal_MoveCursor(cx,cy);
-						break;
-
-					case 'J':	// erase display
-						//[0J     erase from current position to bottom of screen inclusive
-						//[1J     erase from top of screen to current position inclusive
-						//[2J     erase entire screen (without moving the cursor)
-						ClearVram(); //All cases erases the whole screen
-						break;
-
-					case 'K':	//erase a line
-						if(csi_param_count==0 || (csi_param_count>0 && csi_params[0]==0)) {
-							//clear line from cursor to end of line (same as [K )
-							terminal_ClearLine(cy,cx,SCREEN_TILES_H-1);
-
-							}else if(csi_params[0]==1){
-							//clear line beginning to cursor
-							terminal_ClearLine(cy,0,cx);
-
-							}else if(csi_params[0]==2){
-							//clear entire line
-							terminal_ClearLine(cy,0,SCREEN_TILES_H-1);
-						}
-						break;
-
-					case 'l':	//reset mode
-						if(csi_extension){
-							if(csi_params[0]==25){ 	//### hide cursor
-								terminal_SetCursorVisible(false);
-								}else if(csi_params[0]==7){					//DECAWM - AutoWrap Mode, start newline after column 80
-								DECAWM=false;
-								}else if(csi_params[0]==1){					//DECCKM—Cursor Keys Mode
-								DECCKM=false;
-							}
-						}
-						break;
-/*ansi mode only
-					case 'L':	//Insert lines
-
-						if(cy==Y_ORIGIN){ //currently only supports inserting from top of screen
-							u8 lines=1;
-							if(csi_param_count==1) lines=csi_params[0];
-							for(u8 i=0;i<lines;i++){
-								terminal_VerticalScrollDown(true);
-							}
-						}
-						break;
-*/
-					case 'm':	//graphics mode related
-						if(csi_param_count==0){
-							inverseVideo=false;
-						}else{
-							//iterate params to apply attributes
-							for(u8 i=0;i<csi_param_count;i++){
-								if(csi_params[i]==0){
-									inverseVideo=false;
-								}else if(csi_params[i]==7){
-									inverseVideo=true;
-								}
-							}
-						}
-
-						break;
-/* ansi mode only
-					case 'M':	//Delete lines
-
-						if(cy==Y_ORIGIN){ //currently only supports deleting from top of screen
-							u8 lines=1;
-							if(csi_param_count==1) lines=csi_params[0];
-							for(u8 i=0;i<lines;i++){
-								terminal_VerticalScrollUp(true);
-							}
-						}
-						break;
-*/
-					case 'P':	//delete n Characters, from current position to end of field
-
-						if(csi_param_count==0 || (csi_param_count>0 && csi_params[0]==1)){
-							if(cx>X_ORIGIN){
-								for(u8 x=cx;x<SCREEN_TILES_H;x++){
-									c=terminal_GetCharAtLoc(x+1,cy);
-									terminal_PutCharAtLoc(x,cy,c,0);
-								}
-								terminal_PutCharAtLoc(SCREEN_TILES_H-1,cy,' ',0);
-							}
-						}else{
-							printf(" ESC[");
-							for(int i=0;i<esc_pos;i++){
-								putchar(escape_buf[i]);
-							}
-						}
-						break;
-
-					case 'r':	//top and bottom margins (scroll region on VT100).
-						scroll_top_margin=csi_params[0]-1;
-						scroll_bottom_margin=csi_params[1]-1;
-						break;
-
-					case 'S':	//scroll up
-						terminal_VerticalScrollUp(true);
-						break;
-
-					case 'T':	//scroll down
-						terminal_VerticalScrollDown(true);
-						break;
-
-					default:
-						break;
-				}
-
-				//done!
-				escaping=false;
-
-			}
-		}else if(c=='['){
-			is_ansi=true;
-			csi_ptr=0;
-		}else{
-			//unsupported non-ansi stuff
-
-			if(c=='D'){ //(VT100) index IND - Move/scroll window up one line
-				terminal_VerticalScrollUp(true);
-			}else if(c=='M'){	//(VT100) revindex RI - Move/scroll window down one line
-				terminal_VerticalScrollDown(true);
-			}
-
-			escaping=false;
-		}
-	}else{
-		if(c==27){
-			escaping=true;
-			is_ansi=false;
-			return false;
-		}else{
-			return true;
-		}
-
-	}
-
-	return false;
-}
-
-
-/**
- * Filter to detect UTF8 sequences. Principally used to detect extended characters like bullets and box drawing symbols.
- * Input: c = character to filter
- * Output:  0 = caller should end filter chain
- * 			1 = caller should continue with next filter or print the char
- */
-bool utf8_seq=false;	//indicates we are in utf8 sequence
-u8 bytes[4]; 			//Incoming data bytes, b1 comes first
-u8 utf8_lenght;			//length of sequence
-u8 utf8_curr;			//current byte
-bool utf8_filter(u8 c){
-
-	if(utf8_seq==false && (c&0x80)){ //check if beginning of utf-8
-		if((c&0b11100000)==0b11000000){ //2-bytes UTF-8 character detected
-			utf8_lenght=2;
-		}else if((c&0b11110000)==0b11100000){ //3-bytes UTF-8 character detected
-			utf8_lenght=3;
-		}else if((c&0b11111000)==0b11110000){ //4-bytes UTF-8 character detected
-			utf8_lenght=4;
-		}else{
-			cons_char(128); 	//square symbol - unsupported characters
-			return false;	//no sequence
-		}
-		utf8_seq=true;
-		utf8_curr=0;
-		bytes[utf8_curr++]=c;
-
-	}else if(utf8_seq){
-		u8 utf_char=128;//'?';
-
-		bytes[utf8_curr++]=c;		//store next byte in sequence
-		if(utf8_curr<utf8_lenght) return false;	//wait for more chars
-
-		if(utf8_lenght==2){		//2 bytes char
-			if(bytes[0]==0xc2 && bytes[1]==0xa0){
-				utf_char=' '; //non-breakable space (&nbsp);
-			}
-		}else if(utf8_lenght==3){	//3 bytes char
-			if(bytes[0]==0xe2){
-				if(bytes[1]==0x80 && bytes[2]==0xa2){	//Bullet
-					utf_char=127;
-				}else if (bytes[1]==0x80 && bytes[2]==0x93){
-					utf_char='-'; 			//long dash
-				}else if (bytes[1]==0x94){		//Box drawing tiles
-
-					switch(bytes[2]){
-						case 0x82:
-							utf_char=0x86;	//134:  |   Vertical line
-							break;
-						case 0x8c:
-							utf_char=0x81; 	//129:  __  Corner facing down+right
-							break;			//     |
-						case 0x80:
-							utf_char=0x85;	//133: ---  Horizontal line
-							break;
-						case 0x90:
-							utf_char=0x82; 	//130: __   Corner facing down+left
-							break;			//       |
-						case 0x94:
-							utf_char=0x83; 	//131: |    Corner facing up+right corner
-							break;			//      --
-						case 0x98:
-							utf_char=0x84;	//132:    | Corner facing up+left corner
-							break;			//      --
-						case 0x9c:
-							utf_char=0x87;	//135:  |-
-							break;
-						case 0xa4:
-							utf_char=0x88;	//136: -|
-							break;
-						case 0xb4:
-							utf_char=0x89;	//137:  |
-							break;			//     ---
-						case 0xac:
-							utf_char=0x8A;	//138: ---
-							break;			//      |
-						case 0xbc:
-							utf_char=0x8B;	//139: -|-
-							break;
-						default:
-							utf_char=0x80; //undefined
-							break;
-					}
-				}
-			}
-		}	//if it was 4 bytes utf8 sequence, we do nothing
-
-		cons_char(utf_char);
-		utf8_seq=false;
-
-	}else{
-		return true; //possibly a normal printable character
-	}
-
-	return false;
-}
+//
+///**
+// * Filter to detect supported ANSI Escape sequence. Used to display
+// * bullets and box drawing characters.
+// *
+// * ANSI escape sequences are in the form: ESC[5;20f
+// *
+// * Input: 	c = character to filter
+// * Output:  0 = caller should end filter chain
+// * 			1 = caller should continue with next filter or print the char
+// */
+//bool ansi_filter(u8 c){
+//	if(escaping){
+//		if(is_ansi){
+//			csi_buffer[csi_ptr++]=c;
+//			if(c >= 0x40 && c <= 0x7f){ //received end command marker
+//				//parse the escape sequence
+//				command_line=c;
+//				csi_ptr=0;
+//				csi_param_count=0;
+//				csi_param_ptr=0;
+//				while(1) {
+//					c=csi_buffer[csi_ptr];
+//
+//					if(c == command_line){ //end marker
+//						if(csi_ptr>0){
+//							csi_buffer[csi_ptr]=0; //add string terminator for atoi
+//							csi_params[csi_param_count++]=atoi(csi_buffer+csi_param_ptr);
+//						}else if(csi_param_count>0){
+//							csi_params[csi_param_count++]=0xff;	//empty param marker
+//						}
+//						break;
+//					}else if(c==';'){		//param separator
+//						if(csi_ptr>0){
+//							csi_buffer[csi_ptr]=0; //add string terminator for atoi
+//							csi_params[csi_param_count++]=atoi(csi_buffer+csi_param_ptr);
+//						}else{
+//							csi_params[csi_param_count++]=0xff;	//empty param marker
+//						}
+//						csi_param_ptr=csi_ptr+1;
+//					}else if(c=='?'){
+//						csi_param_ptr+=1;
+//						csi_extension=true;
+//					}
+//
+//					csi_ptr++;
+//				};
+//
+//				switch(c){
+//					case 'A':			//move up one line, stop at top of screen
+//						if(csi_param_count==0){
+//							if(cy>Y_ORIGIN) cy--;
+//							}else{
+//							cy-=csi_params[0];
+//						}
+//						terminal_MoveCursor(cx,cy);
+//						break;
+//
+//					case 'B':			//move down one line, stop at bottom of screen
+//						if(csi_param_count==0){
+//							if(cy<(SCREEN_TILES_V-1)) cy++;
+//							}else{
+//							cy+=csi_params[0];
+//						}
+//						terminal_MoveCursor(cx,cy);
+//						break;
+//
+//					case 'C':			//move forward one position, stop at right edge of screen
+//						if(csi_param_count==0){
+//							cx++;
+//							}else{
+//							cx+=csi_params[0];
+//						}
+//						if(cx>=SCREEN_TILES_H)cx=(SCREEN_TILES_H-1);
+//						terminal_MoveCursor(cx,cy);
+//						break;
+//
+//					case 'D':			//move backwards one position, Same as BackSpace, stop at left edge of screen
+//
+//						if(csi_param_count==0){
+//							if(cx>X_ORIGIN) cx--;
+//							}else{
+//							cx-=csi_params[0];
+//						}
+//						terminal_MoveCursor(cx,cy);
+//						break;
+//
+//					case 'd': //vertical Position Absolute
+//						break;
+//
+//					case 'g': //tabulation Clear
+//						//needed for lynx - ESC[3g on Scramworks
+//						break;
+//
+//					case 'G': //horizontal absolute tab. Moves the cursor to column n (default 1).
+//						//needed for lynx on Scramworks
+//						break;
+//
+//					case 'h':
+//						if(csi_extension){
+//							if(csi_params[0]==25){	//Show cursor
+//								terminal_SetCursorVisible(true);
+//								}else if(csi_params[0]==7){					//DECAWM - AutoWrap Mode, start newline after column 80
+//								DECAWM=true;
+//								}else if(csi_params[0]==1){					//DECCKM—Cursor Keys Mode
+//								DECCKM=true;
+//							}
+//						}
+//						break;
+//
+//					case 'H':					//cursor position -- All cases covered
+//					case 'f':
+//						if(csi_param_count==0){
+//							//no coordinates,move to origin
+//							 //console_SetCursor(CONS_X_ORIGIN,CONS_Y_ORIGIN);
+//							 cx=X_ORIGIN;
+//							 cy=Y_ORIGIN;
+//						}else{
+//
+//							if(csi_params[0]==0xff){
+//								cy=Y_ORIGIN;
+//							}else{
+//								cy=csi_params[0];
+//								if(cy==0) cy=1;
+//								cy= cy - 1 + Y_ORIGIN;
+//							}
+//							if(csi_params[1]==0xff){
+//								cx=X_ORIGIN;
+//							}else{
+//								cx=csi_params[1];
+//								if(cx==0) cx=1;
+//								cx= cx - 1 + X_ORIGIN;
+//							}
+//
+//							//clip
+//							if(cy>=SCREEN_TILES_V)cy=SCREEN_TILES_V-1; //row
+//							if(cx>=SCREEN_TILES_H)cx=SCREEN_TILES_H-1; //column
+//
+//						}
+//						terminal_MoveCursor(cx,cy);
+//						break;
+//
+//					case 'J':	// erase display
+//						//[0J     erase from current position to bottom of screen inclusive
+//						//[1J     erase from top of screen to current position inclusive
+//						//[2J     erase entire screen (without moving the cursor)
+//						ClearVram(); //All cases erases the whole screen
+//						break;
+//
+//					case 'K':	//erase a line
+//						if(csi_param_count==0 || (csi_param_count>0 && csi_params[0]==0)) {
+//							//clear line from cursor to end of line (same as [K )
+//							terminal_ClearLine(cy,cx,SCREEN_TILES_H-1);
+//
+//							}else if(csi_params[0]==1){
+//							//clear line beginning to cursor
+//							terminal_ClearLine(cy,0,cx);
+//
+//							}else if(csi_params[0]==2){
+//							//clear entire line
+//							terminal_ClearLine(cy,0,SCREEN_TILES_H-1);
+//						}
+//						break;
+//
+//					case 'l':	//reset mode
+//						if(csi_extension){
+//							if(csi_params[0]==25){ 	//### hide cursor
+//								terminal_SetCursorVisible(false);
+//								}else if(csi_params[0]==7){					//DECAWM - AutoWrap Mode, start newline after column 80
+//								DECAWM=false;
+//								}else if(csi_params[0]==1){					//DECCKM—Cursor Keys Mode
+//								DECCKM=false;
+//							}
+//						}
+//						break;
+///*ansi mode only
+//					case 'L':	//Insert lines
+//
+//						if(cy==Y_ORIGIN){ //currently only supports inserting from top of screen
+//							u8 lines=1;
+//							if(csi_param_count==1) lines=csi_params[0];
+//							for(u8 i=0;i<lines;i++){
+//								terminal_VerticalScrollDown(true);
+//							}
+//						}
+//						break;
+//*/
+//					case 'm':	//graphics mode related
+//						if(csi_param_count==0){
+//							inverseVideo=false;
+//						}else{
+//							//iterate params to apply attributes
+//							for(u8 i=0;i<csi_param_count;i++){
+//								if(csi_params[i]==0){
+//									inverseVideo=false;
+//								}else if(csi_params[i]==7){
+//									inverseVideo=true;
+//								}
+//							}
+//						}
+//
+//						break;
+///* ansi mode only
+//					case 'M':	//Delete lines
+//
+//						if(cy==Y_ORIGIN){ //currently only supports deleting from top of screen
+//							u8 lines=1;
+//							if(csi_param_count==1) lines=csi_params[0];
+//							for(u8 i=0;i<lines;i++){
+//								terminal_VerticalScrollUp(true);
+//							}
+//						}
+//						break;
+//*/
+//					case 'P':	//delete n Characters, from current position to end of field
+//
+//						if(csi_param_count==0 || (csi_param_count>0 && csi_params[0]==1)){
+//							if(cx>X_ORIGIN){
+//								for(u8 x=cx;x<SCREEN_TILES_H;x++){
+//									c=terminal_GetCharAtLoc(x+1,cy);
+//									terminal_PutCharAtLoc(x,cy,c,0);
+//								}
+//								terminal_PutCharAtLoc(SCREEN_TILES_H-1,cy,' ',0);
+//							}
+//						}else{
+//							printf(" ESC[");
+//							for(int i=0;i<esc_pos;i++){
+//								putchar(escape_buf[i]);
+//							}
+//						}
+//						break;
+//
+//					case 'r':	//top and bottom margins (scroll region on VT100).
+//						scroll_top_margin=csi_params[0]-1;
+//						scroll_bottom_margin=csi_params[1]-1;
+//						break;
+//
+//					case 'S':	//scroll up
+//						terminal_VerticalScrollUp(true);
+//						break;
+//
+//					case 'T':	//scroll down
+//						terminal_VerticalScrollDown(true);
+//						break;
+//
+//					default:
+//						break;
+//				}
+//
+//				//done!
+//				escaping=false;
+//
+//			}
+//		}else if(c=='['){
+//			is_ansi=true;
+//			csi_ptr=0;
+//		}else{
+//			//unsupported non-ansi stuff
+//
+//			if(c=='D'){ //(VT100) index IND - Move/scroll window up one line
+//				terminal_VerticalScrollUp(true);
+//			}else if(c=='M'){	//(VT100) revindex RI - Move/scroll window down one line
+//				terminal_VerticalScrollDown(true);
+//			}
+//
+//			escaping=false;
+//		}
+//	}else{
+//		if(c==27){
+//			escaping=true;
+//			is_ansi=false;
+//			return false;
+//		}else{
+//			return true;
+//		}
+//
+//	}
+//
+//	return false;
+//}
+//
+//
+///**
+// * Filter to detect UTF8 sequences. Principally used to detect extended characters like bullets and box drawing symbols.
+// * Input: c = character to filter
+// * Output:  0 = caller should end filter chain
+// * 			1 = caller should continue with next filter or print the char
+// */
+//bool utf8_seq=false;	//indicates we are in utf8 sequence
+//u8 bytes[4]; 			//Incoming data bytes, b1 comes first
+//u8 utf8_lenght;			//length of sequence
+//u8 utf8_curr;			//current byte
+//bool utf8_filter(u8 c){
+//
+//	if(utf8_seq==false && (c&0x80)){ //check if beginning of utf-8
+//		if((c&0b11100000)==0b11000000){ //2-bytes UTF-8 character detected
+//			utf8_lenght=2;
+//		}else if((c&0b11110000)==0b11100000){ //3-bytes UTF-8 character detected
+//			utf8_lenght=3;
+//		}else if((c&0b11111000)==0b11110000){ //4-bytes UTF-8 character detected
+//			utf8_lenght=4;
+//		}else{
+//			cons_char(128); 	//square symbol - unsupported characters
+//			return false;	//no sequence
+//		}
+//		utf8_seq=true;
+//		utf8_curr=0;
+//		bytes[utf8_curr++]=c;
+//
+//	}else if(utf8_seq){
+//		u8 utf_char=128;//'?';
+//
+//		bytes[utf8_curr++]=c;		//store next byte in sequence
+//		if(utf8_curr<utf8_lenght) return false;	//wait for more chars
+//
+//		if(utf8_lenght==2){		//2 bytes char
+//			if(bytes[0]==0xc2 && bytes[1]==0xa0){
+//				utf_char=' '; //non-breakable space (&nbsp);
+//			}
+//		}else if(utf8_lenght==3){	//3 bytes char
+//			if(bytes[0]==0xe2){
+//				if(bytes[1]==0x80 && bytes[2]==0xa2){	//Bullet
+//					utf_char=127;
+//				}else if (bytes[1]==0x80 && bytes[2]==0x93){
+//					utf_char='-'; 			//long dash
+//				}else if (bytes[1]==0x94){		//Box drawing tiles
+//
+//					switch(bytes[2]){
+//						case 0x82:
+//							utf_char=0x86;	//134:  |   Vertical line
+//							break;
+//						case 0x8c:
+//							utf_char=0x81; 	//129:  __  Corner facing down+right
+//							break;			//     |
+//						case 0x80:
+//							utf_char=0x85;	//133: ---  Horizontal line
+//							break;
+//						case 0x90:
+//							utf_char=0x82; 	//130: __   Corner facing down+left
+//							break;			//       |
+//						case 0x94:
+//							utf_char=0x83; 	//131: |    Corner facing up+right corner
+//							break;			//      --
+//						case 0x98:
+//							utf_char=0x84;	//132:    | Corner facing up+left corner
+//							break;			//      --
+//						case 0x9c:
+//							utf_char=0x87;	//135:  |-
+//							break;
+//						case 0xa4:
+//							utf_char=0x88;	//136: -|
+//							break;
+//						case 0xb4:
+//							utf_char=0x89;	//137:  |
+//							break;			//     ---
+//						case 0xac:
+//							utf_char=0x8A;	//138: ---
+//							break;			//      |
+//						case 0xbc:
+//							utf_char=0x8B;	//139: -|-
+//							break;
+//						default:
+//							utf_char=0x80; //undefined
+//							break;
+//					}
+//				}
+//			}
+//		}	//if it was 4 bytes utf8 sequence, we do nothing
+//
+//		cons_char(utf_char);
+//		utf8_seq=false;
+//
+//	}else{
+//		return true; //possibly a normal printable character
+//	}
+//
+//	return false;
+//}
