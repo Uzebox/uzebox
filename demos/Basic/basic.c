@@ -68,7 +68,7 @@ enum opcodes{
 	OP_LD_BYTE=0x80, OP_LD_WORD, OP_LD_DWORD, OP_LD_VAR, OP_ASSIGN,
 	OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,
 	OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF,
-	OP_IF, OP_CMP_GT, OP_CMP_GE,
+	OP_IF, OP_CMP_GT, OP_CMP_GE, OP_CMP_LT,
 	OP_ADD,	OP_SUB,	OP_MUL,	OP_DIV,
 	OP_FUNC_TICKS,OP_FUNC_CHR,
 	OP_CLS,
@@ -76,13 +76,13 @@ enum opcodes{
 	//OP_CMP_NE, OP_CMP_LT, OP_CMP_LE,
 };
 
-//number of parameters required for each opcodes
+//number of parameters/extra bytes required for each opcodes
 //const u8 opcodes_param_cnt[] PROGMEM = {
 const u8 opcodes_param_cnt[] PROGMEM = {
 	1,2,4,1,1,	//OP_LD_BYTE, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN
 	1,1,2,2,2,	//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,
 	0,0,0,0,	//OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF
-	0,0,0,		//OP_IF, OP_CMP_GT, OP_CMP_GE
+	0,0,0,0,	//OP_IF, OP_CMP_GT, OP_CMP_GE
 	0,0,0,0,	//P_ADD,OP_SUB,	OP_MUL,	OP_DIV
 	0,0,		//OP_FUNC_TICKS,OP_FUNC_CHR
 	0,			//OP_CLS
@@ -103,6 +103,7 @@ enum ERRORS{
 	ERR_EXIT_WITHOUT_FOR,		//EXIT encoutered with no FOR or bad nesting
 	ERR_FOR_WITHOUT_NEXT,
 	ERR_ILLEGAL_ARGUMENT,
+	ERR_UNDEFINED_LINE_NUMBER,
 };
 
 
@@ -114,6 +115,7 @@ const char error_04_msg[] PROGMEM = "Invalid NEXT nesting in %i";
 const char error_05_msg[] PROGMEM = "EXIT without FOR in %i";
 const char error_06_msg[] PROGMEM = "FOR without NEXT in %i";
 const char error_07_msg[] PROGMEM = "Illegal Argument in %i";
+const char error_08_msg[] PROGMEM = "Undefined line number";
 
 const char* const error_messages[] PROGMEM ={
 		error_00_msg,
@@ -124,6 +126,7 @@ const char* const error_messages[] PROGMEM ={
 		error_05_msg,
 		error_06_msg,
 		error_07_msg,
+		error_08_msg
 };
 
 static void dumpmem(u16 start_addr,u8 rows);
@@ -133,6 +136,7 @@ static void push_value(VAR_TYPE v);
 static VAR_TYPE pop_value();
 static void printError(u8 error_code, u16 line_no);
 static u16 execute();
+static void results();
 
 static u8 *txtpos;
 static u32 timer_ticks;
@@ -151,18 +155,38 @@ static VAR_TYPE pcode_float_stack[PCODE_STACK_DEPTH];
 static stack_frame stack[STACK_DEPTH];
 static s8 stack_ptr=STACK_DEPTH;
 
-const u8 token_rf_benchmark1[] PROGMEM={
+const u8 token_rf_benchmark_2[] PROGMEM={
 10,0,5,OP_CLS,EOL,
-15,0,20,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','1',0,OP_CRLF, EOL,
-20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
-30,0,8,OP_PRINT_LSTR,'S',0,OP_CRLF,EOL,
+20,0,31,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','2',EOSNL, EOL,
+30,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+
+40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,13,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+//70,0,13,OP_LD_VAR, VAR_K, OP_LD_WORD, 0x10, 0x27, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 10000
+//70,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 5,0, OP_CMP_LT, OP_IF, OP_GOTO, 130, 0, EOL, //0 to 10000
+
+80,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
+90,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+100,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+110,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
+120,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
+0,0
+};
+
+const u8 token_rf_benchmark_1[] PROGMEM={
+//10,0,5,OP_CLS,EOL,
+//15,0,31,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','1',EOSNL, EOL,
+//20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+30,0,8,OP_PRINT_LSTR,'S',EOSNL,EOL,
 40,0,13,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_WORD, 0xe8,0x03, OP_LOOP_FOR, VAR_K, EOL,	//1 to 1000
 50,0,6,OP_LOOP_NEXT, VAR_K, EOL,
-70,0,8,OP_PRINT_LSTR,'E',0,OP_CRLF,EOL,
-80,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-90,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-100,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
-110,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',0,OP_CRLF,EOL,
+70,0,8,OP_PRINT_LSTR,'E',EOSNL,EOL,
+//80,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+//90,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+//100,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
+//110,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
@@ -191,9 +215,9 @@ const u8 token_mand[] PROGMEM={
 180,0,5,OP_CRLF, EOL,
 190,0,6,OP_LOOP_NEXT, VAR_A, EOL,
 195,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-200,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+200,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',EOS, EOL,
 210,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
-220,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',0,EOL,
+220,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
@@ -221,12 +245,17 @@ int main(){
 
 	//copy the tokenised program in SRAM
 	//for(u16 i=0;i<sizeof(token_mand)-2;i++) prog_mem[i]=pgm_read_byte(&(token_mand[i]));
-	for(u16 i=0;i<sizeof(token_rf_benchmark1)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark1[i]));
+	//for(u16 i=0;i<sizeof(token_rf_benchmark_1)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_1[i]));
+	for(u16 i=0;i<sizeof(token_rf_benchmark_2)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_2[i]));
+
+	printf("Program size: %i\n",sizeof(token_rf_benchmark_1));
 
 	execute();
 
+	results();
+
 //	dumpstack();
-//	dumpvars();
+	//dumpvars();
 	printf_P(PSTR("\nOk\n>"));
 	while(1);
 
@@ -244,7 +273,7 @@ u16 execute(){
 	u8 c1,var,opcode;
 	u16 i1;
 	VAR_TYPE v1,v2;
-	bool found, stop=false;
+	bool found, jump, stop=false;
 	stack_frame *sf;
 	error_code=0;
 
@@ -255,6 +284,7 @@ u16 execute(){
 
 		PCODE_DEBUG("%i) <pos:%02x,cl:%02x>",current_line_no,(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start);
 		while(1){
+			jump=false;
 			opcode = (*txtpos++);
 
 			switch(opcode){
@@ -411,6 +441,55 @@ u16 execute(){
 						break;
 
 				case OP_GOTO:
+
+					currpos=txtpos;
+					u16 line_to_find=(*((int16_t*)txtpos));
+
+					//check if we saved the actual line's memory position from a previous loop.
+					if(line_to_find&0x8000){
+						txtpos=((u8*)((line_to_find&=0x7fff)+(u16)program_start ))-1;
+						jump=true;
+						PCODE_DEBUG("[GOTO %i FAST] ", txtpos[1]+(txtpos[2]<<8));
+						break;
+					}
+
+					//othewise skip the jump adress and scan the whole program to find the line
+					txtpos+=2;
+					u16 line_no=0;
+
+					PCODE_DEBUG("[GOTO %i] ",line_to_find);
+
+					u8* scan_ptr=program_start;
+					while(1){
+						line_no=(*((int16_t*)scan_ptr));
+
+//						if(line_no==70){
+//							printf("\nscan_ptr=%02x", (u16)scan_ptr-(u16)program_start);
+//							dumpmem(0,8);
+//							while(1);
+//						}
+
+						if(line_no==0){
+							error_code=ERR_UNDEFINED_LINE_NUMBER;
+							break;
+						}else if(line_no==line_to_find){
+							//line found!
+							//save position in AVR memory for fast lookup next time
+							//set the MSbit to indicate line is an AVR memory location instead of line number.
+							//This in turn limits the Basic line numbers to 32767.
+							(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
+							txtpos=scan_ptr-1;
+							jump=true;
+							break;
+						}
+
+						//advance to next line;
+						scan_ptr+=scan_ptr[2];
+
+
+
+
+					}
 					break;
 
 				case OP_GOSUB:
@@ -426,7 +505,13 @@ u16 execute(){
 					PCODE_DEBUG("[PRN LSTR] ");
 					while(1){
 						c1=*txtpos++;
-						if(c1==0)break;
+						if(c1==EOS){
+							break;
+						}else if(c1==EOSNL){
+							terminal_SendChar(NL);
+							terminal_SendChar(CR);
+							break;
+						}
 						terminal_SendChar(c1);
 					}
 					break;
@@ -448,22 +533,30 @@ u16 execute(){
 					if(!v1){
 						//skip to the EOL character
 						txtpos=current_line+(current_line[2]-1);
-						PCODE_DEBUG("[SKIP %02x]",(u16)txtpos-(u16)program_start);
+						PCODE_DEBUG("[SKIP]");
 					}
+
 					break;
 
 				case OP_CMP_GT:
 					v2=pop_value();
 					v1=pop_value();
 					push_value(v1 > v2);
-					PCODE_DEBUG("[CMP %g>%g %i] ",v1,v2,v1 > v2);
+					PCODE_DEBUG("[CMP %g>%g %i] ",v1,v2,(u8)v1 > v2);
 					break;
 
 				case OP_CMP_GE:
 					v2=pop_value();
 					v1=pop_value();
 					push_value(v1 >= v2);
-					PCODE_DEBUG("[CMP %i>=%i %i] ",v1,v2,(u8)res);
+					PCODE_DEBUG("[CMP %i>=%i %i] ",v1,v2,(u8)v1 >= v2);
+					break;
+
+				case OP_CMP_LT:
+					v2=pop_value();
+					v1=pop_value();
+					push_value(v1 < v2);
+					PCODE_DEBUG("[CMP %g<%g %i] ",v1,v2,(u8)v1 < v2);
 					break;
 
 				case OP_ADD:
@@ -523,25 +616,25 @@ u16 execute(){
 				printError(error_code, current_line_no);
 				break;
 			}
-			//opcounter++;
-			if(*txtpos == EOL || stop)break;
+
+			if(*txtpos == EOL || jump || stop)break;
 
 		}; //while(*txtpos++ != EOL);
 
 		if(error_code || stop)break;
-
 		txtpos++;
-		//linecounter++;
+
 		PCODE_DEBUG("\n");
-	}while(*((u16*)txtpos)); //did we reached the end of the program?
+
+	}while(*((u16*)txtpos)); //did we reached the end of the program (current line no != 0?)
 
 	return error_code;
 }
 
 
 void printError(u8 error_code, u16 line_number){
-	printf_P((PGM_P)pgm_read_word(&(error_messages[error_code])), line_number);
-	printf_P(PSTR("\n"));
+	printf_P((PGM_P)pgm_read_word(&(error_messages[error_code])));
+	printf_P(PSTR(" in %i\n"),line_number);
 }
 
 
@@ -556,7 +649,7 @@ static inline void push_value(VAR_TYPE v){
 
 static inline VAR_TYPE pop_value(){
 	if(pcode_float_sp==PCODE_STACK_DEPTH){
-		printf_P("opcode float stack overflow!");
+		printf_P(PSTR("opcode stack overflow!"));
 		while(1);
 	}
 	return pcode_float_stack[pcode_float_sp++];
@@ -659,5 +752,26 @@ __attribute__((unused)) void dumpvars(){
 	printf_P(PSTR("[txtpos=0x%02x] [current_line=0x%02x] [current_line_no=%i]\n[pcode-stack size=%i,sp_min=%i] [loop-stack size=%i,ptr=%i]  \n"),
 			(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start,current_line_no,
 			PCODE_STACK_DEPTH, pcode_sp_min,STACK_DEPTH,stack_ptr);
+
+}
+
+
+
+void results(){
+	printf_P(PSTR("\x81\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\n"));
+	printf_P(PSTR("\x86 System      \x86 Test1 \x86 Test2 \x86 Test3 \x86 Test4 \x86 Test5 \x86 Test6 \x86 Test7 \x86 Test8 \x86\n"));
+	printf_P(PSTR("\x86 Uzebox      \x86 0.167 \x86 0.317 \x86\n"));
+	printf_P(PSTR("\x86 BBC Micro   \x86 0.8   \x86 3.1   \x86 8.1   \x86 8.7   \x86 9.0   \x86 13.9  \x86 21.1  \x86 49.9  \x86\n"));
+	printf_P(PSTR("\x86 Apple II    \x86\n"));
+	printf_P(PSTR("\x86 ZX Spectrum \x86\n"));
+	printf_P(PSTR("\x86 ZX 80       \x86\n"));
+	printf_P(PSTR("\x86 C64         \x86\n"));
+	printf_P(PSTR("\x86 Altair 8800 \x86\n"));
+	printf_P(PSTR("\x86 Atari 800XL \x86\n"));
+	printf_P(PSTR("\x86 VIC 20      \x86\n"));
+	printf_P(PSTR("\x86 TI-99/4A    \x86\n"));
+
+
+	printf_P(PSTR("\x87\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8b\n"));
 
 }

@@ -24,10 +24,10 @@ MIX_PATH_ESC:= $(subst $(SPACE),$(SPACE_ESC),$(MIX_PATH))
 ## Kernel settings
 KERNEL_DIR = ../../../kernel
 
-#KERNEL_OPTIONS  = -DVIDEO_MODE=0 -DVIDEO_MODE_PATH=$(realpath ../customVideoMode80)
-#KERNEL_OPTIONS += -DSCREEN_TILES_H=80 -DSCREEN_TILES_V=24 -DFIRST_RENDER_LINE=28 
+KERNEL_OPTIONS  = -DVIDEO_MODE=0 -DVIDEO_MODE_PATH=$(realpath ../customVideoMode80)
+KERNEL_OPTIONS += -DSCREEN_TILES_H=80 -DSCREEN_TILES_V=24 -DFIRST_RENDER_LINE=28 
 
-KERNEL_OPTIONS  = -DVIDEO_MODE=5 -DINTRO_LOGO=0 -DFONT_TILE_INDEX=0 
+#KERNEL_OPTIONS  = -DVIDEO_MODE=5 -DINTRO_LOGO=0 -DFONT_TILE_INDEX=0 
 
 KERNEL_OPTIONS += -DSOUND_MIXER=1 -DTRUE_RANDOM_GEN=1 -D_FS_READONLY=0 -DUART=0 -DUART_RX_BUFFER_SIZE=16 -DUART_TX_BUFFER_SIZE=16 #-D_WORD_ACCESS=0
 KERNEL_OPTIONS += -DNO_EEPROM_FORMAT=1 -DNO_PC_SLIDE=1 -DNO_PC_LOOP=1 -DNO_CHAN_EXPRESSION=1
@@ -37,7 +37,7 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -Wextra -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -O3 -fsigned-char -ffunction-sections -fno-toplevel-reorder 
+CFLAGS += -Wall -Wextra -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder 
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
