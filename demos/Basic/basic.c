@@ -135,13 +135,13 @@ static void dumpvars();
 static void push_value(VAR_TYPE v);
 static VAR_TYPE pop_value();
 static void printError(u8 error_code, u16 line_no);
-static u16 execute();
-static void results();
+static u16 execute(bool initialize);
+static void run_tests();
 
 static u8 *txtpos;
 static u32 timer_ticks;
 static u8 *program_start;
-static u8 *program_end;
+//static u8 *program_end;
 static u8 *current_line;
 static u16 current_line_no;
 static u8 error_code;
@@ -150,43 +150,74 @@ u8 prog_mem[RAM_SIZE];
 static VAR_TYPE pcode_vars[26]; //A-Z
 
 static u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
-static u16 pcode_float_sp=PCODE_STACK_DEPTH;
-static VAR_TYPE pcode_float_stack[PCODE_STACK_DEPTH];
+static u16 pcode_sp=PCODE_STACK_DEPTH;
+static VAR_TYPE pcode_stack[PCODE_STACK_DEPTH];
 static stack_frame stack[STACK_DEPTH];
 static s8 stack_ptr=STACK_DEPTH;
 
+const u8 token_rf_benchmark_4[] PROGMEM={
+10,0,0,OP_CLS,EOL,
+20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','3',EOSNL, EOL,
+30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+65,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
+120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
+0,0
+};
+
+const u8 token_rf_benchmark_3[] PROGMEM={
+10,0,0,OP_CLS,EOL,
+20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','3',EOSNL, EOL,
+30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+65,0,0,OP_LD_VAR, VAR_K, OP_LD_VAR, VAR_K, OP_DIV, OP_LD_VAR, VAR_K, OP_MUL, OP_LD_VAR, VAR_K, OP_ADD, OP_LD_VAR, VAR_K, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
+120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
+0,0
+};
+
+
 const u8 token_rf_benchmark_2[] PROGMEM={
-10,0,5,OP_CLS,EOL,
-20,0,31,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','2',EOSNL, EOL,
-30,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
-
-40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,13,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-//70,0,13,OP_LD_VAR, VAR_K, OP_LD_WORD, 0x10, 0x27, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 10000
-//70,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 5,0, OP_CMP_LT, OP_IF, OP_GOTO, 130, 0, EOL, //0 to 10000
-
-80,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
-90,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-100,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-110,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
-120,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
+10,0,0,OP_CLS,EOL,
+20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','2',EOSNL, EOL,
+30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
+120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_1[] PROGMEM={
-//10,0,5,OP_CLS,EOL,
-//15,0,31,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','1',EOSNL, EOL,
-//20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
-30,0,8,OP_PRINT_LSTR,'S',EOSNL,EOL,
-40,0,13,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_WORD, 0xe8,0x03, OP_LOOP_FOR, VAR_K, EOL,	//1 to 1000
-50,0,6,OP_LOOP_NEXT, VAR_K, EOL,
-70,0,8,OP_PRINT_LSTR,'E',EOSNL,EOL,
-//80,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-//90,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-//100,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
-//110,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
+10,0,0,OP_CLS,EOL,
+15,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','1',EOSNL, EOL,
+20,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+30,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
+40,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_WORD, 0xe8,0x03, OP_LOOP_FOR, VAR_K, EOL,	//1 to 1000
+50,0,0,OP_LOOP_NEXT, VAR_K, EOL,
+70,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
+120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
@@ -195,29 +226,29 @@ const u8 token_rf_benchmark_1[] PROGMEM={
 //2.5 0x00,0x00,0x20,0x40
 //1.0 0x00,0x00,0x80,0x3f
 const u8 token_mand[] PROGMEM={
-10,0,5,OP_CLS,EOL,
-20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
-30,0,12,OP_LD_BYTE, 1, OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
-40,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
-50,0,20,OP_LD_DWORD,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_DWORD,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
-60,0,20,OP_LD_DWORD,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_DWORD,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
-70,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_X, EOL,
-80,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_Y, EOL,
-90,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 14, OP_LOOP_FOR, VAR_I, EOL,
-100,0,17,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_ADD, OP_ASSIGN, VAR_F, EOL,
-110,0,13,OP_LD_VAR, VAR_F, OP_LD_BYTE, 4, OP_CMP_GT, OP_IF, OP_LOOP_EXIT, 0, 0, EOL,
-120,0,20,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_SUB, OP_LD_VAR, VAR_C, OP_ADD, OP_ASSIGN, VAR_E, EOL,
-130,0,17,OP_LD_BYTE, 2, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_MUL, OP_LD_VAR, VAR_D, OP_ADD, OP_ASSIGN, VAR_Y, EOL,
-140,0,8,OP_LD_VAR, VAR_E, OP_ASSIGN, VAR_X, EOL,
-150,0,6,OP_LOOP_NEXT, VAR_I, EOL,
-160,0,10,OP_LD_VAR, VAR_I, OP_LD_BYTE, 126 ,OP_ADD, OP_PRINT_CHAR, EOL,
-170,0,6,OP_LOOP_NEXT, VAR_B, EOL,
-180,0,5,OP_CRLF, EOL,
-190,0,6,OP_LOOP_NEXT, VAR_A, EOL,
-195,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-200,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',EOS, EOL,
-210,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
-220,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
+10,0,0,OP_CLS,EOL,
+20,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+30,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
+40,0,0,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
+50,0,0,OP_LD_DWORD,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_DWORD,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
+60,0,0,OP_LD_DWORD,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_DWORD,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
+70,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_X, EOL,
+80,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_Y, EOL,
+90,0,0,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 14, OP_LOOP_FOR, VAR_I, EOL,
+100,0,0,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_ADD, OP_ASSIGN, VAR_F, EOL,
+110,0,0,OP_LD_VAR, VAR_F, OP_LD_BYTE, 4, OP_CMP_GT, OP_IF, OP_LOOP_EXIT, 0, 0, EOL,
+120,0,0,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_SUB, OP_LD_VAR, VAR_C, OP_ADD, OP_ASSIGN, VAR_E, EOL,
+130,0,0,OP_LD_BYTE, 2, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_MUL, OP_LD_VAR, VAR_D, OP_ADD, OP_ASSIGN, VAR_Y, EOL,
+140,0,0,OP_LD_VAR, VAR_E, OP_ASSIGN, VAR_X, EOL,
+150,0,0,OP_LOOP_NEXT, VAR_I, EOL,
+160,0,0,OP_LD_VAR, VAR_I, OP_LD_BYTE, 126 ,OP_ADD, OP_PRINT_CHAR, EOL,
+170,0,0,OP_LOOP_NEXT, VAR_B, EOL,
+180,0,0,OP_CRLF, EOL,
+190,0,0,OP_LOOP_NEXT, VAR_A, EOL,
+195,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+200,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',EOS, EOL,
+210,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
+220,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
@@ -225,6 +256,46 @@ void vsyncCallback(){
 	timer_ticks++;
 	terminal_VsyncCallback();	//used to poll the keyboard
 }
+
+static u16 load_prog(const u8* program){
+	u16 i=0;
+	//load from flash to sram and compute line sizes
+	txtpos=prog_mem;
+	u8* line;
+	u8 lenght;
+	u16 prog_size=0;
+	while(1){
+		if(pgm_read_word(&(program[i]))==0)break;
+		lenght=0;
+		line=txtpos;
+		while(1){
+			*txtpos=pgm_read_byte(&(program[i]));
+			lenght++;
+			if(*txtpos==EOL){
+//				if(i==5){
+//					printf("txtpos=%02x,line=%02x,lenght=%i,i=%i,c=%i",(u16)txtpos-(u16)prog_mem,(u16)line-(u16)prog_mem,lenght,i,*txtpos);
+//					dumpmem(0,3);
+//					while(1);
+//				}
+				break;
+			}
+			txtpos++;
+			i++;
+		}
+
+
+		//printf("*");
+
+		txtpos++;
+		i++;
+		line[2]=lenght;
+		prog_size+=lenght;
+
+
+	}
+	prog_size+=2;
+	return prog_size;
+};
 
 int main(){
 	//bind the terminal receiver to stdout
@@ -246,13 +317,15 @@ int main(){
 	//copy the tokenised program in SRAM
 	//for(u16 i=0;i<sizeof(token_mand)-2;i++) prog_mem[i]=pgm_read_byte(&(token_mand[i]));
 	//for(u16 i=0;i<sizeof(token_rf_benchmark_1)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_1[i]));
-	for(u16 i=0;i<sizeof(token_rf_benchmark_2)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_2[i]));
+	//for(u16 i=0;i<sizeof(token_rf_benchmark_2)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_2[i]));
+	//for(u16 i=0;i<sizeof(token_rf_benchmark_3)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_3[i]));
 
-	printf("Program size: %i\n",sizeof(token_rf_benchmark_1));
+	//printf("Program size: %i\n",sizeof(token_rf_benchmark_1));
 
-	execute();
-
-	results();
+	//u16 s=load_prog(token_rf_benchmark_1);
+	//printf("s1=%i",s);
+	//execute();
+	run_tests();
 
 //	dumpstack();
 	//dumpvars();
@@ -261,10 +334,17 @@ int main(){
 
 }
 
-u16 execute(){
+u16 execute(bool initialize){
+
+	if(initialize){
+		for(u8 i=0;i<26;i++)pcode_vars[i]=0;
+		pcode_sp=PCODE_STACK_DEPTH;
+		stack_ptr=STACK_DEPTH;
+	}
+
 
 	program_start = prog_mem;
-	program_end = program_start+(sizeof(token_mand)-2);
+	//program_end = program_start+(sizeof(token_mand)-2);
 	txtpos = program_start;
 
 //	u16 opcounter=0; //for debug
@@ -639,20 +719,24 @@ void printError(u8 error_code, u16 line_number){
 
 
 static inline void push_value(VAR_TYPE v){
-	if(pcode_float_sp==0){
+	if(pcode_sp==0){
 		printf_P("opcode float stack overflow!");
+		dumpstack();
+		dumpmem(0,12);
 		while(1);
 	}
-	pcode_float_stack[--pcode_float_sp] = v;
+	pcode_stack[--pcode_sp] = v;
 	//if(pcode_sp<pcode_sp_min) pcode_sp_min=pcode_sp;
 }
 
 static inline VAR_TYPE pop_value(){
-	if(pcode_float_sp==PCODE_STACK_DEPTH){
+	if(pcode_sp==PCODE_STACK_DEPTH){
 		printf_P(PSTR("opcode stack overflow!"));
+		dumpstack();
+		dumpmem(0,12);
 		while(1);
 	}
-	return pcode_float_stack[pcode_float_sp++];
+	return pcode_stack[pcode_sp++];
 }
 /**
  * Dumps a selcted range of memory
@@ -757,12 +841,35 @@ __attribute__((unused)) void dumpvars(){
 
 const char line_spacer[] PROGMEM = "\x87\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8b\n";
 
-void results(){
+const u8* const test_suite[] PROGMEM ={
+		token_rf_benchmark_1,
+		token_rf_benchmark_2,
+		token_rf_benchmark_3,
+		token_rf_benchmark_4
+};
+
+void run_tests(){
+	float results[8];
+
+
+	for(u8 i=0;i<sizeof(test_suite)/2;i++){
+		load_prog((const u8*)pgm_read_word(&(test_suite[i])));
+		execute(true);
+		results[i]=pcode_vars[VAR_T];
+	}
+
+//	for(u8 i=0;i<sizeof(test_suite)/2;i++){
+//		printf("test=%i,res=%g\n",i+1,results[i]);
+//	}
+
+	terminal_Clear();
+	printf_P(PSTR("Rugg/Feldman BASIC Benchmarks\n"));
 	printf_P(PSTR("\x81\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x82\n"));
 	printf_P(PSTR("\x86 System      \x86 Test1 \x86 Test2 \x86 Test3 \x86 Test4 \x86 Test5 \x86 Test6 \x86 Test7 \x86 Test8 \x86\n"));
 	printf_P(PSTR("\x87\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x88\n"));
 
-	printf_P(PSTR("\x86 Uzebox      \x86 0.17  \x86 0.32  \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86\n"));
+	//printf_P(PSTR("\x86 Uzebox      \x86 0.17  \x86 0.32  \x86 0.8   \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86\n"));
+	printf_P(PSTR("\x86 Uzebox      \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86\n"),results[0],results[1],results[2],results[3]);
 	printf_P(PSTR("\x86 BBC Micro   \x86 0.8   \x86 3.1   \x86 8.1   \x86 8.7   \x86 9.0   \x86 13.9  \x86 21.1  \x86 49.9  \x86\n"));
 	printf_P(PSTR("\x86 ZX 80       \x86 1.5   \x86 4.7   \x86 9.2   \x86 9.0   \x86 12.7  \x86 25.9  \x86 39.2  \x86 NA    \x86\n"));
 	printf_P(PSTR("\x86 VIC 20      \x86 1.4   \x86 8.3   \x86 15.5  \x86 17.1  \x86 18.3  \x86 27.2  \x86 42.7  \x86 99    \x86\n"));
@@ -774,5 +881,6 @@ void results(){
 	printf_P(PSTR("\x86 TI-99/4A    \x86 2.9   \x86 8.8   \x86 22.8  \x86 24.5  \x86 26.1  \x86 61.6  \x86 84.4  \x86 382   \x86\n"));
 
 	printf_P(PSTR("\x83\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x84\n"));
+	printf_P(PSTR("See: https://en.wikipedia.org/wiki/Rugg/Feldman_benchmarks#Benchmark_7\n"));
 
 }

@@ -63,7 +63,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o keyboard.o terminal.o $(GAME).o
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o keyboard.o terminal.o spiram.o mmc.o ff.o $(GAME).o
 #OBJECTS += spiram.o mmc.o ff.o 
 
 ## Objects explicitly added by the user
@@ -80,11 +80,11 @@ all: ../data/font6x8-full.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GA
 	$(UZEBIN_DIR)/gconvert ../data/gconvert.xml
 
 ## Compile Kernel files
-#mmc.o: $(KERNEL_DIR)/fatfs/mmc.c
-#	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+mmc.o: $(KERNEL_DIR)/fatfs/mmc.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-#ff.o: $(KERNEL_DIR)/fatfs/ff.c
-#	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+ff.o: $(KERNEL_DIR)/fatfs/ff.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
@@ -104,14 +104,15 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 keyboard.o: $(KERNEL_DIR)/keyboard.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-#spiram.o: $(KERNEL_DIR)/spiram.s
-#	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
+spiram.o: $(KERNEL_DIR)/spiram.s
+	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
 terminal.o: ../terminal.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 $(GAME).o: ../basic.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+#$(GAME).o: ../tokenizer.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $< -o $(GAME).o
 ##Link
 $(TARGET): $(OBJECTS)
 	 $(CC) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)

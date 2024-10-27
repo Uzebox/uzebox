@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-//#include <math.h>
+#include <math.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
 #include <fatfs/ffconf.h>
@@ -31,9 +31,10 @@
 //#define SIMSPIRAM
 //#define FIXEDMATH
 #define TOKEN 1
-//#define GENPCODE 1
-#define RUNPCODE
+#define GENPCODE 1
+//#define RUNPCODE
 //#define DBGPCODE
+#define ENABLEFILES
 
 #ifdef FIXEDMATH
 	#define VAR_TYPE int32_t//type used for number variables
@@ -139,34 +140,39 @@ struct stack_gosub_frame{
 	u8 *txtpos;
 };
 
-//void printmsgNoNL(const char *msg);
-//void printmsg(const char *msg);
-//static void getln(char prompt);
-//static u8 *findline();
-//static void toUppercaseBuffer();
+void printmsgNoNL(const char *msg);
+void printmsg(const char *msg);
+static void getln(char prompt);
+static u8 *findline();
+static void toUppercaseBuffer();
 void printline();
-//static VAR_TYPE expr4();
-//static VAR_TYPE expr3();
-//static VAR_TYPE expr2();
+static VAR_TYPE expr4();
+static VAR_TYPE expr3();
+static VAR_TYPE expr2();
 static VAR_TYPE expression();
-//void printnum(VAR_TYPE num);
-//void analogReference(uint8_t mode);
-//u16 analogRead(u8 pin);
-//u8 digitalRead(u8 pin);
-//void analogWrite(u8 pin, u16 val);
-//void digitalWrite(u8 pin, u8 val);
-//void tone(u8 f, u8 d);
-//void noTone();
-//void pinMode(u8 pin, u8 mode);
-//static s16 inchar();
+void printnum(VAR_TYPE num);
+void analogReference(uint8_t mode);
+u16 analogRead(u8 pin);
+u8 digitalRead(u8 pin);
+void analogWrite(u8 pin, u16 val);
+void digitalWrite(u8 pin, u8 val);
+void tone(u8 f, u8 d);
+void noTone();
+void pinMode(u8 pin, u8 mode);
+static s16 inchar();
 static void outchar(char c);
-//static void line_terminator();
-//static VAR_TYPE expression();
-//static bool breakcheck();
-//uint8_t SpiRamCursorRead(uint16_t addr);
-//void cmd_Files();
-//char *filenameWord();
-//void dump_mem(u16 start_addr,u8 rows);
+static void line_terminator();
+static VAR_TYPE expression();
+static bool breakcheck();
+uint8_t SpiRamCursorRead(uint16_t addr);
+void cmd_Files();
+char *filenameWord();
+void dump_mem(u16 start_addr,u8 rows);
+static u16 test_int_num();
+static inline void ignore_blanks();
+static void scantable(const u8 *table);
+static u8 print_quoted_string();
+static void delay(u8 ms);
 
 FATFS fs;
 FIL f;
@@ -176,27 +182,27 @@ u8 sd_initialized = 0;
 u8 inhibitOutput = 0;
 
 
-//static u8 runAfterLoad = 0;
-//static u8 triggerRun = 0;
-//static u8 inStream = kStreamKeyboard;
-//static u8 outStream = kStreamScreen;
-//static u8 *txtpos,*list_line, *tmptxtpos;
-//static u8 expression_error;
-//static u8 expression_return_type;
+static u8 runAfterLoad = 0;
+static u8 triggerRun = 0;
+static u8 inStream = kStreamKeyboard;
+static u8 outStream = kStreamScreen;
+static u8 *txtpos,*list_line, *tmptxtpos;
+static u8 expression_error;
+static u8 expression_return_type;
 static u8 *tempsp;
 static u32 timer_ticks;
 static u8 *stack_limit;
-//static u8 *program_start;
-////static u8 *program_end;
-//static u8 *variables_begin;
-//static u8 *current_line;
+static u8 *program_start;
+static u8 *program_end;
+static u8 *variables_begin;
+static u8 *current_line;
 static u8 *sp;
-//static u16 current_line_no;
+static u16 current_line_no;
 #define STACK_GOSUB_FLAG 'G'
 #define STACK_FOR_FLAG 'F'
 static u8 table_index;
-//static LINENUM linenum;
-//static bool debug_stop=false;
+static LINENUM linenum;
+static bool debug_stop=false;
 static u8 progmem[RAM_SIZE];
 
 static VAR_TYPE *pcode_sp;
@@ -204,127 +210,128 @@ static VAR_TYPE pcode_stack[20];
 static VAR_TYPE pcode_vars[26]; //A-Z
 //static u8 pcode_vars_type[26];
 
-///***********************************************************/
-////Keyword table and constants - the last character has 0x80 added to it
-//const static u8 keywords[] PROGMEM = {
-//	'I','F'+0x80,
-//	'N','E','X','T'+0x80,
-//	'F','O','R'+0x80,
-//	'E','X','I','T'+0x80,
-//	'P','R','I','N','T'+0x80,
-//	'G','O','T','O'+0x80,
-//	'G','O','S','U','B'+0x80,
-//	'R','E','T','U','R','N'+0x80,
-//	'I','N','P','U','T'+0x80,
-//	'P','O','K','E'+0x80,
-//	'R','E','M'+0x80,
-//	'C','L','S'+0x80,
-//	'L','I','S','T'+0x80,
-//	'L','O','A','D'+0x80,
-//	'N','E','W'+0x80,
-//	'R','U','N'+0x80,
-//	'S','A','V','E'+0x80,
-//	'S','T','O','P'+0x80,
-//	'S','Y','S','T','E','M'+0x80,
-//	'F','I','L','E','S'+0x80,
-//	'M','E','M'+0x80,
-//	'D','U','M','P'+0x80,
-//	'?'+ 0x80,
-//	'\''+ 0x80,
-//	'A','W','R','I','T','E'+0x80,
-//	'D','W','R','I','T','E'+0x80,
-//	'D','E','L','A','Y'+0x80,
-//	'E','N','D'+0x80,
-//	'R','S','E','E','D'+0x80,
-//	'C','H','A','I','N'+0x80,
-//	'L','E','T'+0x80,
-//	0
-//};
-//
-//enum{//by moving the command list to an enum, we can easily remove sections above and below simultaneously to selectively obliterate functionality.
-//	KW_LET=0,
-//	KW_IF,
-//	KW_NEXT,
-//	KW_FOR,
-//	KW_EXIT,
-//	KW_PRINT,
-//	KW_GOTO, KW_GOSUB, KW_RETURN,
-//	KW_INPUT,
-//	KW_POKE,
-//	KW_REM,
-//	KW_CLS,
-//	KW_LIST,
-//	KW_LOAD, KW_NEW, KW_RUN, KW_SAVE,
-//	KW_STOP, KW_SYSTEM,
-//	KW_FILES,
-//	KW_MEM,
-//	WM_DUMPMEM,
-//	KW_QMARK, KW_QUOTE,
-//	KW_AWRITE, KW_DWRITE,
-//	KW_DELAY,
-//	KW_END,
-//	KW_RSEED,
-//	KW_CHAIN,
-//	KW_DEFAULT /* always the final one*/
-//};
-//
-//#define FUNC_CHR	0
-//#define JOY			1
-//#define FUNC_PEEK	2
-//#define FUNC_ABS	3
-//#define FUNC_AREAD	4
-//#define FUNC_DREAD	5
-//#define FUNC_RND	6
-//#define FUNC_TICKS	7
-//#define FUNC_UNKNOWN 8
-//const static u8 func_tab[] PROGMEM = {
-//'C','H','R','$'+0x80,
-//'J','O','Y'+0x80,
-//'P','E','E','K'+0x80,
-//'A','B','S'+0x80,
-//'A','R','E','A','D'+0x80,
-//'D','R','E','A','D'+0x80,
-//'R','N','D'+0x80,
-//'T','I','C','K','S'+0x80,
-//0
-//};
-//
-//const static u8 to_tab[] PROGMEM = {
-//	'T','O'+0x80,
-//	0
-//};
-//
-//const static u8 step_tab[] PROGMEM = {
-//	'S','T','E','P'+0x80,
-//	0
-//};
-//
-//#define RELOP_GE	0
-//#define RELOP_NE	1
-//#define RELOP_GT	2
-//#define RELOP_EQ	3
-//#define RELOP_LE	4
-//#define RELOP_LT	5
-//#define RELOP_NE_BANG	6
-//#define RELOP_UNKNOWN	7
-//const static u8 relop_tab[] PROGMEM = {
-//	'>','='+0x80,
-//	'<','>'+0x80,
-//	'>'+0x80,
-//	'='+0x80,
-//	'<','='+0x80,
-//	'<'+0x80,
-//	'!','='+0x80,
-//	0
-//};
-//
-//const static u8 highlow_tab[] PROGMEM = {
-//	'H','I','G','H'+0x80,
-//	'H','I'+0x80,
-//	'L','O','W'+0x80,
-//	'L','O'+0x80,
-//	0
-//};
+/***********************************************************/
+//Keyword table and constants - the last character has 0x80 added to it
+static const u8 keywords[] PROGMEM = {
+	'I','F'+0x80,
+	'N','E','X','T'+0x80,
+	'F','O','R'+0x80,
+	'E','X','I','T'+0x80,
+	'P','R','I','N','T'+0x80,
+	'G','O','T','O'+0x80,
+	'G','O','S','U','B'+0x80,
+	'R','E','T','U','R','N'+0x80,
+	'I','N','P','U','T'+0x80,
+	'P','O','K','E'+0x80,
+	'R','E','M'+0x80,
+	'C','L','S'+0x80,
+	'L','I','S','T'+0x80,
+	'L','O','A','D'+0x80,
+	'N','E','W'+0x80,
+	'R','U','N'+0x80,
+	'S','A','V','E'+0x80,
+	'S','T','O','P'+0x80,
+	'S','Y','S','T','E','M'+0x80,
+	'F','I','L','E','S'+0x80,
+	'M','E','M'+0x80,
+	'D','U','M','P'+0x80,
+	'?'+ 0x80,
+	'\''+ 0x80,
+	'A','W','R','I','T','E'+0x80,
+	'D','W','R','I','T','E'+0x80,
+	'D','E','L','A','Y'+0x80,
+	'E','N','D'+0x80,
+	'R','S','E','E','D'+0x80,
+	'C','H','A','I','N'+0x80,
+	'L','E','T'+0x80,
+	0
+};
+
+enum{//by moving the command list to an enum, we can easily remove sections above and below simultaneously to selectively obliterate functionality.
+	KW_LET=0,
+	KW_IF,
+	KW_NEXT,
+	KW_FOR,
+	KW_EXIT,
+	KW_PRINT,
+	KW_GOTO, KW_GOSUB, KW_RETURN,
+	KW_INPUT,
+	KW_POKE,
+	KW_REM,
+	KW_CLS,
+	KW_LIST,
+	KW_LOAD, KW_NEW, KW_RUN, KW_SAVE,
+	KW_STOP, KW_SYSTEM,
+	KW_FILES,
+	KW_MEM,
+	WM_DUMPMEM,
+	KW_QMARK, KW_QUOTE,
+	KW_AWRITE, KW_DWRITE,
+	KW_DELAY,
+	KW_END,
+	KW_RSEED,
+	KW_CHAIN,
+	KW_DEFAULT /* always the final one*/
+};
+
+#define FUNC_CHR	0
+#define JOY			1
+#define FUNC_PEEK	2
+#define FUNC_ABS	3
+#define FUNC_AREAD	4
+#define FUNC_DREAD	5
+#define FUNC_RND	6
+#define FUNC_TICKS	7
+#define FUNC_UNKNOWN 8
+
+static const u8 func_tab[] PROGMEM = {
+'C','H','R','$'+0x80,
+'J','O','Y'+0x80,
+'P','E','E','K'+0x80,
+'A','B','S'+0x80,
+'A','R','E','A','D'+0x80,
+'D','R','E','A','D'+0x80,
+'R','N','D'+0x80,
+'T','I','C','K','S'+0x80,
+0
+};
+
+static const u8 to_tab[] PROGMEM = {
+	'T','O'+0x80,
+	0
+};
+
+static const u8 step_tab[] PROGMEM = {
+	'S','T','E','P'+0x80,
+	0
+};
+
+#define RELOP_GE	0
+#define RELOP_NE	1
+#define RELOP_GT	2
+#define RELOP_EQ	3
+#define RELOP_LE	4
+#define RELOP_LT	5
+#define RELOP_NE_BANG	6
+#define RELOP_UNKNOWN	7
+static const  u8 relop_tab[] PROGMEM = {
+	'>','='+0x80,
+	'<','>'+0x80,
+	'>'+0x80,
+	'='+0x80,
+	'<','='+0x80,
+	'<'+0x80,
+	'!','='+0x80,
+	0
+};
+
+static const u8 highlow_tab[] PROGMEM = {
+	'H','I','G','H'+0x80,
+	'H','I'+0x80,
+	'L','O','W'+0x80,
+	'L','O'+0x80,
+	0
+};
 
 
 
@@ -427,59 +434,61 @@ enum vars{
 
 //
 //
-//const u8 token_mem3[] PROGMEM={
-//10,0,5,KW_CLS+0x80,0xa,				//10 CLS
-//20,0,14,KW_LET+0x80,'T','=','T','I','C','K','S','(',')',0xa,
-//30,0,12,KW_FOR+0x80,'A','=','0','T','O','2','1',0xa,
-//40,0,12,KW_FOR+0x80,'B','=','0','T','O','3','1',0xa,
-//50,0,20,KW_LET+0x80,'C','=','0','.','1','0','9','3','8','*','B','-','2','.','5',0xa,
-//60,0,20,KW_LET+0x80,'D','=','0','.','0','9','0','9','0','*','A','-','1','.','0',0xa,
-//70,0,8,KW_LET+0x80,'X','=','0',0xa,
-//80,0,8,KW_LET+0x80,'Y','=','0',0xa,
-//90,0,12,KW_FOR+0x80,'I','=','0','T','O','1','4',0xa,
-//100,0,14,KW_LET+0x80,'F','=','X','*','X','+','Y','*','Y',0xa,
-//110,0,9,KW_IF+0x80,'F','>','4',KW_EXIT+0x80,0xa,
-//120,0,16,KW_LET+0x80,'E','=','X','*','X','-','Y','*','Y','+','C',0xa,
-//130,0,14,KW_LET+0x80,'Y','=','2','*','X','*','Y','+','D',0xa,
-//140,0,8,KW_LET+0x80,'X','=','E',0xa,
-//150,0,6,KW_NEXT+0x80,'I',0xa,
-//160,0,17,KW_PRINT+0x80,'C','H','R','$','(','I','+','1','2','6',')',';',0xa,
-//170,0,6,KW_NEXT+0x80,'B',0xa,
-//180,0,7,KW_PRINT+0x80,'"','"',0xa,
-//190,0,6,KW_NEXT+0x80,'A',0xa,
-//200,0,22,KW_PRINT+0x80,'"','E','l','a','p','s','e','d',' ','t','i','m','e',':',' ','"',';',0xa,
-//210,0,20,KW_PRINT+0x80,'(','T','I','C','K','S','(',')','-','T',')','/','6','0',';',0xa,
-//220,0,15,KW_PRINT+0x80,'"',' ','S','e','c','o','n','d','s','"',0xa,
-//0,0
-//};
-//
-//
-//const u8 token_mem[] PROGMEM={
-//
-//
-////		20,0,14,KW_LET+0x80,'T','=','T','I','C','K','S','(',')',0xa,
-////		30,0,12,KW_FOR+0x80,'A','=','0','T','O','2','1',0xa,
-////		40,0,12,KW_FOR+0x80,'B','=','0','T','O','3','1',0xa,
-////		50,0,20,KW_LET+0x80,'C','=','0','.','1','0','9','3','8','*','B','-','2','.','5',0xa,
-////		60,0,20,KW_LET+0x80,'D','=','0','.','0','9','0','9','0','*','A','-','1','.','0',0xa,
-////		70,0,8,KW_LET+0x80,'X','=','0',0xa,
-////		80,0,8,KW_LET+0x80,'Y','=','0',0xa,
-////		90,0,12,KW_FOR+0x80,'I','=','0','T','O','1','4',0xa,
-////		100,0,14,KW_LET+0x80,'F','=','X','*','X','+','Y','*','Y',0xa,
-//
-//		110,0,9,KW_IF+0x80,'F','>','4',KW_EXIT+0x80,0xa,
-//		120,0,16,KW_LET+0x80,'E','=','X','*','X','-','Y','*','Y','+','C',0xa,
-//		130,0,14,KW_LET+0x80,'Y','=','2','*','X','*','Y','+','D',0xa,
-//		140,0,8,KW_LET+0x80,'X','=','E',0xa,
-////		150,0,6,KW_NEXT+0x80,'I',0xa,
-////		160,0,17,KW_PRINT+0x80,'C','H','R','$','(','I','+','1','2','6',')',';',0xa,
-////		170,0,6,KW_NEXT+0x80,'B',0xa,
-////		180,0,7,KW_PRINT+0x80,'"','"',0xa,
-////		190,0,6,KW_NEXT+0x80,'A',0xa,
-//
-//
-//0,0
-//};
+const u8 token_mem3[] PROGMEM={
+10,0,5,KW_CLS+0x80,0xa,				//10 CLS
+20,0,14,KW_LET+0x80,'T','=','T','I','C','K','S','(',')',0xa,
+30,0,12,KW_FOR+0x80,'A','=','0','T','O','2','1',0xa,
+40,0,12,KW_FOR+0x80,'B','=','0','T','O','3','1',0xa,
+50,0,20,KW_LET+0x80,'C','=','0','.','1','0','9','3','8','*','B','-','2','.','5',0xa,
+60,0,20,KW_LET+0x80,'D','=','0','.','0','9','0','9','0','*','A','-','1','.','0',0xa,
+70,0,8,KW_LET+0x80,'X','=','0',0xa,
+80,0,8,KW_LET+0x80,'Y','=','0',0xa,
+90,0,12,KW_FOR+0x80,'I','=','0','T','O','1','4',0xa,
+100,0,14,KW_LET+0x80,'F','=','X','*','X','+','Y','*','Y',0xa,
+110,0,9,KW_IF+0x80,'F','>','4',KW_EXIT+0x80,0xa,
+120,0,16,KW_LET+0x80,'E','=','X','*','X','-','Y','*','Y','+','C',0xa,
+130,0,14,KW_LET+0x80,'Y','=','2','*','X','*','Y','+','D',0xa,
+140,0,8,KW_LET+0x80,'X','=','E',0xa,
+150,0,6,KW_NEXT+0x80,'I',0xa,
+160,0,17,KW_PRINT+0x80,'C','H','R','$','(','I','+','1','2','6',')',';',0xa,
+170,0,6,KW_NEXT+0x80,'B',0xa,
+180,0,7,KW_PRINT+0x80,'"','"',0xa,
+190,0,6,KW_NEXT+0x80,'A',0xa,
+200,0,22,KW_PRINT+0x80,'"','E','l','a','p','s','e','d',' ','t','i','m','e',':',' ','"',';',0xa,
+210,0,20,KW_PRINT+0x80,'(','T','I','C','K','S','(',')','-','T',')','/','6','0',';',0xa,
+220,0,15,KW_PRINT+0x80,'"',' ','S','e','c','o','n','d','s','"',0xa,
+0,0
+};
+
+
+const u8 token_mem[] PROGMEM={
+
+
+//		20,0,14,KW_LET+0x80,'T','=','T','I','C','K','S','(',')',0xa,
+//		30,0,12,KW_FOR+0x80,'A','=','0','T','O','2','1',0xa,
+//		40,0,12,KW_FOR+0x80,'B','=','0','T','O','3','1',0xa,
+//		50,0,20,KW_LET+0x80,'C','=','0','.','1','0','9','3','8','*','B','-','2','.','5',0xa,
+//		60,0,20,KW_LET+0x80,'D','=','0','.','0','9','0','9','0','*','A','-','1','.','0',0xa,
+//		70,0,8,KW_LET+0x80,'X','=','0',0xa,
+//		80,0,8,KW_LET+0x80,'Y','=','0',0xa,
+//		90,0,12,KW_FOR+0x80,'I','=','0','T','O','1','4',0xa,
+//		100,0,14,KW_LET+0x80,'F','=','X','*','X','+','Y','*','Y',0xa,
+		//110,0,9,KW_IF+0x80,'F','>','4',KW_EXIT+0x80,0xa,
+		//120,0,16,KW_LET+0x80,'E','=','X','*','X','-','Y','*','Y','+','C',0xa,
+
+		120,0,16,KW_LET+0x80,'A','=','K','/','2','*','3','+','4','-','5',0xa,
+
+		//130,0,14,KW_LET+0x80,'Y','=','2','*','X','*','Y','+','D',0xa,
+		//140,0,8,KW_LET+0x80,'X','=','E',0xa,
+//		150,0,6,KW_NEXT+0x80,'I',0xa,
+//		160,0,17,KW_PRINT+0x80,'C','H','R','$','(','I','+','1','2','6',')',';',0xa,
+//		170,0,6,KW_NEXT+0x80,'B',0xa,
+//		180,0,7,KW_PRINT+0x80,'"','"',0xa,
+//		190,0,6,KW_NEXT+0x80,'A',0xa,
+
+
+0,0
+};
 
 
 /**
@@ -547,22 +556,22 @@ const u8 token_mand[] PROGMEM={
 };
 
 //
-//static const char okmsg[]			PROGMEM = "Ok";
-//static const char whatmsg[]			PROGMEM = "Syntax error"; //"What? ";
-//static const char howmsg[]			PROGMEM = "How?";
-//static const char sorrymsg[]		PROGMEM = "Sorry!";
-//static const char initmsg[]			PROGMEM = "UzeBASIC " VERSION;
-//static const char memorymsg[]		PROGMEM = " bytes free.";
-//static const char breakmsg[]		PROGMEM = "\nBreak!";
-////static const char unimplimentedmsg[]	PROGMEM = "Unimplemented";
-//static const char backspacemsg[]	PROGMEM = "\b \b";
-//static const char indentmsg[]		PROGMEM = "    ";
-////static const char sderrormsg[]		PROGMEM = "ERROR: Failed to initialize SD Card, read/write is disabled.";
-////static const char sdsuccessmsg[]	PROGMEM = "SUCCESS: SD is initialized";
-//static const char sdfilemsg[]		PROGMEM = "ERROR: File Operation failed.";
-//static const char dirextmsg[]		PROGMEM = "(dir)";
-//static const char slashmsg[]		PROGMEM = "/";
-//static const char spacemsg[]		PROGMEM = " ";
+static const char okmsg[]			PROGMEM = "Ok";
+static const char whatmsg[]			PROGMEM = "Syntax error"; //"What? ";
+static const char howmsg[]			PROGMEM = "How?";
+static const char sorrymsg[]		PROGMEM = "Sorry!";
+static const char initmsg[]			PROGMEM = "UzeBASIC " VERSION;
+static const char memorymsg[]		PROGMEM = " bytes free.";
+static const char breakmsg[]		PROGMEM = "\nBreak!";
+//static const char unimplimentedmsg[]	PROGMEM = "Unimplemented";
+static const char backspacemsg[]	PROGMEM = "\b \b";
+static const char indentmsg[]		PROGMEM = "    ";
+//static const char sderrormsg[]		PROGMEM = "ERROR: Failed to initialize SD Card, read/write is disabled.";
+//static const char sdsuccessmsg[]	PROGMEM = "SUCCESS: SD is initialized";
+static const char sdfilemsg[]		PROGMEM = "ERROR: File Operation failed.";
+static const char dirextmsg[]		PROGMEM = "(dir)";
+static const char slashmsg[]		PROGMEM = "/";
+static const char spacemsg[]		PROGMEM = " ";
 
 
 
@@ -681,21 +690,21 @@ int main(){
 		//printmsg(PSTR("ERROR"));
 	}
 #ifndef RUNPCODE
-	outStream = kStreamScreen;
-	inStream = kStreamKeyboard;
-	inhibitOutput = 0;
-
-	printmsgNoNL(PSTR("Searching for "));
-	printmsgNoNL(PSTR(kAutorunFilename));
-	printmsgNoNL(PSTR("..."));
-	if(f_open(&f, kAutorunFilename, FA_OPEN_EXISTING|FA_READ) == FR_OK){//try to load autorun file if present
-		printmsg(PSTR("Loaded"));
-		program_end = program_start;
-		inStream = kStreamFile;
-		inhibitOutput = 1;
-		runAfterLoad = 0;
-	}else
-		printmsg(PSTR("Not Found"));
+//	outStream = kStreamScreen;
+//	inStream = kStreamKeyboard;
+//	inhibitOutput = 0;
+//
+//	printmsgNoNL(PSTR("Searching for "));
+//	printmsgNoNL(PSTR(kAutorunFilename));
+//	printmsgNoNL(PSTR("..."));
+//	if(f_open(&f, kAutorunFilename, FA_OPEN_EXISTING|FA_READ) == FR_OK){//try to load autorun file if present
+//		printmsg(PSTR("Loaded"));
+//		program_end = program_start;
+//		inStream = kStreamFile;
+//		inhibitOutput = 1;
+//		runAfterLoad = 0;
+//	}else
+//		printmsg(PSTR("Not Found"));
 	u8 *start;
 	u8 *newEnd;
 	u8 linelen;
@@ -1174,7 +1183,7 @@ int main(){
 
 	//memory free
 	printnum(variables_begin-program_end);
-	printmsg(memorymsg);
+	//printmsg(memorymsg);
 
 
 #if TOKEN == 1
@@ -1710,6 +1719,7 @@ NEXT:
 
 	#if GENPCODE == 1
 		printf_P(PSTR("[NEXT][%c]"),v);
+		while(1);
 	#endif
 
 
@@ -1984,745 +1994,751 @@ RSEED:
 	return 0;
 #endif
 }
-//
-////returns 1 if the character is valid in a filename
-//static s16 isValidFnChar(char c){
-//	if(c >= '0' && c <= '9') return 1;//number
-//	if(c >= 'A' && c <= 'Z') return 1;//LETTER
-//	if(c >= 'a' && c <= 'z') return 1;//letter (for completeness)
-//	if(c == '_') return 1;
-//	if(c == '+') return 1;
-//	if(c == '.') return 1;
-//	if(c == '~') return 1;	//Window~1.txt
-//
-//	return 0;
-//}
-//
-//char *filenameWord(){
-//	//SDL - I wasn't sure if this functionality existed above, so I figured i'd put it here
-//	u8 * ret = txtpos;
-//	expression_error = 0;
-//
-//	//make sure there are no quotes or spaces, search for valid characters
-//	//while(*txtpos == SPACE || *txtpos == TAB || *txtpos == SQUOTE || *txtpos == DQUOTE) txtpos++;
-//	while(!isValidFnChar(*txtpos)) txtpos++;
-//	ret = txtpos;
-//
-//	if(*ret == '\0'){
-//		expression_error = 1;
-//		return (char *)ret;
-//	}
-//
-//	//now, find the next nonfnchar
-//	txtpos++;
-//	while(isValidFnChar(*txtpos)) txtpos++;
-//	if(txtpos != ret) *txtpos = '\0';
-//
-//	//set the error code if we've got no string
-//	if(*ret == '\0'){
-//		expression_error = 1;
-//	}
-//
-//	return (char *)ret;
-//}
 
-/***************************************************************************/
-//static void line_terminator(){
-//	outchar(NL);
-//	outchar(CR);
-//}
-//
-///***********************************************************/
-//static bool breakcheck(){
-//
-//	if(terminal_HasChar()){
-//		if(terminal_GetChar()==CTRL_C){
-//			return true;
-//		}
-//	}
-//
-//	return false;
-//}
-///***********************************************************/
-//static s16 inchar(){
-//	s16 v;
-//	switch(inStream){
-//	case(kStreamKeyboard):
-//
-//		//why blocking?
-//		while(1){
-//			while(!terminal_HasChar()){}
-//			v=terminal_GetChar();
-//			return v;
-//		}
-//
-//		break;
-//	case(kStreamFile):
-//		if(GetVsyncFlag()) WaitVsync(1);
-//		f_read(&f, &v, 1, &bytesRead);
-//		if(bytesRead != 1){
-//			f_close(&f);
-//			goto INCHAR_LOADFINISH;
-//		}
-//		if(v == NL) v=CR;//file translate
-//
-//		return v;
-//		break;
-//	 case(kStreamSerial):
-//	default:
+//returns 1 if the character is valid in a filename
+static s16 isValidFnChar(char c){
+	if(c >= '0' && c <= '9') return 1;//number
+	if(c >= 'A' && c <= 'Z') return 1;//LETTER
+	if(c >= 'a' && c <= 'z') return 1;//letter (for completeness)
+	if(c == '_') return 1;
+	if(c == '+') return 1;
+	if(c == '.') return 1;
+	if(c == '~') return 1;	//Window~1.txt
+
+	return 0;
+}
+
+char *filenameWord(){
+	//SDL - I wasn't sure if this functionality existed above, so I figured i'd put it here
+	u8 * ret = txtpos;
+	expression_error = 0;
+
+	//make sure there are no quotes or spaces, search for valid characters
+	//while(*txtpos == SPACE || *txtpos == TAB || *txtpos == SQUOTE || *txtpos == DQUOTE) txtpos++;
+	while(!isValidFnChar(*txtpos)) txtpos++;
+	ret = txtpos;
+
+	if(*ret == '\0'){
+		expression_error = 1;
+		return (char *)ret;
+	}
+
+	//now, find the next nonfnchar
+	txtpos++;
+	while(isValidFnChar(*txtpos)) txtpos++;
+	if(txtpos != ret) *txtpos = '\0';
+
+	//set the error code if we've got no string
+	if(*ret == '\0'){
+		expression_error = 1;
+	}
+
+	return (char *)ret;
+}
+
+
+static void line_terminator(){
+	outchar(NL);
+	outchar(CR);
+}
+
+/***********************************************************/
+static bool breakcheck(){
+
+	if(terminal_HasChar()){
+		if(terminal_GetChar()==CTRL_C){
+			return true;
+		}
+	}
+
+	return false;
+}
+/***********************************************************/
+static s16 inchar(){
+	s16 v;
+	switch(inStream){
+	case(kStreamKeyboard):
+
+		//why blocking?
+		while(1){
+			while(!terminal_HasChar()){}
+			v=terminal_GetChar();
+			return v;
+		}
+
+		break;
+	case(kStreamFile):
+		if(GetVsyncFlag()) WaitVsync(1);
+		f_read(&f, &v, 1, &bytesRead);
+		if(bytesRead != 1){
+			f_close(&f);
+			goto INCHAR_LOADFINISH;
+		}
+		if(v == NL) v=CR;//file translate
+
+		return v;
+		break;
+	 case(kStreamSerial):
+	default:
 //		while(1){
 //			if(GetVsyncFlag()) WaitVsync(1);
 //			if(UartUnreadCount())
 //				return UartReadChar();
 //		}
-//	}
-//
-//INCHAR_LOADFINISH:
-//	inStream = kStreamKeyboard;
-//	inhibitOutput = 0;
-//
-//	if(runAfterLoad){
-//		runAfterLoad = 0;
-//		triggerRun = 1;
-//	}
-//	return NL;//trigger a prompt.
-//}
-//
-///***********************************************************/
-//static void outchar(char c){
-//	if(inhibitOutput) return;
-//
-//	if(outStream == kStreamScreen){
-//		//ConsolePrintChar(c);
-//		terminal_SendChar(c);
-//	}else if(outStream == kStreamFile){
-//		f_write(&f, &c, 1, &bytesWritten);
-//	}else{
-//		while(IsUartTxBufferFull());
-//		UartSendChar(c);
-//	}
-//}
-//
-//void cmd_Files(){
-//	DIR d;
-//	if(f_opendir(&d, "/") != FR_OK)
-//		return;
-//	FILINFO entry;
-//
-//	while(1){
-//		if(GetVsyncFlag()) WaitVsync(1);
-//		if(f_readdir(&d, &entry) != FR_OK || entry.fname[0] == 0)
-//			break;
-//		//common header
-//		printmsgNoNL(indentmsg);
-//		printmsgNoNL((const char *)entry.fname);
-//		if(entry.fattrib & AM_DIR){
-//			printmsgNoNL(slashmsg);
-//			u8 found_end = 0;
-//			for(u8 i=0; i<13 ; i++){
-//				if(entry.fname[i] == '\0')
-//					found_end = 1;
-//				if(found_end)
-//					printmsgNoNL(spacemsg);
-//			}
-//			printmsgNoNL(dirextmsg);
-//		}else{//file ending
-//			u8 found_end = 0;
-//			for(u8 i=0; i<13 ; i++){
-//				if(entry.fname[i] == '\0')
-//					found_end = 1;
-//				if(found_end)
-//					printmsgNoNL(spacemsg);
-//			}
-//			printnum(entry.fsize);
-//		}
-//		line_terminator();
-//	}
-//	f_close(&f);
-//}
-//
-//void analogReference(uint8_t mode){
-//}
-//
-//u16 analogRead(u8 pin){
-//	return 0;
-//}
-//u8 digitalRead(u8 pin){
-//	return 0;
-//}
-//
-//void analogWrite(u8 pin, u16 val){
-//}
-//
-//void digitalWrite(u8 pin, u8 val){
-//}
-//
-//void pinMode(u8 pin, u8 mode){
-//}
-//
-//#define NO_SPI_RAM 1
-//
-//#ifndef NO_SPI_RAM
-//	#include <spiram.h>
-//
-//	uint16_t spiram_cursor = 0;
-//	uint16_t spiram_state = 0;
-//
-//	uint8_t SpiRamCursorInit(){
-//		spiram_cursor = RAM_SIZE;
-//		spiram_state = 0;
-//		if(!SpiRamInit())
-//			return 0;
-//		SpiRamSeqReadStart((RAM_SIZE<<16)&0xFF, (uint16_t)RAM_SIZE&0xFFFF);
-//		return 1;
-//	}
-//
-//	uint8_t SpiRamCursorRead(uint16_t addr){
-//		if(spiram_state){//in a sequential write?
-//			SpiRamSeqWriteEnd();
-//			asm("nop");asm("nop");
-//			SpiRamSeqReadStart(0, addr);
-//			asm("nop");asm("nop");
-//			spiram_state = 0;
-//			spiram_cursor = addr+1;
-//			return SpiRamSeqReadU8();
-//		}
-//		if(spiram_cursor != addr){//current sequential read position doesn't match?
-//			SpiRamSeqReadEnd();
-//			asm("nop");asm("nop");
-//			SpiRamSeqReadStart(0, addr);
-//			asm("nop");asm("nop");
-//			spiram_cursor = addr+1;
-//			return SpiRamSeqReadU8();
-//		}
-//		spiram_cursor++;
-//		return SpiRamSeqReadU8();
-//	}
-//
-//	void SpiRamCursorWrite(uint16_t addr, uint8_t val){
-//		if(!spiram_state){//in a sequential read?
-//			SpiRamSeqReadEnd();
-//			asm("nop");asm("nop");
-//			SpiRamSeqWriteStart(0, addr);
-//			spiram_state = 1;
-//			spiram_cursor = addr+1;
-//			asm("nop");asm("nop");
-//			SpiRamSeqWriteU8(val);
-//			return;
-//		}
-//		if(spiram_cursor != addr){//current sequential write position doesn't match?
-//			SpiRamSeqWriteEnd();
-//			asm("nop");asm("nop");
-//			SpiRamSeqWriteStart(0, addr);
-//			spiram_cursor = addr+1;
-//			asm("nop");asm("nop");
-//			SpiRamSeqWriteU8(val);
-//			return;
-//		}
-//		spiram_cursor++;
-//		SpiRamSeqWriteU8(val);
-//	}
-//#endif
-//
-//
-//	void delay(u8 ms){
-//		s16 time = ms;
-//		while(time > 0){
-//			if(GetVsyncFlag()){
-//				WaitVsync(1);
-//				time -= 16;
-//				continue;
-//			}
-//			for(u16 i=0;i<1000;i++){
-//				for(u8 j=0;j<5;j++){
-//					Wait200ns();
-//				}
-//			}
-//			time--;
-//		}
-//	}
-//	/***************************************************************************/
-//	static inline void ignore_blanks(){
-//		while(*txtpos == SPACE || *txtpos == TAB){
-//			txtpos++;
-//		}
-//	}
-//
-//
-//	/***************************************************************************/
-//	static void scantable(const u8 *table){
-//		s16 i = 0;
-//		table_index = 0;
-//		while(1){
-//			//if(GetVsyncFlag()) WaitVsync(1);
-//			if(pgm_read_byte(table) == 0)//run out of table entries?
-//				return;
-//
-//			if(txtpos[i] == pgm_read_byte(table)){//do we match this character?
-//				i++;
-//				table++;
-//			}else{//do we match the last character of keywork (with 0x80 added)? If so, return
-//				if(txtpos[i]+0x80 == pgm_read_byte(table)){
-//					txtpos += i+1;//Advance the pointer to following the keyword
-//					ignore_blanks();
-//					return;
-//				}
-//				while((pgm_read_byte(table) & 0x80) == 0)//Forward to the end of this keyword
-//					table++;
-//
-//				table++;////Now move on to the first character of the next word...
-//				table_index++;
-//				ignore_blanks();//...and reset the position index
-//				i = 0;
-//			}
-//		}
-//	}
-//
-//	/***************************************************************************/
-//	static void pushb(u8 b){
-//		sp--;
-//		*sp = b;
-//	}
-//
-//	/***************************************************************************/
-//	static u8 popb(){
-//		u8 b;
-//		b = *sp;
-//		sp++;
-//		return b;
-//	}
-//
-//	/***************************************************************************/
-//	void printnum(VAR_TYPE num){
-//		printf_P(PSTR("%g"),num);
-//	}
-//
-//	void printUnum(u16 num){
-//		s16 digits = 0;
-//
-//		do{
-//			pushb(num%10+'0');
-//			num = num/10;
-//			digits++;
-//		}
-//		while(num > 0);
-//
-//		while(digits > 0){
-//			outchar(popb());
-//			digits--;
-//		}
-//	}
-//
-//	/***************************************************************************/
-//	static u16 test_int_num(){
-//		u16 num = 0;
-//		ignore_blanks();
-//
-//		while(*txtpos>= '0' && *txtpos <= '9'){
-//			if(num >= 0xFFFF/10){//trap overflows
-//				num = 0xFFFF;
-//				break;
-//			}
-//
-//			num = num *10 + *txtpos - '0';
-//			txtpos++;
-//		}
-//		return num;
-//	}
-//
-//	/***************************************************************************/
-//	static u8 print_quoted_string(){
-//		s16 i=0;
-//		u8 delim = *txtpos++;
-//		//if(delim != '"' && delim != '\'')
-//		//	return 0;
-//		//txtpos++;
-//
-//		while(txtpos[i] != delim){//check we have a closing delimiter
-//			if(txtpos[i] == NL)
-//				return 0;
-//			i++;
-//		}
-//
-//		while(*txtpos != delim){//print the characters
-//			#if GENPCODE == 1
-//				printf_P(PSTR("[%c]"),*txtpos);
-//			#endif
-//
-//			outchar(*txtpos);
-//			txtpos++;
-//		}
-//
-//		#if GENPCODE == 1
-//			printf_P(PSTR("[NUL]"),*txtpos);
-//		#endif
-//
-//		txtpos++;//skip over the last delimiter
-//		return 1;
-//	}
-//
-//
-//	/***************************************************************************/
-//	void printmsgNoNL(const char *msg){
-//		while(pgm_read_byte(msg) != 0){
-//			outchar(pgm_read_byte(msg++));
-//		}
-//	}
-//
-//	/***************************************************************************/
-//	void printmsg(const char *msg){
-//		printmsgNoNL(msg);
-//		line_terminator();
-//	}
-//
-//	/***************************************************************************/
-//	static void getln(char prompt){
-//		outchar(prompt);
-//		txtpos = program_end+sizeof(LINENUM);
-//
-//		while(1){
-//			//if(GetVsyncFlag()) WaitVsync(1);
-//			char c = inchar();
-//			switch(c){
-//			case NL:
-//				//break;
-//			case CR:
-//				line_terminator();
-//				txtpos[0] = NL;//Terminate all strings with a NL
-//				return;
-//			case BACKSP:
-//				if(txtpos == program_end+sizeof(LINENUM))
-//					break;
-//				txtpos--;
-//				printmsgNoNL(backspacemsg);
-//				break;
-//			default://We need to leave at least one space to allow us to shuffle the line into order
-//				if(txtpos == variables_begin-2){
-//					outchar(BACKSP);
-//				}else{
-//					txtpos[0] = c;
-//					txtpos++;
-//					outchar(c);
-//				}
-//			}
-//		}
-//	}
-//
-//	/***************************************************************************/
-//	static u8 *findline(){
-//		u8 *line = program_start;
-//		while(1){
-//			if(line == program_end)
-//				return line;
-//
-//			if(((LINENUM *)line)[0] >= linenum)
-//				return line;
-//
-//			line += line[sizeof(LINENUM)];//Add the line length onto the current address, to get to the next line
-//		}
-//	}
-//
-//	/***************************************************************************/
-//	static void toUppercaseBuffer(){
-//		u8 *c = program_end+sizeof(LINENUM);
-//		u8 quote = 0;
-//
-//		while(*c != NL){
-//			//Are we in a quoted string?
-//			if(*c == quote)
-//				quote = 0;
-//			else if(*c == '"' || *c == '\'')
-//				quote = *c;
-//			else if(quote == 0 && *c >= 'a' && *c <= 'z')
-//				*c = *c + 'A' - 'a';
-//			c++;
-//		}
-//	}
-//
-//	/***************************************************************************/
-//	void printline(){
-//		LINENUM line_num;
-//
-//		line_num = *((LINENUM *)(list_line));
-//		list_line += sizeof(LINENUM) + sizeof(char);
-//
-//		//Output the line
-//		printnum(line_num);
-//		outchar(' ');
-//		while(*list_line != NL){
-//			outchar(*list_line);
-//			list_line++;
-//		}
-//		list_line++;
-//		line_terminator();
-//	}
-//
-//	/***************************************************************************/
-//	static VAR_TYPE expr4(){
-//		//fix provided by Jurg Wullschleger wullschleger@gmail.com for whitespace and unary operations
-//		ignore_blanks();
-//
-//		if(*txtpos == '-'){
-//			txtpos++;
-//			return -expr4();
-//		}
-//		//end fix
-//
-//
-//		//Is it a literral number?
-//		if(*txtpos=='-' || (*txtpos >= '0' && *txtpos <= '9')){
-//			const char *numpos=(char*)txtpos;
-//			char *endptr;
-//
-//			do{
-//				txtpos++;
-//			}while((*txtpos >= '0' && *txtpos <= '9') || *txtpos=='.' ); //todo: add support for exponential notation
-//
-//			u8 save=*txtpos; //save current char
-//			*txtpos=0;		//to add zero terminator
-//			VAR_TYPE num=(VAR_TYPE)strtod(numpos, &endptr);
-//			*txtpos=save;
-//			if(endptr==numpos)goto EXPR4_ERROR; //invalid float format
-//
-//			#if GENPCODE == 1
-//
-//				if(num<256){
-//					printf_P(PSTR("[LDB][%02x]"),(u8)num);
-//				}else{
-//					printf_P(PSTR("[LDD][%04x]"),num);
-//				}
-//
-//			#endif
-//
-//
-//
-//			return num;
-//
-//		}
-//
-//
-//
-//		//Is it a function or variable reference?
-//		if(txtpos[0] >= 'A' && txtpos[0] <= 'Z'){
-//			VAR_TYPE a;
-//			//Is it a variable reference (single alpha)
-//			if(txtpos[1] < 'A' || txtpos[1] > 'Z'){
-//				a = ((VAR_TYPE *)variables_begin)[*txtpos - 'A'];
-//				char v=txtpos[0];
-//				txtpos++;
-//
-//				#if GENPCODE == 1
-//					printf_P(PSTR("[LVAR][%c]"),v);
-//				#endif
-//
-//
-//				return a;
-//			}
-//
-//			//Is it a function with a single parameter
-//			scantable(func_tab);
-//			if(table_index == FUNC_UNKNOWN)
-//				goto EXPR4_ERROR;
-//
-//			u8 f = table_index;
-//			u8 params;
-//
-//			if(*txtpos != '(')
-//				goto EXPR4_ERROR;
-//
-//			txtpos++;
-//
-//			if(*txtpos == ')'){
-//				params=0;
-//			}else{
-//				a = expression();
-//				if(*txtpos != ')') goto EXPR4_ERROR;
-//				params=1;
-//			}
-//			txtpos++;
-//
-//			switch(f){
-//
-//				case FUNC_PEEK:
-//					if(params==0) goto EXPR4_ERROR;
-//					if(a < RAM_SIZE){
-//						return progmem[(u16)a];
-//					}else{
-//						return SpiRamCursorRead(a);
-//					}
-//				case FUNC_ABS:
-//					if(params==0) goto EXPR4_ERROR;
-//					if(a < 0)
-//						return -a;
-//					return a;
-//
-//				case FUNC_AREAD:
-//					if(params==0) goto EXPR4_ERROR;
-//					pinMode(a, PM_INPUT);
-//					return analogRead(a);
-//
-//				case FUNC_DREAD:
-//					if(params==0) goto EXPR4_ERROR;
-//					pinMode(a, PM_INPUT);
-//					return digitalRead(a);
-//
-//				case FUNC_RND:
-//					if(params==0) goto EXPR4_ERROR;
-//					return(GetPrngNumber(0) % (u16)a);
-//
-//				case FUNC_CHR:
-//					if(params==0) goto EXPR4_ERROR;
-//					expression_return_type=VAR_TYPE_STR;
-//
-//					#if GENPCODE == 1
-//						printf_P(PSTR("[CHR]"));
-//					#endif
-//					return a;
-//
-//				case FUNC_TICKS:
-//					#if GENPCODE == 1
-//						printf_P(PSTR("[TICKS]"));
-//					#endif
-//					return (VAR_TYPE)timer_ticks;
-//			}
-//		}
-//
-//		if(*txtpos == '('){
-//			txtpos++;
-//			VAR_TYPE a = expression();
-//			if(*txtpos != ')')
-//				goto EXPR4_ERROR;
-//
-//			txtpos++;
-//			return a;
-//		}
-//
-//	EXPR4_ERROR:
-//		expression_error = 1;
-//		return 0;
-//	}
-//
-//	/***************************************************************************/
-//	static VAR_TYPE expr3(){
-//		VAR_TYPE a = expr4();
-//		ignore_blanks();//fix for eg:	100 a = a + 1
-//
-//		while(1){
-//			//printf("<exp3 *tpos=%c",*txtpos);
-//			VAR_TYPE b;
-//			if(*txtpos == '*'){
-//				txtpos++;
-//				b = expr4();
-//
-//				#if GENPCODE == 1
-//					printf_P(PSTR("[MUL %g*%g]"),a,b);
-//				#endif
-//
-//				a *= b;
-//			}else if(*txtpos == '/'){
-//				txtpos++;
-//				b = expr4();
-//
-//				#if GENPCODE == 1
-//					printf_P(PSTR("[DIV %g/%g]"),a,b);
-//				#endif
-//
-//				if(b != 0)
-//					a /= b;
-//				else
-//					expression_error = 1;
-//			}else{
-//				//printf("<exp3=%d>",(int)a);
-//				return a;
-//			}
-//		}
-//	}
-//
-//	/***************************************************************************/
-//	static VAR_TYPE expr2(){
-//		VAR_TYPE a;
-//
-//		if(*txtpos == '-' || *txtpos == '+'){
-//			a = 0;
-//			//printf("<exp2=0");
-//		}else{
-//			a = expr3();
-//			//printf("<exp2=%d>",(int)a);
-//		}
-//
-//		while(1){
-//			VAR_TYPE b;
-//			//printf("<exp2 *textpos=%i>",(int)*txtpos);
-//			if(*txtpos == '-'){
-//				txtpos++;
-//				b = expr3();
-//
-//				#if GENPCODE == 1
-//					printf_P(PSTR("[SUB %g-%g]"),a,b);
-//				#endif
-//
-//				a -= b;
-//			}else if(*txtpos == '+'){
-//				txtpos++;
-//				b = expr3();
-//
-//				#if GENPCODE == 1
-//					printf_P(PSTR("[ADD %g+%g]"),a,b);
-//				#endif
-//
-//				a += b;
-//
-//
-//
-//			}else{
-//				//printf("<exp2 ret %d>",(int)a);
-//				return a;
-//			}
-//		}
-//	}
-//	/***************************************************************************/
-//	static VAR_TYPE expression(){
-//		VAR_TYPE a = expr2();
-//		VAR_TYPE b;
-//
-//		//Check if we have an error
-//		if(expression_error)	return a;
-//
-//		scantable(relop_tab);
-//		if(table_index == RELOP_UNKNOWN)
-//			return a;
-//
-//		switch(table_index){
-//		case RELOP_GE:
-//			b = expr2();
-//
-//			#if GENPCODE == 1
-//				printf_P(PSTR("[CP %i>=%i]"),(u8)a,(u8)b);
-//			#endif
-//
-//			if(a >= b) return 1;
-//			break;
-//		case RELOP_NE:
-//		case RELOP_NE_BANG:
-//			b = expr2();
-//			if(a != b) return 1;
-//			break;
-//		case RELOP_GT:
-//			b = expr2();
-//			if(a > b) return 1;
-//			break;
-//		case RELOP_EQ:
-//			b = expr2();
-//			if(a == b) return 1;
-//			break;
-//		case RELOP_LE:
-//			b = expr2();
-//			if(a <= b) return 1;
-//			break;
-//		case RELOP_LT:
-//			b = expr2();
-//			if(a < b) return 1;
-//			break;
-//		}
-//		return 0;
-//	}
+	}
+
+INCHAR_LOADFINISH:
+	inStream = kStreamKeyboard;
+	inhibitOutput = 0;
+
+	if(runAfterLoad){
+		runAfterLoad = 0;
+		triggerRun = 1;
+	}
+	return NL;//trigger a prompt.
+}
+
+/***********************************************************/
+static void outchar(char c){
+	if(inhibitOutput) return;
+
+	if(outStream == kStreamScreen){
+		//ConsolePrintChar(c);
+		terminal_SendChar(c);
+	}else if(outStream == kStreamFile){
+		f_write(&f, &c, 1, &bytesWritten);
+	}else{
+		//while(IsUartTxBufferFull());
+		//UartSendChar(c);
+	}
+}
+
+void cmd_Files(){
+	DIR d;
+	if(f_opendir(&d, "/") != FR_OK)
+		return;
+	FILINFO entry;
+
+	while(1){
+		if(GetVsyncFlag()) WaitVsync(1);
+		if(f_readdir(&d, &entry) != FR_OK || entry.fname[0] == 0)
+			break;
+		//common header
+		printmsgNoNL(indentmsg);
+		printmsgNoNL((const char *)entry.fname);
+		if(entry.fattrib & AM_DIR){
+			printmsgNoNL(slashmsg);
+			u8 found_end = 0;
+			for(u8 i=0; i<13 ; i++){
+				if(entry.fname[i] == '\0')
+					found_end = 1;
+				if(found_end)
+					printmsgNoNL(spacemsg);
+			}
+			printmsgNoNL(dirextmsg);
+		}else{//file ending
+			u8 found_end = 0;
+			for(u8 i=0; i<13 ; i++){
+				if(entry.fname[i] == '\0')
+					found_end = 1;
+				if(found_end)
+					printmsgNoNL(spacemsg);
+			}
+			printnum(entry.fsize);
+		}
+		line_terminator();
+	}
+	f_close(&f);
+}
+
+
+#define NO_SPI_RAM 1
+
+#ifndef NO_SPI_RAM
+	#include <spiram.h>
+
+	uint16_t spiram_cursor = 0;
+	uint16_t spiram_state = 0;
+
+	uint8_t SpiRamCursorInit(){
+		spiram_cursor = RAM_SIZE;
+		spiram_state = 0;
+		if(!SpiRamInit())
+			return 0;
+		SpiRamSeqReadStart((RAM_SIZE<<16)&0xFF, (uint16_t)RAM_SIZE&0xFFFF);
+		return 1;
+	}
+
+	uint8_t SpiRamCursorRead(uint16_t addr){
+		if(spiram_state){//in a sequential write?
+			SpiRamSeqWriteEnd();
+			asm("nop");asm("nop");
+			SpiRamSeqReadStart(0, addr);
+			asm("nop");asm("nop");
+			spiram_state = 0;
+			spiram_cursor = addr+1;
+			return SpiRamSeqReadU8();
+		}
+		if(spiram_cursor != addr){//current sequential read position doesn't match?
+			SpiRamSeqReadEnd();
+			asm("nop");asm("nop");
+			SpiRamSeqReadStart(0, addr);
+			asm("nop");asm("nop");
+			spiram_cursor = addr+1;
+			return SpiRamSeqReadU8();
+		}
+		spiram_cursor++;
+		return SpiRamSeqReadU8();
+	}
+
+	void SpiRamCursorWrite(uint16_t addr, uint8_t val){
+		if(!spiram_state){//in a sequential read?
+			SpiRamSeqReadEnd();
+			asm("nop");asm("nop");
+			SpiRamSeqWriteStart(0, addr);
+			spiram_state = 1;
+			spiram_cursor = addr+1;
+			asm("nop");asm("nop");
+			SpiRamSeqWriteU8(val);
+			return;
+		}
+		if(spiram_cursor != addr){//current sequential write position doesn't match?
+			SpiRamSeqWriteEnd();
+			asm("nop");asm("nop");
+			SpiRamSeqWriteStart(0, addr);
+			spiram_cursor = addr+1;
+			asm("nop");asm("nop");
+			SpiRamSeqWriteU8(val);
+			return;
+		}
+		spiram_cursor++;
+		SpiRamSeqWriteU8(val);
+	}
+#endif
+
+
+	static void delay(u8 ms){
+		s16 time = ms;
+		while(time > 0){
+			if(GetVsyncFlag()){
+				WaitVsync(1);
+				time -= 16;
+				continue;
+			}
+			for(u16 i=0;i<1000;i++){
+				for(u8 j=0;j<5;j++){
+					Wait200ns();
+				}
+			}
+			time--;
+		}
+	}
+	/***************************************************************************/
+	static inline void ignore_blanks(){
+		while(*txtpos == SPACE || *txtpos == TAB){
+			txtpos++;
+		}
+	}
+
+
+	/***************************************************************************/
+	static void scantable(const u8 *table){
+		s16 i = 0;
+		table_index = 0;
+		while(1){
+			//if(GetVsyncFlag()) WaitVsync(1);
+			if(pgm_read_byte(table) == 0)//run out of table entries?
+				return;
+
+			if(txtpos[i] == pgm_read_byte(table)){//do we match this character?
+				i++;
+				table++;
+			}else{//do we match the last character of keywork (with 0x80 added)? If so, return
+				if(txtpos[i]+0x80 == pgm_read_byte(table)){
+					txtpos += i+1;//Advance the pointer to following the keyword
+					ignore_blanks();
+					return;
+				}
+				while((pgm_read_byte(table) & 0x80) == 0)//Forward to the end of this keyword
+					table++;
+
+				table++;////Now move on to the first character of the next word...
+				table_index++;
+				ignore_blanks();//...and reset the position index
+				i = 0;
+			}
+		}
+	}
+
+	/***************************************************************************/
+	static void pushb(u8 b){
+		sp--;
+		*sp = b;
+	}
+
+	/***************************************************************************/
+	static u8 popb(){
+		u8 b;
+		b = *sp;
+		sp++;
+		return b;
+	}
+
+	/***************************************************************************/
+	void printnum(VAR_TYPE num){
+		printf_P(PSTR("%g"),num);
+	}
+
+	void printUnum(u16 num){
+		s16 digits = 0;
+
+		do{
+			pushb(num%10+'0');
+			num = num/10;
+			digits++;
+		}
+		while(num > 0);
+
+		while(digits > 0){
+			outchar(popb());
+			digits--;
+		}
+	}
+
+	/***************************************************************************/
+	static u16 test_int_num(){
+		u16 num = 0;
+		ignore_blanks();
+
+		while(*txtpos>= '0' && *txtpos <= '9'){
+			if(num >= 0xFFFF/10){//trap overflows
+				num = 0xFFFF;
+				break;
+			}
+
+			num = num *10 + *txtpos - '0';
+			txtpos++;
+		}
+		return num;
+	}
+
+	/***************************************************************************/
+	static u8 print_quoted_string(){
+		s16 i=0;
+		u8 delim = *txtpos++;
+		//if(delim != '"' && delim != '\'')
+		//	return 0;
+		//txtpos++;
+
+		while(txtpos[i] != delim){//check we have a closing delimiter
+			if(txtpos[i] == NL)
+				return 0;
+			i++;
+		}
+
+		while(*txtpos != delim){//print the characters
+			#if GENPCODE == 1
+				printf_P(PSTR("[%c]"),*txtpos);
+			#endif
+
+			outchar(*txtpos);
+			txtpos++;
+		}
+
+		#if GENPCODE == 1
+			printf_P(PSTR("[NUL]"),*txtpos);
+		#endif
+
+		txtpos++;//skip over the last delimiter
+		return 1;
+	}
+
+
+	/***************************************************************************/
+	void printmsgNoNL(const char *msg){
+		while(pgm_read_byte(msg) != 0){
+			outchar(pgm_read_byte(msg++));
+		}
+	}
+
+	/***************************************************************************/
+	void printmsg(const char *msg){
+		printmsgNoNL(msg);
+		line_terminator();
+	}
+
+	/***************************************************************************/
+	static void getln(char prompt){
+		outchar(prompt);
+		txtpos = program_end+sizeof(LINENUM);
+
+		while(1){
+			//if(GetVsyncFlag()) WaitVsync(1);
+			char c = inchar();
+			switch(c){
+			case NL:
+				//break;
+			case CR:
+				line_terminator();
+				txtpos[0] = NL;//Terminate all strings with a NL
+				return;
+			case BACKSP:
+				if(txtpos == program_end+sizeof(LINENUM))
+					break;
+				txtpos--;
+				printmsgNoNL(backspacemsg);
+				break;
+			default://We need to leave at least one space to allow us to shuffle the line into order
+				if(txtpos == variables_begin-2){
+					outchar(BACKSP);
+				}else{
+					txtpos[0] = c;
+					txtpos++;
+					outchar(c);
+				}
+			}
+		}
+	}
+
+	/***************************************************************************/
+	static u8 *findline(){
+		u8 *line = program_start;
+		while(1){
+			if(line == program_end)
+				return line;
+
+			if(((LINENUM *)line)[0] >= linenum)
+				return line;
+
+			line += line[sizeof(LINENUM)];//Add the line length onto the current address, to get to the next line
+		}
+	}
+
+	/***************************************************************************/
+	static void toUppercaseBuffer(){
+		u8 *c = program_end+sizeof(LINENUM);
+		u8 quote = 0;
+
+		while(*c != NL){
+			//Are we in a quoted string?
+			if(*c == quote)
+				quote = 0;
+			else if(*c == '"' || *c == '\'')
+				quote = *c;
+			else if(quote == 0 && *c >= 'a' && *c <= 'z')
+				*c = *c + 'A' - 'a';
+			c++;
+		}
+	}
+
+	/***************************************************************************/
+	void printline(){
+		LINENUM line_num;
+
+		line_num = *((LINENUM *)(list_line));
+		list_line += sizeof(LINENUM) + sizeof(char);
+
+		//Output the line
+		printnum(line_num);
+		outchar(' ');
+		while(*list_line != NL){
+			outchar(*list_line);
+			list_line++;
+		}
+		list_line++;
+		line_terminator();
+	}
+
+	/***************************************************************************/
+	static VAR_TYPE expr4(){
+		//fix provided by Jurg Wullschleger wullschleger@gmail.com for whitespace and unary operations
+		ignore_blanks();
+
+		if(*txtpos == '-'){
+			txtpos++;
+			return -expr4();
+		}
+		//end fix
+
+
+		//Is it a literral number?
+		if(*txtpos=='-' || (*txtpos >= '0' && *txtpos <= '9')){
+			const char *numpos=(char*)txtpos;
+			char *endptr;
+
+			do{
+				txtpos++;
+			}while((*txtpos >= '0' && *txtpos <= '9') || *txtpos=='.' ); //todo: add support for exponential notation
+
+			u8 save=*txtpos; //save current char
+			*txtpos=0;		//to add zero terminator
+			VAR_TYPE num=(VAR_TYPE)strtod(numpos, &endptr);
+			*txtpos=save;
+			if(endptr==numpos)goto EXPR4_ERROR; //invalid float format
+
+			#if GENPCODE == 1
+
+				if(num<256){
+					printf_P(PSTR("[LDB][%02x]"),(u8)num);
+				}else{
+					printf_P(PSTR("[LDD][%04x]"),num);
+				}
+
+			#endif
+
+
+
+			return num;
+
+		}
+
+
+
+		//Is it a function or variable reference?
+		if(txtpos[0] >= 'A' && txtpos[0] <= 'Z'){
+			VAR_TYPE a;
+			//Is it a variable reference (single alpha)
+			if(txtpos[1] < 'A' || txtpos[1] > 'Z'){
+				a = ((VAR_TYPE *)variables_begin)[*txtpos - 'A'];
+				char v=txtpos[0];
+				txtpos++;
+
+				#if GENPCODE == 1
+					printf_P(PSTR("[LVAR][%c]"),v);
+				#endif
+
+
+				return a;
+			}
+
+			//Is it a function with a single parameter
+			scantable(func_tab);
+			if(table_index == FUNC_UNKNOWN)
+				goto EXPR4_ERROR;
+
+			u8 f = table_index;
+			u8 params;
+
+			if(*txtpos != '(')
+				goto EXPR4_ERROR;
+
+			txtpos++;
+
+			if(*txtpos == ')'){
+				params=0;
+			}else{
+				a = expression();
+				if(*txtpos != ')') goto EXPR4_ERROR;
+				params=1;
+			}
+			txtpos++;
+
+			switch(f){
+
+				case FUNC_PEEK:
+					if(params==0) goto EXPR4_ERROR;
+					if(a < RAM_SIZE){
+						return progmem[(u16)a];
+					}else{
+						return 0;
+						//return SpiRamCursorRead(a);
+					}
+				case FUNC_ABS:
+					if(params==0) goto EXPR4_ERROR;
+					if(a < 0)
+						return -a;
+					return a;
+
+				case FUNC_AREAD:
+					if(params==0) goto EXPR4_ERROR;
+					pinMode(a, PM_INPUT);
+					return analogRead(a);
+
+				case FUNC_DREAD:
+					if(params==0) goto EXPR4_ERROR;
+					pinMode(a, PM_INPUT);
+					return digitalRead(a);
+
+				case FUNC_RND:
+					if(params==0) goto EXPR4_ERROR;
+					return(GetPrngNumber(0) % (u16)a);
+
+				case FUNC_CHR:
+					if(params==0) goto EXPR4_ERROR;
+					expression_return_type=VAR_TYPE_STR;
+
+					#if GENPCODE == 1
+						printf_P(PSTR("[CHR]"));
+					#endif
+					return a;
+
+				case FUNC_TICKS:
+					#if GENPCODE == 1
+						printf_P(PSTR("[TICKS]"));
+					#endif
+					return (VAR_TYPE)timer_ticks;
+			}
+		}
+
+		if(*txtpos == '('){
+			txtpos++;
+			VAR_TYPE a = expression();
+			if(*txtpos != ')')
+				goto EXPR4_ERROR;
+
+			txtpos++;
+			return a;
+		}
+
+	EXPR4_ERROR:
+		expression_error = 1;
+		return 0;
+	}
+
+	/***************************************************************************/
+	static VAR_TYPE expr3(){
+		VAR_TYPE a = expr4();
+		ignore_blanks();//fix for eg:	100 a = a + 1
+
+
+		while(1){
+			//printf("<exp3 *tpos=%c",*txtpos);
+			VAR_TYPE b;
+			if(*txtpos == '*'){
+				txtpos++;
+				b = expr4();
+
+				#if GENPCODE == 1
+					printf_P(PSTR("[MUL %g*%g]"),a,b);
+				#endif
+
+				a *= b;
+			}else if(*txtpos == '/'){
+				txtpos++;
+				b = expr4();
+
+				#if GENPCODE == 1
+					printf_P(PSTR("[DIV %g/%g]"),a,b);
+				#endif
+
+				if(b != 0)
+					a /= b;
+				else
+					expression_error = 1;
+			}else{
+				//printf("<exp3=%d>",(int)a);
+				return a;
+			}
+		}
+	}
+
+	/***************************************************************************/
+	static VAR_TYPE expr2(){
+		VAR_TYPE a;
+
+		if(*txtpos == '-' || *txtpos == '+'){
+			a = 0;
+			//printf("<exp2=0");
+		}else{
+			a = expr3();
+			//printf("<exp2=%d>",(int)a);
+		}
+
+		while(1){
+			VAR_TYPE b;
+			//printf("<exp2 *textpos=%i>",(int)*txtpos);
+			if(*txtpos == '-'){
+				txtpos++;
+				b = expr3();
+
+				#if GENPCODE == 1
+					printf_P(PSTR("[SUB %g-%g]"),a,b);
+				#endif
+
+				a -= b;
+			}else if(*txtpos == '+'){
+				txtpos++;
+				b = expr3();
+
+				#if GENPCODE == 1
+					printf_P(PSTR("[ADD %g+%g]"),a,b);
+				#endif
+
+				a += b;
+
+
+
+			}else{
+				//printf("<exp2 ret %d>",(int)a);
+				return a;
+			}
+		}
+	}
+	/***************************************************************************/
+	static VAR_TYPE expression(){
+		VAR_TYPE a = expr2();
+		VAR_TYPE b;
+
+		//Check if we have an error
+		if(expression_error)	return a;
+
+		scantable(relop_tab);
+		if(table_index == RELOP_UNKNOWN)
+			return a;
+
+		switch(table_index){
+		case RELOP_GE:
+
+			b = expr2();
+
+			#if GENPCODE == 1
+				printf_P(PSTR("[CP %i>=%i]"),(u8)a,(u8)b);
+			#endif
+
+			if(a >= b) return 1;
+			break;
+		case RELOP_NE:
+		case RELOP_NE_BANG:
+			b = expr2();
+			if(a != b) return 1;
+			break;
+		case RELOP_GT:
+			b = expr2();
+			if(a > b) return 1;
+			break;
+		case RELOP_EQ:
+			b = expr2();
+			if(a == b) return 1;
+			break;
+		case RELOP_LE:
+			b = expr2();
+			if(a <= b) return 1;
+			break;
+		case RELOP_LT:
+			b = expr2();
+			if(a < b) return 1;
+			break;
+		}
+		return 0;
+	}
+
+
+
+	void analogReference(uint8_t mode){
+	}
+
+	u16 analogRead(u8 pin){
+		return 0;
+	}
+	u8 digitalRead(u8 pin){
+		return 0;
+	}
+
+	void analogWrite(u8 pin, u16 val){
+	}
+
+	void digitalWrite(u8 pin, u8 val){
+	}
+
+	void pinMode(u8 pin, u8 mode){
+	}
