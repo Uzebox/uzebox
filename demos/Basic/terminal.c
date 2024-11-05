@@ -21,6 +21,8 @@
 #include "keyboard.h"
 #include "terminal.h"
 
+#include "customVideoMode80/videoMode.h"
+
 
 #define X_ORIGIN			0
 #define Y_ORIGIN 			0
@@ -64,6 +66,9 @@ void copyLine(u8 src, u8 dest);
 
 bool DECCKM=false;				//Enable DEC escape sequences for extended keyboard keys
 bool DECAWM=false;				//Enables Auto-wrap mode
+
+#define  VIDEO_MODE 0
+#define JTAG_DEBUG
 
 //display list definition for video mode 80
 #if VIDEO_MODE==0
@@ -109,7 +114,7 @@ FILE TERMINAL_STREAM = FDEV_SETUP_STREAM(cons_putchar_printf, NULL, _FDEV_SETUP_
  */
 void terminal_Init(){
 
-#if VIDEO_MODE==0
+//#if VIDEO_MODE == 0
 	#ifdef JTAG_DEBUG
 		//must use different colors because JTAG needs some
 		//pins used by the video DAC
@@ -133,7 +138,7 @@ void terminal_Init(){
 		cursor.active=false;
 		cursor.state=0;
 		m80_cursor = &cursor;
-#endif
+//#endif
 
 	//Terminal control variables
 	cx=X_ORIGIN;

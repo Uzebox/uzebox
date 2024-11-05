@@ -38,7 +38,12 @@ COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -Wextra -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder 
+
+# -Ofast
+#CFLAGS += -Wall -Wextra -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder 
+##Folowing is to debug using JTAG on Atmel ICE
+CFLAGS += -Wall -Wextra -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Og -fsigned-char -ffunction-sections -fno-toplevel-reorder -fno-inline -fno-split-wide-types -fno-omit-frame-pointer -fno-elide-constructors -fno-stack-protector
+
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 
@@ -51,7 +56,9 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 ## Linker flags
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=$(GAME).map 
-LDFLAGS += -Wl,-gc-sections 
+#LDFLAGS += -Wl,-gc-sections 
+##Following is to debug using JTAG on Atmel ICE
+LDFLAGS += -Wl,--cref -Wl,--no-gc-sections
 ## Required to include the correct math lib and print floats with printf
 LDFLAGS += -Wl,-u,vfprintf -lprintf_flt -lm
 
@@ -131,11 +138,11 @@ $(TARGET): $(OBJECTS)
 	-$(UZEBIN_DIR)/packrom $(GAME).hex $@ $(INFO)
 
 ## Conditional setting based on whether avr-size supports -C
-ifeq ($(shell avr-size --help | grep '\-C' >/dev/null && echo yes ),yes)
+#ifeq ($(shell avr-size --help | grep '\-C' >/dev/null && echo yes ),yes)
 AVRSIZEFLAGS := -C --mcu=${MCU} ${TARGET}
-else
-AVRSIZEFLAGS := -A ${TARGET}
-endif
+#else
+#AVRSIZEFLAGS := -A ${TARGET}
+#endif
 
 size: ${TARGET}
 	@echo
