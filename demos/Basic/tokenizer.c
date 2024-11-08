@@ -70,7 +70,7 @@
 #define PM_OUTPUT	1
 #define CONSOLE_BAUD 9600
 #define VERSION "0.2"
-#define RAM_SIZE 800
+#define RAM_SIZE 300
 #define STACK_DEPTH	5 //10
 #define STACK_SIZE (sizeof(struct stack_for_frame)*STACK_DEPTH)
 #define VAR_SIZE sizeof(VAR_TYPE)//Size of variables in bytes
@@ -221,6 +221,7 @@ static const u8 keywords[] PROGMEM = {
 	'G','O','T','O'+0x80,
 	'G','O','S','U','B'+0x80,
 	'R','E','T','U','R','N'+0x80,
+	'D','I','M'+0x80,
 	'I','N','P','U','T'+0x80,
 	'P','O','K','E'+0x80,
 	'R','E','M'+0x80,
@@ -255,6 +256,7 @@ enum{//by moving the command list to an enum, we can easily remove sections abov
 	KW_EXIT,
 	KW_PRINT,
 	KW_GOTO, KW_GOSUB, KW_RETURN,
+	KW_DIM,
 	KW_INPUT,
 	KW_POKE,
 	KW_REM,
@@ -462,7 +464,9 @@ const u8 token_mem3[] PROGMEM={
 
 
 const u8 token_mem[] PROGMEM={
-
+10,0,9,KW_DIM+0x80,'K','(','9',')',0xa,
+20,0,11,KW_LET+0x80,'K','(','1',')','=','7',0xa,
+20,0,11,KW_LET+0x80,'M','(','L',')','=','A',0xa,
 
 //		20,0,14,KW_LET+0x80,'T','=','T','I','C','K','S','(',')',0xa,
 //		30,0,12,KW_FOR+0x80,'A','=','0','T','O','2','1',0xa,
@@ -476,7 +480,7 @@ const u8 token_mem[] PROGMEM={
 		//110,0,9,KW_IF+0x80,'F','>','4',KW_EXIT+0x80,0xa,
 		//120,0,16,KW_LET+0x80,'E','=','X','*','X','-','Y','*','Y','+','C',0xa,
 
-		120,0,16,KW_LET+0x80,'A','=','K','/','2','*','3','+','4','-','5',0xa,
+//		120,0,16,KW_LET+0x80,'A','=','K','/','2','*','3','+','4','-','5',0xa,
 
 		//130,0,14,KW_LET+0x80,'Y','=','2','*','X','*','Y','+','D',0xa,
 		//140,0,8,KW_LET+0x80,'X','=','E',0xa,
@@ -1174,7 +1178,7 @@ int main(){
 	while(1);
 #else
 
-
+	VAR_TYPE *pvar;
 	program_start = progmem;
 	program_end = program_start;
 	sp = progmem+sizeof(progmem);	//Needed for printnum
@@ -1453,6 +1457,38 @@ INTERPRET_AT_TXT_POS:
 		goto GOSUB;
 	case KW_RETURN:
 		goto GOSUB_RETURN;
+	case KW_DIM:
+		if(*txtpos < 'A' || *txtpos > 'Z') goto QHOW;
+		pvar = (VAR_TYPE *)variables_begin + *txtpos - 'A';
+		char tmp=*txtpos;
+
+		txtpos++;
+		ignore_blanks();
+
+
+		if (*txtpos != '(') goto QWHAT;
+		txtpos++;
+		ignore_blanks();
+		expression_error = 0;
+
+		val = expression(); //get array subscript
+		//printf_P(PSTR("here3"));
+
+
+
+		if(expression_error) goto QWHAT;
+		ignore_blanks();
+		if(*txtpos != ')') goto QWHAT;
+		txtpos++;
+		if(*txtpos != NL && *txtpos != ':') goto QWHAT;//check that we are at the end of the statement
+		*pvar = val;
+
+		#if GENPCODE == 1
+			printf_P(PSTR("[DIM %c(%i)]"),tmp,(u16)val);
+		#endif
+
+		goto RUN_NEXT_STATEMENT;
+
 	case KW_REM:
 	case KW_QUOTE:
 		goto EXECNEXTLINE;	//Ignore line completely
@@ -1777,11 +1813,26 @@ GOSUB_RETURN:
 
 ASSIGNMENT:
 	if(*txtpos < 'A' || *txtpos > 'Z') goto QHOW;
-	VAR_TYPE *pvar = (VAR_TYPE *)variables_begin + *txtpos - 'A';
+	pvar = (VAR_TYPE *)variables_begin + *txtpos - 'A';
 	char tmp=*txtpos;
 
 	txtpos++;
 	ignore_blanks();
+	bool isArray=false;
+	VAR_TYPE subscript=0;
+
+	//do we have an array?
+	if (*txtpos == '(') {
+		txtpos++;
+		ignore_blanks();
+		expression_error = 0;
+		subscript = expression();
+
+		if(*txtpos != ')') goto QWHAT;
+		txtpos++;
+
+		isArray=true;
+	}
 
 	if (*txtpos != '=') goto QWHAT;
 	txtpos++;
@@ -1792,9 +1843,16 @@ ASSIGNMENT:
 	if(*txtpos != NL && *txtpos != ':') goto QWHAT;//check that we are at the end of the statement
 	*pvar = val;
 
-	#if GENPCODE == 1
-		printf_P(PSTR("[LET %c]"),tmp);
-	#endif
+	if(isArray){
+		#if GENPCODE == 1
+			printf_P(PSTR("[LET %c(%g)=%g]"),tmp,subscript,val);
+		#endif
+	}else{
+		#if GENPCODE == 1
+			printf_P(PSTR("[LET %c=%g]"),tmp,val);
+		#endif
+	}
+
 
 	goto RUN_NEXT_STATEMENT;
 
@@ -2478,11 +2536,13 @@ void cmd_Files(){
 
 			#if GENPCODE == 1
 
+
 				if(num<256){
 					printf_P(PSTR("[LDB][%02x]"),(u8)num);
 				}else{
 					printf_P(PSTR("[LDD][%04x]"),num);
 				}
+
 
 			#endif
 
@@ -2503,12 +2563,21 @@ void cmd_Files(){
 				char v=txtpos[0];
 				txtpos++;
 
-				#if GENPCODE == 1
-					printf_P(PSTR("[LVAR][%c]"),v);
-				#endif
+				//do we have an array?
+				if(*txtpos == '('){
+					a = expression();
+					if(*txtpos != ')') goto EXPR4_ERROR;
 
+					#if GENPCODE == 1
+						printf_P(PSTR("[LVAR %c(%i)]"),v,(u16)a);
+					#endif
+				}else{
+					#if GENPCODE == 1
+						printf_P(PSTR("[LVAR %c]"),v);
+					#endif
 
-				return a;
+					return a;
+				}
 			}
 
 			//Is it a function with a single parameter

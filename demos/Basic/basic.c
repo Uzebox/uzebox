@@ -23,6 +23,7 @@
 
 #define wait_spi_ram_byte() asm volatile("lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t nop \n\t" : : : "r0", "r1"); //wait 19 cycles
 
+//Uncomment to print pcode debug info
 //#define DBGPCODE
 
 #ifdef DBGPCODE
@@ -35,8 +36,10 @@
 #define RAM_SIZE 800
 #define STACK_DEPTH	10				//depth of the loops/gosub stack
 #define PCODE_STACK_DEPTH 5			//depth of the internal parameter passing statck
-#define VAR_TYPE float				//type used for number variables
-#define VAR_SIZE sizeof(VAR_TYPE)	//Size of variables in bytes
+#define VAR_TYPE_FLOAT 0
+#define VAR_TYPE_FLOAT_ARRAY 1
+#define VAR_TYPE float
+#define VAR_SIZE sizeof(float)	//Size of variables in bytes
 #define EOL   0xff					//denotes the end of the bytecode line
 #define EOS   0x00					//Used to delimitate the end of a string
 #define EOSNL 0x1					//User to delimitate the end of a string that should end with a new line
@@ -51,8 +54,12 @@ typedef u16 LINENUM;
 
 union {
 	float f;
+	struct{
+		float* f_ptr;
+		u16	size;
+	}f_array;
 	int32_t i;
-	uint8_t bytes[sizeof(VAR_TYPE)];
+	uint8_t bytes[sizeof(float)];
 }type_converter;
 
 typedef struct {
@@ -63,6 +70,17 @@ typedef struct {
 	u8 *current_line;
 	u8 *txt_pos;
 }stack_frame;
+
+//typedef struct{
+//	union {
+//		float f;
+//		union{
+//			float* f_ptr;
+//			u16	size;
+//		}f_array;
+//		uint8_t bytes[sizeof(float)];
+//	}content;
+//}variable;
 
 
 enum opcodes{
@@ -105,18 +123,22 @@ enum ERRORS{
 	ERR_FOR_WITHOUT_NEXT,
 	ERR_ILLEGAL_ARGUMENT,
 	ERR_UNDEFINED_LINE_NUMBER,
+	ERR_DIVISION_BY_ZERO,
+	ERR_OUT_OF_MEMORY
 };
 
 
 const char error_00_msg[] PROGMEM = "";	//Error code 0 represents OK /no errors
-const char error_01_msg[] PROGMEM = "Internal Error";
+const char error_01_msg[] PROGMEM = "Internal Error in %1";
 const char error_02_msg[] PROGMEM = "Stack Overflow in %i";
 const char error_03_msg[] PROGMEM = "NEXT without FOR in %i";
 const char error_04_msg[] PROGMEM = "Invalid NEXT nesting in %i";
 const char error_05_msg[] PROGMEM = "EXIT without FOR in %i";
 const char error_06_msg[] PROGMEM = "FOR without NEXT in %i";
 const char error_07_msg[] PROGMEM = "Illegal Argument in %i";
-const char error_08_msg[] PROGMEM = "Undefined line number";
+const char error_08_msg[] PROGMEM = "Undefined line number in %i";
+const char error_09_msg[] PROGMEM = "Division by zero in %i";
+const char error_10_msg[] PROGMEM = "Out of memory in %i";
 
 const char* const error_messages[] PROGMEM ={
 		error_00_msg,
@@ -127,45 +149,48 @@ const char* const error_messages[] PROGMEM ={
 		error_05_msg,
 		error_06_msg,
 		error_07_msg,
-		error_08_msg
+		error_08_msg,
+		error_09_msg
 };
 
 static void dumpmem(u16 start_addr,u8 rows);
 static void dumpstack();
 static void dumpvars();
-static void push_value(VAR_TYPE v);
-static VAR_TYPE pop_value();
-static void printError(u8 error_code, u16 line_no);
+static void push_value(float v);
+static float pop_value();
+static void print_error(u8 error_code, u16 line_no);
 static u16 execute(bool initialize);
 static void run_tests();
 
 const u8 token_rf_benchmark_5[] ;
 
-static volatile u8 *txtpos;
+static u8 *txtpos;
 static u32 timer_ticks;
-static volatile u8 *program_start;
-//static u8 *program_end;
-static volatile u8 *current_line;
-static volatile u16 current_line_no;
-static volatile u8 error_code;
-static volatile u8 prog_mem[RAM_SIZE];
+static u8 *program_start;
+static u8 *program_end;
+static u8 *current_line;
+static u16 current_line_no;
+static u8 error_code;
+static u8 prog_mem[RAM_SIZE];
+static u8 *heap_ptr;
 
-static volatile VAR_TYPE pcode_vars[26]; //A-Z
+static float pcode_vars[26]; //A-Z
+static u8 pcode_vars_type[26];
 
-static volatile u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
-static volatile u16 opcode_sp=PCODE_STACK_DEPTH;
-static volatile VAR_TYPE pcode_stack[PCODE_STACK_DEPTH];
-static volatile stack_frame stack[STACK_DEPTH];
-static volatile s8 stack_ptr=STACK_DEPTH;
+static u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
+static u16 opcode_sp=PCODE_STACK_DEPTH;
+static float pcode_stack[PCODE_STACK_DEPTH];
+static stack_frame stack[STACK_DEPTH];
+static s8 stack_ptr=STACK_DEPTH;
 
-static volatile  u8 c1,var,opcode;
-static volatile  u16 int1;
-static volatile  u8* addr;
+static  u8 c1,var,opcode;
+static  u16 u16_var;
+//static  u8* addr;
 static  volatile u32 dword;
-static volatile  VAR_TYPE v1,v2;
-static volatile bool found, jump, stop=false;
-static volatile stack_frame *sf;
-static volatile u8* currpos;
+static  float v1,v2;
+static bool found, jump, stop=false;
+static stack_frame *sf;
+static u8* currpos;
 
 
 
@@ -209,8 +234,6 @@ volatile u8* line;
 volatile u8 lenght;
 volatile u16 prog_size=0;
 u16 load_prog(const u8* program){
-	for(u16 j=0;j<RAM_SIZE;j++)prog_mem[j]=0;
-
 	u16 i=0;
 	//load from flash to sram and compute line sizes
 	txtpos=prog_mem;
@@ -229,6 +252,14 @@ u16 load_prog(const u8* program){
 		prog_size+=lenght;
 	}
 	prog_size+=2;
+	program_start=prog_mem;
+	program_end=prog_mem+prog_size;
+
+	//clear remaining RAM
+	for(u16 j=prog_size;j<RAM_SIZE;j++){
+		prog_mem[j]=0;
+	}
+
 	return prog_size;
 };
 
@@ -274,12 +305,26 @@ int main(){
 
 }
 
+//allocate a one dimentional array of floats
+u8* allocate_numeric_array(u16 elements){
+	if(heap_ptr-(elements * VAR_SIZE) < program_end){
+		error_code=ERR_OUT_OF_MEMORY;
+		return NULL;
+	}
+
+	heap_ptr-= (elements * VAR_SIZE);
+
+	//PCODE_DEBUG("[allocate_numeric_array: heap_ptr=0x%04x, heap_top=0x%04x] ",(u16)heap_ptr,(u16)prog_mem+sizeof(prog_mem)-1);
+
+	return heap_ptr;
+}
+
 /**
  * Search for the specified line number.
  * Returns: The memmory position of the line in AVR memory, if the line was found.
  * Returns 0 otherwise and error_code will be set.
  */
-u8* findLine(u16 line_to_find){
+u8* find_line(u16 line_to_find){
 	u8* currpos=txtpos;
 	//check if we saved the actual line's memory position from a previous loop.
 //	if(line_to_find&0x8000){
@@ -317,14 +362,21 @@ u8* findLine(u16 line_to_find){
 u16 execute(bool initialize){
 
 	if(initialize){
-		for(u8 i=0;i<26;i++)pcode_vars[i]=0;
+		for(u8 i=0;i<26;i++){
+			pcode_vars[i]=0;
+			pcode_vars_type[i]=0;
+		}
+
+		pcode_sp_min=PCODE_STACK_DEPTH;
+		found=false;
+		jump=false;
+		stop=false;
+
 		opcode_sp=PCODE_STACK_DEPTH;
 		stack_ptr=STACK_DEPTH;
+		heap_ptr=prog_mem+RAM_SIZE-1;
 
-		//for(u8 i=0;i<STACK_DEPTH;i++){
-		//
-		//}
-
+		PCODE_DEBUG("[Initialize vars, heap_ptr=0x%04x]\n",heap_ptr);
 	}
 
 
@@ -360,10 +412,10 @@ u16 execute(bool initialize){
 					break;
 
 				case OP_LD_WORD:
-					int1=(*((int16_t*)txtpos));
+					u16_var=(*((int16_t*)txtpos));
 					txtpos+=2;
-					push_value(int1);
-					PCODE_DEBUG("[LDW %i] ",int1);
+					push_value(u16_var);
+					PCODE_DEBUG("[LDW %i] ",u16_var);
 					break;
 
 				case OP_LD_DWORD:
@@ -375,17 +427,58 @@ u16 execute(bool initialize){
 
 				case OP_LD_VAR:
 					c1=*txtpos++;
-					v1=pcode_vars[c1];
-					push_value(v1);
-					PCODE_DEBUG("[LDV %c:%g] ",c1+65,v1);
+					if(pcode_vars_type[c1]==VAR_TYPE_FLOAT_ARRAY){
+						u16_var=pop_value(); //array index
+						type_converter.f=pcode_vars[c1];
+						v1=type_converter.f_array.f_ptr[u16_var];
+						push_value(v1);
+						PCODE_DEBUG("[LDV %c(%i):%g] ",c1+65,u16_var,v1);
+					}else{
+						v1=pcode_vars[c1];
+						push_value(v1);
+						PCODE_DEBUG("[LDV %c:%g] ",c1+65,v1);
+					}
+
 					break;
 
 				case OP_ASSIGN:
+					//Get variable to assign to
+					c1=*txtpos++;
+
+					if(pcode_vars_type[c1]==VAR_TYPE_FLOAT_ARRAY){
+						v1=pop_value(); //value to assign
+						u16_var=pop_value(); //array index
+						type_converter.f=pcode_vars[c1];
+						type_converter.f_array.f_ptr[u16_var]=v1;
+						//printf("value=%g",type_converter.f_array.f_ptr[u16_var]);
+
+						PCODE_DEBUG("[LET %c(%i)=%g] ",c1+65,u16_var,v1);
+					}else{
+						pcode_vars[c1]=pop_value();
+						PCODE_DEBUG("[LET %c=%g] ",c1+65,pcode_vars[c1]);
+					}
+					break;
+
+				case OP_DIM:
 					//Get variable value
 					c1=*txtpos++;
-					pcode_vars[c1]=pop_value();
-					PCODE_DEBUG("[LET %c] ",c1+65,pcode_vars[c1]);
+					u16_var=pop_value();
+
+
+					u8* pp=allocate_numeric_array(u16_var);
+					type_converter.f_array.f_ptr=(float*)pp;
+					type_converter.f_array.size=u16_var;
+					pcode_vars[c1]=type_converter.f;
+					pcode_vars_type[c1]=VAR_TYPE_FLOAT_ARRAY;
+
+					//PCODE_DEBUG("[float ptr=0x%04x]\n",type_converter.f_array.f_ptr);
+
+
+					//TODO error checks for correct type and REDIM
+
+					PCODE_DEBUG("[DIM %c(%i)] ",c1+65,u16_var);
 					break;
+
 
 				case OP_LOOP_FOR:
 					if(stack_ptr == 0){
@@ -394,9 +487,9 @@ u16 execute(bool initialize){
 					}
 					sf=&stack[--stack_ptr];
 
-					VAR_TYPE terminal = pop_value();
-					VAR_TYPE initial = pop_value();
-					VAR_TYPE step = pop_value();
+					float terminal = pop_value();
+					float initial = pop_value();
+					float step = pop_value();
 					c1=*txtpos++; //get variable index (0-25)
 					pcode_vars[c1]=initial;
 
@@ -711,6 +804,10 @@ u16 execute(bool initialize){
 				case OP_DIV:
 					v2=pop_value();
 					v1=pop_value();
+					if(v2==0){
+						error_code=ERR_DIVISION_BY_ZERO;
+						break;
+					}
 					push_value(v1/v2);
 					PCODE_DEBUG("[DIV] ");
 					break;
@@ -741,7 +838,7 @@ u16 execute(bool initialize){
 			};
 
 			if(error_code){
-				printError(error_code, current_line_no);
+				print_error(error_code, current_line_no);
 				break;
 			}
 
@@ -760,13 +857,13 @@ u16 execute(bool initialize){
 }
 
 
-void printError(u8 error_code, u16 line_number){
+void print_error(u8 error_code, u16 line_number){
 	printf_P((PGM_P)pgm_read_word(&(error_messages[error_code])));
 	printf_P(PSTR(" in %i\n"),line_number);
 }
 
 
-static inline void push_value(VAR_TYPE v){
+static inline void push_value(float v){
 	if(opcode_sp==0){
 		printf_P(PSTR("opcode stack overflow: push"));
 		dumpstack();
@@ -778,7 +875,7 @@ static inline void push_value(VAR_TYPE v){
 	//if(pcode_sp<pcode_sp_min) pcode_sp_min=pcode_sp;
 }
 
-static inline VAR_TYPE pop_value(){
+static inline float pop_value(){
 	if(opcode_sp==PCODE_STACK_DEPTH){
 		printf_P(PSTR("opcode stack overflow: pop"));
 		dumpstack();
@@ -888,76 +985,84 @@ __attribute__((unused)) void dumpvars(){
 
 }
 
+const u8 token_rf_benchmark_7[] PROGMEM={
+40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+55,0,0,OP_LD_BYTE, 5, OP_DIM,VAR_M, EOL,
+60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+80,0,0,OP_GOSUB,120,0,EOL,
+82,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_BYTE, 5, OP_LOOP_FOR, VAR_L, EOL,	//1 to 5
+83,0,0,OP_LD_VAR, VAR_L, OP_LD_VAR, VAR_A, OP_ASSIGN, VAR_M, EOL,
+85,0,0,OP_LOOP_NEXT, VAR_L, EOL,
+90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+110,0,0,OP_END,EOL,
+120,0,0,OP_RETURN,EOL,
+0,0
+};
+
+const u8 token_rf_benchmark_6[] PROGMEM={
+40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+55,0,0,OP_LD_BYTE, 5, OP_DIM,VAR_M, EOL,
+//60,0,0,OP_LD_BYTE, 0,OP_LD_BYTE, 128, OP_ASSIGN,VAR_M,EOL,
+//65,0,0,OP_LD_BYTE, 4,OP_LD_BYTE, 64, OP_ASSIGN,VAR_M,EOL,
+//65,0,0,OP_LD_VAR, VAR_L,OP_LD_VAR, VAR_A, OP_ASSIGN,VAR_M,EOL,
+//70,0,0,OP_LD_BYTE, 0, OP_LD_VAR, VAR_M, OP_PRINT, EOL,
+//75,0,0,OP_LD_BYTE, 4, OP_LD_VAR, VAR_M, OP_PRINT, EOL,
+60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+80,0,0,OP_GOSUB,120,0,EOL,
+82,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_BYTE, 5, OP_LOOP_FOR, VAR_L, EOL,	//1 to 5
+85,0,0,OP_LOOP_NEXT, VAR_L, EOL,
+90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+110,0,0,OP_END,EOL,
+120,0,0,OP_RETURN,EOL,
+0,0
+};
+
 const u8 token_rf_benchmark_5[] PROGMEM={
-//10,0,0,OP_CLS,EOL,
-//20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','5',EOSNL, EOL,
-//30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
 50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
 60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
 70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
 80,0,0,OP_GOSUB,120,0,EOL,
 90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-//90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 3, 0, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
 100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
 110,0,0,OP_END,EOL,
-//120,0,0,OP_PRINT_LSTR,'*',EOS,EOL,
 120,0,0,OP_RETURN,EOL,
-//120,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-//130,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-//140,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
-//150,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_4[] PROGMEM={
-//10,0,0,OP_CLS,EOL,
-//20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','4',EOSNL, EOL,
-//30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
 50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
 60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
 65,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
 70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
 80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-//90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-//100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-//110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
-//120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_3[] PROGMEM={
-//10,0,0,OP_CLS,EOL,
-//20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','3',EOSNL, EOL,
-//30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
 50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
 60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
 65,0,0,OP_LD_VAR, VAR_K, OP_LD_VAR, VAR_K, OP_DIV, OP_LD_VAR, VAR_K, OP_MUL, OP_LD_VAR, VAR_K, OP_ADD, OP_LD_VAR, VAR_K, OP_SUB, OP_ASSIGN, VAR_A, EOL,
 70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
 80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-//90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-//100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-//110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
-//120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
 
 const u8 token_rf_benchmark_2[] PROGMEM={
-//10,0,0,OP_CLS,EOL,
-//20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','2',EOSNL, EOL,
-//30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
 50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
 60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
 70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
 80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-//90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-//100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-//110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
-//120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
@@ -981,7 +1086,9 @@ const u8* const test_suite[] PROGMEM ={
 		token_rf_benchmark_2,
 		token_rf_benchmark_3,
 		token_rf_benchmark_4,
-		token_rf_benchmark_5
+		token_rf_benchmark_5,
+		token_rf_benchmark_6,
+		token_rf_benchmark_7
 };
 
 void run_tests(){
@@ -996,19 +1103,25 @@ void run_tests(){
 //	results[4]=((float)timer_ticks-ticks)/60;
 
 
-
-	for(u8 i=0;i<sizeof(test_suite)/2;i++){
+	u8 res;
+	for(u16 i=0;i<sizeof(test_suite)/2;i++){
 		load_prog((const u8*)pgm_read_word(&(test_suite[i])));
 		printf_P(PSTR("Test #%i...\n"),i+1);
 		ticks=timer_ticks;
-		execute(true);
+		res=execute(true);
+		if(res!=0){
+			print_error(res,0);
+			while(1);
+		}
 		results[i]=((float)timer_ticks-ticks)/60;
 		//results[i]=pcode_vars[VAR_T];
 	}
 
-	for(u8 i=0;i<sizeof(test_suite)/2;i++){
-		printf("test=%i,res=%g\n",i+1,results[i]);
-	}
+
+
+	//for(u8 i=0;i<sizeof(test_suite)/2;i++){
+	//	printf("test=%i,res=%g\n",i+1,results[i]);
+	//}
 
 	terminal_Clear();
 	printf_P(PSTR("Rugg/Feldman BASIC Benchmarks\n"));
@@ -1017,7 +1130,7 @@ void run_tests(){
 	printf_P(PSTR("\x87\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x88\n"));
 
 	//printf_P(PSTR("\x86 Uzebox      \x86 0.17  \x86 0.32  \x86 0.8   \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86\n"));
-	printf_P(PSTR("\x86 Uzebox      \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 ---   \x86 ---   \x86 ---   \x86\n"),results[0],results[1],results[2],results[3],results[4]);
+	printf_P(PSTR("\x86 Uzebox      \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 ---   \x86\n"),results[0],results[1],results[2],results[3],results[4],results[5],results[6]);
 	printf_P(PSTR("\x86 BBC Micro   \x86 0.8   \x86 3.1   \x86 8.1   \x86 8.7   \x86 9.0   \x86 13.9  \x86 21.1  \x86 49.9  \x86\n"));
 	printf_P(PSTR("\x86 ZX 80       \x86 1.5   \x86 4.7   \x86 9.2   \x86 9.0   \x86 12.7  \x86 25.9  \x86 39.2  \x86 NA    \x86\n"));
 	printf_P(PSTR("\x86 VIC 20      \x86 1.4   \x86 8.3   \x86 15.5  \x86 17.1  \x86 18.3  \x86 27.2  \x86 42.7  \x86 99    \x86\n"));
