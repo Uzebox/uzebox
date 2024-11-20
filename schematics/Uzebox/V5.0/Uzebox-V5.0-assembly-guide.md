@@ -20,6 +20,7 @@ For Uzebox Revision V5.0 (aka F5)
 | 8 | 13-Aug-2024 | A.Bourque | Ported the assembly guide to GitHub and added minor improvements. |
 | 9 | 28-Aug-2024 | D.MacDonald | Several additions and improvements. |
 | 10 | 17-Sep-2024 | D.MacDonald | Add solder flux, a video cable and a SNES controller to the "Other parts required" table. |
+| 11 | 29-Sep-2024 | D.MacDonald | Add another SNES connector soldering tip. |
 
 ## Parts list verification
 > [!IMPORTANT]  
@@ -182,7 +183,7 @@ The trickiest part of building a Uzebox is soldering the AD725 video conversion 
     </tr>
     <tr>
         <td><img src="assets/guide/image10.jpg" alt="" width="600"></td>
-        <td>Solder the SNES connectors. The SNES connector plastic won't withstand a ton of heat before becoming loose, so solder them quickly. It is highly recommended that you apply some solder flux to the SNES connector pads before positioning the connectors. Hold the connectors firmly and center the pins in the middle of the pads. You may find it helpful to use a small amount of Blu Tack or similar to keep the connectors in place whilst soldering. Begin by heating just the pad for a second or two then both the pin and the pad then add solder, a lot of solder! It’s easier to solder pins at both extremities of the connector first. Again, be sure to add enough solder (as pictured) to be sure it will have good mechanical resistance.</td>
+        <td>Solder the SNES connectors. The SNES connector plastic won't withstand a ton of heat before becoming loose, so solder them quickly. It is highly recommended that you apply some solder flux to the SNES connector pads before positioning the connectors. Hold the connectors firmly and center the pins in the middle of the pads. You may find it helpful to use a small amount of Blu Tack or similar to keep the connectors in place whilst soldering. It is recommended to have a controller connected whilst soldering to prevent the rods getting misaligned. Begin by heating just the pad for a second or two then both the pin and the pad then add solder, a lot of solder! It’s easier to solder pins at both extremities of the connector first. Again, be sure to add enough solder (as pictured) to be sure it will have good mechanical resistance.</td>
     </tr>
     <tr>
         <td><img src="assets/guide/image32.jpg" alt="" width="600"></td>

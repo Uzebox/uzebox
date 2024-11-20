@@ -84,6 +84,10 @@ Parts sourced from Digikey
 
 1   1528-1438-ND                ESP-12F WIFI Module                 (ESP12)
 
+2   2057-2RS1-08-G-ND           RECEPTACLE STRIP 8P 2.0MM PITCH     (ESP12)
+
+2   952-2278-ND                 CONN HEADER VERT 8POS 2MM           (ESP12)
+
 
 
 Parts sourced elsewhere
