@@ -32,7 +32,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-FILE *fin, *fout, *fcfg;
+FILE *fin, *fout, *fcfg, *fflashdir;
 
 int asBinIn;
 int asBinOut;
@@ -41,9 +41,14 @@ int doDebug = 0;
 int adpcmDebug = 0;
 int doLength;
 int doCustomName;
+int doFlashDir = 0;
+int doFlashDirLength = 0;
 char arrayName[256];
+char flashDirArrayName[256];
 char finName[256];
 char foutName[256];
+char flashDirFileName[256];
+int flashDirArraySize;//2 or 4, determines data type for C array
 int transformType;
 char lineBuf[256];
 int eat;
@@ -87,6 +92,12 @@ int main(int argc, char *argv[]){
 
 	printf("\n\t[DCONVERT START]\n");
 	int configNum = 0;
+
+	fflashdir = NULL;//disable flash directory output by default
+	flashDirFileName[0] = '\0';
+	flashDirArrayName[0] = '\0';
+	flashDirArraySize = 4;
+	doFlashDir = 0;
 
 TOP: //allow re-run to use multiple config files
 
@@ -257,10 +268,73 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 					if(fout != NULL)
 						fclose(fout);
 					goto NEXT_CMD;//shortcut back up to the top to get a new setup line
-				}else if(strncmp(lineBuf, "#LENGTH-PREPEND", 15) == 0){
+				}else if(strncmp(lineBuf, "#LENGTH-PREPEND=1", 17) == 0){
 					printf("\n**LENGTH-PREPEND found before line %d\n\n", cfgLine);
 					doLength = 1;
-				} 
+				}else if(strncmp(lineBuf, "#LENGTH-PREPEND=0", 17) == 0){
+					printf("\n**LENGTH-PREPEND disabled before line %d\n\n", cfgLine);
+					doLength = 0;
+				}else if(strncmp(lineBuf, "#FLASH-DIR-FILE=", 16) == 0){
+					if(fflashdir != NULL){
+						if(flashDirArrayName[0] != '\0')//end active array
+							fprintf(fflashdir, "};\n");
+						fflush(fflashdir);
+						fclose(fflashdir);
+						flashDirFileName[0] = '\0';
+						flashDirArrayName[0] = '\0';
+					}
+					strncpy(flashDirFileName, lineBuf+16, sizeof(flashDirFileName)-2);
+					flashDirFileName[sizeof(flashDirFileName)-1] = '\0';
+					int fdl = strlen(flashDirFileName)-1;
+					if(flashDirFileName[fdl] == '\r' || flashDirFileName[fdl] == '\n')
+						flashDirFileName[fdl--] = '\0';
+					if(flashDirFileName[fdl] == '\r' || flashDirFileName[fdl] == '\n')
+						flashDirFileName[fdl--] = '\0';
+					printf("\n**FLASH-DIR-FILE [%s] found before line %d\n\n", flashDirFileName, cfgLine);
+					fflashdir = fopen(flashDirFileName, "w");
+					if(fflashdir == NULL){
+						printf("\n**ERROR failed to open [%s] as FLASH-DIR-FILE\n\n", flashDirFileName);
+						goto ERROR;
+					}else{
+						printf("\n**Opened [%s] as FLASH-DIR-FILE\n\n", flashDirFileName);
+						doFlashDir = 1;
+					}
+				}else if(strncmp(lineBuf, "#FLASH-DIR-FILE-END", 19) == 0){
+					if(fflashdir != NULL){
+						fflush(fflashdir);
+						fclose(fflashdir);
+						printf("\n**#FLASH-DIR-FILE-END closed [%s]\n\n", flashDirFileName);
+						doFlashDir = 0;
+						flashDirFileName[0] = '\0';
+					}else
+						printf("\n**#FLASH-DIR-FILE-END ERROR no flash directory file open before line %d\n\n", cfgLine);
+				}else if(strncmp(lineBuf, "#FLASH-DIR-ARRAY=", 17) == 0){
+					if(flashDirArrayName[0] != '\0'){//end previous array if it wasn't already
+						fprintf(fflashdir, "};\n");
+						fflush(fflashdir);
+						printf("\n**#FLASH-DIR-ARRAY automatically ended [%s] before line %d\n\n", flashDirFileName, cfgLine);
+					}
+					strncpy(flashDirArrayName, lineBuf+17, sizeof(flashDirArrayName)-2);
+					flashDirArrayName[sizeof(flashDirArrayName)-1] = '\0';
+					int fdal = strlen(flashDirArrayName)-1;
+					if(flashDirArrayName[fdal] == '\r' || flashDirArrayName[fdal] == '\n')
+						flashDirArrayName[fdal--] = '\0';
+					if(flashDirArrayName[fdal] == '\r' || flashDirArrayName[fdal] == '\n')
+						flashDirArrayName[fdal--] = '\0';
+
+					fprintf(fflashdir, "\nconst %s %s[] PROGMEM = {\n", flashDirArraySize==2?"uint16_t":"uint32_t", flashDirArrayName);
+					printf("\n**#FLASH-DIR-ARRAY started [%s] before line %d\n\n", flashDirArrayName, cfgLine);
+				}else if(strncmp(lineBuf, "#FLASH-DIR-ARRAY-END", 20) == 0){
+					flashDirArrayName[0] = '\0';
+					fprintf(fflashdir, "};\n");
+					printf("\n**#FLASH-DIR-ARRAY ended [%s] before line %d\n\n", flashDirArrayName, cfgLine);
+				}else if(strncmp(lineBuf, "#FLASH-DIR-DO-LENGTH=1", 22) == 0){
+					doFlashDirLength = 1;
+					printf("\n**#FLASH-DIR-DO-LENGTH enabled before line %d\n\n", cfgLine);
+				}else if(strncmp(lineBuf, "#FLASH-DIR-DO-LENGTH=0", 22) == 0){
+					doFlashDirLength = 0;
+					printf("\n**#FLASH-DIR-DO-LENGTH disabled before line %d\n\n", cfgLine);
+				}
 				for(j=1;j<sizeof(lineBuf);j++){
 					if(lineBuf[j] == '\n')
 						break;
@@ -314,6 +388,9 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 		i = ConvertAndWrite();
 		fclose(fin);
 		fflush(fout);
+		if(fflashdir != NULL){
+			fflush(fflashdir);
+		}
 		if(i != 1){
 			printf("\nERROR: Conversion failed for %s on entry %d, line %d, error: %d\n",finName,cfgEntry,cfgLine,i);
 			goto ERROR;
@@ -322,9 +399,16 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 
 	goto TOP; //try to process another configuration file
 ERROR:
+	fflush(NULL);
 	exit(1);
 DONE:
 	printf("\n\t[DCONVERT DONE]\n\n");
+	if(fflashdir != NULL){
+		if(flashDirArrayName[0] != '\0')
+			fprintf(fflashdir, "};\n");
+		fclose(fflashdir);
+	}
+	fflush(NULL);
 	exit(0);
 }
 
@@ -619,7 +703,7 @@ int ConvertAndWrite(){
 
 			samples = 0;
 			for(j=0;j<8;j++){
-				target = inBuf[i++];
+				target = inBuf[i++];//get raw sample we are trying to simulate
 				if(i == inSize){//repeat last sample if we don't end on an even multiple
 					for(k=i;k<i+8;k++)
 						inBuf[k] = inBuf[i-1];
@@ -648,14 +732,14 @@ int ConvertAndWrite(){
 						slope+=2;
 				}
 				if(adpcmDebug)
-					fputc(accum,adpcmDebugFile);
+					fputc(accum,adpcmDebugFile);//output simulated sample(should be equivalent on Uzebox)
 			}
 			outBuf[outSize++] = samples;
 
 		}else if(transformType == 6){//2bit ADPCM, "Precedent Scaling"
 			samples = 0;
 			for(j=0;j<4;j++){
-				target = inBuf[i++];
+				target = inBuf[i++];//get raw sample we are trying to simulate
 				if(i == inSize){//repeat last sample if we don't end on an even multiple
 					for(k=i;k<i+4;k++)
 						inBuf[k] = inBuf[i-1];
@@ -694,14 +778,14 @@ int ConvertAndWrite(){
 						slope++;
 				}
 				if(adpcmDebug)
-					fputc(accum,adpcmDebugFile);//output simulated sample
+					fputc(accum,adpcmDebugFile);//output simulated sample(should be equivalent on Uzebox)
 			}
 			outBuf[outSize++] = samples;
 		}else if(transformType == 7){//4bit ADPCM, "Precedent Scaling"
 			samples = 0;
 
 			for(j=0;j<2;j++){
-				target = inBuf[i++];
+				target = inBuf[i++];//get raw sample we are trying to simulate
 				if(i == inSize){//repeat last sample if we don't end on an even multiple
 					for(k=i;k<i+2;k++)
 						inBuf[k] = inBuf[i-1];
@@ -761,7 +845,7 @@ int ConvertAndWrite(){
 						slope+=2;
 				}
 				if(adpcmDebug)
-					fputc(accum,adpcmDebugFile);//output simulated sample
+					fputc(accum,adpcmDebugFile);//output simulated sample(should be equivalent on Uzebox)
 			}
 			outBuf[outSize++] = samples;
 		}else{//unknown output conversion
@@ -803,9 +887,12 @@ int ConvertAndWrite(){
 
 		fseek(fout,fileOff,SEEK_SET);
 		if(doLength){//prepend the total data size before the new data(useful for loading to SPI ram)
-			fputc((outSize>>8)&0xFF,fout);
-			fputc((outSize>>0)&0xFF,fout);
-			fileOff += 2;
+			//printf("Prepending data with length(4 bytes)\n");
+			fputc(((unsigned char)(outSize>>0)&0xFF),fout);
+			fputc(((unsigned char)(outSize>>8)&0xFF),fout);
+			fputc(((unsigned char)(outSize>>16)&0xFF),fout);
+			fputc(((unsigned char)(outSize>>24)&0xFF),fout);
+			fileOff += 4;
 		}
 		for(i=0;i<outSize;i++){//output the actual data, text or binary, and any offset were already setup prior
 			fputc(outBuf[i],fout);
@@ -839,6 +926,24 @@ int ConvertAndWrite(){
 		fprintf(fout,"};/* %ld bytes total */\n\n",flashCost);
 		totalFlashCost += flashCost;
 	}
+	if(doFlashDir){
+		if(fflashdir == NULL || flashDirArrayName[0] == '\0'){
+			printf("ERROR cannot output to flash array [%s] in file [%s]\n", flashDirArrayName, flashDirFileName);
+			return -6;
+		}
+		if(asBinIn){
+			if(!doFlashDirLength)
+				fprintf(fflashdir, "%ld,\t\t//%s\n", fileOff, finName);
+			else
+				fprintf(fflashdir, "%ld,%d,\t\t//%s\n", fileOff, outSize, finName); 
+		}else{
+			if(!doFlashDirLength)
+				fprintf(fflashdir, "%ld,\t\t//%s(array %d)\n", fileOff, finName, skipArrays);
+			else
+				fprintf(fflashdir, "%ld,%d,\t\t//%s(array %d)\n", fileOff, outSize, finName, skipArrays); 
+		}
+	}
+
 	//display statistics
 	printf("\t\tInput data size: %d\n",inSize);
 	printf("\t\tOutput data size: %d\n",outSize);
