@@ -14,7 +14,6 @@
 #include <avr/interrupt.h>
 #include <uzebox.h>
 #include <keyboard.h>
-#include <spiram.h>
 #include "terminal.h"
 
 #if VIDEO_MODE == 5
@@ -24,9 +23,7 @@
 
 #define wait_spi_ram_byte() asm volatile("lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t nop \n\t" : : : "r0", "r1"); //wait 19 cycles
 
-//Uncomment to print pcode debug info
 //#define DBGPCODE
-//#define TESTSPIRAM
 
 #ifdef DBGPCODE
 	#define PCODE_DEBUG(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
@@ -34,19 +31,12 @@
     #define PCODE_DEBUG(...)
 #endif
 
-#ifdef TESTSPIRAM
-	#define READSPIRAM(count) SpiRamSeqReadInto(line_buffer,count)
-#else
-    #define READSPIRAM(...)
-#endif
 
 #define RAM_SIZE 800
 #define STACK_DEPTH	10				//depth of the loops/gosub stack
 #define PCODE_STACK_DEPTH 5			//depth of the internal parameter passing statck
-#define VAR_TYPE_FLOAT 0
-#define VAR_TYPE_FLOAT_ARRAY 1
-#define VAR_TYPE float
-#define VAR_SIZE sizeof(float)	//Size of variables in bytes
+#define VAR_TYPE float				//type used for number variables
+#define VAR_SIZE sizeof(VAR_TYPE)	//Size of variables in bytes
 #define EOL   0xff					//denotes the end of the bytecode line
 #define EOS   0x00					//Used to delimitate the end of a string
 #define EOSNL 0x1					//User to delimitate the end of a string that should end with a new line
@@ -61,12 +51,8 @@ typedef u16 LINENUM;
 
 union {
 	float f;
-	struct{
-		float* f_ptr;
-		u16	size;
-	}f_array;
 	int32_t i;
-	uint8_t bytes[sizeof(float)];
+	uint8_t bytes[sizeof(VAR_TYPE)];
 }type_converter;
 
 typedef struct {
@@ -78,16 +64,17 @@ typedef struct {
 	u8 *txt_pos;
 }stack_frame;
 
-//typedef struct{
-//	union {
-//		float f;
-//		union{
-//			float* f_ptr;
-//			u16	size;
-//		}f_array;
-//		uint8_t bytes[sizeof(float)];
-//	}content;
-//}variable;
+typedef struct{
+	u8 type;
+	union {
+		float f;
+		union{
+			float* f_ptr;
+			u16	size;
+		}f_array;
+		uint8_t bytes[sizeof(float)];
+	}content;
+}variable;
 
 
 enum opcodes{
@@ -95,8 +82,8 @@ enum opcodes{
 	OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN,
 	OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF,
 	OP_IF, OP_CMP_GT, OP_CMP_GE, OP_CMP_LT,
-	OP_ADD,	OP_SUB,	OP_MUL,	OP_DIV,OP_POW,
-	OP_FUNC_TICKS,OP_FUNC_CHR,OP_FUNC_SIN,OP_FUNC_LOG,
+	OP_ADD,	OP_SUB,	OP_MUL,	OP_DIV,
+	OP_FUNC_TICKS,OP_FUNC_CHR,
 	OP_CLS,
 	OP_BREAK,OP_END,
 	//OP_CMP_NE, OP_CMP_LT, OP_CMP_LE,
@@ -109,8 +96,8 @@ const u8 opcodes_param_cnt[] PROGMEM = {
 	1,1,2,2,2,0,//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN
 	0,0,0,0,	//OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF
 	0,0,0,0,	//OP_IF, OP_CMP_GT, OP_CMP_GE
-	0,0,0,0,0,	//P_ADD,OP_SUB,	OP_MUL,	OP_DIV
-	0,1,1,1,	//OP_FUNC_TICKS,OP_FUNC_CHR,OP_FUNC_SIN,OP_FUNC_LOG
+	0,0,0,0,	//P_ADD,OP_SUB,	OP_MUL,	OP_DIV
+	0,1,		//OP_FUNC_TICKS,OP_FUNC_CHR
 	0,			//OP_CLS
 	0,0			//OP_BREAK,OP_END,
 };
@@ -163,8 +150,8 @@ const char* const error_messages[] PROGMEM ={
 static void dumpmem(u16 start_addr,u8 rows);
 static void dumpstack();
 static void dumpvars();
-static void push_value(float v);
-static float pop_value();
+static void push_value(VAR_TYPE v);
+static VAR_TYPE pop_value();
 static void print_error(u8 error_code, u16 line_no);
 static u16 execute(bool initialize);
 static void run_tests();
@@ -181,55 +168,53 @@ static u8 error_code;
 static u8 prog_mem[RAM_SIZE];
 static u8 *heap_ptr;
 
-static float pcode_vars[26]; //A-Z
-static u8 pcode_vars_type[26];
+static VAR_TYPE pcode_vars[26]; //A-Z
 
 static u16 pcode_sp_min=PCODE_STACK_DEPTH; //used to debug
 static u16 opcode_sp=PCODE_STACK_DEPTH;
-static float pcode_stack[PCODE_STACK_DEPTH];
+static VAR_TYPE pcode_stack[PCODE_STACK_DEPTH];
 static stack_frame stack[STACK_DEPTH];
 static s8 stack_ptr=STACK_DEPTH;
 
 static  u8 c1,var,opcode;
-static  u16 u16_var;
-//static  u8* addr;
+static  u16 int1;
+static  u8* addr;
 static  volatile u32 dword;
-static  float v1,v2;
+static  VAR_TYPE v1,v2;
 static bool found, jump, stop=false;
 static stack_frame *sf;
 static u8* currpos;
 
-static u8 line_buffer[80];
+
 
 //0.10938=0x9f,0x02,0xe0,0x3d
 //0.09090=0xc7,0x29,0xba,0x3d
 //2.5 0x00,0x00,0x20,0x40
 //1.0 0x00,0x00,0x80,0x3f
 const u8 token_mand[] PROGMEM={
-10,0,5,OP_CLS,EOL,
-20,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
-30,0,12,OP_LD_BYTE, 1, OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
-40,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
-50,0,20,OP_LD_DWORD,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_DWORD,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
-60,0,20,OP_LD_DWORD,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_DWORD,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
-70,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_X, EOL,
-80,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_Y, EOL,
-90,0,12,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 14, OP_LOOP_FOR, VAR_I, EOL,
-100,0,17,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_ADD, OP_ASSIGN, VAR_F, EOL,
-110,0,13,OP_LD_VAR, VAR_F, OP_LD_BYTE, 4, OP_CMP_GT, OP_IF, OP_LOOP_EXIT, 0, 0, EOL,
-120,0,20,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_SUB, OP_LD_VAR, VAR_C, OP_ADD, OP_ASSIGN, VAR_E, EOL,
-130,0,17,OP_LD_BYTE, 2, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_MUL, OP_LD_VAR, VAR_D, OP_ADD, OP_ASSIGN, VAR_Y, EOL,
-140,0,8,OP_LD_VAR, VAR_E, OP_ASSIGN, VAR_X, EOL,
-150,0,6,OP_LOOP_NEXT, VAR_I, EOL,
-//160,0,0,OP_LD_VAR, VAR_I, OP_LD_BYTE, 126 ,OP_ADD, OP_PRINT_CHAR, EOL,
-160,0,10,OP_LD_VAR, VAR_I, OP_LD_BYTE, 116 ,OP_ADD, OP_PRINT_CHAR, EOL,
-170,0,6,OP_LOOP_NEXT, VAR_B, EOL,
-180,0,5,OP_CRLF, EOL,
-190,0,6,OP_LOOP_NEXT, VAR_A, EOL,
-195,0,7,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-200,0,20,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',EOS, EOL,
-210,0,13,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
-220,0,14,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
+10,0,0,OP_CLS,EOL,
+20,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
+30,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 0, OP_LD_BYTE, 21, OP_LOOP_FOR, VAR_A, EOL,
+40,0,0,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 31, OP_LOOP_FOR, VAR_B, EOL,
+50,0,0,OP_LD_DWORD,0x9f,0x02,0xe0,0x3d,OP_LD_VAR,VAR_B, OP_MUL,OP_LD_DWORD,0x00,0x00,0x20,0x40,OP_SUB,OP_ASSIGN, VAR_C, EOL,
+60,0,0,OP_LD_DWORD,0xc7,0x29,0xba,0x3d,OP_LD_VAR,VAR_A, OP_MUL,OP_LD_DWORD,0x00,0x00,0x80,0x3f,OP_SUB,OP_ASSIGN, VAR_D, EOL,
+70,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_X, EOL,
+80,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_Y, EOL,
+90,0,0,OP_LD_BYTE, 1,OP_LD_BYTE, 0, OP_LD_BYTE, 14, OP_LOOP_FOR, VAR_I, EOL,
+100,0,0,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_ADD, OP_ASSIGN, VAR_F, EOL,
+110,0,0,OP_LD_VAR, VAR_F, OP_LD_BYTE, 4, OP_CMP_GT, OP_IF, OP_LOOP_EXIT, 0, 0, EOL,
+120,0,0,OP_LD_VAR, VAR_X, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_LD_VAR, VAR_Y, OP_MUL, OP_SUB, OP_LD_VAR, VAR_C, OP_ADD, OP_ASSIGN, VAR_E, EOL,
+130,0,0,OP_LD_BYTE, 2, OP_LD_VAR, VAR_X, OP_MUL, OP_LD_VAR, VAR_Y, OP_MUL, OP_LD_VAR, VAR_D, OP_ADD, OP_ASSIGN, VAR_Y, EOL,
+140,0,0,OP_LD_VAR, VAR_E, OP_ASSIGN, VAR_X, EOL,
+150,0,0,OP_LOOP_NEXT, VAR_I, EOL,
+160,0,0,OP_LD_VAR, VAR_I, OP_LD_BYTE, 126 ,OP_ADD, OP_PRINT_CHAR, EOL,
+170,0,0,OP_LOOP_NEXT, VAR_B, EOL,
+180,0,0,OP_CRLF, EOL,
+190,0,0,OP_LOOP_NEXT, VAR_A, EOL,
+195,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+200,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',EOS, EOL,
+210,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_PRINT, EOL,
+220,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
@@ -242,6 +227,8 @@ volatile u8* line;
 volatile u8 lenght;
 volatile u16 prog_size=0;
 u16 load_prog(const u8* program){
+	for(u16 j=0;j<RAM_SIZE;j++)prog_mem[j]=0;
+
 	u16 i=0;
 	//load from flash to sram and compute line sizes
 	txtpos=prog_mem;
@@ -262,79 +249,8 @@ u16 load_prog(const u8* program){
 	prog_size+=2;
 	program_start=prog_mem;
 	program_end=prog_mem+prog_size;
-
-	//clear remaining RAM
-	for(u16 j=prog_size;j<RAM_SIZE;j++){
-		prog_mem[j]=0;
-	}
-
 	return prog_size;
 };
-
-/**
- * Load a program in flash to the SPI RAM and clear remaining RAM.
- */
-u16 load_prog_spiram(const u8* program){
-	u16 i=0;
-	u8 c=0;
-
-	SpiRamSeqWriteStart(0,0);
-
-	//load from flash to sram and compute line sizes
-	txtpos=prog_mem;
-	while(1){
-		if(pgm_read_word(&(program[i]))==0)break;
-		lenght=0;
-		line=txtpos;
-		while(1){
-			c=pgm_read_byte(&(program[i++]));
-			printf_P(PSTR("%02x "),c);
-			SpiRamSeqWriteU8(c);
-			lenght++;
-			if(c==EOL){
-				break;
-			}
-		}
-		line[2]=lenght;
-		prog_size+=lenght;
-	}
-	prog_size+=2;
-	program_start=prog_mem;
-	program_end=prog_mem+prog_size;
-
-	//clear remaining RAM
-	for(u16 j=prog_size;j<RAM_SIZE;j++){
-		SpiRamSeqWriteU8(0);
-	}
-
-	SpiRamSeqWriteEnd();
-
-	return prog_size;
-};
-
-//Function to init the SPI RAM
-//for some reason the one from spiram.c
-//doesn't work on my hardware.
-u8 _spiram_start(){
-	u8 retval;
-	DDRA &= ~(1<<PA4);	//disable SPI RAM
-
-	//enable SPI in 2X mode
-	SPCR=(1<<SPE)+(1<<MSTR);
-	SPSR=(1<<SPI2X);
-	DDRB|=(1<<PB7)+(1<<PB5);
-	PORTA|=(1<<PA4);
-	DDRA|=(1<<PA4);  //enable SPI RAM
-
-	SpiRamWriteU8(0,0xcccc,0xcc);
-	retval=SpiRamReadU8(0,0xcccc);
-	if(retval==0xcc){
-		return 1;
-	}
-
-	return 0; //status;
-
-}
 
 int main(){
 	//bind the terminal receiver to stdout
@@ -368,30 +284,7 @@ int main(){
 //	printf("Elapsed time: %g,size=%i",((float)timer_ticks-ticks)/60,size);
 
 
-	#ifdef TESTSPIRAM
-		SpiRamInit();
-	#endif
-
-
-//	if(_spiram_start()==0){
-//		printf_P(PSTR("SPI RAM Init fail.\n"));
-//	}else{
-//		printf_P(PSTR("SPI RAM Init OK.\n\n"));
-//	}
-//
-//	load_prog_spiram(token_mand);
-//	printf_P(PSTR("\n\n"));
-
-//	u8 b;
-//	SpiRamSeqReadStart(0,0);
-//	for(u16 i=0;i<prog_size;i++){
-//		b=SpiRamSeqReadU8();
-//		printf_P(PSTR("%02x "),b);
-//	}
-//	SpiRamSeqReadEnd();
-
-	// load_prog(token_mand);
-	//execute(true);
+	//execute();
 	run_tests();
 
 	//dumpmem(0,10);
@@ -402,17 +295,13 @@ int main(){
 }
 
 //allocate a one dimentional array of floats
-u8* allocate_numeric_array(u16 elements){
-	if(heap_ptr-(elements * VAR_SIZE) < program_end){
+float* allocate_numeric_array(u16 elements){
+	if(heap_ptr-elements < program_end){
 		error_code=ERR_OUT_OF_MEMORY;
 		return NULL;
 	}
-
-	heap_ptr-= (elements * VAR_SIZE);
-
-	//PCODE_DEBUG("[allocate_numeric_array: heap_ptr=0x%04x, heap_top=0x%04x] ",(u16)heap_ptr,(u16)prog_mem+sizeof(prog_mem)-1);
-
-	return heap_ptr;
+	heap_ptr-=elements;
+	return (float*)heap_ptr;
 }
 
 /**
@@ -458,21 +347,11 @@ u8* find_line(u16 line_to_find){
 u16 execute(bool initialize){
 
 	if(initialize){
-		for(u8 i=0;i<26;i++){
-			pcode_vars[i]=0;
-			pcode_vars_type[i]=0;
-		}
-
-		pcode_sp_min=PCODE_STACK_DEPTH;
-		found=false;
-		jump=false;
-		stop=false;
-
+		for(u8 i=0;i<26;i++)pcode_vars[i]=0;
 		opcode_sp=PCODE_STACK_DEPTH;
 		stack_ptr=STACK_DEPTH;
-		heap_ptr=prog_mem+RAM_SIZE-1;
 
-		PCODE_DEBUG("[Initialize vars, heap_ptr=0x%04x]\n",heap_ptr);
+		heap_ptr=prog_mem+RAM_SIZE-1;
 	}
 
 
@@ -488,14 +367,6 @@ u16 execute(bool initialize){
 	do{
 		current_line=txtpos;
 		current_line_no= (txtpos[1]<<8)+txtpos[0];
-
-		#ifdef TESTSPIRAM
-			//if(current_line_no==70)	asm("wdr");
-			SpiRamSeqReadStart(0, (u16)txtpos);
-			READSPIRAM(txtpos[2]); //fake reading the whole line
-			//if(current_line_no==70)	asm("wdr");
-		#endif
-
 		txtpos+=sizeof(LINENUM)+sizeof(char); //skip line number and line lenght
 
 		if(opcode_sp!=PCODE_STACK_DEPTH){
@@ -516,10 +387,10 @@ u16 execute(bool initialize){
 					break;
 
 				case OP_LD_WORD:
-					u16_var=(*((int16_t*)txtpos));
+					int1=(*((int16_t*)txtpos));
 					txtpos+=2;
-					push_value(u16_var);
-					PCODE_DEBUG("[LDW %i] ",u16_var);
+					push_value(int1);
+					PCODE_DEBUG("[LDW %i] ",int1);
 					break;
 
 				case OP_LD_DWORD:
@@ -531,67 +402,17 @@ u16 execute(bool initialize){
 
 				case OP_LD_VAR:
 					c1=*txtpos++;
-					if(pcode_vars_type[c1]==VAR_TYPE_FLOAT_ARRAY){
-						u16_var=pop_value(); //array index
-						type_converter.f=pcode_vars[c1];
-						v1=type_converter.f_array.f_ptr[u16_var];
-						push_value(v1);
-						PCODE_DEBUG("[LDV %c(%i):%g] ",c1+65,u16_var,v1);
-
-						#ifdef TESTSPIRAM
-							SpiRamReadU32(0,(u16)txtpos);
-						#endif
-					}else{
-						v1=pcode_vars[c1];
-						push_value(v1);
-						PCODE_DEBUG("[LDV %c:%g] ",c1+65,v1);
-					}
-
+					v1=pcode_vars[c1];
+					push_value(v1);
+					PCODE_DEBUG("[LDV %c:%g] ",c1+65,v1);
 					break;
 
 				case OP_ASSIGN:
-					//Get variable to assign to
-					c1=*txtpos++;
-
-					if(pcode_vars_type[c1]==VAR_TYPE_FLOAT_ARRAY){
-						v1=pop_value(); //value to assign
-						u16_var=pop_value(); //array index
-						type_converter.f=pcode_vars[c1];
-						type_converter.f_array.f_ptr[u16_var]=v1;
-						//printf("value=%g",type_converter.f_array.f_ptr[u16_var]);
-
-						#ifdef TESTSPIRAM
-							SpiRamReadU32(0,(u16)txtpos);
-						#endif
-
-
-						PCODE_DEBUG("[LET %c(%i)=%g] ",c1+65,u16_var,v1);
-					}else{
-						pcode_vars[c1]=pop_value();
-						PCODE_DEBUG("[LET %c=%g] ",c1+65,pcode_vars[c1]);
-					}
-					break;
-
-				case OP_DIM:
 					//Get variable value
 					c1=*txtpos++;
-					u16_var=pop_value();
-
-
-					u8* pp=allocate_numeric_array(u16_var);
-					type_converter.f_array.f_ptr=(float*)pp;
-					type_converter.f_array.size=u16_var;
-					pcode_vars[c1]=type_converter.f;
-					pcode_vars_type[c1]=VAR_TYPE_FLOAT_ARRAY;
-
-					//PCODE_DEBUG("[float ptr=0x%04x]\n",type_converter.f_array.f_ptr);
-
-
-					//TODO error checks for correct type and REDIM
-
-					PCODE_DEBUG("[DIM %c(%i)] ",c1+65,u16_var);
+					pcode_vars[c1]=pop_value();
+					PCODE_DEBUG("[LET %c] ",c1+65,pcode_vars[c1]);
 					break;
-
 
 				case OP_LOOP_FOR:
 					if(stack_ptr == 0){
@@ -600,9 +421,9 @@ u16 execute(bool initialize){
 					}
 					sf=&stack[--stack_ptr];
 
-					float terminal = pop_value();
-					float initial = pop_value();
-					float step = pop_value();
+					VAR_TYPE terminal = pop_value();
+					VAR_TYPE initial = pop_value();
+					VAR_TYPE step = pop_value();
 					c1=*txtpos++; //get variable index (0-25)
 					pcode_vars[c1]=initial;
 
@@ -748,12 +569,6 @@ u16 execute(bool initialize){
 						}
 						//advance to next line;
 						scan_ptr+=scan_ptr[2];
-
-						#ifdef TESTSPIRAM
-							SpiRamSeqReadStart(0, (u16)txtpos);
-							READSPIRAM(scan_ptr[2]); //fake reading the whole line
-						#endif
-
 					}
 					break;
 
@@ -813,11 +628,6 @@ u16 execute(bool initialize){
 						}
 						//advance to next line;
 						scan_ptr+=scan_ptr[2];
-
-						#ifdef TESTSPIRAM
-							SpiRamSeqReadStart(0, (u16)txtpos);
-							READSPIRAM(scan_ptr[2]); //fake reading the whole line
-						#endif
 					}
 
 					break;
@@ -936,14 +746,6 @@ u16 execute(bool initialize){
 					PCODE_DEBUG("[DIV] ");
 					break;
 
-				case OP_POW:
-					v2=pop_value();
-					v1=pop_value();
-
-					push_value(powf(v1,v2));
-					PCODE_DEBUG("[POW %g^%g] ",v1,v2);
-					break;
-
 				case OP_FUNC_TICKS:
 					dword=timer_ticks;
 					push_value(dword);
@@ -954,18 +756,6 @@ u16 execute(bool initialize){
 					v1=pop_value(); //TODO
 					push_value(v1);
 					PCODE_DEBUG("[CHR] ");
-					break;
-
-				case OP_FUNC_SIN:
-					v1=pop_value();
-					push_value(sinf(v1));
-					PCODE_DEBUG("[SIN] ");
-					break;
-
-				case OP_FUNC_LOG:
-					v1=pop_value();
-					push_value(logf(v1));
-					PCODE_DEBUG("[LOG] ");
 					break;
 
 				case OP_CLS:
@@ -1007,7 +797,7 @@ void print_error(u8 error_code, u16 line_number){
 }
 
 
-static inline void push_value(float v){
+static inline void push_value(VAR_TYPE v){
 	if(opcode_sp==0){
 		printf_P(PSTR("opcode stack overflow: push"));
 		dumpstack();
@@ -1019,7 +809,7 @@ static inline void push_value(float v){
 	//if(pcode_sp<pcode_sp_min) pcode_sp_min=pcode_sp;
 }
 
-static inline float pop_value(){
+static inline VAR_TYPE pop_value(){
 	if(opcode_sp==PCODE_STACK_DEPTH){
 		printf_P(PSTR("opcode stack overflow: pop"));
 		dumpstack();
@@ -1129,100 +919,76 @@ __attribute__((unused)) void dumpvars(){
 
 }
 
-
-const u8 token_rf_benchmark_8[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_POW, OP_ASSIGN, VAR_A, EOL,
-80,0,0,OP_LD_VAR, VAR_K, OP_FUNC_LOG, OP_ASSIGN, VAR_B, EOL,
-90,0,0,OP_LD_VAR, VAR_K, OP_FUNC_SIN, OP_ASSIGN, VAR_C, EOL,
-100,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xf4, 0x01, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 500
-//100,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 2,0, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 500
-100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-110,0,0,OP_END,EOL,
-0,0
-};
-
-
-const u8 token_rf_benchmark_7[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-55,0,0,OP_LD_BYTE, 5, OP_DIM,VAR_M, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
-80,0,0,OP_GOSUB,120,0,EOL,
-82,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_BYTE, 5, OP_LOOP_FOR, VAR_L, EOL,	//1 to 5
-83,0,0,OP_LD_VAR, VAR_L, OP_LD_VAR, VAR_A, OP_ASSIGN, VAR_M, EOL,
-85,0,0,OP_LOOP_NEXT, VAR_L, EOL,
-90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-110,0,0,OP_END,EOL,
-120,0,0,OP_RETURN,EOL,
-0,0
-};
-
-const u8 token_rf_benchmark_6[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-55,0,0,OP_LD_BYTE, 5, OP_DIM,VAR_M, EOL,
-//60,0,0,OP_LD_BYTE, 0,OP_LD_BYTE, 128, OP_ASSIGN,VAR_M,EOL,
-//65,0,0,OP_LD_BYTE, 4,OP_LD_BYTE, 64, OP_ASSIGN,VAR_M,EOL,
-//65,0,0,OP_LD_VAR, VAR_L,OP_LD_VAR, VAR_A, OP_ASSIGN,VAR_M,EOL,
-//70,0,0,OP_LD_BYTE, 0, OP_LD_VAR, VAR_M, OP_PRINT, EOL,
-//75,0,0,OP_LD_BYTE, 4, OP_LD_VAR, VAR_M, OP_PRINT, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
-80,0,0,OP_GOSUB,120,0,EOL,
-82,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_BYTE, 5, OP_LOOP_FOR, VAR_L, EOL,	//1 to 5
-85,0,0,OP_LOOP_NEXT, VAR_L, EOL,
-90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-110,0,0,OP_END,EOL,
-120,0,0,OP_RETURN,EOL,
-0,0
-};
-
 const u8 token_rf_benchmark_5[] PROGMEM={
+//10,0,0,OP_CLS,EOL,
+//20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','5',EOSNL, EOL,
+//30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
 50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
 60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
 70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
 80,0,0,OP_GOSUB,120,0,EOL,
 90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+//90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 3, 0, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
 100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
 110,0,0,OP_END,EOL,
+//120,0,0,OP_PRINT_LSTR,'*',EOS,EOL,
 120,0,0,OP_RETURN,EOL,
+//120,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+//130,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+//140,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
+//150,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_4[] PROGMEM={
+//10,0,0,OP_CLS,EOL,
+//20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','4',EOSNL, EOL,
+//30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
 50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
 60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
 65,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
 70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
 80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+//90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+//100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+//110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
+//120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_3[] PROGMEM={
+//10,0,0,OP_CLS,EOL,
+//20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','3',EOSNL, EOL,
+//30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
 50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
 60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
 65,0,0,OP_LD_VAR, VAR_K, OP_LD_VAR, VAR_K, OP_DIV, OP_LD_VAR, VAR_K, OP_MUL, OP_LD_VAR, VAR_K, OP_ADD, OP_LD_VAR, VAR_K, OP_SUB, OP_ASSIGN, VAR_A, EOL,
 70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
 80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+//90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+//100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+//110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
+//120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
 
 const u8 token_rf_benchmark_2[] PROGMEM={
+//10,0,0,OP_CLS,EOL,
+//20,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','2',EOSNL, EOL,
+//30,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
 40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
 50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
 60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
 70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
 80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+//90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
+//100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
+//110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
+//120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
 0,0
 };
 
@@ -1246,56 +1012,54 @@ const u8* const test_suite[] PROGMEM ={
 		token_rf_benchmark_2,
 		token_rf_benchmark_3,
 		token_rf_benchmark_4,
-		token_rf_benchmark_5,
-		token_rf_benchmark_6,
-		token_rf_benchmark_7,
-		token_rf_benchmark_8,
-		token_mand
+		token_rf_benchmark_5
 };
 
 void run_tests(){
-	float results[9];
+	float results[8];
 	float ticks;
-	for(u8 i=0;i<9;i++)results[i]=0;
+	for(u8 i=0;i<8;i++)results[i]=0;
 
-	u8 res;
-	for(u16 i=0;i<sizeof(test_suite)/2;i++){
+
+//	load_prog(token_rf_benchmark_5);
+//	ticks=timer_ticks;
+//	execute(true);
+//	results[4]=((float)timer_ticks-ticks)/60;
+
+
+
+	for(u8 i=0;i<sizeof(test_suite)/2;i++){
 		load_prog((const u8*)pgm_read_word(&(test_suite[i])));
 		printf_P(PSTR("Test #%i...\n"),i+1);
 		ticks=timer_ticks;
-		res=execute(true);
-		if(res!=0){
-			print_error(res,0);
-			while(1);
-		}
+		execute(true);
 		results[i]=((float)timer_ticks-ticks)/60;
+		//results[i]=pcode_vars[VAR_T];
+	}
+
+	for(u8 i=0;i<sizeof(test_suite)/2;i++){
+		printf("test=%i,res=%g\n",i+1,results[i]);
 	}
 
 	terminal_Clear();
-	#ifdef TESTSPIRAM
-		printf_P(PSTR("Rugg/Feldman BASIC Benchmarks (SPI RAM simulation)\n"));
-	#else
-		printf_P(PSTR("Rugg/Feldman BASIC Benchmarks (SRAM)\n"));
-	#endif
+	printf_P(PSTR("Rugg/Feldman BASIC Benchmarks\n"));
+	printf_P(PSTR("\x81\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x82\n"));
+	printf_P(PSTR("\x86 System      \x86 Test1 \x86 Test2 \x86 Test3 \x86 Test4 \x86 Test5 \x86 Test6 \x86 Test7 \x86 Test8 \x86\n"));
+	printf_P(PSTR("\x87\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x88\n"));
 
-	printf_P(PSTR("\x81\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x82\n"));
-	printf_P(PSTR("\x86 System      \x86 Tst1 \x86 Tst2 \x86 Tst3 \x86 Tst4 \x86 Tst5 \x86 Tst6 \x86 Tst7 \x86 Tst8 \x86 Mand  \x86\n"));
-	printf_P(PSTR("\x87\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x88\n"));
+	//printf_P(PSTR("\x86 Uzebox      \x86 0.17  \x86 0.32  \x86 0.8   \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86 ---   \x86\n"));
+	printf_P(PSTR("\x86 Uzebox      \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 %.2f  \x86 ---   \x86 ---   \x86 ---   \x86\n"),results[0],results[1],results[2],results[3],results[4]);
+	printf_P(PSTR("\x86 BBC Micro   \x86 0.8   \x86 3.1   \x86 8.1   \x86 8.7   \x86 9.0   \x86 13.9  \x86 21.1  \x86 49.9  \x86\n"));
+	printf_P(PSTR("\x86 ZX 80       \x86 1.5   \x86 4.7   \x86 9.2   \x86 9.0   \x86 12.7  \x86 25.9  \x86 39.2  \x86 NA    \x86\n"));
+	printf_P(PSTR("\x86 VIC 20      \x86 1.4   \x86 8.3   \x86 15.5  \x86 17.1  \x86 18.3  \x86 27.2  \x86 42.7  \x86 99    \x86\n"));
+	printf_P(PSTR("\x86 Apple II    \x86 1.3   \x86 8.5   \x86 16.0  \x86 17.8  \x86 19.1  \x86 28.6  \x86 44.8  \x86 55.5  \x86\n"));
+	printf_P(PSTR("\x86 C64         \x86 1.2   \x86 9.3   \x86 17.6  \x86 19.5  \x86 21.0  \x86 29.5  \x86 47.5  \x86 119.3 \x86\n"));
+	printf_P(PSTR("\x86 Altair 8800 \x86 1.9   \x86 7.5   \x86 20.6  \x86 20.9  \x86 22.1  \x86 38.8  \x86 57.0  \x86 67.8  \x86\n"));
+	printf_P(PSTR("\x86 Atari 800XL \x86 2.2   \x86 7.3   \x86 19.7  \x86 24.1  \x86 26.3  \x86 40.3  \x86 60.1  \x86 NA    \x86\n"));
+	printf_P(PSTR("\x86 ZX Spectrum \x86 4.4   \x86 8.2   \x86 20.0  \x86 19.2  \x86 23.1  \x86 53.4  \x86 77.6  \x86 239.1 \x86\n"));
+	printf_P(PSTR("\x86 TI-99/4A    \x86 2.9   \x86 8.8   \x86 22.8  \x86 24.5  \x86 26.1  \x86 61.6  \x86 84.4  \x86 382   \x86\n"));
 
-	printf_P(PSTR("\x86 Uzebox      \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86\n"),results[0],results[1],results[2],results[3],results[4],results[5],results[6],results[7],results[8]);
-	printf_P(PSTR("\x86 X16         \x86 0.2  \x86 1.2  \x86 2.3  \x86 2.7  \x86 2.9  \x86 4.3  \x86 6.8  \x86 1.3  \x86 23    \x86\n"));
-	printf_P(PSTR("\x86 BBC Micro   \x86 0.8  \x86 3.1  \x86 8.1  \x86 8.7  \x86 9.0  \x86 13.9 \x86 21.1 \x86 49.9 \x86 97    \x86\n"));
-	printf_P(PSTR("\x86 ZX 80       \x86 1.5  \x86 4.7  \x86 9.2  \x86 9.0  \x86 12.7 \x86 25.9 \x86 39.2 \x86 ---  \x86 222   \x86\n"));
-	printf_P(PSTR("\x86 VIC 20      \x86 1.4  \x86 8.3  \x86 15.5 \x86 17.1 \x86 18.3 \x86 27.2 \x86 42.7 \x86 99   \x86 ---   \x86\n"));
-	printf_P(PSTR("\x86 Apple II    \x86 1.3  \x86 8.5  \x86 16.0 \x86 17.8 \x86 19.1 \x86 28.6 \x86 44.8 \x86 55.5 \x86 165   \x86\n"));
-	printf_P(PSTR("\x86 C64         \x86 1.2  \x86 9.3  \x86 17.6 \x86 19.5 \x86 21.0 \x86 29.5 \x86 47.5 \x86 119  \x86 203   \x86\n"));
-	printf_P(PSTR("\x86 Altair 8800 \x86 1.9  \x86 7.5  \x86 20.6 \x86 20.9 \x86 22.1 \x86 38.8 \x86 57.0 \x86 67.8 \x86 ---   \x86\n"));
-	printf_P(PSTR("\x86 Atari 800XL \x86 2.2  \x86 7.3  \x86 19.7 \x86 24.1 \x86 26.3 \x86 40.3 \x86 60.1 \x86 ---  \x86 136   \x86\n"));
-	printf_P(PSTR("\x86 ZX Spectrum \x86 4.4  \x86 8.2  \x86 20.0 \x86 19.2 \x86 23.1 \x86 53.4 \x86 77.6 \x86 239  \x86 273   \x86\n"));
-	printf_P(PSTR("\x86 TI-99/4A    \x86 2.9  \x86 8.8  \x86 22.8 \x86 24.5 \x86 26.1 \x86 61.6 \x86 84.4 \x86 382  \x86 364   \x86\n"));
-
-	printf_P(PSTR("\x83\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x84\n"));
-	printf_P(PSTR("See: https://en.wikipedia.org/wiki/Rugg/Feldman_benchmarks\n"));
-	printf_P(PSTR("     https://github.com/SlithyMatt/multi-mandlebrot\n"));
+	printf_P(PSTR("\x83\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x89\x85\x85\x85\x85\x85\x85\x85\x84\n"));
+	printf_P(PSTR("See: https://en.wikipedia.org/wiki/Rugg/Feldman_benchmarks#Benchmark_7\n"));
 
 }

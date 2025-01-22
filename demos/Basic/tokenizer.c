@@ -465,8 +465,9 @@ const u8 token_mem3[] PROGMEM={
 
 const u8 token_mem[] PROGMEM={
 10,0,9,KW_DIM+0x80,'K','(','9',')',0xa,
-20,0,11,KW_LET+0x80,'K','(','1',')','=','7',0xa,
-20,0,11,KW_LET+0x80,'M','(','L',')','=','A',0xa,
+//20,0,11,KW_LET+0x80,'K','(','1',')','=','7',0xa,
+//20,0,11,KW_LET+0x80,'M','(','L',')','=','A',0xa,
+20,0,10,KW_LET+0x80,'A','=','X','^','2',0xa,
 
 //		20,0,14,KW_LET+0x80,'T','=','T','I','C','K','S','(',')',0xa,
 //		30,0,12,KW_FOR+0x80,'A','=','0','T','O','2','1',0xa,
@@ -2659,6 +2660,8 @@ void cmd_Files(){
 			return a;
 		}
 
+
+
 	EXPR4_ERROR:
 		expression_error = 1;
 		return 0;
@@ -2673,7 +2676,17 @@ void cmd_Files(){
 		while(1){
 			//printf("<exp3 *tpos=%c",*txtpos);
 			VAR_TYPE b;
-			if(*txtpos == '*'){
+			if(*txtpos == '^'){
+				txtpos++;
+				b = expr4();
+
+				#if GENPCODE == 1
+					printf_P(PSTR("[%g^%g]"),a,b);
+				#endif
+
+				a=powf(a,b);
+
+			}else if(*txtpos == '*'){
 				txtpos++;
 				b = expr4();
 
