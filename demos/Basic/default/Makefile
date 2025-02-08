@@ -32,13 +32,16 @@ KERNEL_OPTIONS += -DSCREEN_TILES_H=80 -DSCREEN_TILES_V=25 -DFIRST_RENDER_LINE=28
 KERNEL_OPTIONS += -DSOUND_MIXER=1 -DTRUE_RANDOM_GEN=1 -D_FS_READONLY=0 -DUART=0 -DUART_RX_BUFFER_SIZE=16 -DUART_TX_BUFFER_SIZE=16 #-D_WORD_ACCESS=0
 KERNEL_OPTIONS += -DNO_EEPROM_FORMAT=1 -DNO_PC_SLIDE=1 -DNO_PC_LOOP=1 -DNO_CHAN_EXPRESSION=1
 KERNEL_OPTIONS += -DMUSIC_ENGINE=STREAM -DSOUND_CHANNEL_5_ENABLE=0 #-DMIXER_WAVES=\"$(MIX_PATH_ESC)\"
-KERNEL_OPTION += -DJTAG_DEBUG
+#KERNEL_OPTION += -DJTAG_DEBUG
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Wall -Wextra -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Os -fsigned-char -ffunction-sections -fno-toplevel-reorder 
+
+CFLAGS += -Wall -Wextra -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -O3 -fsigned-char -ffunction-sections -fno-toplevel-reorder 
+#CFLAGS += -Wall -Wextra -gdwarf-2 -std=gnu99 -DF_CPU=28636360UL -Og -fsigned-char -ffunction-sections -fno-toplevel-reorder -fno-omit-frame-pointer -fno-inline -fno-optimize-sibling-calls
+
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += $(KERNEL_OPTIONS)
 

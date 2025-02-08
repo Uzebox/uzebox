@@ -24,30 +24,14 @@
 
 #define wait_spi_ram_byte() asm volatile("lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t lpm \n\t nop \n\t" : : : "r0", "r1"); //wait 19 cycles
 
-//Uncomment to print pcode debug info
-//#define DBGPCODE
-//#define TESTSPIRAM
-
-#ifdef DBGPCODE
-	#define PCODE_DEBUG(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
-#else
-    #define PCODE_DEBUG(...)
-#endif
-
-#ifdef TESTSPIRAM
-	#define READSPIRAM(count) SpiRamSeqReadInto(line_buffer,count)
-#else
-    #define READSPIRAM(...)
-#endif
-
-#define RAM_SIZE 800
+#define RAM_SIZE 65535
 #define STACK_DEPTH	10				//depth of the loops/gosub stack
 #define PCODE_STACK_DEPTH 5			//depth of the internal parameter passing statck
 #define VAR_TYPE_FLOAT 0
 #define VAR_TYPE_FLOAT_ARRAY 1
 #define VAR_TYPE float
 #define VAR_SIZE sizeof(float)	//Size of variables in bytes
-#define EOL   0xff					//denotes the end of the bytecode line
+#define EOL   0xff					//denotes the end of a program line
 #define EOS   0x00					//Used to delimitate the end of a string
 #define EOSNL 0x1					//User to delimitate the end of a string that should end with a new line
 
@@ -65,7 +49,7 @@ union {
 		float* f_ptr;
 		u16	size;
 	}f_array;
-	int32_t i;
+	uint32_t i;
 	uint8_t bytes[sizeof(float)];
 }type_converter;
 
@@ -74,8 +58,9 @@ typedef struct {
 	u8 for_var;
 	s16 terminal;
 	s16 step;
-	u8 *current_line;
-	u8 *txt_pos;
+	u8 line_len;
+	u8 line_pos;
+	u16 prog_pos;
 }stack_frame;
 
 //typedef struct{
@@ -91,28 +76,27 @@ typedef struct {
 
 
 enum opcodes{
-	OP_LD_BYTE=0x80, OP_LD_WORD, OP_LD_DWORD, OP_LD_VAR, OP_ASSIGN,OP_DIM,
+	OP_LD_BYTE=0x80, OP_LD_WORD, OP_LD_DWORD, OP_LD_VAR, OP_ASSIGN, OP_ASSIGN_ARRAY, OP_DIM,
 	OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN,
 	OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF,
-	OP_IF, OP_CMP_GT, OP_CMP_GE, OP_CMP_LT,
+	OP_IF, OP_CMP_GT, OP_CMP_GE, OP_CMP_LT,OP_CMP_EQ,
 	OP_ADD,	OP_SUB,	OP_MUL,	OP_DIV,OP_POW,
 	OP_FUNC_TICKS,OP_FUNC_CHR,OP_FUNC_SIN,OP_FUNC_LOG,
 	OP_CLS,
 	OP_BREAK,OP_END,
-	//OP_CMP_NE, OP_CMP_LT, OP_CMP_LE,
 };
 
-//number of parameters/extra bytes required for each opcodes
+//Number of parameters/extra bytes required for each opcodes. Used by the EXIT statement.
 //const u8 opcodes_param_cnt[] PROGMEM = {
 const u8 opcodes_param_cnt[] PROGMEM = {
-	1,2,4,1,1,1,	//OP_LD_BYTE, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN, OP_DIM
-	1,1,2,2,2,0,//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN
-	0,0,0,0,	//OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF
-	0,0,0,0,	//OP_IF, OP_CMP_GT, OP_CMP_GE
-	0,0,0,0,0,	//P_ADD,OP_SUB,	OP_MUL,	OP_DIV
-	0,1,1,1,	//OP_FUNC_TICKS,OP_FUNC_CHR,OP_FUNC_SIN,OP_FUNC_LOG
-	0,			//OP_CLS
-	0,0			//OP_BREAK,OP_END,
+	1,2,4,1,1,1,1,	//OP_LD_BYTE, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN, OP_ASSIGN_1D_ARRAY, OP_DIM
+	1,1,2,2,2,0,	//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN
+	0,0,0,0,		//OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF
+	0,0,0,0,0,		//OP_IF, OP_CMP_GT, OP_CMP_GE, OP_CMP_LT,OP_CMP_EQ
+	0,0,0,0,0,		//P_ADD,OP_SUB,	OP_MUL,	OP_DIV
+	0,1,1,1,		//OP_FUNC_TICKS,OP_FUNC_CHR,OP_FUNC_SIN,OP_FUNC_LOG
+	0,				//OP_CLS
+	0,0				//OP_BREAK,OP_END,
 };
 
 enum vars{
@@ -126,26 +110,28 @@ enum ERRORS{
 	ERR_STACK_OVERFLOW,			//For-Gosub nesting too deep (increment STACK_DEPTH)
 	ERR_NEXT_WITHOUT_FOR,		//next encountered without a for
 	ERR_INVALID_NESTING,		//Invalid nesting of for-next loops and/or gosub-return statements
-	ERR_EXIT_WITHOUT_FOR,		//EXIT encoutered with no FOR or bad nesting
+	ERR_EXIT_WITHOUT_FOR,		//EXIT encoutered with no FOR (or bad nesting)
 	ERR_FOR_WITHOUT_NEXT,
 	ERR_ILLEGAL_ARGUMENT,
 	ERR_UNDEFINED_LINE_NUMBER,
 	ERR_DIVISION_BY_ZERO,
-	ERR_OUT_OF_MEMORY
+	ERR_OUT_OF_MEMORY,
+	ERR_EXIT_WITHOUT_NEXT,		//EXIT encoutered with no following NEXT statement
 };
 
 
-const char error_00_msg[] PROGMEM = "";	//Error code 0 represents OK /no errors
-const char error_01_msg[] PROGMEM = "Internal Error in %1";
-const char error_02_msg[] PROGMEM = "Stack Overflow in %i";
-const char error_03_msg[] PROGMEM = "NEXT without FOR in %i";
-const char error_04_msg[] PROGMEM = "Invalid NEXT nesting in %i";
-const char error_05_msg[] PROGMEM = "EXIT without FOR in %i";
-const char error_06_msg[] PROGMEM = "FOR without NEXT in %i";
-const char error_07_msg[] PROGMEM = "Illegal Argument in %i";
-const char error_08_msg[] PROGMEM = "Undefined line number in %i";
-const char error_09_msg[] PROGMEM = "Division by zero in %i";
-const char error_10_msg[] PROGMEM = "Out of memory in %i";
+const char error_00_msg[] PROGMEM = "Ok";	//Error code 0 represents OK /no errors
+const char error_01_msg[] PROGMEM = "Internal Error";
+const char error_02_msg[] PROGMEM = "Stack Overflow";
+const char error_03_msg[] PROGMEM = "NEXT without FOR";
+const char error_04_msg[] PROGMEM = "Invalid NEXT nesting";
+const char error_05_msg[] PROGMEM = "EXIT without FOR";
+const char error_06_msg[] PROGMEM = "FOR without NEXT";
+const char error_07_msg[] PROGMEM = "Illegal Argument";
+const char error_08_msg[] PROGMEM = "Undefined line number";
+const char error_09_msg[] PROGMEM = "Division by zero";
+const char error_10_msg[] PROGMEM = "Out of memory";
+const char error_11_msg[] PROGMEM = "EXIT without NEXT";
 
 const char* const error_messages[] PROGMEM ={
 		error_00_msg,
@@ -157,29 +143,23 @@ const char* const error_messages[] PROGMEM ={
 		error_06_msg,
 		error_07_msg,
 		error_08_msg,
-		error_09_msg
+		error_09_msg,
+		error_10_msg,
+		error_11_msg,
 };
 
-static void dumpmem(u16 start_addr,u8 rows);
-static void dumpstack();
-static void dumpvars();
 static void push_value(float v);
 static float pop_value();
 static void print_error(u8 error_code, u16 line_no);
 static u16 execute(bool initialize);
-static void run_tests();
+static u8 run_tests();
 
 const u8 token_rf_benchmark_5[] ;
 
 static u8 *txtpos;
 static u32 timer_ticks;
-static u8 *program_start;
-static u8 *program_end;
-static u8 *current_line;
-static u16 current_line_no;
 static u8 error_code;
-static u8 prog_mem[RAM_SIZE];
-static u8 *heap_ptr;
+static u8 error_line;
 
 static float pcode_vars[26]; //A-Z
 static u8 pcode_vars_type[26];
@@ -190,16 +170,28 @@ static float pcode_stack[PCODE_STACK_DEPTH];
 static stack_frame stack[STACK_DEPTH];
 static s8 stack_ptr=STACK_DEPTH;
 
-static  u8 c1,var,opcode;
-static  u16 u16_var;
-//static  u8* addr;
+static u8 c1,var,opcode;
+static u16 u16_var;
+static u16 u16_ptr;
 static  volatile u32 dword;
-static  float v1,v2;
+static  float v1,v2,ftmp;
 static bool found, jump, stop=false;
 static stack_frame *sf;
-static u8* currpos;
+static u8 spi_line_buf[80];
 
-static u8 line_buffer[80];
+static u16 spi_prog_pos;	//Absolute position of the current program line in SPI memory
+static u16 spi_line_pos;	//Position with the program line that is loaded in the line buffer
+static u16 spi_line_no;		//The program's Basic line number
+static u8  spi_line_len;	//The program's line lenght in the line buffer (include the two-bytes line number and lenght byte)
+static u16 spi_prog_pos_tmp;//Used to cache temporarely the address in the program
+static stack_frame *sf;
+static s16 current;
+static u16 scan_pos;
+static u16 line_to_find;
+static u16 line_no_tmp;
+static u8 line_len_tmp;
+static u16 spi_prog_size;
+static u16 spi_heap_ptr;
 
 //0.10938=0x9f,0x02,0xe0,0x3d
 //0.09090=0xc7,0x29,0xba,0x3d
@@ -222,7 +214,8 @@ const u8 token_mand[] PROGMEM={
 140,0,8,OP_LD_VAR, VAR_E, OP_ASSIGN, VAR_X, EOL,
 150,0,6,OP_LOOP_NEXT, VAR_I, EOL,
 //160,0,0,OP_LD_VAR, VAR_I, OP_LD_BYTE, 126 ,OP_ADD, OP_PRINT_CHAR, EOL,
-160,0,10,OP_LD_VAR, VAR_I, OP_LD_BYTE, 116 ,OP_ADD, OP_PRINT_CHAR, EOL,
+//160,0,10,OP_LD_VAR, VAR_I, OP_LD_BYTE, 116+3 ,OP_ADD, OP_PRINT_CHAR, EOL,
+165,0,16,OP_LD_VAR, VAR_I, OP_LD_BYTE, 116+5 ,OP_ADD, OP_PRINT_CHAR, OP_LD_VAR, VAR_I, OP_LD_BYTE, 116+5 ,OP_ADD, OP_PRINT_CHAR,EOL,
 170,0,6,OP_LOOP_NEXT, VAR_B, EOL,
 180,0,5,OP_CRLF, EOL,
 190,0,6,OP_LOOP_NEXT, VAR_A, EOL,
@@ -233,6 +226,20 @@ const u8 token_mand[] PROGMEM={
 0,0
 };
 
+const u8 test[] PROGMEM={
+10,0,5,OP_CLS,EOL,
+20,0,12,OP_LD_BYTE, 1, OP_LD_BYTE, 0, OP_LD_BYTE, 3, OP_LOOP_FOR, VAR_A, EOL,
+30,0,13,OP_LD_VAR, VAR_A, OP_LD_BYTE, 2, OP_CMP_EQ, OP_IF, OP_LOOP_EXIT, 0, 0, EOL,
+35,0,7,OP_PRINT_LSTR,'*',EOSNL,EOL,
+40,0,6,OP_LOOP_NEXT, VAR_A, EOL,
+50,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_B,OP_ADD, OP_ASSIGN, VAR_B, EOL,
+60,0,7,OP_LD_VAR, VAR_B,OP_PRINT, EOL,
+70,0,11,OP_PRINT_LSTR,':','D','o','n','e',EOSNL,EOL,
+80,0,7,OP_GOTO, 20, 0, EOL,
+0,0
+};
+
+
 void vsyncCallback(){
 	timer_ticks++;
 	terminal_VsyncCallback();	//used to poll the keyboard
@@ -240,36 +247,7 @@ void vsyncCallback(){
 
 volatile u8* line;
 volatile u8 lenght;
-volatile u16 prog_size=0;
-u16 load_prog(const u8* program){
-	u16 i=0;
-	//load from flash to sram and compute line sizes
-	txtpos=prog_mem;
-	while(1){
-		if(pgm_read_word(&(program[i]))==0)break;
-		lenght=0;
-		line=txtpos;
-		while(1){
-			*txtpos=pgm_read_byte(&(program[i++]));
-			lenght++;
-			if(*txtpos++==EOL){
-				break;
-			}
-		}
-		line[2]=lenght;
-		prog_size+=lenght;
-	}
-	prog_size+=2;
-	program_start=prog_mem;
-	program_end=prog_mem+prog_size;
 
-	//clear remaining RAM
-	for(u16 j=prog_size;j<RAM_SIZE;j++){
-		prog_mem[j]=0;
-	}
-
-	return prog_size;
-};
 
 /**
  * Load a program in flash to the SPI RAM and clear remaining RAM.
@@ -281,35 +259,34 @@ u16 load_prog_spiram(const u8* program){
 	SpiRamSeqWriteStart(0,0);
 
 	//load from flash to sram and compute line sizes
-	txtpos=prog_mem;
+	//txtpos=prog_mem;
 	while(1){
 		if(pgm_read_word(&(program[i]))==0)break;
 		lenght=0;
 		line=txtpos;
 		while(1){
 			c=pgm_read_byte(&(program[i++]));
-			printf_P(PSTR("%02x "),c);
+			//printf_P(PSTR("%02x "),c);
 			SpiRamSeqWriteU8(c);
 			lenght++;
 			if(c==EOL){
 				break;
 			}
 		}
-		line[2]=lenght;
-		prog_size+=lenght;
+		spi_prog_size+=lenght;
 	}
-	prog_size+=2;
-	program_start=prog_mem;
-	program_end=prog_mem+prog_size;
 
 	//clear remaining RAM
-	for(u16 j=prog_size;j<RAM_SIZE;j++){
+	for(u16 j=spi_prog_size;j<RAM_SIZE;j++){
 		SpiRamSeqWriteU8(0);
 	}
 
 	SpiRamSeqWriteEnd();
 
-	return prog_size;
+	spi_prog_size+=2;
+
+
+	return spi_prog_size;
 };
 
 //Function to init the SPI RAM
@@ -353,108 +330,58 @@ int main(){
 	terminal_SetAutoWrap(true);
 	terminal_SetCursorVisible(true);
 
-	//copy the tokenised program in SRAM
-	//for(u16 i=0;i<sizeof(token_mand)-2;i++) prog_mem[i]=pgm_read_byte(&(token_mand[i]));
-	//for(u16 i=0;i<sizeof(token_rf_benchmark_1)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_1[i]));
-	//for(u16 i=0;i<sizeof(token_rf_benchmark_2)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_2[i]));
-	//for(u16 i=0;i<sizeof(token_rf_benchmark_3)-2;i++) prog_mem[i]=pgm_read_byte(&(token_rf_benchmark_3[i]));
+	//Initializer SPI RAM
+	if(_spiram_start()==0){
+		printf_P(PSTR("SPI RAM Init fail.\n"));
+	}else{
+		printf_P(PSTR("SPI RAM Init OK.\n\n"));
+	}
 
-	//printf("Program size: %i\n",sizeof(token_rf_benchmark_1));
+	//load_prog_spiram(token_mand);
+	//load_prog_spiram(test);
+	//load_prog_spiram(token_rf_benchmark_5);
 
-
-//	u16 size=load_prog(token_rf_benchmark_5);
-//	float ticks=timer_ticks;
-//	execute(true);
-//	printf("Elapsed time: %g,size=%i",((float)timer_ticks-ticks)/60,size);
-
-
-	#ifdef TESTSPIRAM
-		SpiRamInit();
-	#endif
-
-
-//	if(_spiram_start()==0){
-//		printf_P(PSTR("SPI RAM Init fail.\n"));
-//	}else{
-//		printf_P(PSTR("SPI RAM Init OK.\n\n"));
-//	}
-//
-//	load_prog_spiram(token_mand);
-//	printf_P(PSTR("\n\n"));
-
-//	u8 b;
-//	SpiRamSeqReadStart(0,0);
-//	for(u16 i=0;i<prog_size;i++){
-//		b=SpiRamSeqReadU8();
-//		printf_P(PSTR("%02x "),b);
-//	}
-//	SpiRamSeqReadEnd();
-
-	// load_prog(token_mand);
 	//execute(true);
-	run_tests();
+	if(run_tests()!=0){
+		print_error(error_code,error_line);
+	}
 
-	//dumpmem(0,10);
-	//dumpvars();
-	printf_P(PSTR("\nOk\n>"));
+	printf_P(PSTR("\nOk\n"));
 	while(1);
 
 }
 
 //allocate a one dimentional array of floats
-u8* allocate_numeric_array(u16 elements){
-	if(heap_ptr-(elements * VAR_SIZE) < program_end){
+u16 allocate_numeric_array(u16 elements){
+	if(spi_heap_ptr-(elements * VAR_SIZE) < spi_prog_size){
 		error_code=ERR_OUT_OF_MEMORY;
-		return NULL;
+		return 0;
 	}
-
-	heap_ptr-= (elements * VAR_SIZE);
-
-	//PCODE_DEBUG("[allocate_numeric_array: heap_ptr=0x%04x, heap_top=0x%04x] ",(u16)heap_ptr,(u16)prog_mem+sizeof(prog_mem)-1);
-
-	return heap_ptr;
+	spi_heap_ptr-= (elements * VAR_SIZE);
+	return spi_heap_ptr;
 }
 
 /**
- * Search for the specified line number.
- * Returns: The memmory position of the line in AVR memory, if the line was found.
- * Returns 0 otherwise and error_code will be set.
+ * Load a program line at the specified absolute memory position in SPI ram.
+ * Returns: The line number
  */
-u8* find_line(u16 line_to_find){
-	u8* currpos=txtpos;
-	//check if we saved the actual line's memory position from a previous loop.
-//	if(line_to_find&0x8000){
-//		txtpos=((u8*)((line_to_find&=0x7fff)+(u16)program_start ))-1;
-//		jump=true;
-//		PCODE_DEBUG("[JUMP %i FAST] ", txtpos[1]+(txtpos[2]<<8));
-//		break;
-//	}
-
-	//txtpos+=2;
-	u16 line_no=0;
-	u8* scan_ptr=program_start;
-	while(1){
-		line_no=(*((int16_t*)scan_ptr));
-		if(line_no==0){
-			error_code=ERR_UNDEFINED_LINE_NUMBER;
-			return 0;
-		}else if(line_no==line_to_find){
-			//line found!
-			//save position in AVR memory for fast lookup next time
-			//set the MSbit to indicate line is an AVR memory location instead of line number.
-			//This in turn limits the Basic line numbers to 32767.
-			(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
-			//txtpos=scan_ptr-1;
-			//jump=true;
-			return scan_ptr-1;
-		}
-		//advance to next line;
-		scan_ptr+=scan_ptr[2];
+u16 spi_load_line(u16 prog_pos){
+	SpiRamSeqReadStart(0,prog_pos);			//Move the program pointer
+	SpiRamSeqReadInto(spi_line_buf,3); 		//read line number (word) and line lenght (byte) in ram buffer
+	spi_line_no=(u16)spi_line_buf[0];
+	if(spi_line_no!=0){
+		spi_line_len=(u8)spi_line_buf[2];
+		SpiRamSeqReadInto(&spi_line_buf[3],spi_line_len-3); //read remaining of line in ram buffer
+		spi_line_pos=3; 						//skip line number and line lenght
 	}
-
-
+	SpiRamSeqReadEnd();
+	return spi_line_no;
 }
 
+/**
+ * Executes the Basic program until it's end or if an error occurs.
+ * Returns: The error code.
+ */
 u16 execute(bool initialize){
 
 	if(initialize){
@@ -464,132 +391,102 @@ u16 execute(bool initialize){
 		}
 
 		pcode_sp_min=PCODE_STACK_DEPTH;
-		found=false;
-		jump=false;
-		stop=false;
-
 		opcode_sp=PCODE_STACK_DEPTH;
 		stack_ptr=STACK_DEPTH;
-		heap_ptr=prog_mem+RAM_SIZE-1;
-
-		PCODE_DEBUG("[Initialize vars, heap_ptr=0x%04x]\n",heap_ptr);
+		spi_heap_ptr=RAM_SIZE-1;
 	}
 
-
-	program_start = prog_mem;
-	//program_end = program_start+(sizeof(token_mand)-2);
-	txtpos = program_start;
-
-//	u16 opcounter=0; //for debug
-//	u16 linecounter=0; //for debug
-
+	found=false;
+	jump=false;
+	stop=false;
+	spi_prog_pos = 0;
+	spi_line_pos=0;
 	error_code=0;
+	error_line=0;
 
-	do{
-		current_line=txtpos;
-		current_line_no= (txtpos[1]<<8)+txtpos[0];
-
-		#ifdef TESTSPIRAM
-			//if(current_line_no==70)	asm("wdr");
-			SpiRamSeqReadStart(0, (u16)txtpos);
-			READSPIRAM(txtpos[2]); //fake reading the whole line
-			//if(current_line_no==70)	asm("wdr");
-		#endif
-
-		txtpos+=sizeof(LINENUM)+sizeof(char); //skip line number and line lenght
-
-		if(opcode_sp!=PCODE_STACK_DEPTH){
-			printf("unpoped stack found entering line: %i",current_line_no);
-			while(1);
+	while(1){
+		if(spi_load_line(spi_prog_pos)==0){
+			 break; //Exit if we reached the end of the program (line number == 0)
 		}
 
-		PCODE_DEBUG("%03i) ",current_line_no);// <pos:%02x,cl:%02x>",current_line_no,(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start);
+		if(opcode_sp!=PCODE_STACK_DEPTH){
+			printf("Unpoped stack found entering line: %i",spi_line_no);
+			return ERR_INTERNAL_ERROR;
+		}
+
+		if(spi_line_no==83){
+			error_code=0;
+		}
+
 		while(1){
 			jump=false;
-			opcode = (*txtpos++);
+			opcode = spi_line_buf[spi_line_pos++];
 
 			switch(opcode){
 				case OP_LD_BYTE:
-					c1=*txtpos++;
+					c1=spi_line_buf[spi_line_pos++];
 					push_value(c1);
-					PCODE_DEBUG("[LDB %i] ",c1);
 					break;
 
 				case OP_LD_WORD:
-					u16_var=(*((int16_t*)txtpos));
-					txtpos+=2;
+					//u16_var=(*((u16*) &spi_line_buf[spi_line_pos]));
+					u16_var=spi_line_buf[spi_line_pos]|spi_line_buf[spi_line_pos+1]<<8;
+					spi_line_pos+=2;
 					push_value(u16_var);
-					PCODE_DEBUG("[LDW %i] ",u16_var);
 					break;
 
 				case OP_LD_DWORD:
-					type_converter.i=(*((int32_t*)txtpos));
-					txtpos+=4;
+					type_converter.i=(*((u32*)&spi_line_buf[spi_line_pos]));
+					spi_line_pos+=4;
 					push_value(type_converter.f);
-					PCODE_DEBUG("[LDD %g] ",type_converter.f);
 					break;
 
 				case OP_LD_VAR:
-					c1=*txtpos++;
+					c1=spi_line_buf[spi_line_pos++];//Get variable number
+
 					if(pcode_vars_type[c1]==VAR_TYPE_FLOAT_ARRAY){
 						u16_var=pop_value(); //array index
-						type_converter.f=pcode_vars[c1];
-						v1=type_converter.f_array.f_ptr[u16_var];
+						//type_converter.f=pcode_vars[c1];
+						//v1=type_converter.f_array.f_ptr[u16_var];
+						u16_ptr=pcode_vars[c1];	//get pointer to array in spi ram
+						u16_ptr+=(u16_var*4);	//index requested element
+						v1=SpiRamReadU32(0,u16_ptr);
 						push_value(v1);
-						PCODE_DEBUG("[LDV %c(%i):%g] ",c1+65,u16_var,v1);
-
-						#ifdef TESTSPIRAM
-							SpiRamReadU32(0,(u16)txtpos);
-						#endif
 					}else{
 						v1=pcode_vars[c1];
 						push_value(v1);
-						PCODE_DEBUG("[LDV %c:%g] ",c1+65,v1);
 					}
 
 					break;
 
 				case OP_ASSIGN:
-					//Get variable to assign to
-					c1=*txtpos++;
-
+					c1=spi_line_buf[spi_line_pos++]; //variable index
 					if(pcode_vars_type[c1]==VAR_TYPE_FLOAT_ARRAY){
-						v1=pop_value(); //value to assign
-						u16_var=pop_value(); //array index
-						type_converter.f=pcode_vars[c1];
-						type_converter.f_array.f_ptr[u16_var]=v1;
-						//printf("value=%g",type_converter.f_array.f_ptr[u16_var]);
-
-						#ifdef TESTSPIRAM
-							SpiRamReadU32(0,(u16)txtpos);
-						#endif
-
-
-						PCODE_DEBUG("[LET %c(%i)=%g] ",c1+65,u16_var,v1);
+						v1=pop_value();				//value to assign
+						u16_var=pop_value(); 		//array index
+						u16_ptr=pcode_vars[c1];		//get pointer to array in spi ram
+						u16_ptr+=(u16_var*4);		//index requested element
+						SpiRamWriteU32(0,u16_ptr,(u32)v1);
+						//printf_P(PSTR("M(%i)=%g\n"),u16_var,v1);
 					}else{
 						pcode_vars[c1]=pop_value();
-						PCODE_DEBUG("[LET %c=%g] ",c1+65,pcode_vars[c1]);
+						break;
 					}
 					break;
 
 				case OP_DIM:
-					//Get variable value
-					c1=*txtpos++;
-					u16_var=pop_value();
+					c1=spi_line_buf[spi_line_pos++];	//get variable ID to allocate as array
+					u16_var=pop_value();				//get array size
+					u16_ptr=allocate_numeric_array(u16_var);
+					if(u16_ptr==0)break; 				//out of memory!
 
+					//type_converter.f_array.f_ptr=(float*)u16_ptr;
+					//type_converter.f_array.size=u16_var;
+					//pcode_vars[c1]=type_converter.f;
 
-					u8* pp=allocate_numeric_array(u16_var);
-					type_converter.f_array.f_ptr=(float*)pp;
-					type_converter.f_array.size=u16_var;
-					pcode_vars[c1]=type_converter.f;
+					pcode_vars[c1]=u16_ptr;
 					pcode_vars_type[c1]=VAR_TYPE_FLOAT_ARRAY;
-
-					//PCODE_DEBUG("[float ptr=0x%04x]\n",type_converter.f_array.f_ptr);
-
-
 					//TODO error checks for correct type and REDIM
-
-					PCODE_DEBUG("[DIM %c(%i)] ",c1+65,u16_var);
 					break;
 
 
@@ -603,17 +500,19 @@ u16 execute(bool initialize){
 					float terminal = pop_value();
 					float initial = pop_value();
 					float step = pop_value();
-					c1=*txtpos++; //get variable index (0-25)
+					//c1=*txtpos++; //get variable index (0-25)
+					//-->
+					c1=spi_line_buf[spi_line_pos++];//*spi_line_buf_ptr++; //get variable index (0-25)
 					pcode_vars[c1]=initial;
 
 					sf->frame_type 	= STACK_FRAME_TYPE_FOR;
 					sf->for_var 	= c1;
 					sf->terminal 	= terminal;
 					sf->step		= step;
-					sf->txt_pos	 	= txtpos;
-					sf->current_line= current_line;
+					sf->prog_pos	= spi_prog_pos;
+					sf->line_pos 	= spi_line_pos;
+					sf->line_len	= spi_line_len;
 
-					PCODE_DEBUG("[FOR %c %g-%g step %g] ",c1+65,initial,terminal,step);
 					break;
 
 				case OP_LOOP_NEXT:
@@ -623,23 +522,34 @@ u16 execute(bool initialize){
 						break;
 					}
 
-					//get the NEXT variable
-					u8 var_id=*txtpos++;
-					PCODE_DEBUG("[NEXT %c] ",var_id+65);
+					u8 var_id=spi_line_buf[spi_line_pos++];
 
 					if(stack[stack_ptr].frame_type != STACK_FRAME_TYPE_FOR || stack[stack_ptr].for_var!=var_id){
 						error_code=ERR_INVALID_NESTING;
 						break;
 					}
-					stack_frame *sf=&stack[stack_ptr];
-					s16 current=pcode_vars[(u8)sf->for_var]+=sf->step;	//increment the loop variable with the STEP value
+
+					sf=&stack[stack_ptr];
+					current=pcode_vars[(u8)sf->for_var]+=sf->step;	//increment the loop variable with the STEP value
 
 					//Use a different test depending on the sign of the step increment
 					if((sf->step > 0 && current <= sf->terminal) || (sf->step < 0 && current >= sf->terminal)){
 						//We have to loop so don't pop the stack
-						txtpos = sf->txt_pos;
-						current_line = sf->current_line;
-						PCODE_DEBUG("<L: pos:%02x, cl:%02x, %c=%i>",(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start,var_id+'A',current);
+						spi_prog_pos = sf->prog_pos;
+						spi_line_len = sf->line_len;
+
+						//Check if we were at the end of the line containing the FOR statement
+						//and if so, don't reload that line for nothing and just advance to the
+						//next line
+						if(sf->line_pos == (sf->line_len-1)){
+							spi_line_pos = spi_line_len-1;	//move position to the EOL maker of the line
+							spi_line_buf[spi_line_pos] = EOL;
+						}else{
+
+							spi_load_line(spi_prog_pos);	//load the program line in the buffer
+							spi_line_pos = sf->line_pos;	//restore the position to right after the FOR statement
+						}
+
 					}else{
 						//We've run to the end of the loop. drop out of the loop, popping the stack
 						stack_ptr++;
@@ -647,8 +557,6 @@ u16 execute(bool initialize){
 					break;
 
 				case OP_LOOP_EXIT:
-						PCODE_DEBUG("[EXIT] ");
-
 						if(stack_ptr==STACK_DEPTH){
 							//nothing on the stack!
 							error_code=ERR_EXIT_WITHOUT_FOR;
@@ -656,104 +564,116 @@ u16 execute(bool initialize){
 						}
 
 						//check if we saved the NEXT position from a previous loop.
-						currpos=txtpos;
-						if(currpos[0]!=0 || currpos[1]!=0){
-							txtpos=(u8*)((u16)program_start+ (currpos[1]<<8)+currpos[0]);
+						//NOTE: Currently does not support multiple statements per line separated by :
+						spi_prog_pos_tmp=spi_prog_pos+spi_line_pos;
+						if((u16)spi_line_buf[spi_line_pos]!=0){
+							spi_prog_pos=(u16)spi_line_buf[spi_line_pos];
+							spi_load_line(spi_prog_pos);	//load the program line in the buffer
 							//Pop the stack and drop out of the loop
 							stack_ptr++;
 							break;
 						}
-						txtpos+=2; //skip the jump adress
 
-						u16 iteration=0;
+
+						spi_line_pos+=2; //skip the jump adress in spi ram
+
+						//u16 iteration=0;
 						found=false;
 						while(1){
-							while(*txtpos != EOL){
-								if(*txtpos == OP_LOOP_NEXT){
-									txtpos++;
+							while(spi_line_buf[spi_line_pos] != EOL){
+								if(spi_line_buf[spi_line_pos] == OP_LOOP_NEXT){
+									spi_line_pos++;
 
 									//NEXT found, find the variable
-									var=*txtpos++ ;
+									var=spi_line_buf[spi_line_pos++] ;//*txtpos++ ;
 									if(var >= 26){
 										error_code=ERR_ILLEGAL_ARGUMENT;
 										break;
 									}
+									sf=&stack[stack_ptr];
+									if(var != sf->for_var){
+										error_code=ERR_INVALID_NESTING;
+										break;
+									}
 
-									//Drop out of the loopand pop the stack
+									//Drop out of the loop and pop the stack
 									stack_ptr++;
 
-									//store the NEXT location in the program for a future loop
-									//This store the adress relative to the beginning of the prog_mem array
-									currpos[0]=((u16)txtpos-(u16)program_start)&0xff;
-									currpos[1]=((u16)txtpos-(u16)program_start)>>8;
+									//Cache the NEXT statement location for a future loop.
+									//NOTE: This is the position of the beginning of the line containing the NEXT statement
+									//because currently there is no support for multiple statements per line separated by :
+									SpiRamWriteU16(0,spi_prog_pos_tmp,spi_prog_pos+spi_line_len);
 									found=true;
 									break;
 
 								}else{
 									//advance to next token
-									opcode=(*txtpos++);
+									opcode=spi_line_buf[spi_line_pos++];//(*txtpos++);
 									//get opcode's params count to skip over it
-									//TODO: add case to support litteral strings ending with zero
 									c1=pgm_read_byte(&(opcodes_param_cnt[opcode-0x80]));
-									txtpos+=c1;
-
-									iteration++;
+									spi_line_pos+=c1;
 								}
 
 							}
 
 							if(found || error_code != ERR_OK) break;
 
-							current_line +=	 current_line[sizeof(LINENUM)];
-							current_line_no= (current_line[1]<<8)+current_line[0];
-							txtpos = current_line+sizeof(LINENUM)+sizeof(char);
+							//current_line +=	 current_line[sizeof(LINENUM)];
+							//current_line_no= (current_line[1]<<8)+current_line[0];
+							//txtpos = current_line+sizeof(LINENUM)+sizeof(char);
+							spi_prog_pos+=spi_line_len;
+							spi_load_line(spi_prog_pos);	//load the program line in the buffer
+							if(spi_line_no==0){
+								error_code=ERR_EXIT_WITHOUT_NEXT;
+								break;
+							}
 						};
 
 						break;
 
 				case OP_GOTO:
 
-					currpos=txtpos;
-					u16 line_to_find=(*((int16_t*)txtpos));
+					//currpos=txtpos;
 
-					//check if we saved the actual line's memory position from a previous loop.
-					if(line_to_find&0x8000){
-						txtpos=((u8*)((line_to_find&=0x7fff)+(u16)program_start ))-1;
-						jump=true;
-						PCODE_DEBUG("[GOTO CACHED %i] ", txtpos[1]+(txtpos[2]<<8));
+					//u16 line_to_find=(*((int16_t*)txtpos));
+					line_to_find=spi_line_buf[spi_line_pos];
+
+					//if same line, go back to beginning of line
+					if(line_to_find == spi_line_no){
+						spi_line_pos=3;
 						break;
 					}
 
+					//check if we saved the actual line's memory position from a previous loop.
+//					if(line_to_find&0x8000){
+//						txtpos=((u8*)((line_to_find&=0x7fff)+(u16)program_start ))-1;
+//						jump=true;
+//						break;
+//					}
 					//othewise skip the jump adress and scan the whole program to find the line
-					txtpos+=2;
-					u16 line_no=0;
+					//spi_line_pos+=2;//txtpos+=2;
 
-					PCODE_DEBUG("[GOTO %i] ",line_to_find);
-
-					u8* scan_ptr=program_start;
+					line_no_tmp=0;
+					scan_pos=0;
 					while(1){
-						line_no=(*((int16_t*)scan_ptr));
-						if(line_no==0){
+						line_no_tmp=SpiRamReadU16(0,scan_pos);
+						if(line_no_tmp==0 || line_no_tmp> line_to_find){
+							//we reached the end of the program and didn't find the line
 							error_code=ERR_UNDEFINED_LINE_NUMBER;
 							break;
-						}else if(line_no==line_to_find){
+						}else if(line_no_tmp==line_to_find){
 							//line found!
-							//save position in AVR memory for fast lookup next time
+							//save position in spi memory for fast lookup next time
 							//set the MSbit to indicate line is an AVR memory location instead of line number.
 							//This in turn limits the Basic line numbers to 32767.
-							(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
-							txtpos=scan_ptr-1;
+							//(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
+							spi_prog_pos=scan_pos;
 							jump=true;
 							break;
 						}
 						//advance to next line;
-						scan_ptr+=scan_ptr[2];
-
-						#ifdef TESTSPIRAM
-							SpiRamSeqReadStart(0, (u16)txtpos);
-							READSPIRAM(scan_ptr[2]); //fake reading the whole line
-						#endif
-
+						line_len_tmp=SpiRamReadU8(0,scan_pos+2);
+						scan_pos+=line_len_tmp;
 					}
 					break;
 
@@ -764,67 +684,63 @@ u16 execute(bool initialize){
 					}
 
 					//get line number
-					currpos=txtpos;
-					line_to_find=(*((int16_t*)txtpos));
-					txtpos+=2;
+					//currpos=txtpos;
+					//spi_prog_pos_tmp=spi_prog_pos+spi_line_pos; //hold pointer to next line
 
-					if(line_to_find & 0x8000){
-						//we have the target memory address of the line cached
-						PCODE_DEBUG("[GOSUB CACHED %i] ",line_to_find&0x7fff);
+					line_to_find=spi_line_buf[spi_line_pos];
+					spi_line_pos+=2;
 
-						//save return address on stack
-						sf=&stack[--stack_ptr];
-						sf->frame_type 	= STACK_FRAME_TYPE_GOSUB;
-						sf->txt_pos	 	= txtpos;
-						sf->current_line= current_line;
+//					if(line_to_find & 0x8000){
+//						//we have the target memory address of the line cached
+//						PCODE_DEBUG("[GOSUB CACHED %i] ",line_to_find&0x7fff);
+//
+//						//save return address on stack
+//						sf=&stack[--stack_ptr];
+//						sf->frame_type 	= STACK_FRAME_TYPE_GOSUB;
+//						sf->txt_pos	 	= txtpos;
+//						sf->current_line= current_line;
+//
+//						txtpos=program_start+(line_to_find&0x7fff)-1;
+//						jump=true;
+//						break;
+//					}
 
-						txtpos=program_start+(line_to_find&0x7fff)-1;
-						jump=true;
-						break;
-					}
 
-					PCODE_DEBUG("[GOSUB %i] ",line_to_find);
+					line_no_tmp=0;
+					scan_pos=0;
 
-					//txtpos+=2;
-					line_no=0;
-
-					scan_ptr=program_start;
 					while(1){
-						line_no=(*((int16_t*)scan_ptr));
-						if(line_no==0){
+						line_no_tmp=SpiRamReadU16(0,scan_pos);
+						if(line_no_tmp==0 || line_no_tmp> line_to_find){
 							error_code=ERR_UNDEFINED_LINE_NUMBER;
 							break;
-						}else if(line_no==line_to_find){
+
+						}else if(line_no_tmp==line_to_find){
 							//line found!
 
 							//save return address on stack
 							sf=&stack[--stack_ptr];
 							sf->frame_type 	= STACK_FRAME_TYPE_GOSUB;
-							sf->txt_pos	 	= txtpos;
-							sf->current_line= current_line;
+							//sf->txt_pos	 	= txtpos;
+							//sf->current_line= current_line;
+							sf->prog_pos=spi_prog_pos+spi_line_len;
 
 							//save position in AVR memory for fast lookup next time
 							//set the MSbit to indicate line is an AVR memory location instead of line number.
 							//This in turn limits the Basic line numbers to 32767.
-							(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
-							txtpos=scan_ptr-1;
+							//(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
+
+							spi_prog_pos=scan_pos;
 							jump=true;
 							break;
 						}
 						//advance to next line;
-						scan_ptr+=scan_ptr[2];
-
-						#ifdef TESTSPIRAM
-							SpiRamSeqReadStart(0, (u16)txtpos);
-							READSPIRAM(scan_ptr[2]); //fake reading the whole line
-						#endif
+						line_len_tmp=SpiRamReadU8(0,scan_pos+2);
+						scan_pos+=line_len_tmp;
 					}
-
 					break;
 
 				case OP_RETURN:
-					PCODE_DEBUG("[RETURN] ");
-
 					if(stack_ptr==STACK_DEPTH){
 						//nothing on the stack!
 						error_code=ERR_NEXT_WITHOUT_FOR;
@@ -835,21 +751,22 @@ u16 execute(bool initialize){
 						break;
 					}
 					sf=&stack[stack_ptr];
-					txtpos = sf->txt_pos;
-					current_line = sf->current_line;
+					spi_prog_pos=sf->prog_pos;
 					stack_ptr++;
+					jump=true;
 					break;
 
 				case OP_PRINT:
 					v1=pop_value();
-					PCODE_DEBUG("[PRN VAR %g] ",v1);
 					printf_P(PSTR("%g"),v1);
 					break;
 
 				case OP_PRINT_LSTR:
-					PCODE_DEBUG("[PRN LSTR] ");
 					while(1){
-						c1=*txtpos++;
+						//c1=*txtpos++;
+						//-->
+						c1=spi_line_buf[spi_line_pos++];
+
 						if(c1==EOS){
 							break;
 						}else if(c1==EOSNL){
@@ -864,7 +781,6 @@ u16 execute(bool initialize){
 				case OP_PRINT_CHAR:
 					c1=pop_value();
 					terminal_SendChar(c1);
-					PCODE_DEBUG("[PCHR] %c",c1);
 					break;
 
 				case OP_CRLF:
@@ -874,55 +790,51 @@ u16 execute(bool initialize){
 
 				case OP_IF:
 					v1=pop_value();
-					PCODE_DEBUG("[IF %g] ",v1);
 					if(!v1){
-						//skip to the EOL character
-						txtpos=current_line+(current_line[2]-1);
-						PCODE_DEBUG("[SKIP]");
+						spi_line_pos=spi_line_len-1; //advance position to EOL
 					}
-
 					break;
 
 				case OP_CMP_GT:
 					v2=pop_value();
 					v1=pop_value();
 					push_value(v1 > v2);
-					PCODE_DEBUG("[CMP %g>%g %i] ",v1,v2,(u8)v1 > v2);
 					break;
 
 				case OP_CMP_GE:
 					v2=pop_value();
 					v1=pop_value();
 					push_value(v1 >= v2);
-					PCODE_DEBUG("[CMP %i>=%i %i] ",v1,v2,(u8)v1 >= v2);
 					break;
 
 				case OP_CMP_LT:
 					v2=pop_value();
 					v1=pop_value();
 					push_value(v1 < v2);
-					PCODE_DEBUG("[CMP %g<%g %i] ",v1,v2,(u8)v1 < v2);
+					break;
+
+				case OP_CMP_EQ:
+					v2=pop_value();
+					v1=pop_value();
+					push_value(v1 == v2);
 					break;
 
 				case OP_ADD:
 					v2=pop_value();
 					v1=pop_value();
 					push_value(v1+v2);
-					PCODE_DEBUG("[ADD] ");
 					break;
 
 				case OP_SUB:
 					v2=pop_value();
 					v1=pop_value();
 					push_value(v1-v2);
-					PCODE_DEBUG("[SUB] ");
 					break;
 
 				case OP_MUL:
 					v2=pop_value();
 					v1=pop_value();
 					push_value(v1*v2);
-					PCODE_DEBUG("[MUL] ");
 					break;
 
 				case OP_DIV:
@@ -933,44 +845,39 @@ u16 execute(bool initialize){
 						break;
 					}
 					push_value(v1/v2);
-					PCODE_DEBUG("[DIV] ");
 					break;
 
 				case OP_POW:
 					v2=pop_value();
 					v1=pop_value();
-
-					push_value(powf(v1,v2));
-					PCODE_DEBUG("[POW %g^%g] ",v1,v2);
+					ftmp=powf(v1,v2);
+					push_value(ftmp);
 					break;
 
 				case OP_FUNC_TICKS:
 					dword=timer_ticks;
 					push_value(dword);
-					PCODE_DEBUG("[TICKS = %08x ] ",dword);
 					break;
 
 				case OP_FUNC_CHR:
 					v1=pop_value(); //TODO
 					push_value(v1);
-					PCODE_DEBUG("[CHR] ");
 					break;
 
 				case OP_FUNC_SIN:
 					v1=pop_value();
-					push_value(sinf(v1));
-					PCODE_DEBUG("[SIN] ");
+					ftmp=sinf(v1);
+					push_value(ftmp);
 					break;
 
 				case OP_FUNC_LOG:
 					v1=pop_value();
-					push_value(logf(v1));
-					PCODE_DEBUG("[LOG] ");
+					ftmp=logf(v1);
+					push_value(ftmp);
 					break;
 
 				case OP_CLS:
 					terminal_Clear();
-					PCODE_DEBUG("[CLS] ");
 					break;
 
 				case OP_BREAK:
@@ -982,20 +889,19 @@ u16 execute(bool initialize){
 			};
 
 			if(error_code){
-				print_error(error_code, current_line_no);
+				//print_error(error_code, spi_line_no);
+				error_line=spi_line_no;
 				break;
 			}
 
-			if(*txtpos == EOL || jump || stop)break;
+			if(spi_line_buf[spi_line_pos] == EOL || jump || stop)break;
 
-		}; //while(*txtpos++ != EOL);
+		}; //Do until we reach end-of-line
 
-		if(error_code || stop)break;
-		txtpos++;
+		if(error_code || stop) break;
+		if(!jump) spi_prog_pos+=spi_line_len;	//advance to next program line
 
-		PCODE_DEBUG("\n");
-
-	}while(*((u16*)txtpos)); //did we reached the end of the program (current line no != 0?)
+	}; //Do while program running
 
 	return error_code;
 }
@@ -1010,8 +916,8 @@ void print_error(u8 error_code, u16 line_number){
 static inline void push_value(float v){
 	if(opcode_sp==0){
 		printf_P(PSTR("opcode stack overflow: push"));
-		dumpstack();
-		dumpvars();
+		//dumpstack();
+		//dumpvars();
 		//dumpmem(0,12);
 		while(1);
 	}
@@ -1022,224 +928,119 @@ static inline void push_value(float v){
 static inline float pop_value(){
 	if(opcode_sp==PCODE_STACK_DEPTH){
 		printf_P(PSTR("opcode stack overflow: pop"));
-		dumpstack();
+		//dumpstack();
 		//dumpmem(0,12);
 		while(1);
 	}
 	return pcode_stack[opcode_sp++];
 }
-/**
- * Dumps a selcted range of memory
- */
-__attribute__((unused)) void dumpmem(u16 start_addr,u8 rows){
-	#if SCREEN_TILES_H>40
-		u8 width=16;
-	#else
-		u8 width=8;
-	#endif
-
-	u16 addr;
-	printf_P(PSTR("\n"));
-	for(u8 i=0;i<rows;i++){
-		printf_P(PSTR("%04x:"),(i*width)+start_addr);
-
-		//print the hexadecimal colums
-		for(u8 j=0;j<width;j++){
-			addr=(i*width)+j+start_addr;
-
-			if(addr==((u16)txtpos-(u16)program_start)){
-				printf_P(PSTR(">"));
-			}else{
-				printf_P(PSTR(" "));
-			}
-
-			printf_P(PSTR("%02x"),prog_mem[addr]);
-
-			#if SCREEN_TILES_H>40
-				if(j==7)printf_P(PSTR(" "));
-			#endif
-		}
-
-		//print the ascii representation side
-		for(u8 j=0;j<width;j++){
-			u8 c=prog_mem[((i*width)+j)+(start_addr)];
-			if(c<32 || c>'~') c='.';
-			printf_P(PSTR("%c"),c);
-		}
-		printf_P(PSTR("\r\n"));
-	}
-
-}
-/**
- * Dumps the LOOP/GOSUB stack
- */
-__attribute__((unused)) void dumpstack(){
-
-	printf_P(PSTR("\n"));
-
-	u8 sel;
-	u16 cl,pos;
-	for(u8 i=0;i<STACK_DEPTH;i++){
-
-		if(i==stack_ptr){
-			sel='>';
-		}else{
-			sel=' ';
-		}
-		if((u16)stack[i].txt_pos !=0){
-			pos=(u16)stack[i].txt_pos-(u16)program_start;
-		}else{
-			pos=0;
-		}
-		if((u16)stack[i].current_line !=0){
-			cl=(u16)stack[i].current_line-(u16)program_start;
-		}else{
-			cl=0;
-		}
-
-		printf_P(PSTR("%c[%i] type:%03i var:%c to:%i step:%i cl:0x%02x pos:0x%02x ")
-			,sel,
-			i,
-			stack[i].frame_type,
-			stack[i].for_var+'A',
-			stack[i].terminal,
-			stack[i].step,
-			cl,
-			pos
-		);
-		printf_P(PSTR("\n"));
-	}
-	if(stack_ptr==STACK_DEPTH){
-		printf_P(PSTR(">\n"));
-	}
-}
-/**
- * Dumps all variables
- */
-__attribute__((unused)) void dumpvars(){
-	printf_P(PSTR("\n\n"));
-	for(int i=0;i<26;i++){
-		printf_P(PSTR("%c=%g, "),i+'A',pcode_vars[i]);
-	}
-	printf_P(PSTR("\n"));
-
-	printf_P(PSTR("[txtpos=0x%02x] [current_line=0x%02x] [current_line_no=%i]\n[pcode-stack size=%i,sp_min=%i] [loop-stack size=%i,ptr=%i]  \n"),
-			(u16)txtpos-(u16)program_start,(u16)current_line-(u16)program_start,current_line_no,
-			PCODE_STACK_DEPTH, pcode_sp_min,STACK_DEPTH,stack_ptr);
-
-}
-
 
 const u8 token_rf_benchmark_8[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_POW, OP_ASSIGN, VAR_A, EOL,
-80,0,0,OP_LD_VAR, VAR_K, OP_FUNC_LOG, OP_ASSIGN, VAR_B, EOL,
-90,0,0,OP_LD_VAR, VAR_K, OP_FUNC_SIN, OP_ASSIGN, VAR_C, EOL,
-100,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xf4, 0x01, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 500
-//100,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 2,0, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 500
-100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-110,0,0,OP_END,EOL,
+40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,11,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_POW, OP_ASSIGN, VAR_A, EOL,
+80,0,9,OP_LD_VAR, VAR_K, OP_FUNC_LOG, OP_ASSIGN, VAR_B, EOL,
+90,0,9,OP_LD_VAR, VAR_K, OP_FUNC_SIN, OP_ASSIGN, VAR_C, EOL,
+100,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 100, 0, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 100
+110,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
+120,0,5,OP_END,EOL,
 0,0
 };
 
 
 const u8 token_rf_benchmark_7[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-55,0,0,OP_LD_BYTE, 5, OP_DIM,VAR_M, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
-80,0,0,OP_GOSUB,120,0,EOL,
-82,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_BYTE, 5, OP_LOOP_FOR, VAR_L, EOL,	//1 to 5
-83,0,0,OP_LD_VAR, VAR_L, OP_LD_VAR, VAR_A, OP_ASSIGN, VAR_M, EOL,
-85,0,0,OP_LOOP_NEXT, VAR_L, EOL,
-90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-110,0,0,OP_END,EOL,
-120,0,0,OP_RETURN,EOL,
+40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+55,0,8,OP_LD_BYTE, 5, OP_DIM,VAR_M, EOL,
+60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K, OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,20,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+80,0,7,OP_GOSUB,120,0,EOL,
+82,0,12,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_BYTE, 5, OP_LOOP_FOR, VAR_L, EOL,	//1 to 5
+83,0,10,OP_LD_VAR, VAR_L, OP_LD_VAR, VAR_A, OP_ASSIGN, VAR_M, EOL,
+85,0,6,OP_LOOP_NEXT, VAR_L, EOL,
+90,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+100,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
+110,0,5,OP_END,EOL,
+120,0,5,OP_RETURN,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_6[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-55,0,0,OP_LD_BYTE, 5, OP_DIM,VAR_M, EOL,
-//60,0,0,OP_LD_BYTE, 0,OP_LD_BYTE, 128, OP_ASSIGN,VAR_M,EOL,
-//65,0,0,OP_LD_BYTE, 4,OP_LD_BYTE, 64, OP_ASSIGN,VAR_M,EOL,
-//65,0,0,OP_LD_VAR, VAR_L,OP_LD_VAR, VAR_A, OP_ASSIGN,VAR_M,EOL,
-//70,0,0,OP_LD_BYTE, 0, OP_LD_VAR, VAR_M, OP_PRINT, EOL,
-//75,0,0,OP_LD_BYTE, 4, OP_LD_VAR, VAR_M, OP_PRINT, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
-80,0,0,OP_GOSUB,120,0,EOL,
-82,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_BYTE, 5, OP_LOOP_FOR, VAR_L, EOL,	//1 to 5
-85,0,0,OP_LOOP_NEXT, VAR_L, EOL,
-90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-110,0,0,OP_END,EOL,
-120,0,0,OP_RETURN,EOL,
+40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+55,0,8,OP_LD_BYTE, 5, OP_DIM, VAR_M, EOL,
+60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,20,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+80,0,7,OP_GOSUB,120,0,EOL,
+82,0,12,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_BYTE, 5, OP_LOOP_FOR, VAR_L, EOL,	//1 to 5
+85,0,6,OP_LOOP_NEXT, VAR_L, EOL,
+90,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+100,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
+110,0,5,OP_END,EOL,
+120,0,5,OP_RETURN,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_5[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
-80,0,0,OP_GOSUB,120,0,EOL,
-90,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-100,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-110,0,0,OP_END,EOL,
-120,0,0,OP_RETURN,EOL,
+40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,20,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+80,0,7,OP_GOSUB,120,0,EOL,
+90,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+100,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
+110,0,5,OP_END,EOL,
+120,0,5,OP_RETURN,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_4[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-65,0,0,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+65,0,20,OP_LD_VAR, VAR_K, OP_LD_BYTE, 2, OP_DIV, OP_LD_BYTE, 3, OP_MUL, OP_LD_BYTE, 4, OP_ADD, OP_LD_BYTE, 5, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+70,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+80,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_3[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-65,0,0,OP_LD_VAR, VAR_K, OP_LD_VAR, VAR_K, OP_DIV, OP_LD_VAR, VAR_K, OP_MUL, OP_LD_VAR, VAR_K, OP_ADD, OP_LD_VAR, VAR_K, OP_SUB, OP_ASSIGN, VAR_A, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+65,0,20,OP_LD_VAR, VAR_K, OP_LD_VAR, VAR_K, OP_DIV, OP_LD_VAR, VAR_K, OP_MUL, OP_LD_VAR, VAR_K, OP_ADD, OP_LD_VAR, VAR_K, OP_SUB, OP_ASSIGN, VAR_A, EOL,
+70,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+80,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
 0,0
 };
 
 
 const u8 token_rf_benchmark_2[] PROGMEM={
-40,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-50,0,0,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
-60,0,0,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
-70,0,0,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
-80,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
+40,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+50,0,8,OP_LD_BYTE, 0, OP_ASSIGN, VAR_K, EOL,
+60,0,11,OP_LD_BYTE, 1,OP_LD_VAR, VAR_K,OP_ADD, OP_ASSIGN, VAR_K, EOL,
+70,0,14,OP_LD_VAR, VAR_K, OP_LD_WORD, 0xe8, 0x03, OP_CMP_LT, OP_IF, OP_GOTO, 60, 0, EOL, //0 to 1000
+80,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
 0,0
 };
 
 const u8 token_rf_benchmark_1[] PROGMEM={
-//10,0,0,OP_CLS,EOL,
-//15,0,0,OP_PRINT_LSTR,'R','u','g','g','/','F','e','l','d','m','a','n',' ','B','e','n','c','h','m','a','r','k',' ','#','1',EOSNL, EOL,
-//20,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_T, EOL,
-30,0,0,OP_PRINT_LSTR,'S',EOSNL,EOL,
-40,0,0,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_WORD, 0xe8,0x03, OP_LOOP_FOR, VAR_K, EOL,	//1 to 1000
-50,0,0,OP_LOOP_NEXT, VAR_K, EOL,
-70,0,0,OP_PRINT_LSTR,'E',EOSNL,EOL,
-//90,0,0,OP_FUNC_TICKS,OP_ASSIGN, VAR_U, EOL,
-//100,0,0,OP_PRINT_LSTR,'E','l','a','p','s','e','d',' ','t','i','m','e',':',' ',0, EOL,
-//110,0,0,OP_LD_VAR, VAR_U, OP_LD_VAR, VAR_T, OP_SUB, OP_LD_BYTE, 60, OP_DIV, OP_ASSIGN, VAR_T, OP_LD_VAR, VAR_T, OP_PRINT, EOL,
-//120,0,0,OP_PRINT_LSTR,' ','S','e','c','o','n','d','s',EOSNL,EOL,
+30,0,7,OP_PRINT_LSTR,'S',EOSNL,EOL,
+40,0,13,OP_LD_BYTE, 1, OP_LD_BYTE, 1, OP_LD_WORD, 0xe8, 0x03, OP_LOOP_FOR, VAR_K, EOL,	//1 to 1000
+50,0,6,OP_LOOP_NEXT, VAR_K, EOL,
+70,0,7,OP_PRINT_LSTR,'E',EOSNL,EOL,
 0,0
 };
+
+
+const u8 token_rf_benchmark_0[]PROGMEM={
+	10,0,8,OP_LD_BYTE, 5, OP_DIM,VAR_C, EOL,
+	20,0,10,OP_LD_BYTE,3, OP_LD_BYTE, 66, OP_ASSIGN, VAR_C, EOL,
+	30,0,10,OP_LD_BYTE,3, OP_LD_VAR, VAR_C, OP_ASSIGN, VAR_D, EOL,
+	0,0
+};
+
 
 const u8* const test_suite[] PROGMEM ={
 		token_rf_benchmark_1,
@@ -1253,36 +1054,48 @@ const u8* const test_suite[] PROGMEM ={
 		token_mand
 };
 
-void run_tests(){
+u8 run_tests(){
 	float results[9];
 	float ticks;
 	for(u8 i=0;i<9;i++)results[i]=0;
 
+	terminal_Clear();
+	printf_P(PSTR("Uzebox Basic v0.1 - Rugg/Feldman BASIC Benchmarks (SPI RAM)\n"));
+
 	u8 res;
 	for(u16 i=0;i<sizeof(test_suite)/2;i++){
-		load_prog((const u8*)pgm_read_word(&(test_suite[i])));
+		spi_prog_size=load_prog_spiram((const u8*)pgm_read_word(&(test_suite[i])));
+
+
+//		printf_P(PSTR("-------\n"));
+//		u8 b;
+//		SpiRamSeqReadStart(0,0);
+//		for(u16 i=0;i<prog_size;i++){
+//			b=SpiRamSeqReadU8();
+//			printf_P(PSTR("%02x "),b);
+//		}
+//		SpiRamSeqReadEnd();
+
+
+
 		printf_P(PSTR("Test #%i...\n"),i+1);
 		ticks=timer_ticks;
 		res=execute(true);
+
 		if(res!=0){
-			print_error(res,0);
-			while(1);
+			return res;
 		}
 		results[i]=((float)timer_ticks-ticks)/60;
 	}
 
 	terminal_Clear();
-	#ifdef TESTSPIRAM
-		printf_P(PSTR("Rugg/Feldman BASIC Benchmarks (SPI RAM simulation)\n"));
-	#else
-		printf_P(PSTR("Rugg/Feldman BASIC Benchmarks (SRAM)\n"));
-	#endif
+	printf_P(PSTR("Uzebox Basic v0.1 - Rugg/Feldman BASIC Benchmarks (SPI RAM)\n"));
 
 	printf_P(PSTR("\x81\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x8a\x85\x85\x85\x85\x85\x85\x85\x82\n"));
 	printf_P(PSTR("\x86 System      \x86 Tst1 \x86 Tst2 \x86 Tst3 \x86 Tst4 \x86 Tst5 \x86 Tst6 \x86 Tst7 \x86 Tst8 \x86 Mand  \x86\n"));
 	printf_P(PSTR("\x87\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x8b\x85\x85\x85\x85\x85\x85\x85\x88\n"));
 
-	printf_P(PSTR("\x86 Uzebox      \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86\n"),results[0],results[1],results[2],results[3],results[4],results[5],results[6],results[7],results[8]);
+	printf_P(PSTR("\x86 Uzebox      \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f \x86 %.2f  \x86\n"),results[0],results[1],results[2],results[3],results[4],results[5],results[6],results[7],results[8]);
 	printf_P(PSTR("\x86 X16         \x86 0.2  \x86 1.2  \x86 2.3  \x86 2.7  \x86 2.9  \x86 4.3  \x86 6.8  \x86 1.3  \x86 23    \x86\n"));
 	printf_P(PSTR("\x86 BBC Micro   \x86 0.8  \x86 3.1  \x86 8.1  \x86 8.7  \x86 9.0  \x86 13.9 \x86 21.1 \x86 49.9 \x86 97    \x86\n"));
 	printf_P(PSTR("\x86 ZX 80       \x86 1.5  \x86 4.7  \x86 9.2  \x86 9.0  \x86 12.7 \x86 25.9 \x86 39.2 \x86 ---  \x86 222   \x86\n"));
@@ -1298,4 +1111,5 @@ void run_tests(){
 	printf_P(PSTR("See: https://en.wikipedia.org/wiki/Rugg/Feldman_benchmarks\n"));
 	printf_P(PSTR("     https://github.com/SlithyMatt/multi-mandlebrot\n"));
 
+	return 0;
 }
