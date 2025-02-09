@@ -90,7 +90,7 @@ enum opcodes{
 //const u8 opcodes_param_cnt[] PROGMEM = {
 const u8 opcodes_param_cnt[] PROGMEM = {
 	1,2,4,1,1,1,1,	//OP_LD_BYTE, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN, OP_ASSIGN_1D_ARRAY, OP_DIM
-	1,1,2,2,2,0,	//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN
+	3,1,2,2,2,0,	//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN
 	0,0,0,0,		//OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF
 	0,0,0,0,0,		//OP_IF, OP_CMP_GT, OP_CMP_GE, OP_CMP_LT,OP_CMP_EQ
 	0,0,0,0,0,		//P_ADD,OP_SUB,	OP_MUL,	OP_DIV
@@ -633,9 +633,7 @@ u16 execute(bool initialize){
 
 				case OP_GOTO:
 
-					//currpos=txtpos;
-
-					//u16 line_to_find=(*((int16_t*)txtpos));
+					spi_prog_pos_tmp = spi_prog_pos;
 					line_to_find=spi_line_buf[spi_line_pos];
 
 					//if same line, go back to beginning of line
@@ -645,14 +643,14 @@ u16 execute(bool initialize){
 					}
 
 					//check if we saved the actual line's memory position from a previous loop.
-//					if(line_to_find&0x8000){
-//						txtpos=((u8*)((line_to_find&=0x7fff)+(u16)program_start ))-1;
-//						jump=true;
-//						break;
-//					}
+					if(spi_line_buf[spi_line_pos+1]&0x80){
+						spi_prog_pos=spi_line_buf[spi_line_pos]+((spi_line_buf[spi_line_pos+1]&0x7f)<<8);
+						jump=true;
+						break;
+					}
 					//othewise skip the jump adress and scan the whole program to find the line
 					//spi_line_pos+=2;//txtpos+=2;
-
+					//spi_line_pos+=2;
 					line_no_tmp=0;
 					scan_pos=0;
 					while(1){
@@ -664,9 +662,7 @@ u16 execute(bool initialize){
 						}else if(line_no_tmp==line_to_find){
 							//line found!
 							//save position in spi memory for fast lookup next time
-							//set the MSbit to indicate line is an AVR memory location instead of line number.
-							//This in turn limits the Basic line numbers to 32767.
-							//(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
+							SpiRamWriteU16(0,spi_prog_pos_tmp+spi_line_pos,scan_pos|0x8000);
 							spi_prog_pos=scan_pos;
 							jump=true;
 							break;
@@ -683,29 +679,23 @@ u16 execute(bool initialize){
 						break;
 					}
 
-					//get line number
-					//currpos=txtpos;
-					//spi_prog_pos_tmp=spi_prog_pos+spi_line_pos; //hold pointer to next line
+					spi_prog_pos_tmp=spi_prog_pos;
 
+					//get line number to find
 					line_to_find=spi_line_buf[spi_line_pos];
-					spi_line_pos+=2;
 
-//					if(line_to_find & 0x8000){
-//						//we have the target memory address of the line cached
-//						PCODE_DEBUG("[GOSUB CACHED %i] ",line_to_find&0x7fff);
-//
-//						//save return address on stack
-//						sf=&stack[--stack_ptr];
-//						sf->frame_type 	= STACK_FRAME_TYPE_GOSUB;
-//						sf->txt_pos	 	= txtpos;
-//						sf->current_line= current_line;
-//
-//						txtpos=program_start+(line_to_find&0x7fff)-1;
-//						jump=true;
-//						break;
-//					}
+ 					if(spi_line_buf[spi_line_pos+1]&0x80){
+						//we have the target memory address of the line cached
+						//save return address on stack
+						sf=&stack[--stack_ptr];
+						sf->frame_type 	= STACK_FRAME_TYPE_GOSUB;
+						sf->prog_pos = spi_prog_pos+spi_line_len;	//return adress
+						spi_prog_pos=spi_line_buf[spi_line_pos]+((spi_line_buf[spi_line_pos+1]&0x7f)<<8); //jump adress
+						jump=true;
+						break;
+					}
 
-
+					//spi_line_pos+=2;
 					line_no_tmp=0;
 					scan_pos=0;
 
@@ -730,6 +720,7 @@ u16 execute(bool initialize){
 							//This in turn limits the Basic line numbers to 32767.
 							//(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
 
+							SpiRamWriteU16(0,spi_prog_pos+spi_line_pos,scan_pos|0x8000);
 							spi_prog_pos=scan_pos;
 							jump=true;
 							break;
@@ -1087,6 +1078,8 @@ u8 run_tests(){
 		}
 		results[i]=((float)timer_ticks-ticks)/60;
 	}
+
+
 
 	terminal_Clear();
 	printf_P(PSTR("Uzebox Basic v0.1 - Rugg/Feldman BASIC Benchmarks (SPI RAM)\n"));

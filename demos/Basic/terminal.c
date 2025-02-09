@@ -118,7 +118,7 @@ void terminal_Init(){
 	#ifdef JTAG_DEBUG
 		//must use different colors because JTAG needs some
 		//pins used by the video DAC
-		dlist[0].bgc = (9*16)+0; //0x00; //dark
+		dlist[0].bgc = 0x00;//(9*16)+0; //0x00; //dark
 		dlist[0].fgc = 0xff; //light
 	#else
 		dlist[0].bgc = 10; //dark amber
