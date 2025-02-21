@@ -261,10 +261,16 @@ void ReadButtons(){
 		}else{
 			Wait200ns();
 			Wait200ns();
+			#if SLOW_CONTROLLERS == 1
+				WaitUs(4);
+			#endif
 		}	
 	#else
 		Wait200ns();
 		Wait200ns();
+		#if SLOW_CONTROLLERS == 1
+			WaitUs(4);
+		#endif
 	#endif
 	JOYPAD_OUT_PORT&=~(_BV(JOYPAD_LATCH_PIN));
 
@@ -275,20 +281,30 @@ void ReadButtons(){
 		p1ButtonsLo>>=1;
 		p2ButtonsLo>>=1;
 
+		JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
 		#if SNES_MOUSE == 1
 			if(snesMouseEnabled){
 				WaitUs(5);
 			}else{
 				Wait200ns();
 				Wait200ns();
+				#if SLOW_CONTROLLERS == 1
+					Wait200ns();
+					Wait200ns();
+					Wait200ns();
+				#endif
 			}	
 		#else
 			Wait200ns();
 			Wait200ns();
+			#if SLOW_CONTROLLERS == 1
+				Wait200ns();
+				Wait200ns();
+				Wait200ns();
+			#endif
 		#endif
 			
 		//pulse clock pin		
-		JOYPAD_OUT_PORT&=~(_BV(JOYPAD_CLOCK_PIN));
 		
 		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA1_PIN))==0) p1ButtonsLo|=(1<<15);
 		if((JOYPAD_IN_PORT&(1<<JOYPAD_DATA2_PIN))==0) p2ButtonsLo|=(1<<15);
@@ -320,7 +336,6 @@ void ReadButtons(){
 	if(joypad1_status_lo==(BTN_START+BTN_SELECT+BTN_Y+BTN_B) || joypad2_status_lo==(BTN_START+BTN_SELECT+BTN_Y+BTN_B)){
 		SoftReset();
 	}
-
 }
 
 /**
