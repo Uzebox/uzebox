@@ -34,9 +34,23 @@
 
 FILE *fin, *fout, *fcfg, *fflashdir;
 
-int asBinIn;
-int asBinOut;
+//int asBinIn;
+//int asBinOut;
+int inputType;
+int outputType;
+int outputPrefix = 1;
+int outputSuffix = 1;
+int outputLeadTabs = 0;
+int outputLeadSpaces = 0;
+int outputLeadLines = 0;
+int outputTrailingLines = 2;
+char outputLeadPrefixBuf[256];
+char outputLeadLineBuf[sizeof(outputLeadPrefixBuf)];
+char outputSuffixBuf[sizeof(outputLeadPrefixBuf)];
+int outputCommentLen = 0;
+char outputCommentBuf[1024];
 int doPad;
+int outputWidth = 15;
 int doDebug = 0;
 int adpcmDebug = 0;
 int doLength;
@@ -76,6 +90,7 @@ unsigned char target,samples;
 unsigned char slope = 0;
 
 
+int FillOutputFormattingBuffers();
 int ConvertAndWrite();
 
 int main(int argc, char *argv[]){
@@ -136,7 +151,7 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 			continue;
 	}
 
-	if(sscanf(lineBuf," %d , %d , %ld , %ld , %d ,  %ld , %255[^ ,\n\t] , %n ",&asBinIn,&asBinOut,&dirOff,&fileOff,&doPad,&minSize,foutName,&eat) != 7){
+	if(sscanf(lineBuf," %d , %d , %ld , %ld , %d ,  %ld , %255[^ ,\n\t] , %n ",&inputType,&outputType,&dirOff,&fileOff,&doPad,&minSize,foutName,&eat) != 7){
 		printf("\nERROR: Bad format on setup line. Got \"%s\"\n",lineBuf);
 		printf("\tFormat is 7 comma separated entries, as:\n\t\t0/1 = C array or binary input,\n\t\t0/1 = C array or binary output,\n\t\tdirectory start offset,\n\t\tdata start offset,\n\t\t0/1 = pad data to 512 byte sector size,\n\t\tminimum file size in bytes(pad if less)\n\t\toutput file name,\n");
 		printf("\n\tEx: 1,1,0,512,131072,1,OUTPUT.DAT\n\tbinary in, binary out, dir at 0, starting at 512, padded, pad file to 128K, to OUTPUT.DAT\n");
@@ -173,8 +188,28 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 
 	if(doDebug){
 		printf("\n***DEBUG:\n");
-		printf("Input type: %s\n", asBinIn ? "C Array":"Binary");
-		printf("Output type: %s\n", asBinOut ? "C Array":"Binary");
+		switch(inputType){
+			case 0:
+				printf("Input type: C Array\n");
+				break;
+			case 1:
+				printf("Input type: Binary\n");
+				break;
+			default:
+				printf("Input type: ASM .byte\n");
+				break;
+		}
+ 		switch(outputType){
+			case 0:
+				printf("Output type: C Array\n");
+				break;
+			case 1:
+				printf("Output type: Binary\n");
+				break;
+			default:
+				printf("Output type: ASM .byte\n");
+				break;
+		}
 		if(dirOff == -1)
 			printf("Directory Offset: Disabled\n");
 		else
@@ -183,20 +218,31 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 		printf("Padding(changes directory values to sector counts): %s\n", doPad ? "Yes":"No");
 		printf("Minimum File Size: %ld\n", minSize);
 		printf("Output File: %s\n\n", foutName);
-	}else
-		printf(asBinOut ? "\n\tBinary out, ":"\n\tC array output");
+	}else{
+ 		switch(outputType){
+			case 0:
+				printf("\n\tC array output");
+				break;
+			case 1:
+				printf("\n\tBinary out, ");
+				break;
+			default:
+				printf("\n\tASM .byte output");
+				break;
+		}
+	}
 
-	if(asBinOut){
+	if((outputType == 1)){//Binary
 		if(dirOff >= 0)
 			printf("dir at %ld, data at %ld(%s), to %s:\n",(doPad?(dirOff/4):dirOff),fileOff,(doPad?"sector":"byte"),foutName);
 		else
 			printf("directory output disabled\n");
-	}else
+	}else//C array, or ASM .byte
 		printf(" to %s:\n",foutName);
 
-	fout = fopen(foutName,asBinOut ? "rb+":"w");//non-binary destroys any previous C array output
+	fout = fopen(foutName,(outputType == 1) ? "rb+":"w");//non-binary destroys any previous C array output
 	if(fout == NULL){//file does not exist, try to create it.
-		if(asBinOut){
+		if((outputType == 1)){//Binary
 			fout = fopen(foutName,"wb");
 			if(fout == NULL){
 				printf("\nERROR: Failed to create output file: %s\n",foutName);
@@ -224,13 +270,13 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 				printf("\t== 1 entry total");
 			else
 				printf("\t== %d entries total",cfgEntry);
-			if(asBinOut)
+			if((outputType == 1))//Binary
 				printf(", %ld bytes data(including sector padding)\n",fileOff);
-			else
+			else//C array, or ASM .byte
 				printf(", %ld bytes(total flash cost)\n",totalFlashCost);
 
 			
-			if(asBinOut){
+			if((outputType == 1)){//Binary
 				//pad out data to minimum specified size if necessary
 				fseek(fout,0,SEEK_END);//find total file size, which will likely be larger than data
 				fileSize = ftell(fout);				
@@ -334,6 +380,66 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 				}else if(strncmp(lineBuf, "#FLASH-DIR-DO-LENGTH=0", 22) == 0){
 					doFlashDirLength = 0;
 					printf("\n**#FLASH-DIR-DO-LENGTH disabled before line %d\n\n", cfgLine);
+				}else if(strncmp(lineBuf, "#FLASH-DIR-ENTRY-SIZE=", 22) == 0){
+					flashDirArraySize=atoi(lineBuf+22);
+					if(flashDirArraySize != 2 && flashDirArraySize != 4){
+						printf("\nERROR #FLASH-DIR-ENTRY-SIZE must be 2 or 4\n\n");
+						goto ERROR;
+					}
+					printf("\n**#FLASH-DIR-ARRAY-SIZE set to %d before line %d\n\n", flashDirArraySize, cfgLine);
+				}else if(strncmp(lineBuf, "#OUTPUT-WIDTH=", 14) == 0){
+					outputWidth=atoi(lineBuf+14);
+					printf("\n**#OUTPUT-WIDTH set to %d before line %d\n\n", outputWidth, cfgLine);
+				}else if(strncmp(lineBuf, "#OUTPUT-PREFIX=", 15) == 0){
+					outputPrefix=atoi(lineBuf+15);
+					printf("\n**#OUTPUT-PREFIX %s before line %d\n\n", (outputPrefix == 0)?"disabled":"enabled", cfgLine);
+				}else if(strncmp(lineBuf, "#OUTPUT-SUFFIX=", 15) == 0){
+					outputSuffix=atoi(lineBuf+15);
+					printf("\n**#OUTPUT-SUFFIX %s before line %d\n\n", (outputSuffix == 0)?"disabled":"enabled", cfgLine);
+				}else if(strncmp(lineBuf, "#OUTPUT-LEAD-TABS=", 18) == 0){
+					outputLeadTabs=atoi(lineBuf+18);
+					printf("\n**#OUTPUT-LEAD-TABS set to [%d] before line %d\n\n", outputLeadTabs, cfgLine);
+				}else if(strncmp(lineBuf, "#OUTPUT-LEAD-SPACES=", 20) == 0){
+					outputLeadSpaces=atoi(lineBuf+20);
+					printf("\n**#OUTPUT-LEAD-SPACES set to [%d] before line %d\n\n", outputLeadSpaces, cfgLine);
+				}else if(strncmp(lineBuf, "#OUTPUT-LEAD-LINES=", 19) == 0){
+					outputLeadLines=atoi(lineBuf+19);
+					printf("\n**#OUTPUT-LEAD-LINES set to [%d] before line %d\n\n", outputLeadLines, cfgLine);
+				}else if(strncmp(lineBuf, "#OUTPUT-TRAIL-LINES=", 20) == 0){
+					outputTrailingLines=atoi(lineBuf+20);
+					printf("\n**#OUTPUT-TRAIL-LINES set to [%d] before line %d\n\n", outputTrailingLines, cfgLine);
+				}else if(strncmp(lineBuf, "#OUTPUT-COMMENT=", 16) == 0){
+					int lbo = 16;
+					for(outputCommentLen=0; outputCommentLen<sizeof(outputCommentBuf)-1; outputCommentLen++){
+						if(outputCommentLen == sizeof(outputCommentBuf)-2){
+							printf("\tExcess length comment before line %d\n", cfgLine);
+							outputCommentBuf[sizeof(outputCommentBuf)-2] = '\0';
+							outputCommentBuf[sizeof(outputCommentBuf)-1] = '\0';
+							break;
+						}
+						if(lineBuf[lbo] == '\\'){
+							if(lineBuf[lbo+1] == '\\'){
+								outputCommentBuf[outputCommentLen] = '\\';
+							}else if(lineBuf[lbo+1] == 'n'){
+								outputCommentBuf[outputCommentLen] = '\n';
+							}else if(lineBuf[lbo+1] == 't'){
+								outputCommentBuf[outputCommentLen] == '\n';
+							}else if(lineBuf[lbo+1] == '\r'){
+								outputCommentBuf[outputCommentLen] == '\r';
+							}else{
+								printf("\tUnknown escape sequence [%c%c] in comment before line %d\n", lineBuf[0], lineBuf[1], cfgLine);
+								outputCommentBuf[outputCommentLen] = '\0';
+								break;
+							}
+							lbo += 2;
+						}else if(lineBuf[lbo] != '\0' && lineBuf[lbo] != '\r' && lineBuf[lbo] != '\n'){
+							outputCommentBuf[outputCommentLen] = lineBuf[lbo];
+							lbo++;
+						}else{//line end if file
+							outputCommentBuf[outputCommentLen] = '\0';
+							break;
+						}
+					}
 				}
 				for(j=1;j<sizeof(lineBuf);j++){
 					if(lineBuf[j] == '\n')
@@ -344,7 +450,7 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 					}
 				}
 				continue;
-			}else if(lineBuf[0] == ';'){//user wants a system call to run
+			}else if(lineBuf[0] == ';'){//user wants a system call to run(Linux of Windows style line ends)
 				unsigned char lbc = lineBuf[strlen(lineBuf)-1];//remove any '\r' or '\n' line endings
 				if(lbc == '\r' || lbc == '\n')
 					lineBuf[strlen(lineBuf)-1] = '\0';
@@ -363,7 +469,7 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 		cfgEntry++;
 		printf("\t+= %s,\n\t",finName);
 		if(transformType == 0)
-			printf("Raw output");
+			printf("1:1 output");
 		else if(transformType == 1)
 			printf("Patch conversion");
 		else if(transformType == 5)
@@ -373,8 +479,8 @@ NEXT_CMD: //allow 1 config file using the "NEXT" keyword, to have multiple setup
 		else if(transformType == 7)
 			printf("4bit ADPCM conversion");
 		else
-			printf("Unknown(using Raw)");
-		if(asBinIn)
+			printf("Unknown(using Raw 1:1)");
+		if((inputType == 1))
 			printf(", skip %d byte(s), output offset: %ld\n", skipBytes, fileOff);
 		else
 			printf(", skip %d array(s), skip %d byte(s), output offset: %ld\n", skipArrays, skipBytes, fileOff);
@@ -428,18 +534,19 @@ int ConvertAndWrite(){
 
 	for(i=0;i<sizeof(inBuf);i++)
 		inBuf[i] = outBuf[i] = 0;
-		
-	if(asBinIn){
+	inSize = 0;
+
+	if((inputType == 1)){//Binary
 
 		while(!feof(fin)){
-			fread(inBuf+inSize,1,1,fin);
-			inSize++;
+			if(fread(inBuf+inSize,1,1,fin) == 1)
+				inSize++;
 		}
 		if(doDebug){
 			printf("**DEBUG:(Binary Input, Transform Type: %d, Input Size: %d)\n", transformType, inSize);
 		}
 
-	}else{//C array input
+	}else if((inputType == 0)){//C array input
 
 		for(i=0;i<skipArrays+1;i++)
 			while(fgetc(fin) != '{' && !feof(fin));//eat everything up to the beginning of the array data
@@ -666,6 +773,12 @@ int ConvertAndWrite(){
 			printf("\nERROR: Read garbage while skipping bytes(or EOF)\n");
 			return -2;
 		}
+	}else if((inputType == 2)){//ASM .byte input
+		printf("\nERROR: ASM .byte output is not yet implemented\n");
+		return -3;
+	}else{
+		printf("\nERROR: Unknown input type [%d]\n", inputType);
+		return -3;
 	}
 
 	inBuf[inSize] = '\0';
@@ -687,7 +800,7 @@ int ConvertAndWrite(){
 	while(i < inSize){
 		if(i > sizeof(outBuf)-10){
 			printf("\nERROR: outBuf out of bounds\n");
-			return -3;
+			return -4;
 		}
 
 		if(transformType == 0){//raw 1:1 write
@@ -697,7 +810,7 @@ int ConvertAndWrite(){
 		}else if(transformType > 0 && transformType < 5){
 
 			printf("\nERROR: transformType [%d] is reserved\n", transformType);
-			return -4;
+			return -5;
 
 		}else if(transformType == 5){//1bit "Precedent Scaling"
 
@@ -850,7 +963,7 @@ int ConvertAndWrite(){
 			outBuf[outSize++] = samples;
 		}else{//unknown output conversion
 			printf("\nERROR: Unknown transform type [%d]\n", transformType);
-			return -5;
+			return -6;
 		}
 	}
 
@@ -862,7 +975,7 @@ int ConvertAndWrite(){
 		}
 	}
 
-	if(asBinOut){
+	if((outputType == 1)){//Binary
 		if(doDebug){
 			printf("**DEBUG: Outputing Binary\n");
 		}
@@ -899,11 +1012,20 @@ int ConvertAndWrite(){
 			fileOff++;
 		}
 
-	}else{//C array
+	}else if((outputType == 0)){//C array
+		if(outputCommentLen != 0){
+			fprintf(fout,"%s",outputCommentBuf);
+			outputCommentLen = 0;
+			outputCommentBuf[0] = '\0';
+		}
+		FillOutputFormattingBuffers();
 		if(doDebug){
 			printf("**DEBUG: Outputing C Array(%s)\n", arrayName);
 		}
-		fprintf(fout,"const char %s[] PROGMEM = {/* %s(array %d) */\n",arrayName,finName,skipArrays);
+		if(outputPrefix)
+			fprintf(fout,"%sconst char %s[] PROGMEM = {/* %s(array %d) */\n",outputLeadLineBuf,arrayName,finName,skipArrays);
+		else
+			fprintf(fout,"%sconst char %s[] PROGMEM = {\n",outputLeadLineBuf,arrayName);
 		w = 0;
 		for(i=0;i<outSize-padBytes;i++){//user added padding for C version? Seems no use, assume it is in error and override.
 			if(!doDebug)
@@ -915,7 +1037,7 @@ int ConvertAndWrite(){
 				fputc(',',fout);
 				w = 100;
 			}
-			if(++w > 15){
+			if(++w > outputWidth){
 				w = 0;
 				fprintf(fout,"\n");
 			}
@@ -923,15 +1045,61 @@ int ConvertAndWrite(){
 		}
 		if(w != 0)//make formatting nicer
 			fprintf(fout,"\n");
-		fprintf(fout,"};/* %ld bytes total */\n\n",flashCost);
+		fprintf(fout,"};");
+		if(outputSuffix)
+			fprintf(fout,"/* %ld bytes total */",flashCost);
+		fprintf(fout,"%s",outputSuffixBuf);
 		totalFlashCost += flashCost;
+	}else if ((outputType == 2)){//ASM .byte
+		if(outputCommentLen != 0){
+			fprintf(fout,"%s",outputCommentBuf);
+			outputCommentLen = 0;
+			outputCommentBuf[0] = '\0';
+		}
+		FillOutputFormattingBuffers();
+		if(outputPrefix){
+			fprintf(fout,"%s\n",outputLeadPrefixBuf);
+			fprintf(fout,"%s;*************************************************************\n",outputLeadLineBuf);
+			fprintf(fout,"%s; [%s] from [%s], skipped arrays: %d\n",outputLeadLineBuf,arrayName,finName,skipArrays);
+			fprintf(fout,"%s;*************************************************************\n",outputLeadLineBuf);
+		}
+		w = 0;
+		for(i=0;i<outSize-padBytes;i++){//user added padding for ASM .byte? Seems no use, assume it is in error and override.
+			if(w == 0){
+				fprintf(fout,"%s.byte ",outputLeadLineBuf);
+			}
+			if(!doDebug)
+				fprintf(fout,"0x%02X,",outBuf[i]);
+			else{
+				fprintf(fout,"0b");
+				for(j=0;j<8;j++)
+					fputc(((outBuf[i]<<j)&128) ? '1':'0',fout);
+				fputc(',',fout);
+				w = 100;
+			}
+			if(++w > outputWidth){
+				w = 0;
+				fprintf(fout,"\n");
+			}
+			flashCost++;
+		}
+		if(w != 0)//make formatting nicer
+			fprintf(fout,"\n");
+		if(outputSuffix)
+			fprintf(fout,";;;; %ld bytes total\n\n",flashCost);
+		fprintf(fout,"%s",outputSuffixBuf);
+		totalFlashCost += flashCost;
+	
+	}else{
+		printf("ERROR: unknown output type [%d]\n", outputType);
+		return -7;
 	}
 	if(doFlashDir){
 		if(fflashdir == NULL || flashDirArrayName[0] == '\0'){
 			printf("ERROR cannot output to flash array [%s] in file [%s]\n", flashDirArrayName, flashDirFileName);
 			return -6;
 		}
-		if(asBinIn){
+		if((inputType == 1)){
 			if(!doFlashDirLength)
 				fprintf(fflashdir, "%ld,\t\t//%s\n", fileOff, finName);
 			else
@@ -950,4 +1118,37 @@ int ConvertAndWrite(){
 	if(adpcmDebug)
 		fclose(adpcmDebugFile);
 	return 1;
+}
+
+int FillOutputFormattingBuffers(){
+	int olppos = 0;
+	int ollpos = 0;
+	int oltpos = 0;
+	int tabs = outputLeadTabs;
+	int spaces = outputLeadSpaces;
+	int lines = outputLeadLines;
+	int tlines = outputTrailingLines;
+
+	for(int i=0; i<sizeof(outputLeadPrefixBuf)-1; i++){
+		if(lines){
+			lines--;
+			outputLeadPrefixBuf[olppos++] = '\n';
+		}else if(tabs){
+			tabs--;
+			outputLeadPrefixBuf[olppos++] = '\t';
+			outputLeadLineBuf[ollpos++] = '\t';
+		}else if(spaces){
+			spaces--;
+			outputLeadPrefixBuf[olppos++] = ' ';
+			outputLeadLineBuf[ollpos++] = ' ';
+		}else if(tlines){
+			tlines--;
+			outputSuffixBuf[oltpos++] = '\n';
+		}else{
+			outputLeadPrefixBuf[olppos] = '\0';
+			outputLeadLineBuf[ollpos] = '\0';
+			outputSuffixBuf[oltpos] = '\0';
+			break;
+		}
+	}
 }
