@@ -17,6 +17,8 @@
 #include <spiram.h>
 #include "terminal.h"
 
+#include "data/mandel.h"
+
 #if VIDEO_MODE == 5
 	#include "data/font6x8-full.inc"
 	#include "data/fat_pixels.inc"
@@ -86,11 +88,22 @@ enum opcodes{
 	OP_BREAK,OP_END,
 };
 
+typedef struct {
+	u8 opcode;
+	u8 param_count;
+	u8 name[10];
+}token;
+
+const token tokens[] PROGMEM = {
+	{OP_LOOP_FOR,3,"FOR"}
+
+};
+
 //Number of parameters/extra bytes required for each opcodes. Used by the EXIT statement.
 //const u8 opcodes_param_cnt[] PROGMEM = {
 const u8 opcodes_param_cnt[] PROGMEM = {
 	1,2,4,1,1,1,1,	//OP_LD_BYTE, OP_LD_WORD, OP_LD_FLOAT, OP_LD_VAR, OP_ASSIGN, OP_ASSIGN_1D_ARRAY, OP_DIM
-	3,1,2,2,2,0,	//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN
+	1,1,2,2,2,0,	//OP_LOOP_FOR, OP_LOOP_NEXT, OP_LOOP_EXIT,OP_GOTO,OP_GOSUB,OP_RETURN
 	0,0,0,0,		//OP_PRINT, OP_PRINT_LSTR, OP_PRINT_CHAR, OP_CRLF
 	0,0,0,0,0,		//OP_IF, OP_CMP_GT, OP_CMP_GE, OP_CMP_LT,OP_CMP_EQ
 	0,0,0,0,0,		//P_ADD,OP_SUB,	OP_MUL,	OP_DIV
@@ -239,6 +252,7 @@ const u8 test[] PROGMEM={
 0,0
 };
 
+u16 spi_load_line(u16 prog_pos);
 
 void vsyncCallback(){
 	timer_ticks++;
@@ -248,15 +262,16 @@ void vsyncCallback(){
 volatile u8* line;
 volatile u8 lenght;
 
-
+#define EXEC_BANK 1
+#define SRC_BANK 1
 /**
- * Load a program in flash to the SPI RAM and clear remaining RAM.
+ * Load a program in flash to the SPI RAM execution bank (upper bank) and clear remaining RAM.
  */
 u16 load_prog_spiram(const u8* program){
 	u16 i=0;
 	u8 c=0;
 
-	SpiRamSeqWriteStart(0,0);
+	SpiRamSeqWriteStart(EXEC_BANK,0);
 
 	//load from flash to sram and compute line sizes
 	//txtpos=prog_mem;
@@ -282,12 +297,64 @@ u16 load_prog_spiram(const u8* program){
 	}
 
 	SpiRamSeqWriteEnd();
-
 	spi_prog_size+=2;
-
-
 	return spi_prog_size;
 };
+
+
+/*
+ * Loads a plain text basic program to SPI ram source bank
+ */
+
+
+
+u16 i=0,line_no;
+
+u8 load(char* src){
+	SpiRamSeqWriteStart(SRC_BANK,0);
+
+	while(*src!=0){
+		i=0;
+		while(*src >='0' && *src <='9'){
+			spi_line_buf[i++]=*src++;
+		}
+		spi_line_buf[i]=0;
+		line_no = atoi ((char*)spi_line_buf);
+
+		i=3;
+		do{
+			spi_line_buf[i++]=*src++;
+		}while (*src !='\n');
+
+		spi_line_buf[i]=0;
+		src++;
+		spi_line_buf[0]=line_no&0xff;
+		spi_line_buf[1]=line_no>>8;
+		spi_line_buf[2]=i+1;
+		SpiRamSeqWriteFrom(spi_line_buf,i+1);
+	}
+	SpiRamSeqWriteU16(0);// end of program
+	SpiRamSeqWriteEnd();
+
+	return 0;
+}
+
+void list(u16 from_line){
+
+	spi_line_pos=0;
+	SpiRamSeqReadStart(SRC_BANK,spi_line_pos);
+
+	while(1){
+		spi_line_no=SpiRamSeqReadU16();
+		if(spi_line_no==0) break;
+		spi_line_len=SpiRamSeqReadU8();
+		SpiRamSeqReadInto(spi_line_buf,spi_line_len-3);
+		printf_P(PSTR("%i %s\n"),spi_line_no,spi_line_buf);
+	}
+
+	SpiRamSeqReadEnd();
+}
+
 
 //Function to init the SPI RAM
 //for some reason the one from spiram.c
@@ -303,6 +370,8 @@ u8 _spiram_start(){
 	PORTA|=(1<<PA4);
 	DDRA|=(1<<PA4);  //enable SPI RAM
 
+	//Test if it initialized correctly by
+	//writing some test data then reading it back
 	SpiRamWriteU8(0,0xcccc,0xcc);
 	retval=SpiRamReadU8(0,0xcccc);
 	if(retval==0xcc){
@@ -341,10 +410,37 @@ int main(){
 	//load_prog_spiram(test);
 	//load_prog_spiram(token_rf_benchmark_5);
 
+	//while(1){
+	//	if(spi_load_line(0)==0)break;
+
+
+	//}
+
 	//execute(true);
-	if(run_tests()!=0){
-		print_error(error_code,error_line);
-	}
+	//if(run_tests()!=0){print_error(error_code,error_line);}
+
+
+	load(mandel_bas);
+
+
+
+//	SpiRamSeqReadStart(SRC_BANK,0);
+//
+//	for(int i=0;i<100;i++){
+//		spi_line_no=SpiRamSeqReadU8();
+//		if(spi_line_no<32){
+//			printf_P(PSTR("<%02x>"),spi_line_no,spi_line_buf);
+//		}else{
+//			putchar(spi_line_no);
+//		}
+//	}
+//
+//	SpiRamSeqReadEnd();
+
+
+
+	list(0);
+
 
 	printf_P(PSTR("\nOk\n"));
 	while(1);
@@ -362,11 +458,11 @@ u16 allocate_numeric_array(u16 elements){
 }
 
 /**
- * Load a program line at the specified absolute memory position in SPI ram.
+ * Load a executable program line at the specified absolute memory position in SPI ram.
  * Returns: The line number
  */
 u16 spi_load_line(u16 prog_pos){
-	SpiRamSeqReadStart(0,prog_pos);			//Move the program pointer
+	SpiRamSeqReadStart(EXEC_BANK,prog_pos);			//Move the program pointer
 	SpiRamSeqReadInto(spi_line_buf,3); 		//read line number (word) and line lenght (byte) in ram buffer
 	spi_line_no=(u16)spi_line_buf[0];
 	if(spi_line_no!=0){
@@ -414,7 +510,14 @@ u16 execute(bool initialize){
 			return ERR_INTERNAL_ERROR;
 		}
 
-		if(spi_line_no==83){
+
+//		if(spi_line_no<65535){
+//			printf_P(PSTR("<%i,%i>"),spi_line_no,spi_prog_pos);
+//		}else{
+//			while(1);
+//		}
+
+		if(spi_line_no==110){
 			error_code=0;
 		}
 
@@ -450,7 +553,7 @@ u16 execute(bool initialize){
 						//v1=type_converter.f_array.f_ptr[u16_var];
 						u16_ptr=pcode_vars[c1];	//get pointer to array in spi ram
 						u16_ptr+=(u16_var*4);	//index requested element
-						v1=SpiRamReadU32(0,u16_ptr);
+						v1=SpiRamReadU32(EXEC_BANK,u16_ptr);
 						push_value(v1);
 					}else{
 						v1=pcode_vars[c1];
@@ -466,7 +569,7 @@ u16 execute(bool initialize){
 						u16_var=pop_value(); 		//array index
 						u16_ptr=pcode_vars[c1];		//get pointer to array in spi ram
 						u16_ptr+=(u16_var*4);		//index requested element
-						SpiRamWriteU32(0,u16_ptr,(u32)v1);
+						SpiRamWriteU32(EXEC_BANK,u16_ptr,(u32)v1);
 						//printf_P(PSTR("M(%i)=%g\n"),u16_var,v1);
 					}else{
 						pcode_vars[c1]=pop_value();
@@ -602,7 +705,7 @@ u16 execute(bool initialize){
 									//Cache the NEXT statement location for a future loop.
 									//NOTE: This is the position of the beginning of the line containing the NEXT statement
 									//because currently there is no support for multiple statements per line separated by :
-									SpiRamWriteU16(0,spi_prog_pos_tmp,spi_prog_pos+spi_line_len);
+									SpiRamWriteU16(EXEC_BANK,spi_prog_pos_tmp,spi_prog_pos+spi_line_len);
 									found=true;
 									break;
 
@@ -654,7 +757,7 @@ u16 execute(bool initialize){
 					line_no_tmp=0;
 					scan_pos=0;
 					while(1){
-						line_no_tmp=SpiRamReadU16(0,scan_pos);
+						line_no_tmp=SpiRamReadU16(EXEC_BANK,scan_pos);
 						if(line_no_tmp==0 || line_no_tmp> line_to_find){
 							//we reached the end of the program and didn't find the line
 							error_code=ERR_UNDEFINED_LINE_NUMBER;
@@ -662,13 +765,13 @@ u16 execute(bool initialize){
 						}else if(line_no_tmp==line_to_find){
 							//line found!
 							//save position in spi memory for fast lookup next time
-							SpiRamWriteU16(0,spi_prog_pos_tmp+spi_line_pos,scan_pos|0x8000);
+							SpiRamWriteU16(EXEC_BANK,spi_prog_pos_tmp+spi_line_pos,scan_pos|0x8000);
 							spi_prog_pos=scan_pos;
 							jump=true;
 							break;
 						}
 						//advance to next line;
-						line_len_tmp=SpiRamReadU8(0,scan_pos+2);
+						line_len_tmp=SpiRamReadU8(EXEC_BANK,scan_pos+2);
 						scan_pos+=line_len_tmp;
 					}
 					break;
@@ -700,7 +803,7 @@ u16 execute(bool initialize){
 					scan_pos=0;
 
 					while(1){
-						line_no_tmp=SpiRamReadU16(0,scan_pos);
+						line_no_tmp=SpiRamReadU16(EXEC_BANK,scan_pos);
 						if(line_no_tmp==0 || line_no_tmp> line_to_find){
 							error_code=ERR_UNDEFINED_LINE_NUMBER;
 							break;
@@ -719,14 +822,13 @@ u16 execute(bool initialize){
 							//set the MSbit to indicate line is an AVR memory location instead of line number.
 							//This in turn limits the Basic line numbers to 32767.
 							//(*((int16_t*)currpos))=((u16)scan_ptr-(u16)program_start)|0x8000;
-
-							SpiRamWriteU16(0,spi_prog_pos+spi_line_pos,scan_pos|0x8000);
+							SpiRamWriteU16(EXEC_BANK,spi_prog_pos+spi_line_pos,scan_pos|0x8000);
 							spi_prog_pos=scan_pos;
 							jump=true;
 							break;
 						}
 						//advance to next line;
-						line_len_tmp=SpiRamReadU8(0,scan_pos+2);
+						line_len_tmp=SpiRamReadU8(EXEC_BANK,scan_pos+2);
 						scan_pos+=line_len_tmp;
 					}
 					break;

@@ -15,9 +15,8 @@
 #include <fatfs/diskio.h>
 #include <keyboard.h>
 #include <spiram.h>
-
-
 #include "terminal.h"
+//#include "fixedptc.h"
 
 #if VIDEO_MODE == 5
 	#include "data/font6x8-full.inc"
