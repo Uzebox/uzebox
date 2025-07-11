@@ -1,0 +1,61 @@
+[Config]
+Compilator.SaveAll=0
+Compilator.Capture=0
+Compilator.HideOutput=0
+Compilator.ProgSaveAll=0
+Compilator.ProgRunSelection=0
+Compilator.LogType=0
+DefaultCPIndex=0
+LogtoEnd=1
+DontOpen=0
+AbsolutePath=0
+FileFormat=0
+ProjectFilesOnly=0
+HTServer=localhost
+[Project tree]
+pspad
+	+Folder
+		makefile
+		deskew.c
+		drives.z80
+		..\sources\cpmfs.c
+		..\sources\os_win32.c
+		..\sources\misc.c
+		..\include\libgss.h
+		..\include\misc.h
+[Open project files]
+0=makefile
+1=..\..\z80sim\misc\os\cdos0020\uboot.z80
+2=..\sources\cpmfs.c
+3=..\sources\os_win32.c
+4=..\sources\misc.c
+5=..\include\libgss.h
+6=..\include\os.h
+7=..\include\misc.h
+[Selected Project Files]
+Main=
+Selected=..\sources\cpmfs.c
+[makefile]
+TopLine=1
+Caret=28,1
+[..\..\z80sim\misc\os\cdos0020\uboot.z80]
+TopLine=72
+Caret=1,107
+[..\sources\cpmfs.c]
+TopLine=165
+Caret=54,189
+[..\sources\os_win32.c]
+TopLine=1
+Caret=16,4
+[..\sources\misc.c]
+TopLine=99
+Caret=1,134
+[..\include\libgss.h]
+TopLine=1
+Caret=13,24
+[..\include\os.h]
+TopLine=1
+Caret=1,4
+[..\include\misc.h]
+TopLine=1
+Caret=45,8
