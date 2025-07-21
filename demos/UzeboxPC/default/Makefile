@@ -27,6 +27,7 @@ KERNEL_OPTIONS += -DSCREEN_TILES_H=80 -DSCREEN_TILES_V=25 -DFIRST_RENDER_LINE=28
 KERNEL_OPTIONS += -DMIXER_WAVES=\"$(MIX_PATH_ESC)\"  -DSOUND_MIXER=1  -DSOUND_CHANNEL_5_ENABLE=0 -DENABLE_MIXER=0
 KERNEL_OPTIONS += -DUART_RX_BUFFER_SIZE=256 -DUART_TX_BUFFER_SIZE=128 -DUART=1 
 KERNEL_OPTIONS += -DPF_USE_DIR=0 -DPF_USE_LSEEK=1 -DPF_USE_WRITE=1 -DPF_USE_READ=1
+#KERNEL_OPTIONS += -DUZENET_SETUP=1
 
 ## Specify this option if using a JTAG ICE. This will set screen colors differently because some video output pins are disabled.
 #KERNEL_OPTIONS += -DJTAG_DEBUG=1
@@ -165,7 +166,7 @@ size: ${TARGET}
 .PHONY: clean
 clean:
 	-rm -rf $(OBJECTS) $(GAME).* *.bin *.lst *.p *.o *.com *.COM *.hex
-##	-rm -rf ../data/cpm22.inc ../data/cpmbin/TELNET.COM ../data/cpmbin/UZECONF.COM 
+	-rm -rf ../data/cpm22.inc ../data/cpmbin/TELNET.COM ../data/cpmbin/UZECONF.COM 
 	-rm -rf dep
 
 

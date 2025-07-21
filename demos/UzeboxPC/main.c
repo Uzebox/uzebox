@@ -54,8 +54,10 @@ int main(){
 	stdout = &TERMINAL_STREAM;  //bind the terminal receiver to stdout
 
 	//Uncomment this block to build a standalone uzenet_setup rom
-	//uzenet_Setup();
-	//while(1);
+	#if UZENET_SETUP == 1
+		uzenet_Setup();
+		while(1);
+	#endif
 
 	wifi_Echo(false);
 	computer_Boot();
