@@ -23,3 +23,11 @@ gdb-script.cfg
 .metadata/
 roms/
 demos/UzeboxPC/default/cpm22.inc
+
+demos/UzeboxPC/.vs/UzenetDemo/v14/.atsuo
+
+demos/UzeboxPC/UzenetDemo.atsln
+
+demos/UzeboxPC/UzenetDemo.componentinfo.xml
+
+demos/UzeboxPC/UzenetDemo.cproj

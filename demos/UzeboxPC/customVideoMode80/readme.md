@@ -1,0 +1,1 @@
+Custom version of video mode 80 created by Jubatian that adds cursor support.
