@@ -22,9 +22,9 @@ You will also need:
 
 1 x [SNES controller extension cable](https://www.aliexpress.com/item/4000023893179.html) strip one end of the cable to connect the controller PCB.
 
-4 x [M4 12 mm nuts with locking nuts](https://www.aliexpress.com/item/1005007813468077.html) to attach the joystick's base plate to the case.
+4 x [M4 12 mm nuts with locking nuts](https://www.aliexpress.com/item/1005007813468077.html) to attach the joystick's base plate.
 
-3 x M3 (3mm) 6 mm self tapping screws to attach the PCB inside the case.
+3 x M3 6 mm self tapping screws to mount the PCB.
 
 7 x 25 mm flat head screws.
 
