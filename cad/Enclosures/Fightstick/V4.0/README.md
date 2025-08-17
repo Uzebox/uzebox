@@ -30,6 +30,11 @@ You will also need:
 
 ## How do I wire it up?
 
+Begin by wiring the SNES controller cable to the PCB. The SNES cable wire colours are marked on the controller PCB. There are only 5 to connect. If your controller PCB is working fine and its correctly wired up you should see a controller displayed in the Uzebox [Controller Tester](https://uzebox.org/wiki/Controller_Tester) even when you don't have a joystick or any buttons wired up.
+
+Connect the buttons before the joystick, testing each button and joystick direction with Controller Tester. The labels for the buttons are centered on the PCB because you can wire the buttons up either way, as long as you attach two wires for each button to the controller PCB.
+
+
 ![Uzebox joystick and buttons wiring](Uzebox-joystick-sanwa-wiring+buttons.jpg)
 
 ![Uzebox joystick wiring](Uzebox-joystick-sanwa-wiring-labels.jpg)
