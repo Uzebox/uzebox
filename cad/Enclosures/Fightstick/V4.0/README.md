@@ -1,5 +1,7 @@
 # Uzebox Fightstick joystick enclosure
 
+![Uzebox joystick photo](Uzebox-joystick-V4.jpg)
+
 This directory contains the **.stl** files for you to print an enclosure to house a Sanwa compatible joystick and 8x 30 mm diameter buttons. It includes three supports on the inside of the upper case for mounting the [Uzebox joystick controller PCB](https://github.com/Uzebox/uzebox/tree/master/schematics/Joystick/V1.5).
 
 Also included are the Fusion 360 **.f3z** and **.step** files for those who wish to modify the design.
@@ -35,7 +37,7 @@ Begin by wiring the SNES controller cable to the PCB. The SNES cable wire colour
 Connect the buttons before the joystick, testing each button and joystick direction with Controller Tester. The labels for the buttons are centered on the PCB because you can wire the buttons up either way, as long as you attach two wires for each button to the controller PCB.
 
 
-![Uzebox joystick and buttons wiring](Uzebox-joystick-sanwa-wiring+buttons.jpg)
+![Uzebox joystick and buttons wiring](Uzebox-joystick-sanwa-wiring.jpg)
 
 ![Uzebox joystick wiring](Uzebox-joystick-sanwa-wiring-labels.jpg)
 
