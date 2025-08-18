@@ -22,9 +22,11 @@ The main components required to build this joystick are a Sanwa compatible joyst
 
 You will also need:
 
+1 x [Uzebox joystick controller PCB](https://github.com/Uzebox/uzebox/tree/master/schematics/Joystick/V1.5)
+
 1 x [SNES controller extension cable](https://www.aliexpress.com/item/4000023893179.html) strip one end of the cable to connect the controller PCB.
 
-4 x [M4 12 mm nuts with locking nuts](https://www.aliexpress.com/item/1005007813468077.html) to attach the joystick's base plate.
+4 x [M4 12 mm bolts with locking nuts](https://www.aliexpress.com/item/1005007813468077.html) to attach the joystick's base plate.
 
 3 x M3 6 mm self tapping screws to mount the PCB.
 
