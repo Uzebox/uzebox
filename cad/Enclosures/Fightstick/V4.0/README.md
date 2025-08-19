@@ -18,7 +18,7 @@ If you are using PLA filament to print, it could well take you 24 hours or longe
 
 ## Bill of Materials
 
-The main components required to build this joystick are a Sanwa compatible joystick and 8x 30 mm diameter buttons and the wires to connect the joystick and every button to the controller PCB. All three of these can be [bought together in kit for less than $10](https://vi.aliexpress.com/item/1005007982022398.html).
+The main components required to build this joystick are a Sanwa compatible joystick and 8x 30 mm diameter buttons and the wires to connect the joystick and every button to the controller PCB. All three of these can be [bought together in a kit for less than $10](https://vi.aliexpress.com/item/1005007982022398.html).
 
 You will also need:
 
