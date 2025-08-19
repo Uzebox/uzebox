@@ -43,6 +43,8 @@ Connect the buttons before the joystick, testing each button and joystick direct
 
 ![Uzebox joystick wiring](Uzebox-joystick-sanwa-wiring-labels.jpg)
 
+![Uzebox joystick buttons](Uzebox-joystick-buttons.jpg)
+
 See the [Uzebox joystick wiki page](https://uzebox.org/wiki/Joystick) for more info, build tips and alternative cases etc.
 
 # License
