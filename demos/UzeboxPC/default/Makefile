@@ -33,7 +33,7 @@ KERNEL_OPTIONS += -DPF_USE_DIR=0 -DPF_USE_LSEEK=1 -DPF_USE_WRITE=1 -DPF_USE_READ
 #KERNEL_OPTIONS += -DJTAG_DEBUG=1
 
 ## Include Directories
-INCLUDES = -I"$(KERNEL_DIR)" -I"..\customVideoMode80" 
+INCLUDES = -I"$(KERNEL_DIR)" -I"../customVideoMode80" 
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
