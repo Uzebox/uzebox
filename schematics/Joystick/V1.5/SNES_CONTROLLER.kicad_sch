@@ -1,0 +1,7432 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "719592b0-85a8-4eb6-8d13-f447981f3475")
+	(paper "A4")
+	(title_block
+		(title "SNES & Uzebox Modular Joystick PCB")
+		(date "2025-05-08")
+		(rev "1.5")
+	)
+	(lib_symbols
+		(symbol "4xxx:4021"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "U"
+				(at -5.08 19.05 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "4021"
+				(at 3.81 19.05 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/HEF4021B.pdf"
+				(at 0 3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "8-bit static shift register"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "shift register SR PISO"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "DIP*W7.62mm* SOIC*3.9x9.9mm*P1.27mm* TSSOP*4.4x5mm*P0.65mm* SOIC*5.3x10.2mm*P1.27mm*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "4021_0_1"
+				(rectangle
+					(start -7.62 17.78)
+					(end 7.62 -17.78)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "4021_1_1"
+				(pin input line
+					(at -10.16 15.24 0)
+					(length 2.54)
+					(name "CP"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 10.16 0)
+					(length 2.54)
+					(name "PL"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 7.62 0)
+					(length 2.54)
+					(name "DS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "11"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 2.54 0)
+					(length 2.54)
+					(name "D0"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 0 0)
+					(length 2.54)
+					(name "D1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 -2.54 0)
+					(length 2.54)
+					(name "D2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 -5.08 0)
+					(length 2.54)
+					(name "D3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 -7.62 0)
+					(length 2.54)
+					(name "D4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "13"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 -10.16 0)
+					(length 2.54)
+					(name "D5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "14"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 -12.7 0)
+					(length 2.54)
+					(name "D6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "15"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 -15.24 0)
+					(length 2.54)
+					(name "D7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 20.32 270)
+					(length 2.54)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "16"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 -20.32 90)
+					(length 2.54)
+					(name "VSS"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 10.16 15.24 180)
+					(length 2.54)
+					(name "Q5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 10.16 12.7 180)
+					(length 2.54)
+					(name "Q6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 10.16 10.16 180)
+					(length 2.54)
+					(name "Q7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Connector:Screw_Terminal_01x06"
+			(pin_names
+				(offset 1.016)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "J"
+				(at 0 7.62 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Screw_Terminal_01x06"
+				(at 0 -10.16 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Generic screw terminal, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "screw terminal"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "TerminalBlock*:*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Screw_Terminal_01x06_1_1"
+				(rectangle
+					(start -1.27 6.35)
+					(end 1.27 -8.89)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 5.4102) (xy 0.3302 4.572)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 2.8702) (xy 0.3302 2.032)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 0.3302) (xy 0.3302 -0.508)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -2.2098) (xy 0.3302 -3.048)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -4.7498) (xy 0.3302 -5.588)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -7.2898) (xy 0.3302 -8.128)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 5.588) (xy 0.508 4.7498)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 3.048) (xy 0.508 2.2098)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 0.508) (xy 0.508 -0.3302)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -2.032) (xy 0.508 -2.8702)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -4.572) (xy 0.508 -5.4102)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -7.112) (xy 0.508 -7.9502)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 5.08)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 2.54)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 0)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -2.54)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -5.08)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -7.62)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -5.08 5.08 0)
+					(length 3.81)
+					(name "Pin_1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 2.54 0)
+					(length 3.81)
+					(name "Pin_2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 0 0)
+					(length 3.81)
+					(name "Pin_3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -2.54 0)
+					(length 3.81)
+					(name "Pin_4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -5.08 0)
+					(length 3.81)
+					(name "Pin_5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -7.62 0)
+					(length 3.81)
+					(name "Pin_6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Connector:Screw_Terminal_01x12"
+			(pin_names
+				(offset 1.016)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "J"
+				(at 0 15.24 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Screw_Terminal_01x12"
+				(at 0 -17.78 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Generic screw terminal, single row, 01x12, script generated (kicad-library-utils/schlib/autogen/connector/)"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "screw terminal"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "TerminalBlock*:*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Screw_Terminal_01x12_1_1"
+				(rectangle
+					(start -1.27 13.97)
+					(end 1.27 -16.51)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 13.0302) (xy 0.3302 12.192)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 10.4902) (xy 0.3302 9.652)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 7.9502) (xy 0.3302 7.112)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 5.4102) (xy 0.3302 4.572)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 2.8702) (xy 0.3302 2.032)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 0.3302) (xy 0.3302 -0.508)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -2.2098) (xy 0.3302 -3.048)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -4.7498) (xy 0.3302 -5.588)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -7.2898) (xy 0.3302 -8.128)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -9.8298) (xy 0.3302 -10.668)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -12.3698) (xy 0.3302 -13.208)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.5334 -14.9098) (xy 0.3302 -15.748)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 13.208) (xy 0.508 12.3698)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 10.668) (xy 0.508 9.8298)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 8.128) (xy 0.508 7.2898)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 5.588) (xy 0.508 4.7498)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 3.048) (xy 0.508 2.2098)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 0.508) (xy 0.508 -0.3302)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -2.032) (xy 0.508 -2.8702)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -4.572) (xy 0.508 -5.4102)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -7.112) (xy 0.508 -7.9502)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -9.652) (xy 0.508 -10.4902)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -12.192) (xy 0.508 -13.0302)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.3556 -14.732) (xy 0.508 -15.5702)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 12.7)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 10.16)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 7.62)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 5.08)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 2.54)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 0)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -2.54)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -5.08)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -7.62)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -10.16)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -12.7)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0 -15.24)
+					(radius 0.635)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -5.08 12.7 0)
+					(length 3.81)
+					(name "Pin_1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 10.16 0)
+					(length 3.81)
+					(name "Pin_2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 7.62 0)
+					(length 3.81)
+					(name "Pin_3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 5.08 0)
+					(length 3.81)
+					(name "Pin_4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 2.54 0)
+					(length 3.81)
+					(name "Pin_5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 0 0)
+					(length 3.81)
+					(name "Pin_6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -2.54 0)
+					(length 3.81)
+					(name "Pin_7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -5.08 0)
+					(length 3.81)
+					(name "Pin_8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -7.62 0)
+					(length 3.81)
+					(name "Pin_9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -10.16 0)
+					(length 3.81)
+					(name "Pin_10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -12.7 0)
+					(length 3.81)
+					(name "Pin_11"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "11"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -15.24 0)
+					(length 3.81)
+					(name "Pin_12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Device:C_Small"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0.254)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "C"
+				(at 0.254 1.778 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "C_Small"
+				(at 0.254 -2.032 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Unpolarized capacitor, small symbol"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "capacitor cap"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "C_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "C_Small_0_1"
+				(polyline
+					(pts
+						(xy -1.524 0.508) (xy 1.524 0.508)
+					)
+					(stroke
+						(width 0.3048)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.524 -0.508) (xy 1.524 -0.508)
+					)
+					(stroke
+						(width 0.3302)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "C_Small_1_1"
+				(pin passive line
+					(at 0 2.54 270)
+					(length 2.032)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -2.54 90)
+					(length 2.032)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Device:R"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 2.032 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "R"
+				(at 0 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at -1.778 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Resistor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R res resistor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "R_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "R_0_1"
+				(rectangle
+					(start -1.016 -2.54)
+					(end 1.016 2.54)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "R_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Mechanical:MountingHole"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim yes)
+			(in_bom no)
+			(on_board yes)
+			(property "Reference" "H"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "MountingHole"
+				(at 0 3.175 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Mounting Hole without connection"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "mounting hole"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "MountingHole*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "MountingHole_0_1"
+				(circle
+					(center 0 0)
+					(radius 1.27)
+					(stroke
+						(width 1.27)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(text "Shift Registers"
+		(exclude_from_sim no)
+		(at 249.428 48.006 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "b9c78053-3b82-49ab-bcb9-5e8ba5b8fd3e")
+	)
+	(junction
+		(at 88.9 72.39)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "007b9b4d-1d3e-4896-9f57-d588e610acc7")
+	)
+	(junction
+		(at 101.6 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "019d314a-f35b-43ef-8fed-fe3832b9a7a1")
+	)
+	(junction
+		(at 114.3 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "026800df-bbab-481f-928e-c08912855c1b")
+	)
+	(junction
+		(at 142.24 95.25)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "04e89198-74bf-4d52-8648-ccaee7ce8933")
+	)
+	(junction
+		(at 182.88 105.41)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "127d7a28-3a20-4869-b551-d57cd5b36249")
+	)
+	(junction
+		(at 95.25 139.7)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "12b8acba-a7d2-43f3-b02e-fce42b8ad6c3")
+	)
+	(junction
+		(at 45.72 157.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "17ce7600-e837-4824-97db-ea243f63f208")
+	)
+	(junction
+		(at 151.13 114.3)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "181e84a0-2621-406d-b1e5-a23a147ccbd1")
+	)
+	(junction
+		(at 45.72 69.85)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "19370836-bfe7-4956-9747-add24e242810")
+	)
+	(junction
+		(at 45.72 80.01)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "1ec6f9e0-d023-4165-ab7f-c0db8be5749b")
+	)
+	(junction
+		(at 45.72 74.93)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "1ef140d5-a80d-465e-a26a-30a367a99ea4")
+	)
+	(junction
+		(at 45.72 147.32)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "20139b05-1669-4ae7-8c13-74da24706440")
+	)
+	(junction
+		(at 76.2 154.94)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "244ea206-e106-4213-92d4-1e6a6d963035")
+	)
+	(junction
+		(at 45.72 85.09)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2487105e-5d12-4dd8-bbe3-e4fb8ff759d7")
+	)
+	(junction
+		(at 45.72 142.24)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "24ecc38b-4fe7-455a-ba71-aedc22b42236")
+	)
+	(junction
+		(at 45.72 90.17)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2a2e05d4-9126-44a0-9180-9440ed634b56")
+	)
+	(junction
+		(at 214.63 110.49)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2a3e611e-5bfe-4fde-b4f3-48b706781f66")
+	)
+	(junction
+		(at 149.86 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2ae828f0-c117-45ce-9cf7-2859cb6e95a4")
+	)
+	(junction
+		(at 45.72 137.16)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "374a5543-7d96-4e49-888d-eb2b5cfd5a3e")
+	)
+	(junction
+		(at 151.13 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3af3ae35-ab10-4edf-be47-baee4f3ea9c1")
+	)
+	(junction
+		(at 120.65 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "455fe6ed-ba40-4e5d-880e-4a4fe52fa8ec")
+	)
+	(junction
+		(at 88.9 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "46d6ef87-be3d-4a14-88cd-a659ec7d3a1e")
+	)
+	(junction
+		(at 88.9 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4ccfc4b4-c2c1-4ed5-ac0a-67916ac1f9a1")
+	)
+	(junction
+		(at 114.3 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4ed11f54-0669-4b20-91db-b6193e765d1d")
+	)
+	(junction
+		(at 101.6 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "506c8e4d-8763-4cf6-b084-ccb1ff17ceba")
+	)
+	(junction
+		(at 82.55 149.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "5098e47a-7be7-4b71-8683-9064706b883f")
+	)
+	(junction
+		(at 175.26 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "52d912ca-ec0e-4fff-bb1c-6576764fd285")
+	)
+	(junction
+		(at 95.25 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "5c476895-d4d7-4aab-bf42-e17727230b64")
+	)
+	(junction
+		(at 88.9 144.78)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "62531d4f-301e-40ea-913c-68592fc8739f")
+	)
+	(junction
+		(at 149.86 44.45)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "650daea5-289c-4c74-8fba-ecd3a2cca07f")
+	)
+	(junction
+		(at 191.77 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6671d718-a156-426e-b434-3bd6635da95f")
+	)
+	(junction
+		(at 120.65 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6a06eac1-dc90-4d38-b92f-b79ecb23d206")
+	)
+	(junction
+		(at 181.61 110.49)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6dd760b0-7d42-4bfe-829c-4b37366c29c6")
+	)
+	(junction
+		(at 199.39 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "77b842bd-2b2b-40c0-bd7c-5a4d9a010a4e")
+	)
+	(junction
+		(at 132.08 105.41)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7ae224e3-f811-4608-8edf-c3902ab1af0f")
+	)
+	(junction
+		(at 175.26 64.77)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "8bcfa0d1-c4b6-44e7-978d-735cb05279c5")
+	)
+	(junction
+		(at 114.3 69.85)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "930afd44-ecfd-41ce-aec1-57d52a916699")
+	)
+	(junction
+		(at 120.65 64.77)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9a145137-97b6-497b-9b17-b66df994a2f1")
+	)
+	(junction
+		(at 76.2 62.23)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a17304ae-3172-4920-82f9-e976ce2ea4b5")
+	)
+	(junction
+		(at 95.25 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a85ed529-f369-4b89-a580-a32a46f7ea83")
+	)
+	(junction
+		(at 45.72 152.4)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a9038ebe-ce7b-4328-b166-445d78cdc3ad")
+	)
+	(junction
+		(at 156.21 110.49)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ab20a260-7263-41bf-8f33-b90be3e85e13")
+	)
+	(junction
+		(at 82.55 77.47)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "aec3b5df-f56b-4968-9702-c21ac2ca18ad")
+	)
+	(junction
+		(at 107.95 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b80f615f-acfa-406e-843b-bff6bc63c874")
+	)
+	(junction
+		(at 151.13 162.56)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "baf7d506-984d-4b8b-a489-5df231c25de7")
+	)
+	(junction
+		(at 82.55 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "bd9eda28-363d-4e7b-b618-4328508a731a")
+	)
+	(junction
+		(at 107.95 74.93)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "be3d0093-f701-47ec-88ae-5f353d02885c")
+	)
+	(junction
+		(at 142.24 110.49)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "bf7fedbf-9712-4014-a28b-2a2f3be0c828")
+	)
+	(junction
+		(at 128.27 102.87)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c2299147-2ea0-4338-9aa3-1c9fd5f7ca80")
+	)
+	(junction
+		(at 149.86 95.25)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c4f8d437-cf8c-46b9-9a77-5e53edb03445")
+	)
+	(junction
+		(at 82.55 100.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c61c44b5-5e8e-44d9-844f-14f1ac3ee42e")
+	)
+	(junction
+		(at 107.95 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ce839369-14e1-4657-88f5-f1909a09dadd")
+	)
+	(junction
+		(at 191.77 102.87)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e993e60e-9ecf-4b15-9fa0-44b2be1c2c0d")
+	)
+	(junction
+		(at 101.6 80.01)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f4e4b88f-2adb-45be-b8e3-05fc23546f39")
+	)
+	(junction
+		(at 182.88 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f7b4cf7b-169b-4bf9-8911-903cab2c7136")
+	)
+	(junction
+		(at 95.25 67.31)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "fbdc4c96-c3da-4fba-8cb3-a3f3a3fa5573")
+	)
+	(no_connect
+		(at 160.02 59.69)
+		(uuid "171606ee-09c5-4746-8943-971805df8dce")
+	)
+	(no_connect
+		(at 161.29 127)
+		(uuid "4c641434-97ed-4d66-9bcc-a727ce9253e5")
+	)
+	(no_connect
+		(at 161.29 129.54)
+		(uuid "c42f2b10-4c8f-468b-954c-436a3ee32634")
+	)
+	(no_connect
+		(at 160.02 62.23)
+		(uuid "cf35408b-a93a-4763-a8df-2dbf9908fb8c")
+	)
+	(wire
+		(pts
+			(xy 156.21 110.49) (xy 156.21 114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "000d1f4b-72ca-4650-ab10-7073785cf1c3")
+	)
+	(wire
+		(pts
+			(xy 38.1 62.23) (xy 76.2 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "01056bc0-36e5-4ef0-af16-4663bb6154cd")
+	)
+	(wire
+		(pts
+			(xy 140.97 154.94) (xy 82.55 154.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0290da32-c10b-449d-8a2f-a16e96ef7627")
+	)
+	(wire
+		(pts
+			(xy 101.6 80.01) (xy 139.7 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0378717b-30f7-4dae-a2dc-4ef4d3e04f21")
+	)
+	(wire
+		(pts
+			(xy 149.86 40.64) (xy 175.26 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "048fed58-24f3-4412-a719-99abc4256874")
+	)
+	(wire
+		(pts
+			(xy 101.6 48.26) (xy 101.6 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "07219282-c793-4d81-9be8-995a1b934d48")
+	)
+	(wire
+		(pts
+			(xy 38.1 80.01) (xy 45.72 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "088dda64-b1c6-4d43-b137-0e4893d0faca")
+	)
+	(wire
+		(pts
+			(xy 82.55 40.64) (xy 88.9 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "090aa3ef-7ddc-47f9-993f-94fe9eb0e0de")
+	)
+	(wire
+		(pts
+			(xy 39.37 137.16) (xy 45.72 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0978449f-570a-44fb-9609-b1f74c670c78")
+	)
+	(wire
+		(pts
+			(xy 88.9 144.78) (xy 88.9 152.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0a6f4f46-329e-45b4-b498-4df714e6b2e2")
+	)
+	(wire
+		(pts
+			(xy 163.83 49.53) (xy 163.83 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0beb0f32-afca-4a84-aa67-498f63d0c530")
+	)
+	(wire
+		(pts
+			(xy 39.37 154.94) (xy 76.2 154.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "10007118-c6e3-4667-b5c1-de75e08dbc1f")
+	)
+	(wire
+		(pts
+			(xy 38.1 87.63) (xy 62.23 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "108b03db-0b36-4f13-a20b-4cb84df5792c")
+	)
+	(wire
+		(pts
+			(xy 124.46 49.53) (xy 163.83 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "10a49afd-0b92-477c-8a0b-b57263449c06")
+	)
+	(wire
+		(pts
+			(xy 137.16 134.62) (xy 137.16 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "11150c71-4297-4fe0-a25a-4cb1fb01a3c1")
+	)
+	(wire
+		(pts
+			(xy 95.25 139.7) (xy 95.25 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1194eed0-f3f8-497e-a546-794221ef6726")
+	)
+	(wire
+		(pts
+			(xy 120.65 64.77) (xy 120.65 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "12b26306-1405-4ee1-9ccc-b8b58c08601b")
+	)
+	(wire
+		(pts
+			(xy 151.13 100.33) (xy 199.39 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "13e86f3f-7f75-4500-a376-73bc088909c6")
+	)
+	(wire
+		(pts
+			(xy 76.2 40.64) (xy 82.55 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "13f728ff-45ed-4bed-9744-50850e0e410b")
+	)
+	(wire
+		(pts
+			(xy 39.37 134.62) (xy 54.61 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1621565e-0d2c-4904-8df5-169255794910")
+	)
+	(wire
+		(pts
+			(xy 38.1 74.93) (xy 45.72 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1b4bcac0-3a6a-4ab7-b4d7-fa734b070eac")
+	)
+	(wire
+		(pts
+			(xy 156.21 110.49) (xy 181.61 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1bb9b727-2cc5-4758-9e69-dd31bcf12971")
+	)
+	(wire
+		(pts
+			(xy 182.88 105.41) (xy 214.63 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1d5a5ae5-f004-48eb-819d-37f231653313")
+	)
+	(wire
+		(pts
+			(xy 163.83 132.08) (xy 161.29 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "254e0127-e563-4ec7-8694-655ef44e7217")
+	)
+	(wire
+		(pts
+			(xy 39.37 129.54) (xy 58.42 129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "26cd087b-ea19-4c9a-8f6c-05c3b5d74665")
+	)
+	(wire
+		(pts
+			(xy 128.27 127) (xy 140.97 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2716e6e4-8515-4cf6-8da1-b843f5850269")
+	)
+	(wire
+		(pts
+			(xy 140.97 152.4) (xy 88.9 152.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2739560f-647f-4247-a6c9-e4496e44c72b")
+	)
+	(wire
+		(pts
+			(xy 140.97 142.24) (xy 114.3 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b7ed992-3a6f-4101-be29-ee1eec0a50e7")
+	)
+	(wire
+		(pts
+			(xy 82.55 115.57) (xy 82.55 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2cc49b87-dad8-4cfe-832d-30c275186000")
+	)
+	(wire
+		(pts
+			(xy 95.25 67.31) (xy 95.25 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2e13fdf9-cf61-47b2-8a58-88e5b1f5387d")
+	)
+	(wire
+		(pts
+			(xy 101.6 100.33) (xy 101.6 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "301b823b-f6cb-470c-891f-63225f83e115")
+	)
+	(wire
+		(pts
+			(xy 151.13 114.3) (xy 151.13 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3089f0e7-324c-4e61-ad03-1184a24ff9cc")
+	)
+	(wire
+		(pts
+			(xy 45.72 80.01) (xy 45.72 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "34b2cf39-f42e-4e7d-a2db-a78cbade0747")
+	)
+	(wire
+		(pts
+			(xy 161.29 95.25) (xy 149.86 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3564935c-4d71-4a42-871d-ac92331e68d9")
+	)
+	(wire
+		(pts
+			(xy 62.23 74.93) (xy 107.95 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3a217eb4-d933-4aa4-b2d1-6cf0eaf305ad")
+	)
+	(wire
+		(pts
+			(xy 76.2 100.33) (xy 82.55 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3abf106d-5e7c-47dd-a522-54ab1e13bfb3")
+	)
+	(wire
+		(pts
+			(xy 39.37 149.86) (xy 82.55 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3b917dad-8873-4333-bfeb-1eda7d8a0e38")
+	)
+	(wire
+		(pts
+			(xy 76.2 154.94) (xy 76.2 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3d976c5e-b541-4d60-8e6c-904056be024b")
+	)
+	(wire
+		(pts
+			(xy 45.72 157.48) (xy 39.37 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4083b589-ffaf-49a2-9ce8-abf0cd7e65cd")
+	)
+	(wire
+		(pts
+			(xy 38.1 85.09) (xy 45.72 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "41fde194-5c6d-499e-8485-908eaf13f553")
+	)
+	(wire
+		(pts
+			(xy 114.3 142.24) (xy 114.3 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "42bc5a73-022e-459e-9d2f-d6b0eb696bb6")
+	)
+	(wire
+		(pts
+			(xy 39.37 142.24) (xy 45.72 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "44983256-3082-41fc-aaad-a91d57be1641")
+	)
+	(wire
+		(pts
+			(xy 154.94 44.45) (xy 161.29 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "450eacae-246d-4f25-93f4-a9ef552ed54d")
+	)
+	(wire
+		(pts
+			(xy 107.95 48.26) (xy 107.95 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "465ce2e8-d4e3-461b-bde3-2a94b9df3e6a")
+	)
+	(wire
+		(pts
+			(xy 45.72 142.24) (xy 45.72 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "481049b4-5be1-4671-b75a-fe9e0900b990")
+	)
+	(wire
+		(pts
+			(xy 175.26 64.77) (xy 175.26 48.26)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "49a0acb6-5e32-4215-96b8-853d7cb60280")
+	)
+	(wire
+		(pts
+			(xy 107.95 77.47) (xy 139.7 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "49ad4ace-744b-44b9-8661-4e80803c2606")
+	)
+	(wire
+		(pts
+			(xy 142.24 95.25) (xy 142.24 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4ae53675-8858-4af8-b2f2-e28e6d019825")
+	)
+	(wire
+		(pts
+			(xy 140.97 149.86) (xy 95.25 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4bb6c473-c1e3-4e2d-9178-cb745e3e9e5f")
+	)
+	(wire
+		(pts
+			(xy 38.1 72.39) (xy 88.9 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4c072d7c-0cc8-4273-860f-cc485a67e8c8")
+	)
+	(wire
+		(pts
+			(xy 151.13 121.92) (xy 151.13 114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4eb13232-43f2-47bb-a92d-6a04b796ea71")
+	)
+	(polyline
+		(pts
+			(xy 270.51 49.53) (xy 270.51 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4f5b3cfb-93eb-4634-b64c-2c3e11df716a")
+	)
+	(wire
+		(pts
+			(xy 76.2 62.23) (xy 76.2 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4f903468-60a3-4e30-8ce0-a47fc4b2d258")
+	)
+	(wire
+		(pts
+			(xy 95.25 100.33) (xy 101.6 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "554ef11e-a8aa-48fd-ac7a-6a9204346fca")
+	)
+	(wire
+		(pts
+			(xy 95.25 149.86) (xy 95.25 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5573b09e-2303-43dc-884c-11a6ec5c637b")
+	)
+	(wire
+		(pts
+			(xy 114.3 69.85) (xy 114.3 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "558ea9ae-23d1-4a13-be1e-5423be126cc6")
+	)
+	(polyline
+		(pts
+			(xy 242.57 165.1) (xy 242.57 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "592cf431-1f4e-4cfc-951c-96464d95d7ca")
+	)
+	(wire
+		(pts
+			(xy 132.08 105.41) (xy 132.08 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5a588e2e-6c94-4f54-a429-4442bc51f14d")
+	)
+	(wire
+		(pts
+			(xy 120.65 139.7) (xy 120.65 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5b37f3ca-df72-4ea5-a0cd-ef0aa710821b")
+	)
+	(wire
+		(pts
+			(xy 161.29 44.45) (xy 161.29 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5c2aaf30-2686-46cc-8ca4-ee5ad964fd0f")
+	)
+	(wire
+		(pts
+			(xy 66.04 82.55) (xy 66.04 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5d05e9b6-4ce7-498b-acad-d3ba1f225ae3")
+	)
+	(wire
+		(pts
+			(xy 38.1 69.85) (xy 45.72 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5d065d8b-36c5-47d1-aa2c-62186b08dd5d")
+	)
+	(wire
+		(pts
+			(xy 88.9 48.26) (xy 88.9 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6126672f-2201-4b3e-bdcd-3a7e51587b17")
+	)
+	(wire
+		(pts
+			(xy 82.55 100.33) (xy 88.9 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6152ca86-03fb-4e70-8a79-b6d36f70ca63")
+	)
+	(wire
+		(pts
+			(xy 128.27 102.87) (xy 191.77 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "63b5dc46-a508-48e6-9935-17ce02dc581c")
+	)
+	(polyline
+		(pts
+			(xy 242.57 49.53) (xy 243.84 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "63d55bd9-e2f3-4deb-adec-37cc0ffb3043")
+	)
+	(wire
+		(pts
+			(xy 39.37 139.7) (xy 95.25 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "66c1caee-54ee-45d2-bb5c-96e3255a26eb")
+	)
+	(wire
+		(pts
+			(xy 114.3 40.64) (xy 120.65 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6bd9ac8e-055b-495a-91c0-ea39d164b7b3")
+	)
+	(wire
+		(pts
+			(xy 191.77 102.87) (xy 214.63 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6c694433-d5f8-4417-8573-73bb0658ae29")
+	)
+	(wire
+		(pts
+			(xy 39.37 144.78) (xy 88.9 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6cf81dc0-5716-4f4a-8688-852dfa3351b4")
+	)
+	(wire
+		(pts
+			(xy 88.9 100.33) (xy 88.9 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6d5bf85b-bd26-4f6f-ab60-5b0855b1e534")
+	)
+	(wire
+		(pts
+			(xy 199.39 40.64) (xy 199.39 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6efc8626-7a95-45dc-92b5-b5a04d78d178")
+	)
+	(wire
+		(pts
+			(xy 199.39 100.33) (xy 214.63 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7123794b-71b8-476a-a611-41e82c2d6406")
+	)
+	(wire
+		(pts
+			(xy 45.72 137.16) (xy 45.72 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "72b083aa-95cb-4b49-8aa3-1cdb509e19d3")
+	)
+	(wire
+		(pts
+			(xy 182.88 105.41) (xy 182.88 48.26)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "73539e91-d0f0-43b6-bb8b-6bd085c20d01")
+	)
+	(wire
+		(pts
+			(xy 45.72 90.17) (xy 45.72 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "740e4b7f-ebe6-499b-aa63-9949ba216c36")
+	)
+	(wire
+		(pts
+			(xy 175.26 107.95) (xy 175.26 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7512aabf-f4f6-4e01-9aea-18d599d5bd91")
+	)
+	(wire
+		(pts
+			(xy 82.55 100.33) (xy 82.55 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "768e2193-29c1-483c-b2ee-d0288ecdf60f")
+	)
+	(wire
+		(pts
+			(xy 114.3 100.33) (xy 114.3 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "77462b66-19f9-4da1-adbc-c70075dbe252")
+	)
+	(wire
+		(pts
+			(xy 88.9 40.64) (xy 95.25 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7760e348-b464-4b58-bb39-71bc38880da4")
+	)
+	(wire
+		(pts
+			(xy 191.77 102.87) (xy 191.77 48.26)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "77ec89ff-8b6c-4b5a-98e2-362ca93c5308")
+	)
+	(wire
+		(pts
+			(xy 76.2 157.48) (xy 76.2 154.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "79de6a96-8808-403e-83d5-723cb1db9160")
+	)
+	(wire
+		(pts
+			(xy 140.97 147.32) (xy 101.6 147.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7a98d026-0242-44c6-a2d6-8794752f096a")
+	)
+	(wire
+		(pts
+			(xy 45.72 85.09) (xy 45.72 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7ba22328-4a3c-4134-8f20-56873f625165")
+	)
+	(wire
+		(pts
+			(xy 107.95 100.33) (xy 107.95 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7c665dc8-1580-4847-ac37-4df64be722a1")
+	)
+	(wire
+		(pts
+			(xy 149.86 40.64) (xy 149.86 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8091a7b1-3fcc-4d6e-93e3-c5f6d434b7d3")
+	)
+	(wire
+		(pts
+			(xy 54.61 64.77) (xy 120.65 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "81c4e499-9120-4ba8-b8b8-a85df9e8bd32")
+	)
+	(wire
+		(pts
+			(xy 45.72 152.4) (xy 45.72 147.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "81ce86bf-6d48-4868-a0a4-a56d9c0a2a0b")
+	)
+	(wire
+		(pts
+			(xy 54.61 134.62) (xy 54.61 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "82b42538-2bf2-424c-81e2-7e9c6a881a8e")
+	)
+	(wire
+		(pts
+			(xy 38.1 67.31) (xy 95.25 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8326bb14-d5ff-45b7-b3dd-9dfda58ebf6c")
+	)
+	(wire
+		(pts
+			(xy 142.24 110.49) (xy 156.21 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "853cd5a9-9444-4a56-a2bb-6e40f950acde")
+	)
+	(wire
+		(pts
+			(xy 120.65 100.33) (xy 120.65 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8715f453-dc53-4bbd-9453-6f980762e26d")
+	)
+	(polyline
+		(pts
+			(xy 243.84 49.53) (xy 270.51 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "88444ad7-321e-435d-9d12-ae9f2a04404e")
+	)
+	(wire
+		(pts
+			(xy 175.26 107.95) (xy 214.63 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8ad2009f-4e73-49e1-b7a2-a1950d001c52")
+	)
+	(wire
+		(pts
+			(xy 82.55 48.26) (xy 82.55 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8b704517-60a3-4dfa-913a-ba41f0ad1afa")
+	)
+	(wire
+		(pts
+			(xy 120.65 100.33) (xy 151.13 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8def7ac8-0d68-4021-ad2d-0ea572f2293f")
+	)
+	(wire
+		(pts
+			(xy 128.27 102.87) (xy 128.27 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9168326b-50ea-46d8-8739-dbed7f48ad3b")
+	)
+	(wire
+		(pts
+			(xy 149.86 44.45) (xy 149.86 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9345f5e8-794b-473e-ac69-dc2d3ecc282c")
+	)
+	(wire
+		(pts
+			(xy 120.65 72.39) (xy 139.7 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "95e9b040-fb61-4ec5-ac4f-241fbecceaa3")
+	)
+	(wire
+		(pts
+			(xy 160.02 64.77) (xy 175.26 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "980af815-55ee-4c52-a126-114c52e280f1")
+	)
+	(wire
+		(pts
+			(xy 88.9 115.57) (xy 88.9 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9a99ffca-4eb5-4abd-bcbe-d54a69d5d6b6")
+	)
+	(wire
+		(pts
+			(xy 45.72 90.17) (xy 38.1 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9ab98a06-7a9b-447a-a1d6-a8ee644e495e")
+	)
+	(wire
+		(pts
+			(xy 95.25 48.26) (xy 95.25 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9c29451c-53a4-44e2-8830-8400a90104a8")
+	)
+	(wire
+		(pts
+			(xy 45.72 74.93) (xy 45.72 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9c6600c6-92d0-47bb-8248-918ed217ea4d")
+	)
+	(wire
+		(pts
+			(xy 107.95 40.64) (xy 114.3 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9f249325-4354-47c5-8bc9-87490712c6eb")
+	)
+	(wire
+		(pts
+			(xy 88.9 85.09) (xy 139.7 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a36b926b-569a-4a53-89f8-13cd60ad194c")
+	)
+	(wire
+		(pts
+			(xy 140.97 134.62) (xy 137.16 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a4d34fc0-903b-4464-af7e-fd81cfd6109c")
+	)
+	(wire
+		(pts
+			(xy 181.61 110.49) (xy 214.63 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a5f21326-6c88-454d-98ec-efc850c75897")
+	)
+	(wire
+		(pts
+			(xy 82.55 149.86) (xy 82.55 154.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a6667bdd-2fc3-466d-8720-a730832fbfac")
+	)
+	(wire
+		(pts
+			(xy 124.46 67.31) (xy 139.7 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a7f93c64-39ec-455e-adc3-8821151b1626")
+	)
+	(polyline
+		(pts
+			(xy 270.51 165.1) (xy 242.57 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a90fc2fe-6f05-4fa7-bed8-48387e0ca5f6")
+	)
+	(wire
+		(pts
+			(xy 139.7 64.77) (xy 132.08 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a9c485cf-9392-45fc-b276-a8ddb5f5d52e")
+	)
+	(wire
+		(pts
+			(xy 45.72 162.56) (xy 45.72 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ac229851-21f8-4c5f-b70b-471b76ef8364")
+	)
+	(wire
+		(pts
+			(xy 39.37 152.4) (xy 45.72 152.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "acdd94ef-b459-4cb9-a927-f3ed5415af80")
+	)
+	(wire
+		(pts
+			(xy 58.42 69.85) (xy 114.3 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ae39f45c-a53c-4a25-987b-64c003db2784")
+	)
+	(wire
+		(pts
+			(xy 120.65 40.64) (xy 149.86 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aec10fa7-3ebe-44d7-902a-bc1821b6f293")
+	)
+	(wire
+		(pts
+			(xy 45.72 69.85) (xy 45.72 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "afe71fd3-de34-4a7b-897a-f2074495fdf0")
+	)
+	(wire
+		(pts
+			(xy 45.72 157.48) (xy 45.72 152.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b33fbe95-1eb5-4483-b40d-882b60d9bf64")
+	)
+	(wire
+		(pts
+			(xy 107.95 100.33) (xy 114.3 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b3e82a47-4951-4d5b-920f-9fb08b540df3")
+	)
+	(wire
+		(pts
+			(xy 45.72 95.25) (xy 142.24 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b5098be7-62d4-454b-b4f5-c75c544e7dd7")
+	)
+	(wire
+		(pts
+			(xy 182.88 40.64) (xy 191.77 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b5342337-9501-4390-bf6f-d0bcbd8980d7")
+	)
+	(wire
+		(pts
+			(xy 39.37 147.32) (xy 45.72 147.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b6c459af-9498-474d-936b-a446f14cef71")
+	)
+	(wire
+		(pts
+			(xy 45.72 132.08) (xy 39.37 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b6fa4a12-8cc7-4a00-987a-60b186fb4e0b")
+	)
+	(wire
+		(pts
+			(xy 88.9 72.39) (xy 88.9 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b6fc5959-1ae5-436b-a6dd-f2cee78b7dca")
+	)
+	(wire
+		(pts
+			(xy 214.63 110.49) (xy 214.63 113.03)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b74edf20-1d8d-44c2-892a-79c49c13c14c")
+	)
+	(wire
+		(pts
+			(xy 132.08 105.41) (xy 182.88 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b9a4e8e9-fb14-4662-bcff-fee7a3e2066f")
+	)
+	(wire
+		(pts
+			(xy 62.23 87.63) (xy 62.23 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bb2f9faf-2322-4ee4-8e75-01b723b2543d")
+	)
+	(wire
+		(pts
+			(xy 38.1 77.47) (xy 82.55 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bb301f08-d334-48c0-b4a3-e5c325307612")
+	)
+	(wire
+		(pts
+			(xy 95.25 100.33) (xy 95.25 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bd32fe74-73f3-40b1-bb7b-fd42ceb055c3")
+	)
+	(wire
+		(pts
+			(xy 181.61 110.49) (xy 181.61 162.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "be272168-581b-44d9-89ac-d84cf1a18194")
+	)
+	(wire
+		(pts
+			(xy 107.95 144.78) (xy 107.95 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c05a2c9c-4a2c-4d27-bcb6-5e83eda39a61")
+	)
+	(wire
+		(pts
+			(xy 140.97 139.7) (xy 120.65 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c291eeef-f668-4252-933a-f3dbcb1e16e4")
+	)
+	(wire
+		(pts
+			(xy 114.3 100.33) (xy 120.65 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c415afea-641d-405a-ae6f-36cf7159977c")
+	)
+	(wire
+		(pts
+			(xy 114.3 74.93) (xy 139.7 74.93)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c43d93df-79b0-4956-be42-7d5d632bd8d9")
+	)
+	(wire
+		(pts
+			(xy 140.97 157.48) (xy 76.2 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca479ad8-01ec-41ae-9266-590f3c0be30c")
+	)
+	(wire
+		(pts
+			(xy 88.9 100.33) (xy 95.25 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc12506f-bee0-4060-9b3e-779174004350")
+	)
+	(wire
+		(pts
+			(xy 45.72 147.32) (xy 45.72 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cccb269e-aadb-4ead-a0a3-01b4540104f3")
+	)
+	(wire
+		(pts
+			(xy 82.55 77.47) (xy 82.55 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ce39c418-cefd-4f7e-8271-cc840d3c93d8")
+	)
+	(wire
+		(pts
+			(xy 95.25 82.55) (xy 139.7 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cfaafa30-21a4-4784-96a8-55e89f179d7c")
+	)
+	(wire
+		(pts
+			(xy 132.08 132.08) (xy 140.97 132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d101d9b4-c378-4194-95f8-8e8a366e0a9c")
+	)
+	(wire
+		(pts
+			(xy 149.86 95.25) (xy 142.24 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d2dc4347-83ee-4139-8971-9b98ef5a6ccf")
+	)
+	(wire
+		(pts
+			(xy 175.26 40.64) (xy 182.88 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d6be90b6-da34-4eb8-a25d-047ef67229cd")
+	)
+	(wire
+		(pts
+			(xy 107.95 74.93) (xy 107.95 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d735a00d-ca29-4e31-bfc5-84649e6585f2")
+	)
+	(wire
+		(pts
+			(xy 82.55 87.63) (xy 139.7 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d97e64de-3df3-4f00-a2c3-2feac9510f7a")
+	)
+	(wire
+		(pts
+			(xy 137.16 110.49) (xy 142.24 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d9b0503f-6d48-445f-b3a0-738256ee6b26")
+	)
+	(wire
+		(pts
+			(xy 76.2 90.17) (xy 139.7 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "daa8f219-370f-44b7-806c-4d2cc809173b")
+	)
+	(wire
+		(pts
+			(xy 191.77 40.64) (xy 199.39 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dacde6db-3eea-4789-aa30-7a09fc76074e")
+	)
+	(wire
+		(pts
+			(xy 58.42 129.54) (xy 58.42 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dcdca7cc-38ce-4645-adca-229f0e6a1492")
+	)
+	(wire
+		(pts
+			(xy 128.27 59.69) (xy 128.27 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e26c9f49-555d-432b-a905-9f76fabe4c04")
+	)
+	(wire
+		(pts
+			(xy 140.97 144.78) (xy 107.95 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e396c388-1a17-43fe-a838-318c5ab675fe")
+	)
+	(wire
+		(pts
+			(xy 76.2 100.33) (xy 76.2 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e434ea59-793a-4e37-917e-06eac280b688")
+	)
+	(wire
+		(pts
+			(xy 95.25 40.64) (xy 101.6 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e6ae9132-63d6-4081-a935-a8c4a1ea1ddb")
+	)
+	(wire
+		(pts
+			(xy 139.7 59.69) (xy 128.27 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e6c653fe-7af9-43a6-9525-68ebb36c9925")
+	)
+	(wire
+		(pts
+			(xy 45.72 64.77) (xy 38.1 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e7045893-5f13-43fc-ac8d-403242a07fac")
+	)
+	(wire
+		(pts
+			(xy 114.3 48.26) (xy 114.3 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e716b00e-f8f0-4bca-863c-666553d4347a")
+	)
+	(wire
+		(pts
+			(xy 124.46 67.31) (xy 124.46 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eae53be2-e3d2-4394-b432-4e494e062583")
+	)
+	(wire
+		(pts
+			(xy 120.65 48.26) (xy 120.65 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eae79a02-86ec-46ae-87dd-e774245a9732")
+	)
+	(wire
+		(pts
+			(xy 38.1 82.55) (xy 66.04 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ebda199e-6997-41a8-ad56-9795f2c3a4a4")
+	)
+	(wire
+		(pts
+			(xy 45.72 162.56) (xy 151.13 162.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ef92ad18-4939-4eb6-a792-5a78c15580e3")
+	)
+	(wire
+		(pts
+			(xy 101.6 100.33) (xy 107.95 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f110bb2b-f191-4334-be22-71ce0d757171")
+	)
+	(wire
+		(pts
+			(xy 181.61 162.56) (xy 151.13 162.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f26355ea-610b-4a32-9f47-024e776f7fe6")
+	)
+	(wire
+		(pts
+			(xy 45.72 95.25) (xy 45.72 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f7af6cdc-a051-4c0a-a75d-893396bc56cc")
+	)
+	(wire
+		(pts
+			(xy 66.04 80.01) (xy 101.6 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f9fad2a2-2c24-44f0-9d0b-fb644704ec14")
+	)
+	(wire
+		(pts
+			(xy 132.08 64.77) (xy 132.08 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fab0b4d6-d24c-48bd-9499-51dbf0e952ff")
+	)
+	(wire
+		(pts
+			(xy 101.6 40.64) (xy 107.95 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fb66852a-c5ea-4192-93f4-a579f1d0a78c")
+	)
+	(wire
+		(pts
+			(xy 101.6 147.32) (xy 101.6 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fbc6bb35-94d8-4b0c-8090-c75358081303")
+	)
+	(wire
+		(pts
+			(xy 76.2 48.26) (xy 76.2 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fd0fda7e-fde4-4c56-9c28-dc8b2701dd05")
+	)
+	(label "A"
+		(at 30.48 156.21 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0d9b735a-c74b-4dad-ac68-0f79db277811")
+	)
+	(label "DOWN"
+		(at 25.4 88.9 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "159d7e9d-ead7-44a4-915c-bb20a7a5b9ca")
+	)
+	(label "Select"
+		(at 25.4 73.66 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "2a466230-6300-4f5b-8700-352adbcc31b9")
+	)
+	(label "R"
+		(at 30.48 140.97 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "3ffd194f-5707-4a66-b3d3-3d2399804e14")
+	)
+	(label "UP"
+		(at 27.94 83.82 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "42c6cdd3-7954-4683-8168-558185daa4ce")
+	)
+	(label "Latch"
+		(at 200.66 105.41 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "4d27bf9a-ebeb-4041-8f84-89efb21954a2")
+	)
+	(label "Y"
+		(at 29.21 78.74 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7340326b-3529-4672-a900-59c159a05b47")
+	)
+	(label "LEFT"
+		(at 27.94 130.81 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "757f3c68-91c3-476c-86d9-90f206ed4416")
+	)
+	(label "Clk"
+		(at 201.93 102.87 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7cc789a7-4084-4522-8c4b-aae19ec1d812")
+	)
+	(label "Data1"
+		(at 200.66 107.95 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "899d1066-640b-498f-bcc8-0856e9a0f789")
+	)
+	(label "L"
+		(at 30.48 146.05 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a3624dd7-df2a-4e69-93a7-64dabf672ead")
+	)
+	(label "Vcc"
+		(at 201.93 100.33 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a965308e-2da3-4996-b5b8-4747a241b452")
+	)
+	(label "X"
+		(at 30.48 151.13 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b5c0a573-8062-459e-b58f-56e6138a8580")
+	)
+	(label "RIGHT"
+		(at 26.67 135.89 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e0f2ebf8-24f0-4014-816f-c9a3aaac8420")
+	)
+	(label "Gnd"
+		(at 207.01 110.49 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f21afde3-969a-42ea-b17d-9d4f88a6ec30")
+	)
+	(label "Start"
+		(at 26.67 68.58 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f44355b7-909e-4dce-9125-f42623c472af")
+	)
+	(label "B"
+		(at 29.21 63.5 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f61a06fd-d062-40d2-8fcc-30c816ede9f2")
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 82.55 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "06c3fe4b-dbfe-445a-9de2-01a6dbf05365")
+		(property "Reference" "R7"
+			(at 84.582 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 84.074 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 80.772 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 82.55 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 82.55 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 82.55 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 82.55 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 82.55 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 82.55 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "ec66e5cf-b022-40a9-bd29-2c495185f817")
+		)
+		(pin "1"
+			(uuid "dc70cfb1-fd3e-4833-bf20-b69be478117d")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 218.44 44.45 0)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "0af13f20-112e-45d7-98c5-2e33616aade8")
+		(property "Reference" "H2"
+			(at 220.98 43.1799 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 220.98 45.7199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MountingHole:MountingHole_4.3mm_M4"
+			(at 218.44 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 218.44 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Mounting Hole without connection"
+			(at 218.44 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "H2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 101.6 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1a409e72-7473-4d43-adaa-a1395adc5bc9")
+		(property "Reference" "R4"
+			(at 103.632 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 103.124 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 99.822 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 101.6 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 101.6 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 101.6 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 101.6 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 101.6 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 101.6 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "bdb7b79f-ae16-40c7-ae38-9fbf9de159ec")
+		)
+		(pin "1"
+			(uuid "065a2926-c86f-4bbb-b96e-f9d08b44d0a4")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Screw_Terminal_01x06")
+		(at 219.71 105.41 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "24966193-1bce-4104-94d1-700e9b6c4374")
+		(property "Reference" "J1"
+			(at 218.44 97.028 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Screw_Terminal_01x06"
+			(at 209.042 116.078 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-06P_1x06_P5.00mm"
+			(at 219.71 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 219.71 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic screw terminal, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 219.71 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "277-2518-ND"
+			(at 219.71 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "651-1792863"
+			(at 219.71 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "1792863"
+			(at 219.71 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "2072377"
+			(at 219.71 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "3"
+			(uuid "f021ebd4-400f-4457-a070-a4381505308b")
+		)
+		(pin "2"
+			(uuid "d44178ba-a405-4c18-b723-1a877ec04447")
+		)
+		(pin "1"
+			(uuid "cc0c8e48-211d-4bbe-9859-d06e93587029")
+		)
+		(pin "5"
+			(uuid "cba9f4fc-8671-4f4a-bc49-6f61218ceee8")
+		)
+		(pin "4"
+			(uuid "88715970-7b33-4a41-b683-9b3b3e83bfe7")
+		)
+		(pin "6"
+			(uuid "69178e0d-7746-46d0-890d-39a807303be3")
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "J1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Screw_Terminal_01x12")
+		(at 33.02 77.47 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2a2fc546-221a-40b1-8dd9-ef33e3e73866")
+		(property "Reference" "J2"
+			(at 33.02 55.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Screw_Terminal_01x12"
+			(at 33.02 58.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-12P_1x12_P5.00mm"
+			(at 33.02 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 33.02 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic screw terminal, single row, 01x12, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 33.02 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "277-2518-ND"
+			(at 33.02 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "651-1792863"
+			(at 33.02 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "1792863"
+			(at 33.02 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "2072377"
+			(at 33.02 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "8"
+			(uuid "8da162fb-7a47-4ce2-b688-d17408a85753")
+		)
+		(pin "5"
+			(uuid "72a192c3-fa19-494e-9c84-3c0eaeff9caa")
+		)
+		(pin "3"
+			(uuid "1c385b31-a8cc-443d-8000-245dea821c79")
+		)
+		(pin "2"
+			(uuid "df560c75-ba0a-40ca-ae04-f58482c1d2e8")
+		)
+		(pin "12"
+			(uuid "3f162021-d3c9-4de2-ac8f-9d4d37c123e8")
+		)
+		(pin "10"
+			(uuid "77779f65-65f0-4d89-a5bf-153354077bae")
+		)
+		(pin "11"
+			(uuid "440ff789-bc99-4d46-bf61-d251201c4a73")
+		)
+		(pin "4"
+			(uuid "a7ba2431-467b-4206-ba58-81ef86780b2a")
+		)
+		(pin "9"
+			(uuid "b3253c40-a3c0-4c98-a852-d1a85c0ed37d")
+		)
+		(pin "6"
+			(uuid "e5022011-7593-499a-9a0d-85e89ba78180")
+		)
+		(pin "1"
+			(uuid "6723b3e4-78ce-4d99-bc8d-28e6f1287083")
+		)
+		(pin "7"
+			(uuid "5a3ad259-9036-4f85-b5fa-3280946fca7a")
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "J2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 107.95 111.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "2d6722f6-854a-4b67-a3b8-84195f658443")
+		(property "Reference" "R17"
+			(at 109.22 110.236 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 109.22 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 106.172 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 107.95 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 107.95 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 107.95 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 107.95 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 107.95 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 107.95 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "5a8cbcf7-f247-422f-b240-6ae169c37915")
+		)
+		(pin "1"
+			(uuid "0cfddd74-ff8f-4d01-bf16-6714c9813143")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R17")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 107.95 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "35554c6c-99e9-448c-b8f0-01badf024225")
+		(property "Reference" "R3"
+			(at 109.982 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 109.474 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 106.172 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 107.95 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 107.95 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 107.95 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 107.95 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 107.95 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 107.95 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "86c57e5e-ad6a-45a6-826a-8dceaa1457a1")
+		)
+		(pin "1"
+			(uuid "bc0be6e3-f98a-40f2-aa4b-c0b404e5eb8b")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 191.77 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "41ddc8bf-7ffb-4a51-88af-07194ba9a7f1")
+		(property "Reference" "R9"
+			(at 194.31 43.1799 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 194.31 45.7199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 189.992 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 191.77 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 191.77 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 191.77 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 191.77 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 191.77 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 191.77 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "9bc7d7fa-e02d-42ce-9ec7-df8c4ac0ef59")
+		)
+		(pin "1"
+			(uuid "26d745b6-6c97-4f72-b0d2-092a943e7a36")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 101.6 111.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "447ac020-e81a-4250-bfa8-6ccfd2a4949e")
+		(property "Reference" "R16"
+			(at 103.124 110.236 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 103.124 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 99.822 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 101.6 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 101.6 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 101.6 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 101.6 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 101.6 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 101.6 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "ba439fd4-3e97-4dd2-b6f8-e255c697319f")
+		)
+		(pin "1"
+			(uuid "35fff57e-f69e-4970-a941-f5b1319e9a1a")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R16")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "4xxx:4021")
+		(at 149.86 74.93 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4a7e8af4-9f8b-4565-b290-b1902e8ae624")
+		(property "Reference" "U1"
+			(at 152.0541 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4021 In Socket"
+			(at 152.0541 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_DIP:DIP-16_W7.62mm_Socket"
+			(at 149.86 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/HEF4021B.pdf"
+			(at 149.86 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "8-bit static shift register"
+			(at 149.86 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "17-2485264-3-ND"
+			(at 149.86 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "571-2485264-3"
+			(at 149.86 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "2485264-3"
+			(at 149.86 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "4575164"
+			(at 149.86 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "4"
+			(uuid "40b8fca8-923a-4977-9aee-08f8a4d7948c")
+		)
+		(pin "7"
+			(uuid "af2adab5-2d26-4018-892b-5aedcf81985a")
+		)
+		(pin "5"
+			(uuid "66e942ca-8d29-4d0d-9a3d-f69ffb699fc3")
+		)
+		(pin "16"
+			(uuid "a1b06177-2a95-428e-bcdc-e5ca0bb371f5")
+		)
+		(pin "6"
+			(uuid "d0519768-f7a5-4ed8-8243-688520741496")
+		)
+		(pin "8"
+			(uuid "b1b4bed6-de4e-4a6b-8f8f-db44f9c2346e")
+		)
+		(pin "15"
+			(uuid "5f8b935d-3ddd-4621-b27f-8ac932495b0b")
+		)
+		(pin "9"
+			(uuid "7857d0b5-13fd-406a-90fd-2c4de70d3c94")
+		)
+		(pin "2"
+			(uuid "b28e3307-f38f-48b1-b95d-2a48456788ae")
+		)
+		(pin "14"
+			(uuid "7594b36a-1884-4edd-ae9d-1da499b6ae0f")
+		)
+		(pin "1"
+			(uuid "ed1b9b7f-a6b4-4c0a-a57d-ef4fbb5b6d0e")
+		)
+		(pin "13"
+			(uuid "d7563a69-5bd3-45ba-bc43-7f0121946e45")
+		)
+		(pin "11"
+			(uuid "3cdf6ab2-8d17-4f11-b39e-ab93717bc884")
+		)
+		(pin "12"
+			(uuid "a15e74c0-b766-4c9c-8482-2228fe85ed2b")
+		)
+		(pin "3"
+			(uuid "b6f43094-15ac-46e4-8ce3-f4d5ddb3bfb2")
+		)
+		(pin "10"
+			(uuid "f58cbbbe-b40f-4664-b832-dc056653a31c")
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "U1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "4xxx:4021")
+		(at 256.54 74.93 0)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom yes)
+		(on_board no)
+		(dnp yes)
+		(fields_autoplaced yes)
+		(uuid "58b229a7-be64-4c49-83b2-ccbcfda1aad1")
+		(property "Reference" "X1"
+			(at 258.7341 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4021"
+			(at 258.7341 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_DIP:DIP-16_W7.62mm"
+			(at 256.54 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/HEF4021B.pdf"
+			(at 256.54 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "8-bit static shift register"
+			(at 256.54 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "296-2040-5-ND"
+			(at 256.54 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "595-CD4021BE"
+			(at 256.54 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "CD4021BE"
+			(at 256.54 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3120813"
+			(at 256.54 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "4"
+			(uuid "fb63ae6d-276c-4cbf-8955-81d01e2e19de")
+		)
+		(pin "7"
+			(uuid "d329ebf8-4a43-4edf-9e76-f117d12492be")
+		)
+		(pin "5"
+			(uuid "1d327823-0cf8-4802-a728-9673cfe494dc")
+		)
+		(pin "16"
+			(uuid "ebaf5b54-2e5b-4cc5-8a6b-1ee32434ef1b")
+		)
+		(pin "6"
+			(uuid "fad8e219-f8df-4429-a248-f59637fdf37a")
+		)
+		(pin "8"
+			(uuid "46533b87-f82e-47c9-912e-d145fa79f13a")
+		)
+		(pin "15"
+			(uuid "79fa2d0d-aed5-400b-beb2-663a6808fd8f")
+		)
+		(pin "9"
+			(uuid "9896b419-223f-4cc6-9d0c-f9e4a78708e6")
+		)
+		(pin "2"
+			(uuid "cbf0ddd8-d83b-43d4-a17b-c1ee6dca9bcc")
+		)
+		(pin "14"
+			(uuid "91e60dce-1bde-43a4-bd4b-f9aa42aa35c0")
+		)
+		(pin "1"
+			(uuid "4b29f2c4-d4a8-45d6-b1cc-85df897bb50a")
+		)
+		(pin "13"
+			(uuid "761bb8d4-2cf6-4024-8a7d-fa0823348378")
+		)
+		(pin "11"
+			(uuid "3d6a436b-1886-4ce3-9eab-731f18e8b2ca")
+		)
+		(pin "12"
+			(uuid "955c55cf-7f9b-425d-8404-0bb7eea87ad4")
+		)
+		(pin "3"
+			(uuid "1faeb211-2e2f-4cc8-9c01-3542fc38e5f3")
+		)
+		(pin "10"
+			(uuid "47827c94-0723-44e1-b2a3-bdf2119f71e9")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "X1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 114.3 111.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "5db91d52-334f-4d1d-9dab-201857af6986")
+		(property "Reference" "R18"
+			(at 115.57 110.236 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 115.824 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 112.522 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 114.3 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 114.3 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 114.3 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 114.3 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 114.3 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 114.3 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "9c31108f-8bd6-42b8-8a45-96412529127c")
+		)
+		(pin "1"
+			(uuid "0ca194e4-d7ec-489a-86d8-299eef0a8488")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R18")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 82.55 111.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "69ada15e-5335-4f7b-a9f8-c23eac97fbd1")
+		(property "Reference" "R13"
+			(at 83.82 110.236 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 84.074 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 80.772 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 82.55 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 82.55 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 82.55 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 82.55 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 82.55 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 82.55 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "c762220b-09c4-467b-be8e-fe19b2e584b7")
+		)
+		(pin "1"
+			(uuid "5da9c703-d7f0-42af-b428-da3965fb4243")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R13")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 95.25 111.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "7f2c7982-14a6-4e0f-919e-cfe9fd317604")
+		(property "Reference" "R15"
+			(at 96.52 110.236 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 96.52 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 93.472 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 95.25 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 95.25 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 95.25 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 95.25 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 95.25 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 95.25 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "b1935d7c-bb39-4fd6-bf85-20a615326f1c")
+		)
+		(pin "1"
+			(uuid "da800d74-1c40-44d7-bee7-b6d48b31fe89")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R15")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 88.9 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "9099b551-86f9-452c-b87d-2e5593465a4d")
+		(property "Reference" "R6"
+			(at 90.932 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 90.424 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 87.122 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 88.9 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 88.9 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 88.9 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 88.9 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 88.9 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 88.9 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "6c0470a7-3027-4587-ae8b-eb76559b0bbc")
+		)
+		(pin "1"
+			(uuid "83813f06-6a18-4257-ba8e-27c6c4e2963a")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Screw_Terminal_01x12")
+		(at 34.29 144.78 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "972f6c8a-9256-4171-9862-ed42850bfce6")
+		(property "Reference" "J3"
+			(at 34.29 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Screw_Terminal_01x12"
+			(at 34.29 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "TerminalBlock:TerminalBlock_MaiXu_MX126-5.0-12P_1x12_P5.00mm"
+			(at 34.29 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 34.29 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic screw terminal, single row, 01x12, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 34.29 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "277-2518-ND"
+			(at 34.29 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "651-1792863"
+			(at 34.29 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "1792863"
+			(at 34.29 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "2072377"
+			(at 34.29 144.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "8"
+			(uuid "78b1e797-f939-41e7-ae72-1ebe32cedce2")
+		)
+		(pin "5"
+			(uuid "11c00fc5-1bd6-4498-8c0e-822529cc7f04")
+		)
+		(pin "3"
+			(uuid "70b09367-c68b-4b74-a4cc-f792600b688e")
+		)
+		(pin "2"
+			(uuid "49088b53-478e-49f4-9755-bc2733f410ee")
+		)
+		(pin "12"
+			(uuid "ebda8a8a-6afd-47b9-87ed-17484a710600")
+		)
+		(pin "10"
+			(uuid "4aeae159-d173-4368-a2d0-437c34125d2f")
+		)
+		(pin "11"
+			(uuid "beb9eeb3-0654-4584-b395-ea65b083d0f2")
+		)
+		(pin "4"
+			(uuid "8b6667ba-5f71-4a47-b22e-2fcf4d98ac51")
+		)
+		(pin "9"
+			(uuid "8145ed03-930b-469d-85be-b69292459b70")
+		)
+		(pin "6"
+			(uuid "9fc442c8-c029-4a75-ab53-cc31c1360436")
+		)
+		(pin "1"
+			(uuid "547a1a1e-35c7-4ffd-8099-e32600704c9f")
+		)
+		(pin "7"
+			(uuid "0c5b85fd-cf2d-4cbd-b2f8-8045275b31ed")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "J3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 152.4 44.45 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "9f9f2c4e-69b7-42c1-8d30-f6b2c764621e")
+		(property "Reference" "C1"
+			(at 152.654 41.656 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0.01uf"
+			(at 152.4 47.244 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm"
+			(at 152.4 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 152.4 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 152.4 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "56-K103K10X7RF5UL2CT-ND"
+			(at 152.4 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "594-K103K10X7RF5UL2"
+			(at 152.4 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "K103K10X7RF5UL2"
+			(at 152.4 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "4209313"
+			(at 152.4 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "7a87c3ab-f241-4048-affd-7ad76f8a7316")
+		)
+		(pin "2"
+			(uuid "d5d6f16c-ba7e-4d5b-924c-3150333594a1")
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "C1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 88.9 111.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "a5013377-0167-48dd-ae7c-3cb7da69f4c5")
+		(property "Reference" "R14"
+			(at 90.17 110.236 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 90.424 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 87.122 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 88.9 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 88.9 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 88.9 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 88.9 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 88.9 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 88.9 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "caa13973-a713-461d-8927-284a97e1abd6")
+		)
+		(pin "1"
+			(uuid "99e55e21-a30c-46cf-96b5-117afd3cdadd")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R14")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 218.44 160.02 0)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "a93847e1-625c-45b9-bf34-09cf98481787")
+		(property "Reference" "H3"
+			(at 220.98 158.7499 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 220.98 161.2899 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MountingHole:MountingHole_4.3mm_M4"
+			(at 218.44 160.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 218.44 160.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Mounting Hole without connection"
+			(at 218.44 160.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "H3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 153.67 114.3 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "bc037b1b-1646-43e1-8294-1cebb070f2d4")
+		(property "Reference" "C2"
+			(at 153.67 111.506 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "0.01uf"
+			(at 147.066 114.3 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm"
+			(at 153.67 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 153.67 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 153.67 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "56-K103K10X7RF5UL2CT-ND"
+			(at 153.67 114.3 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "594-K103K10X7RF5UL2"
+			(at 153.67 114.3 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "K103K10X7RF5UL2"
+			(at 153.67 114.3 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "4209313"
+			(at 153.67 114.3 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "62486cf5-c7e0-4c87-a9af-9ee1d7ade5a5")
+		)
+		(pin "1"
+			(uuid "142087e7-f87a-4a6e-a873-3583c6759296")
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "C2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 120.65 111.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "bf40230f-a2e5-4a15-b66f-65e68fc665d2")
+		(property "Reference" "R19"
+			(at 122.174 110.236 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 122.428 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 118.872 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 120.65 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 120.65 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 120.65 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 120.65 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 120.65 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 120.65 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "21dbb0c0-5a1b-4fc1-8400-e1806e2fb308")
+		)
+		(pin "1"
+			(uuid "b920204a-3e6e-4f31-8c8c-a3b36bf111ec")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R19")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "4xxx:4021")
+		(at 256.54 143.51 0)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom yes)
+		(on_board no)
+		(dnp yes)
+		(fields_autoplaced yes)
+		(uuid "c0849a69-b02f-49ee-856d-cb5a2a545724")
+		(property "Reference" "X2"
+			(at 258.7341 120.65 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4021"
+			(at 258.7341 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_DIP:DIP-16_W7.62mm_Socket"
+			(at 256.54 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/HEF4021B.pdf"
+			(at 256.54 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "8-bit static shift register"
+			(at 256.54 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "296-2040-5-ND"
+			(at 256.54 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "595-CD4021BE"
+			(at 256.54 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "CD4021BE"
+			(at 256.54 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3120813"
+			(at 256.54 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "4"
+			(uuid "71abdb52-c1c5-49a8-a179-c9ea977c1878")
+		)
+		(pin "7"
+			(uuid "1678796d-79f7-4cee-802f-349a6e3b966f")
+		)
+		(pin "5"
+			(uuid "97db643e-4295-4597-b13e-bf656e96005b")
+		)
+		(pin "16"
+			(uuid "bc442ad2-3507-4e26-903b-421ff1d97d4f")
+		)
+		(pin "6"
+			(uuid "9fcb8519-60fa-40f8-9c52-0d3077c08c80")
+		)
+		(pin "8"
+			(uuid "33529d25-8a5b-404d-9591-d34b64f55183")
+		)
+		(pin "15"
+			(uuid "22577c95-4d5b-4b92-a868-2073fa9da6bc")
+		)
+		(pin "9"
+			(uuid "e687c042-3b56-4f1b-b552-b7296daa9311")
+		)
+		(pin "2"
+			(uuid "7dce3cb0-4954-45f7-99d1-a47ec711c479")
+		)
+		(pin "14"
+			(uuid "e42cb420-e7df-4e42-9c95-5e43c9f09ba9")
+		)
+		(pin "1"
+			(uuid "2d44f07f-f9d3-4384-9541-970cc241918f")
+		)
+		(pin "13"
+			(uuid "8a02b65b-b9e1-44e9-94fc-4a4911fc4103")
+		)
+		(pin "11"
+			(uuid "89cc3d07-81d7-4771-8d17-b65a88153683")
+		)
+		(pin "12"
+			(uuid "c93db809-2137-4339-a2e4-9ff7603a51f3")
+		)
+		(pin "3"
+			(uuid "eaae9c10-0d52-4eed-a603-1d4148ae222c")
+		)
+		(pin "10"
+			(uuid "a71c658c-3c78-4a2c-92df-001b3f3e132c")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "X2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "4xxx:4021")
+		(at 151.13 142.24 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "c60d4475-dcc8-4b5f-ae91-94e1e9059802")
+		(property "Reference" "U2"
+			(at 153.3241 119.38 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4021 In Socket"
+			(at 153.3241 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_DIP:DIP-16_W7.62mm_Socket"
+			(at 151.13 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://assets.nexperia.com/documents/data-sheet/HEF4021B.pdf"
+			(at 151.13 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "8-bit static shift register"
+			(at 151.13 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "17-2485264-3-ND"
+			(at 151.13 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "571-2485264-3"
+			(at 151.13 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "2485264-3"
+			(at 151.13 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "4575164"
+			(at 151.13 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "12"
+			(uuid "674e769d-af3d-4ce5-bd61-5d6fe7802335")
+		)
+		(pin "16"
+			(uuid "58e51d69-e69b-4c0b-9372-194168344057")
+		)
+		(pin "13"
+			(uuid "b18e715e-32f8-4eff-9e21-94425c9c32ae")
+		)
+		(pin "7"
+			(uuid "9378f249-c237-4078-aa12-b586dab62366")
+		)
+		(pin "1"
+			(uuid "a9dacfa2-61e3-467d-bdd9-d666de4e2d25")
+		)
+		(pin "3"
+			(uuid "49c4530e-ab4e-48b0-9872-0e673871c22d")
+		)
+		(pin "5"
+			(uuid "197a27a0-9b4a-40c3-aad7-ccafd7de664b")
+		)
+		(pin "6"
+			(uuid "1da4139d-5bbe-4372-9a16-a7262ca08d1d")
+		)
+		(pin "15"
+			(uuid "11881b6e-9c88-47ec-af91-be3c9134ff3e")
+		)
+		(pin "9"
+			(uuid "de426ddc-fb3c-4113-9688-0d27f58e0aa6")
+		)
+		(pin "14"
+			(uuid "eae33922-8392-439b-b883-82efcd01ed96")
+		)
+		(pin "11"
+			(uuid "5da463c0-b0f0-43d9-94df-6500032be3c2")
+		)
+		(pin "10"
+			(uuid "ede9fa00-88a3-44f2-9812-0ea7fa92c0c5")
+		)
+		(pin "8"
+			(uuid "773f3ec7-85d0-4479-9cd4-beb806369e0c")
+		)
+		(pin "2"
+			(uuid "90dbc024-5a20-4e09-a3d6-d5e53c09b41e")
+		)
+		(pin "4"
+			(uuid "afbc6fd7-2667-497c-a6f0-dbbdd2975531")
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "U2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 175.26 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d2a86e17-2113-44c0-87ae-64d9f5c8d286")
+		(property "Reference" "R11"
+			(at 177.292 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 177.8 45.7199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 173.482 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 175.26 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 175.26 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 175.26 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 175.26 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 175.26 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 175.26 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "5e643e74-e7c5-43d9-a245-554cc407e901")
+		)
+		(pin "1"
+			(uuid "f5078790-f6b6-4a2c-91f3-74930c9ab5ec")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R11")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 76.2 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ddd599ff-6a48-4ca4-8756-3d73228dea53")
+		(property "Reference" "R8"
+			(at 77.978 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 77.724 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 74.422 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 76.2 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 76.2 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 76.2 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 76.2 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 76.2 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 76.2 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "47e4f0c2-d27a-442e-97cd-942fa8a54f91")
+		)
+		(pin "1"
+			(uuid "6c181eca-32ea-4866-ba47-e971c0963751")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 76.2 111.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e46e0700-fc12-4408-81ee-b68ce38345e6")
+		(property "Reference" "R12"
+			(at 77.47 110.236 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 77.47 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 74.422 111.76 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 76.2 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 76.2 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 76.2 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 76.2 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 76.2 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 76.2 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "31124eeb-3810-4576-b8fe-7a97699838c4")
+		)
+		(pin "1"
+			(uuid "cbf3234a-29f0-4656-a621-8c0d5795b00d")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R12")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 182.88 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e514e09e-b33c-400b-920b-1b4b35b96499")
+		(property "Reference" "R10"
+			(at 185.166 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 185.42 45.7199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 181.102 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 182.88 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 182.88 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 182.88 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 182.88 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 182.88 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 182.88 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "e7792849-5836-4d60-9e26-c2a954424c93")
+		)
+		(pin "1"
+			(uuid "110c427d-0ca2-406e-a904-20a9c9ac0f3c")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 120.65 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ebf190a8-f8e3-40be-ac35-ea65cf10a60d")
+		(property "Reference" "R1"
+			(at 122.936 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 122.682 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 118.872 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 120.65 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 120.65 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 120.65 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 120.65 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 120.65 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 120.65 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "57eb0eae-e2e2-407d-943d-efd7b4a8bbb4")
+		)
+		(pin "1"
+			(uuid "0a5f1d7a-f090-41e5-a692-ba31eb1a1b37")
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 95.25 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ed5b6734-6a57-43b5-b07d-03ea60fa1644")
+		(property "Reference" "R5"
+			(at 97.282 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 96.774 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 93.472 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 95.25 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 95.25 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 95.25 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 95.25 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 95.25 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 95.25 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "22f75df5-6942-4ffc-a1f8-a61d63ea5181")
+		)
+		(pin "1"
+			(uuid "77c45440-e728-446b-9952-1ed562f5cd08")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 114.3 44.45 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "f19c84bb-01ec-4eb9-9d12-dfaaf8e810d4")
+		(property "Reference" "R2"
+			(at 116.332 43.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10k"
+			(at 115.824 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P5.08mm_Vertical"
+			(at 112.522 44.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 114.3 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 114.3 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey P/N" "13-MFR-25FRF52-10KCT-ND"
+			(at 114.3 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mouser P/N" "603-MFR-25FRF5210K"
+			(at 114.3 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Mfr. P/N" "MFR-25FRF52-10K"
+			(at 114.3 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell P/N" "3951796"
+			(at 114.3 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "3a174f77-ae2b-4855-92b5-e1cad733bfe8")
+		)
+		(pin "1"
+			(uuid "c8e69402-cf8b-4ea9-bb2f-9cff9c5bd6a8")
+		)
+		(instances
+			(project "SNES_CONTROLLER"
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "R2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 33.02 107.95 0)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "fce10f95-a55a-463b-b59c-6ccc1e1b51e4")
+		(property "Reference" "H1"
+			(at 35.56 106.6799 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 35.56 109.2199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MountingHole:MountingHole_4.3mm_M4"
+			(at 33.02 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 33.02 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Mounting Hole without connection"
+			(at 33.02 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project ""
+				(path "/719592b0-85a8-4eb6-8d13-f447981f3475"
+					(reference "H1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

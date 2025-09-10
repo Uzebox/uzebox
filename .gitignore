@@ -22,12 +22,11 @@ gdb-script.cfg
 *.wav
 .metadata/
 roms/
+demos/UzeboxPC/data/diskimg/notes a alec.txt
+demos/UzeboxPC/default/a.out
+demos/UzeboxPC/default/esp.cfg
 demos/UzeboxPC/default/cpm22.inc
-
 demos/UzeboxPC/.vs/UzenetDemo/v14/.atsuo
-
 demos/UzeboxPC/UzenetDemo.atsln
-
 demos/UzeboxPC/UzenetDemo.componentinfo.xml
-
 demos/UzeboxPC/UzenetDemo.cproj
