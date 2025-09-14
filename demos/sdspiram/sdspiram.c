@@ -49,6 +49,7 @@ int main(){
 	u8  buf[8];
 	u8  rby;
 	u8  pos;
+	u8  spiRamSize;
 
 	/* Prepare screen */
 
@@ -63,7 +64,8 @@ int main(){
 	** sdCardInitNoBuffer() routine will have a hefty 15 sec timeout. */
 
 	sdCardInitNoBuffer();
-	if (!SpiRamInit()){
+	spiRamSize = SpiRamInitGetSize();
+	if (spiRamSize == 0U){
 		Print( (SCREEN_TILES_H / 2U) - 5U,
 		       (SCREEN_TILES_V / 2U) - 1U,
 		       PSTR("No SPI RAM!") );
@@ -133,6 +135,12 @@ int main(){
 	for(pos = 0U; pos < SCREEN_TILES_V; pos++){
 		PrintChar(0U, pos, '0' + (pos % 10U));
 	}
+
+	/* Print detected SPI RAM size */
+	PrintByte(4U, 8U, spiRamSize, false);
+	Print( 5U,
+	       8U,
+	       PSTR("x64K of SPI RAM available") );
 
 	/* Prints a string on the screen. Note that PSTR() is a macro that
 	** tells the compiler to store the string in flash. 14 is half the

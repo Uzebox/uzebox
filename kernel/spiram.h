@@ -42,6 +42,13 @@
 */
 u8 SpiRamInit(void);
 
+/*
+** Initializes SPI RAM and determines its size. It is necessary to call it
+** even after an SD Card init to set up the SPI RAM's Chip Select. Returns SPI
+** RAM chip size in 64K units on success, 0 on failure.
+*/
+u8 SpiRamInitGetSize(void);
+
 
 
 /*
