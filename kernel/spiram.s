@@ -102,6 +102,82 @@ ifail:
 
 
 /*
+** void SpiRamInitGetSize(void);
+**
+** Initializes SPI RAM and determines its size. It is necessary to call it
+** even after an SD Card init to set up the SPI RAM's Chip Select. Returns SPI
+** RAM chip size in 64K units on success, 0 on failure.
+**
+** Clobbers:
+** r19, r20, r21, r22, r23, r24, r25
+*/
+.global SpiRamInitGetSize
+.section .text.SpiRamInitGetSize
+SpiRamInitGetSize:
+
+	; Set up SPI, max speed for SPI RAM.
+
+	ldi   r25,     (1 << SPE) | (1 << MSTR) ; SPI Master mode
+	out   _SFR_IO_ADDR(SPCR), r25
+	ldi   r25,     (1 << SPI2X)
+	out   _SFR_IO_ADDR(SPSR), r25
+	sbi   _SFR_IO_ADDR(DDRB), PB7
+	sbi   _SFR_IO_ADDR(DDRB), PB5
+	sbi   _SFR_IO_ADDR(PORTA), PA4
+	sbi   _SFR_IO_ADDR(DDRA), PA4 ; SPI RAM CS pin
+
+	; Write a test value to Address 0, provides a basic sanity check
+	; whether a >=128K (3 byte addressing) SPI RAM chip is installed,
+	; and serves for checking wraparounds later.
+
+	ldi   r22,     0
+	ldi   r23,     0
+	ldi   r24,     0       ; Address 0
+	ldi   r20,     0xAF    ; Value
+	call  SpiRamWriteU8
+	call  SpiRamReadU8     ; Read it back (address remains 0)
+	cpi   r24,     0xAF
+	brne  initsizefail
+
+	; It can now be assumed there is some SPI RAM chip present, find out
+	; its size. Note that r23:r22 remains zero, which are the low 16
+	; address bits passed to SpiRamWriteU8 and SpiRamReadU8.
+
+	ldi   r20,     0x50    ; Test value
+	ldi   r21,     0x01    ; Test address high
+initsizeloop:
+	mov   r24,     r21
+	call  SpiRamWriteU8    ; Write Test Value at Test Address
+	ldi   r24,     0
+	call  SpiRamReadU8     ; Read back Address 0
+	cpi   r24,     0xAF
+	brne  initsizegot      ; Value at Address 0 was overridden, wrapped!
+	ldi   r24,     0
+	mov   r19,     r20
+	ldi   r20,     0xAF    ; Write 0xAF to Address 0, this is to flush out
+	call  SpiRamWriteU8    ; any possibly remained value in the chip
+	mov   r20,     r19
+	mov   r24,     r21
+	call  SpiRamReadU8     ; Read back Test Address
+	cp    r24,     r20
+	brne  initsizegot      ; Test Value is not there, invalid address!
+	inc   r20              ; Increment Test Value
+	lsl   r21              ; Multiply Test Address by 2
+	brne  initsizeloop     ; If went past here, would be a 16M chip.
+initsizefail:
+	movw  r24,     r22     ; r25:r24 = 0
+	ret
+
+initsizegot:
+	cpi   r21,     0x02    ; 0 or 1 are not accepted sizes (there is no
+	brcs  initsizefail     ; 64K chip having 24 address bits).
+	mov   r24,     r21     ; Size of chip: 128K 256K 512K 1M 2M 4M 8M
+	ldi   r25,     0
+	ret
+
+
+
+/*
 ** u8 SpiRamReadU8(u8 bank, u16 addr);
 ** s8 SpiRamReadS8(u8 bank, u16 addr);
 **
