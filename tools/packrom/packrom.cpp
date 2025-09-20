@@ -25,10 +25,10 @@
  * Revisions:
  * ----------
  * 1.3: 4/9/2012 - Fixed parse_hex_nibble bug (s >= 'a' && s <= 'f')
- * 1.4: 4/7/2023 - Added peripheral bit Cfields(devices supported, and emulator defaults)
+ * 1.4: 4/7/2023 - Added peripheral bit fields(devices supported, and emulator defaults)
  * 1.4: 4/8/2023 - Added patching abillity
  * 1.5: 12/15/2024 - Added extract ability, and dependency file support(SD file append)
- * 1.6: 9/19/2025 - Added SPI RAM banks count, removed spiram=default
+ * 1.6: 9/19/2025 - Added SPI RAM banks count, removed spiram=default, use spiram=<banks>
  */
 
 #include <iostream>
@@ -553,7 +553,6 @@ int main(int argc,char **argv){
 				fprintf(stderr,"\tMouse: Default\n");
 
 			}else if(!strncmp(line,"keyboard=default",16)){
-				printf("aaahhhhhh\n");
 				rom.header.psupport |= PERIPHERAL_KEYBOARD;
 				rom.header.pdefault |= PERIPHERAL_KEYBOARD;
 				fprintf(stderr,"\tKeyboard: Default\n");
@@ -581,8 +580,8 @@ int main(int argc,char **argv){
 					u32 t = rom.header.spiRamBanks;
 					t /= 2;
 					t *= 2;
-					if(t != rom.header.spiRamBanks){
-						fprintf(stderr, "Warning: got [%s], non-power-of-two SPI RAM sizes are not supported; ignoring.\n", line);
+					if(rom.header.spiRamBanks != 1 && t != rom.header.spiRamBanks){
+						fprintf(stderr, "Warning: got [%s], SPI RAM banks must be 1, or a power of 2; ignoring.\n", line);
 					}else{
 						fprintf(stderr,"\tSPI RAM banks: %i\n", rom.header.spiRamBanks);
 					}
