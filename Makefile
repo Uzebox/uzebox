@@ -18,6 +18,8 @@ TOOLS += gconvert
 TOOLS += bin2hex
 TOOLS += mconvert
 TOOLS += dconvert
+TOOLS += wav2raw
+#TOOLS += inc2midi
 
 # Builds out-of-the-box on Linux, OS X, and Windows
 # but requires C++11 support, so you may need to
