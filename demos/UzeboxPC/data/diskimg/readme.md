@@ -41,8 +41,7 @@ The following tools are able to read/write to and from CP/M disk images:
 
 ## CPMFS
 
-See: https://www.sydneysmith.com/wordpress/cpmfs/
-(A copy is under tools/cpmfs)
+Windows builds of CPMFS can be [downloaded here.](https://www.sydneysmith.com/wordpress/cpmfs/)
 
 Note that only SSSD images types are supported (-t LGSSSD).
 
@@ -64,9 +63,9 @@ Examples:
 
 You can install cpmtools under Debian and Ubuntu based Linux distributions by running:
 
-	`sudo apt install cpmtools`
+	sudo apt install cpmtools
 
-Windows builds of cpmtools can be [http://cpmarchives.classiccmp.org/cpm/mirrors/www.cpm8680.com/cpmtools/index.htm](downloaded here).
+Windows builds of cpmtools can be [downloaded here.](http://cpmarchives.classiccmp.org/cpm/mirrors/www.cpm8680.com/cpmtools/index.htm)
 
 Examples:
 
