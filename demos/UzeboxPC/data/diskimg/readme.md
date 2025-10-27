@@ -34,6 +34,7 @@ See: https://www.sydneysmith.com/wordpress/cpmfs/
 Note that only SSSD images types are supported (-t LGSSSD).
 
 Examples:
+
 * Create a new disk image
 	`cpmfs -t LGSSSD MYDISK.DSK init`
 * List files on an image: 
@@ -43,10 +44,24 @@ Examples:
 * Write a file to an image: 
 	`cpmfs CPMDISK0.DSK w TELNET.DAT`
 
-## CPMTOOLS 
+## CPMTOOLS
 
-http://cpmarchives.classiccmp.org/cpm/mirrors/www.cpm8680.com/cpmtools/index.htm
+You can install cpmtools under Debian and Ubuntu based Linux distributions by running:
 
-* List files on an image: 
-	`cpmls -f ibm-3740 cpmdisk2.dsk`
+ sudo apt install cpmtools
 
+Windows builds of cpmtools can be [http://cpmarchives.classiccmp.org/cpm/mirrors/www.cpm8680.com/cpmtools/index.htm](downloaded here).
+
+Examples:
+
+* List files in the disk image CPMDISK0.DSK:
+
+ cpmls CPMDISK0.DSK
+
+* Copy the file SUBMIT.COM into CP/M user area 0 of disk image CPMDISK0.DSK as SUBMIT.COM:
+
+ cpmcp CPMDISK0.DSK SUBMIT.COM 0:SUBMIT.COM
+
+* Delete the file called ED.COM from CPMDISK0.DSK:
+
+ cpmrm CPMDISK0.DSK 0:ed.com
