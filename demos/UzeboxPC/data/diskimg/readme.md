@@ -32,8 +32,6 @@ The default disk config is:
 * INFOCOM2.DSK: Infocom classic games disk 2.
 * INFOCOM3.DSK: Infocom classic games disk 3.
 * MULTIPLN.DSK: Microsoft Multiplan 1.06 VT100. An example spreadsheet is provided. Start with: MP BUDGET.MP
-* WM.DSK	  : Word-Master word processor.
-* WSTAR33.SDK : WordStar 3.3 word processor.
 
 # Modifying CP/M disk images
 
