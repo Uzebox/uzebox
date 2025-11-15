@@ -79,6 +79,10 @@ Examples:
 
 	`cpmcp CPMDISK0.DSK SUBMIT.COM 0:SUBMIT.COM`
 
+* Extract file TELNET.DAT from CPMDISK0.DSK:
+
+    `cpmcp CPMDISK0.DSK 0:TELNET.DAT TELNET.DAT`
+
 * Delete the file called ED.COM from CPMDISK0.DSK:
 
 	`cpmrm CPMDISK0.DSK 0:ed.com`
