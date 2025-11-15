@@ -7,7 +7,7 @@ bin2hex: bin2hex.o
 	$(CC) -o $(BIN_DIR)/bin2hex bin2hex.o
 
 bin2hex.o : bin2hex.c
-	$(CC) -c bin2hex.c
+	$(CC) -std=gnu99 -c bin2hex.c
 
 clean :
 	rm -f $(BIN_DIR)/bin2hex bin2hex.o
