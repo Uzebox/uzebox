@@ -1,4 +1,4 @@
-Uzebox BOM Rev. F5 - Part footprints compatible with Uzebox PCB Rev 1.3.3 (Sept. 2025)
+Uzebox BOM Rev. F5 - Part footprints compatible with Uzebox PCB Rev 1.3.3 (Nov. 2025)
 
 Parts sourced from Digikey
 
@@ -83,6 +83,10 @@ Parts sourced from Digikey
 2   445-8417-ND                 CAP CER 1UF 16V X7R RADIAL          (C17,C22) (or equivalent)
 
 1   1528-1438-ND                ESP-12F WIFI Module                 (ESP12)
+
+2   2057-2RS1-08-G-ND           RECEPTACLE STRIP 8P 2.0MM PITCH     (ESP12)
+
+2   952-2278-ND                 CONN HEADER VERT 8POS 2MM           (To solder onto ESP-12F WiFi module)
 
 
 
