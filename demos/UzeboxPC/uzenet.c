@@ -506,6 +506,18 @@ void wifi_SetTimeout(u16 timeout){
 }
 
 /**
+ * Wait for CrLf terminated line and return the content
+ * in the provided char buffer.
+ */
+int wifi_ReadLine(char* buf){
+	if(wifi_WaitForString_P(PSTR("\r\n"),buf)!=WIFI_OK){
+		return WIFI_ERR;
+	}
+	return 0;
+}
+
+
+/**
  * Internal function to get content chunks from the 8266 when in non-passthrough mode.
  * Specifically, wait for for +IPD marker and return size of data
  * For future use.

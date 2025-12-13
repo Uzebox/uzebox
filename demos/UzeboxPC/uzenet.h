@@ -191,4 +191,10 @@ extern int 	wifi_WaitForString_P(const char* str, char* rxbuf);
  */
 extern void wifi_SetTimeout(u16 timeout);
 
+/**
+ * Wait for CrLf terminated line and return the content
+ * in the provided char buffer.
+ */
+extern int wifi_ReadLine(char* buf);
+
 #endif /* UZENET_H_ */

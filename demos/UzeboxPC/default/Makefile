@@ -64,7 +64,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 ## Objects that must be built in order to link
 OBJECTS  = main.o uzeboxVideoEngineCore.o uzeboxCore.o  uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o  
-OBJECTS += uzenet.o terminal.o keyboard.o telnet.o Emulator8080.o computer.o spiram_custom.o pff.o diskio.o uzenet_setup.o
+OBJECTS += uzenet.o netstat.o terminal.o keyboard.o telnet.o Emulator8080.o computer.o spiram_custom.o pff.o diskio.o uzenet_setup.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -111,6 +111,9 @@ terminal.o: ../terminal.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 telnet.o: ../telnet.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+netstat.o: ../netstat.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 computer.o: ../computer.c
