@@ -170,7 +170,7 @@ size: ${TARGET}
 .PHONY: clean
 clean:
 	-rm -rf $(OBJECTS) $(GAME).* *.bin *.lst *.p *.o *.com *.COM *.hex
-	-rm -rf ../data/cpm22.inc ../data/cpmbin/TELNET.COM ../data/cpmbin/UZECONF.COM 
+#	-rm -rf ../data/cpm22.inc ../data/cpmbin/TELNET.COM ../data/cpmbin/UZECONF.COM 
 	-rm -rf dep
 
 
