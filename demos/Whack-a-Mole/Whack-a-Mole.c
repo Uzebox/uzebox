@@ -43,6 +43,7 @@
 #define BUTTONS_COUNT 1
 #define BUTTON_UNPRESSED 0
 #define BUTTON_PRESSED 1
+#define MOUSE 2
 
 
 char createMyButton(unsigned char x,unsigned char y,const char *normalMapPtr,const char *pushedMapPtr);
@@ -52,7 +53,7 @@ void doStart();
 void processMyButtons();
 void processMoles();
 void WaitKey();
-//void DetectControllers();
+void InitControllers();
 void menu();
 void PrintSpeed();
 
@@ -130,7 +131,7 @@ int main(){
 	SetSpritesTileTable(cursor_tileset);
 
 	EnableSnesMouse(0,map_cursor);
-	DetectControllers();
+	InitControllers();
 	InitMusicPlayer(patches);
 	SetMouseSensitivity(mouseSpeed);
 
@@ -277,34 +278,31 @@ void menu(){
 	}
 }
 
-/*
-void DetectControllers(){
-	unsigned int joy;
-	//wait a frame for mouse to settle
-	WaitVsync(4);
-	joy=ReadJoypad(0);
-	if((joy&0x8000)!=0){
-		//we have a mouse in player 1 port
-		playDevice=1;
-		playPort=0;
-		actionButton=BTN_MOUSE_LEFT;
-		return;
-	}else{
-		playDevice=0;
-		playPort=0;
-		actionButton=BTN_A;
-	}
+void InitControllers() {
+    // Wait a few frames for the mouse hardware to settle/handshake
+    WaitVsync(10);
 
-	joy=ReadJoypad(1);
-	if((joy&0x8000)!=0){
-		//we have a mouse in player 2 port
-		playDevice=1;
-		playPort=1;
-		actionButton=BTN_MOUSE_LEFT;
-	}
+    unsigned char controllers = DetectControllers();
 
-
-}*/
+    // Check Port 1 (bits 0 & 1)
+    if ((controllers & 3) == MOUSE) {
+        playDevice = 1; // Mouse mode
+        playPort = 0;
+        actionButton = BTN_MOUSE_LEFT;
+    }
+    // Check Port 2 (bits 2 & 3)
+    else if (((controllers >> 2) & 3) == MOUSE) {
+        playDevice = 1;
+        playPort = 1;
+        actionButton = BTN_MOUSE_LEFT;
+    }
+    // Default to Gamepad Port 1
+    else {
+        playDevice = 0; // Gamepad mode
+        playPort = 0;
+        actionButton = BTN_A;
+    }
+}
 
 unsigned char cnt=0;
 void processMoles(){
@@ -593,7 +591,6 @@ void processMouseMovement(void){
 }
 
 void processHammer(void){
-	static int lastbuttons=0;
 	static unsigned char hammerState=0,hammerFrame=0;
 	static bool mouseBtnReleased=true;
 	unsigned int joy;
@@ -655,7 +652,5 @@ void processHammer(void){
 
 
 	hammerFrame++;
-
-	lastbuttons=joy;
 }
 

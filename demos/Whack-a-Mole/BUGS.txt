@@ -1,8 +1,0 @@
-Bugs and issues with the game:
-
-- With the 2020.08.22 patch of the kernel, removing the global "mx" and "my"
-  variables, the game might no longer work with an actual mouse. The patch was
-  necessary since the project ceased to compile with recent (10.1.0) versions
-  of gcc, and was added in this manner since such short global identifiers are
-  not good practice. The problem should be fixed by the usage of the kernel's
-  GetMouseX() and GetMouseY() functions.

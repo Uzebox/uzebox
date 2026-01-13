@@ -1,6 +1,6 @@
 # Disk images
 
-UzeboxPC uses CP/M v2.2 8" SSSD (single sided single density) disk images with the following spec:
+UzeboxPC uses CP/M v2.2 8" SSSD (single sided single density) disk images with the following specifications:
 
 * Tracks: 77
 * Sectors per track: 26
@@ -10,11 +10,11 @@ UzeboxPC uses CP/M v2.2 8" SSSD (single sided single density) disk images with t
 * Skew: 6
 * Boot tracks: 2 
 
-`cpmtools` refers to this disk by using `ibm-3740` for its diskdef value but you don't usually need to specify the disk model when using `cpmtools`, apart from when you are creating a new image.
+`cpmtools` refers to this disk by using `ibm-3740` for its diskdef value but you don't usually need to specify the disk model when using `cpmtools` apart from when you are creating (formatting) a new disk image.
 
-`DISK.CFG` must be in the root directory of your SD card in to define the mapping between drive letters and images files. Up to four drives are supported by CP/M named A:, B:, C: and D:. 
+`DISK.CFG` must be in the root directory of your SD card in to define the mapping between drive letters and disk image files. Up to four drives are currently supported by UzeboxPC's CP/M - A:, B:, C: and D:.
 
-The default disk config is:
+The default disk configuration for UzeboxPC is:
 
 * A:CPMDISK0.DSK
 * B:CPMDISK1.DSK
@@ -24,7 +24,6 @@ The default disk config is:
 # Images provided
 
 * ADVENT.DSK  : Microsoft's Adventure text based game.
-* CPM22.DSK   : Original CP/M 2.2 boot disk with utilities.
 * CPMDISK0.DSK: Boot disk with programs and utilities.
 * CPMDISK1.DSK: Games Zork, Chess and Hitchhicker's guide to the galaxy.
 * CPMDISK2.DSK: Microsoft Basic 5.21 and some basic programs.
@@ -35,7 +34,7 @@ The default disk config is:
 
 # Modifying CP/M disk images
 
-The following tools are able to read/write to and from CP/M disk images:
+The following tools are able to read from and write to CP/M disk image files:
 
 ## CPMFS
 
