@@ -44,6 +44,7 @@
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
 #define MARKER_SIZE 6
+#define IO_BUF_SIZE 16384
 
 #define PERIPHERAL_MOUSE		1
 #define PERIPHERAL_KEYBOARD		2
@@ -158,7 +159,6 @@ static void strcpy2(char* dest, char* src, int maxsize){
 	u8 c;
 	int i=0;
 	while(i<maxsize){
-		//strcpy((char*)rom.header.name,line+5);
 		c=*src++;
 		if(c<32) break;
 		*dest++=c;
@@ -184,6 +184,22 @@ static int parse_hex_byte(const char *s){
 static int parse_hex_word(const char *s){
 	return (parse_hex_nibble(s[0])<<12) | (parse_hex_nibble(s[1]) << 8) |
 		(parse_hex_nibble(s[2])<<4) | parse_hex_nibble(s[3]);
+}
+
+static bool copy_exact_bytes(FILE *in_file,FILE *out_file,u32 len){
+	u8 buf[IO_BUF_SIZE];
+
+	while(len){
+		size_t chunk = (len > (u32)sizeof(buf)) ? sizeof(buf) : (size_t)len;
+		if(fread(buf, 1, chunk, in_file) != chunk){
+			return false;
+		}
+		if(fwrite(buf, 1, chunk, out_file) != chunk){
+			return false;
+		}
+		len -= (u32)chunk;
+	}
+	return true;
 }
 
 bool load_hex(const char *in_filename){
@@ -250,7 +266,7 @@ bool load_hex(const char *in_filename){
 }
 
 bool load_uze(const char *in_filename){//implies patching an existing .uze file
-	FILE *in_file = fopen(in_filename, "r");
+	FILE *in_file = fopen(in_filename, "rb");
 	if(!in_file)
 		return false;
 
@@ -347,12 +363,7 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	
 	if(rom.header.dependencyLen){//extract and write Dependency(if present)
 		fseek(uze_file, MAX_PROG_SIZE+HEADER_SIZE, SEEK_SET);//move to end of padded ROM data
-		for(u32 i=0; i<rom.header.dependencyLen; i++){
-			if(feof(uze_file))
-				break;
-			fputc(fgetc(uze_file), out_file3);
-		}
-		if(ferror(uze_file) || ferror(out_file3)){
+		if(!copy_exact_bytes(uze_file, out_file3, rom.header.dependencyLen)){
 			fprintf(stderr, "\tError: Failed while writing dependency output [%s]\n", out_filename3);
 			return false;
 		}
@@ -445,9 +456,9 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	//extract and write Icon data(if present)
 	if(out_file4 != NULL){
 		for(u32 i=0; i<16*16; i++){
-				fputc(((rom.header.icon[i]&0b00000111)<<5), out_file4);//R
-				fputc(((rom.header.icon[i]&0b00111000)<<2), out_file4);//G
-				fputc(((rom.header.icon[i]&0b11000000)<<0), out_file4);//B
+			fputc(((rom.header.icon[i]&0b00000111)<<5), out_file4);//R
+			fputc(((rom.header.icon[i]&0b00111000)<<2), out_file4);//G
+			fputc(((rom.header.icon[i]&0b11000000)<<0), out_file4);//B
 		}
 		fclose(out_file4);
 	}
@@ -604,7 +615,7 @@ int main(int argc,char **argv){
 				fprintf(stderr,"\tJAMMA: Flip Horizontal\n");
 
 			}else if(!strncmp(line,"JAMMA=flipV",11)){
-				rom.header.jamma |= JAMMA_FLIP_H;
+				rom.header.jamma |= JAMMA_FLIP_V;
 				fprintf(stderr,"\tJAMMA: Flip Vertical\n");
 
 			}else{//terminate string at '\r' or '\n', and compare to remaining possible arguments
@@ -653,18 +664,17 @@ int main(int argc,char **argv){
 						return 1;
 					}
 				}else if(!strncmp(line,"dependency=",11)){
-						// append a data file, first verify it exists and record the length
-						FILE *datafile = fopen(line+11, "rb");
-						if(datafile){
-							fseek(datafile, 0L, SEEK_END);
-							int size = ftell(datafile);
-							rom.header.dependencyLen = (u32)size;
-							fclose(datafile);
-							strncpy(dependencyFile,line+11,sizeof(dependencyFile)-2);
-						}else{
-							fprintf(stderr,"\tError: Failed to determine dependency length\n");
-							return 1;
-						}
+					FILE *datafile = fopen(line+11, "rb");
+					if(datafile){
+						fseek(datafile, 0L, SEEK_END);
+						int size = ftell(datafile);
+						rom.header.dependencyLen = (u32)size;
+						fclose(datafile);
+						strncpy(dependencyFile,line+11,sizeof(dependencyFile)-2);
+					}else{
+						fprintf(stderr,"\tError: Failed to determine dependency length\n");
+						return 1;
+					}
 				}else{
 					fprintf(stderr,"\tUnknown Option [%s]\n", line);
 				}
@@ -696,7 +706,6 @@ int main(int argc,char **argv){
 	fprintf(stderr,"\tCRC32: 0x%lx\n", (long unsigned int) rom.header.crc32);
 	fprintf(stderr,"\tProgram size: %li \n", (long unsigned int) rom.header.progSize);
 
-	//write the output file
 	FILE *out_file = fopen(argv[2],"wb");
 	if(out_file == NULL){
 		fprintf(stderr,"\tError: Failed to open output file [%s]\n", argv[2]);
@@ -711,20 +720,41 @@ int main(int argc,char **argv){
 	if(rom.header.dependencyLen){//append dependency/data file
 		FILE *datafile = fopen(dependencyFile, "rb");
 		if(datafile){
-			fprintf(stderr,"\tPadding ROM to 60K\n");
-			for(int i=rom.header.progSize+HEADER_SIZE; i<MAX_PROG_SIZE+HEADER_SIZE; i++){
-				fputc(0xFF,out_file);
+			u32 paddedRomSize = MAX_PROG_SIZE + HEADER_SIZE;
+			u32 currentSize = rom.header.progSize + HEADER_SIZE;
+			u32 padLen = 0;
+			u8 padBuf[IO_BUF_SIZE];
+
+			memset(padBuf, 0xFF, sizeof(padBuf));
+
+			if(currentSize < paddedRomSize){
+				padLen = paddedRomSize - currentSize;
 			}
+
+			fprintf(stderr,"\tPadding program area to 60K (+512-byte header)\n");
+			while(padLen){
+				size_t chunk = (padLen > (u32)sizeof(padBuf)) ? sizeof(padBuf) : (size_t)padLen;
+				if(fwrite(padBuf, 1, chunk, out_file) != chunk){
+					fprintf(stderr,"\tError: Failed while padding ROM\n");
+					fclose(datafile);
+					fclose(out_file);
+					return 1;
+				}
+				padLen -= (u32)chunk;
+			}
+
 			fprintf(stderr,"\tDependency file: %s\n", dependencyFile);
 			fprintf(stderr,"\tDependency size: %d\n", rom.header.dependencyLen);
 			fprintf(stderr,"\tTotal Size(ROM+Header+Dependency): %d\n", MAX_PROG_SIZE+HEADER_SIZE+rom.header.dependencyLen);
-			while(!feof(datafile)){
-				fputc(fgetc(datafile), out_file); 
-			}
-			if(ferror(datafile)){
+
+			if(!copy_exact_bytes(datafile, out_file, rom.header.dependencyLen)){
 				fprintf(stderr,"\tError: Failed while appending dependency data\n");
+				fclose(datafile);
+				fclose(out_file);
 				return 1;
 			}
+
+			fclose(datafile);
 		}else{
 			fprintf(stderr,"\tError: Could not process dependency file: %s\n", dependencyFile);
 			return 1;
