@@ -29,6 +29,7 @@
  * 1.4: 4/8/2023 - Added patching abillity
  * 1.5: 12/15/2024 - Added extract ability, and dependency file support(SD file append)
  * 1.6: 9/19/2025 - Added SPI RAM banks count, removed spiram=default, use spiram=<banks>
+ * 1.7: 4/5/2026 - Added esp8266_ap support replacing old PERIPHERAL_FUTURE0 bit, fixed keyboard extract typo
  */
 
 #include <iostream>
@@ -40,7 +41,7 @@
 
 #define HEADER_VERSION 1
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 5
+#define VERSION_MINOR 7
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
 #define MARKER_SIZE 6
@@ -52,8 +53,8 @@
 #define PERIPHERAL_MULTITAP		8
 #define PERIPHERAL_SPIRAM		16
 #define PERIPHERAL_ESP8266		32
-#define PERIPHERAL_FUTURE0		64
-#define PERIPHERAL_FUTURE1		128
+#define PERIPHERAL_ESP8266_AP	64
+#define PERIPHERAL_FUTURE0		128
 
 #define JAMMA_ROTATE_90 1
 #define JAMMA_ROTATE_180 2
@@ -212,8 +213,8 @@ bool load_hex(const char *in_filename){
 	//:02 65D2 00 0100 C6
 	//:00 0000 01 FF [EOF marker]
 
-	//First field is the byte count. Second field is the 16-bit address. Third field is the record type; 
-	//00 is data, 01 is EOF.	For record type zero, next "wide" field is the actual data, followed by a 
+	//First field is the byte count. Second field is the 16-bit address. Third field is the record type;
+	//00 is data, 01 is EOF.	For record type zero, next "wide" field is the actual data, followed by a
 	//checksum.
 	u16 progmemLast=0;
 	char line[128];
@@ -259,7 +260,7 @@ bool load_hex(const char *in_filename){
 
 		++lineNumber;
 	}
-    
+
 	rom.header.progSize = progmemLast;
 	fclose(in_file);
 	return true;
@@ -335,7 +336,7 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	long int progSize = rom.header.progSize;
 	if(progSize < 1 || progSize > MAX_PROG_SIZE)
 		fprintf(stderr, "\tWarning: Bad ROM size %d, possible file corruption\n", rom.header.progSize);
-	
+
 	FILE *out_file3 = NULL;
 	if(rom.header.dependencyLen){//check for Dependency
 		out_file3 = fopen(out_filename3, "wb");
@@ -355,12 +356,12 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 			break;
 		}
 	}
-	
+
 	if(!fread(rom.progmem+HEADER_SIZE, progSize, 1, uze_file)){
 		fprintf(stderr, "\tError: Failed to read uze progmem\n");
 		return false;
 	}
-	
+
 	if(rom.header.dependencyLen){//extract and write Dependency(if present)
 		fseek(uze_file, MAX_PROG_SIZE+HEADER_SIZE, SEEK_SET);//move to end of padded ROM data
 		if(!copy_exact_bytes(uze_file, out_file3, rom.header.dependencyLen)){
@@ -369,7 +370,7 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 		}
 		fclose(out_file3);
 
-	}	
+	}
 	fclose(uze_file);
 
 	for(u32 i=0; i<rom.header.progSize; i+=16){//write HEX
@@ -415,24 +416,30 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	if(psupport & PERIPHERAL_MOUSE)
 		fprintf(out_file2, "mouse=supported\n");
 	if(psupport & PERIPHERAL_KEYBOARD)
-		fprintf(out_file2, "keybord=supported\n");
+		fprintf(out_file2, "keyboard=supported\n");
 	if(psupport & PERIPHERAL_LIGHTGUN)
 		fprintf(out_file2, "lightgun=supported\n");
 	if(psupport & PERIPHERAL_MULTITAP)
 		fprintf(out_file2, "multitap=supported\n");
 	if(psupport & PERIPHERAL_ESP8266)
 		fprintf(out_file2, "esp8266=supported\n");
+	if(psupport & PERIPHERAL_ESP8266_AP)
+		fprintf(out_file2, "esp8266_ap=supported\n");
+
 	u8 pdefault = rom.header.pdefault;//default peripherals
 	if(pdefault & PERIPHERAL_MOUSE)
 		fprintf(out_file2, "mouse=default\n");
 	if(pdefault & PERIPHERAL_KEYBOARD)
-		fprintf(out_file2, "keybord=default\n");
+		fprintf(out_file2, "keyboard=default\n");
 	if(pdefault & PERIPHERAL_LIGHTGUN)
 		fprintf(out_file2, "lightgun=default\n");
 	if(pdefault & PERIPHERAL_MULTITAP)
 		fprintf(out_file2, "multitap=default\n");
 	if(pdefault & PERIPHERAL_ESP8266)
 		fprintf(out_file2, "esp8266=default\n");
+	if(pdefault & PERIPHERAL_ESP8266_AP)
+		fprintf(out_file2, "esp8266_ap=default\n");
+
 	u8 jamma = rom.header.jamma;//JAMMA options
 	if(jamma & JAMMA_ROTATE_90)
 		fprintf(out_file2, "jamma=rotate90\n");
@@ -494,7 +501,7 @@ int main(int argc,char **argv){
 			return -1;
 		return 0;
 	}
-	int mode = 0;//default create mode	
+	int mode = 0;//default create mode
 	if(strstr(argv[1], ".uze") != NULL){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
 		if(argc < 4){
 			fprintf(stderr,"\n\tPatch mode requires: [input.uze] [output.uze] [patch.properties]\n\n");
@@ -508,7 +515,7 @@ int main(int argc,char **argv){
 			fprintf(stderr,"\n\tPack mode requires: [input.hex] [output.uze] [info.properties]\n\n");
 			DisplayUsage();
 			return 01;
-		}	
+		}
 		fprintf(stderr,"\n\tPacking file: [%s]->[%s]\n", argv[1], argv[2]);
 	}
 	chksum_crc32gentab();
@@ -542,7 +549,7 @@ int main(int argc,char **argv){
 				rom.header.psupport |= PERIPHERAL_MOUSE;
 				fprintf(stderr,"\tMouse: Supported\n");
 
-			}else if(!strncmp(line,"keyboard=support",16)){
+			}else if(!strncmp(line,"keyboard=support",16) || !strncmp(line,"keybord=support",15)){
 				rom.header.psupport |= PERIPHERAL_KEYBOARD;
 				fprintf(stderr,"\tKeyboard: Supported\n");
 
@@ -558,12 +565,17 @@ int main(int argc,char **argv){
 				rom.header.psupport |= PERIPHERAL_ESP8266;
 				fprintf(stderr,"\tESP8266: Supported\n");
 
+			}else if(!strncmp(line,"esp8266_ap=support",18)){
+				rom.header.psupport |= PERIPHERAL_ESP8266;
+				rom.header.psupport |= PERIPHERAL_ESP8266_AP;
+				fprintf(stderr,"\tESP8266 AP: Supported\n");
+
 			}else if(!strncmp(line,"mouse=default",13)){
 				rom.header.psupport |= PERIPHERAL_MOUSE;
 				rom.header.pdefault |= PERIPHERAL_MOUSE;
 				fprintf(stderr,"\tMouse: Default\n");
 
-			}else if(!strncmp(line,"keyboard=default",16)){
+			}else if(!strncmp(line,"keyboard=default",16) || !strncmp(line,"keybord=default",15)){
 				rom.header.psupport |= PERIPHERAL_KEYBOARD;
 				rom.header.pdefault |= PERIPHERAL_KEYBOARD;
 				fprintf(stderr,"\tKeyboard: Default\n");
@@ -582,6 +594,12 @@ int main(int argc,char **argv){
 				rom.header.psupport |= PERIPHERAL_ESP8266;
 				rom.header.pdefault |= PERIPHERAL_ESP8266;
 				fprintf(stderr,"\tESP8266: Default\n");
+
+			}else if(!strncmp(line,"esp8266_ap=default",18)){
+				rom.header.psupport |= PERIPHERAL_ESP8266;
+				rom.header.psupport |= PERIPHERAL_ESP8266_AP;
+				rom.header.pdefault |= PERIPHERAL_ESP8266_AP;
+				fprintf(stderr,"\tESP8266 AP: Default\n");
 
 			}else if(!strncmp(line,"spiram=",7)){//bank count
 				rom.header.spiRamBanks=(u8) strtoul(line+7,NULL,10);
@@ -619,7 +637,7 @@ int main(int argc,char **argv){
 				fprintf(stderr,"\tJAMMA: Flip Vertical\n");
 
 			}else{//terminate string at '\r' or '\n', and compare to remaining possible arguments
-			
+
 				for(char *p=line+5; *p;++p){
 					if(*p < ' '){
 						*p=0;
