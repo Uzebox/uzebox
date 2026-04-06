@@ -29,6 +29,7 @@
  * 1.4: 4/8/2023 - Added patching abillity
  * 1.5: 12/15/2024 - Added extract ability, and dependency file support(SD file append)
  * 1.6: 9/19/2025 - Added SPI RAM banks count, removed spiram=default, use spiram=<banks>
+ * 1.7: 4/5/2026 - Added esp8266_ap support replacing old PERIPHERAL_FUTURE0 bit, fixed keyboard extract typo
  */
 
 #include <iostream>
@@ -40,10 +41,11 @@
 
 #define HEADER_VERSION 1
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 5
+#define VERSION_MINOR 7
 #define MAX_PROG_SIZE 61440 //65536-4096
 #define HEADER_SIZE 512
 #define MARKER_SIZE 6
+#define IO_BUF_SIZE 16384
 
 #define PERIPHERAL_MOUSE		1
 #define PERIPHERAL_KEYBOARD		2
@@ -51,8 +53,8 @@
 #define PERIPHERAL_MULTITAP		8
 #define PERIPHERAL_SPIRAM		16
 #define PERIPHERAL_ESP8266		32
-#define PERIPHERAL_FUTURE0		64
-#define PERIPHERAL_FUTURE1		128
+#define PERIPHERAL_ESP8266_AP	64
+#define PERIPHERAL_FUTURE0		128
 
 #define JAMMA_ROTATE_90 1
 #define JAMMA_ROTATE_180 2
@@ -158,7 +160,6 @@ static void strcpy2(char* dest, char* src, int maxsize){
 	u8 c;
 	int i=0;
 	while(i<maxsize){
-		//strcpy((char*)rom.header.name,line+5);
 		c=*src++;
 		if(c<32) break;
 		*dest++=c;
@@ -186,6 +187,22 @@ static int parse_hex_word(const char *s){
 		(parse_hex_nibble(s[2])<<4) | parse_hex_nibble(s[3]);
 }
 
+static bool copy_exact_bytes(FILE *in_file,FILE *out_file,u32 len){
+	u8 buf[IO_BUF_SIZE];
+
+	while(len){
+		size_t chunk = (len > (u32)sizeof(buf)) ? sizeof(buf) : (size_t)len;
+		if(fread(buf, 1, chunk, in_file) != chunk){
+			return false;
+		}
+		if(fwrite(buf, 1, chunk, out_file) != chunk){
+			return false;
+		}
+		len -= (u32)chunk;
+	}
+	return true;
+}
+
 bool load_hex(const char *in_filename){
 	//http://en.wikipedia.org/wiki/.hex
 
@@ -196,8 +213,8 @@ bool load_hex(const char *in_filename){
 	//:02 65D2 00 0100 C6
 	//:00 0000 01 FF [EOF marker]
 
-	//First field is the byte count. Second field is the 16-bit address. Third field is the record type; 
-	//00 is data, 01 is EOF.	For record type zero, next "wide" field is the actual data, followed by a 
+	//First field is the byte count. Second field is the 16-bit address. Third field is the record type;
+	//00 is data, 01 is EOF.	For record type zero, next "wide" field is the actual data, followed by a
 	//checksum.
 	u16 progmemLast=0;
 	char line[128];
@@ -243,14 +260,14 @@ bool load_hex(const char *in_filename){
 
 		++lineNumber;
 	}
-    
+
 	rom.header.progSize = progmemLast;
 	fclose(in_file);
 	return true;
 }
 
 bool load_uze(const char *in_filename){//implies patching an existing .uze file
-	FILE *in_file = fopen(in_filename, "r");
+	FILE *in_file = fopen(in_filename, "rb");
 	if(!in_file)
 		return false;
 
@@ -319,7 +336,7 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	long int progSize = rom.header.progSize;
 	if(progSize < 1 || progSize > MAX_PROG_SIZE)
 		fprintf(stderr, "\tWarning: Bad ROM size %d, possible file corruption\n", rom.header.progSize);
-	
+
 	FILE *out_file3 = NULL;
 	if(rom.header.dependencyLen){//check for Dependency
 		out_file3 = fopen(out_filename3, "wb");
@@ -339,26 +356,21 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 			break;
 		}
 	}
-	
+
 	if(!fread(rom.progmem+HEADER_SIZE, progSize, 1, uze_file)){
 		fprintf(stderr, "\tError: Failed to read uze progmem\n");
 		return false;
 	}
-	
+
 	if(rom.header.dependencyLen){//extract and write Dependency(if present)
 		fseek(uze_file, MAX_PROG_SIZE+HEADER_SIZE, SEEK_SET);//move to end of padded ROM data
-		for(u32 i=0; i<rom.header.dependencyLen; i++){
-			if(feof(uze_file))
-				break;
-			fputc(fgetc(uze_file), out_file3);
-		}
-		if(ferror(uze_file) || ferror(out_file3)){
+		if(!copy_exact_bytes(uze_file, out_file3, rom.header.dependencyLen)){
 			fprintf(stderr, "\tError: Failed while writing dependency output [%s]\n", out_filename3);
 			return false;
 		}
 		fclose(out_file3);
 
-	}	
+	}
 	fclose(uze_file);
 
 	for(u32 i=0; i<rom.header.progSize; i+=16){//write HEX
@@ -404,24 +416,30 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	if(psupport & PERIPHERAL_MOUSE)
 		fprintf(out_file2, "mouse=supported\n");
 	if(psupport & PERIPHERAL_KEYBOARD)
-		fprintf(out_file2, "keybord=supported\n");
+		fprintf(out_file2, "keyboard=supported\n");
 	if(psupport & PERIPHERAL_LIGHTGUN)
 		fprintf(out_file2, "lightgun=supported\n");
 	if(psupport & PERIPHERAL_MULTITAP)
 		fprintf(out_file2, "multitap=supported\n");
 	if(psupport & PERIPHERAL_ESP8266)
 		fprintf(out_file2, "esp8266=supported\n");
+	if(psupport & PERIPHERAL_ESP8266_AP)
+		fprintf(out_file2, "esp8266_ap=supported\n");
+
 	u8 pdefault = rom.header.pdefault;//default peripherals
 	if(pdefault & PERIPHERAL_MOUSE)
 		fprintf(out_file2, "mouse=default\n");
 	if(pdefault & PERIPHERAL_KEYBOARD)
-		fprintf(out_file2, "keybord=default\n");
+		fprintf(out_file2, "keyboard=default\n");
 	if(pdefault & PERIPHERAL_LIGHTGUN)
 		fprintf(out_file2, "lightgun=default\n");
 	if(pdefault & PERIPHERAL_MULTITAP)
 		fprintf(out_file2, "multitap=default\n");
 	if(pdefault & PERIPHERAL_ESP8266)
 		fprintf(out_file2, "esp8266=default\n");
+	if(pdefault & PERIPHERAL_ESP8266_AP)
+		fprintf(out_file2, "esp8266_ap=default\n");
+
 	u8 jamma = rom.header.jamma;//JAMMA options
 	if(jamma & JAMMA_ROTATE_90)
 		fprintf(out_file2, "jamma=rotate90\n");
@@ -445,9 +463,9 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	//extract and write Icon data(if present)
 	if(out_file4 != NULL){
 		for(u32 i=0; i<16*16; i++){
-				fputc(((rom.header.icon[i]&0b00000111)<<5), out_file4);//R
-				fputc(((rom.header.icon[i]&0b00111000)<<2), out_file4);//G
-				fputc(((rom.header.icon[i]&0b11000000)<<0), out_file4);//B
+			fputc(((rom.header.icon[i]&0b00000111)<<5), out_file4);//R
+			fputc(((rom.header.icon[i]&0b00111000)<<2), out_file4);//G
+			fputc(((rom.header.icon[i]&0b11000000)<<0), out_file4);//B
 		}
 		fclose(out_file4);
 	}
@@ -483,7 +501,7 @@ int main(int argc,char **argv){
 			return -1;
 		return 0;
 	}
-	int mode = 0;//default create mode	
+	int mode = 0;//default create mode
 	if(strstr(argv[1], ".uze") != NULL){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
 		if(argc < 4){
 			fprintf(stderr,"\n\tPatch mode requires: [input.uze] [output.uze] [patch.properties]\n\n");
@@ -497,7 +515,7 @@ int main(int argc,char **argv){
 			fprintf(stderr,"\n\tPack mode requires: [input.hex] [output.uze] [info.properties]\n\n");
 			DisplayUsage();
 			return 01;
-		}	
+		}
 		fprintf(stderr,"\n\tPacking file: [%s]->[%s]\n", argv[1], argv[2]);
 	}
 	chksum_crc32gentab();
@@ -531,7 +549,7 @@ int main(int argc,char **argv){
 				rom.header.psupport |= PERIPHERAL_MOUSE;
 				fprintf(stderr,"\tMouse: Supported\n");
 
-			}else if(!strncmp(line,"keyboard=support",16)){
+			}else if(!strncmp(line,"keyboard=support",16) || !strncmp(line,"keybord=support",15)){
 				rom.header.psupport |= PERIPHERAL_KEYBOARD;
 				fprintf(stderr,"\tKeyboard: Supported\n");
 
@@ -547,12 +565,17 @@ int main(int argc,char **argv){
 				rom.header.psupport |= PERIPHERAL_ESP8266;
 				fprintf(stderr,"\tESP8266: Supported\n");
 
+			}else if(!strncmp(line,"esp8266_ap=support",18)){
+				rom.header.psupport |= PERIPHERAL_ESP8266;
+				rom.header.psupport |= PERIPHERAL_ESP8266_AP;
+				fprintf(stderr,"\tESP8266 AP: Supported\n");
+
 			}else if(!strncmp(line,"mouse=default",13)){
 				rom.header.psupport |= PERIPHERAL_MOUSE;
 				rom.header.pdefault |= PERIPHERAL_MOUSE;
 				fprintf(stderr,"\tMouse: Default\n");
 
-			}else if(!strncmp(line,"keyboard=default",16)){
+			}else if(!strncmp(line,"keyboard=default",16) || !strncmp(line,"keybord=default",15)){
 				rom.header.psupport |= PERIPHERAL_KEYBOARD;
 				rom.header.pdefault |= PERIPHERAL_KEYBOARD;
 				fprintf(stderr,"\tKeyboard: Default\n");
@@ -571,6 +594,12 @@ int main(int argc,char **argv){
 				rom.header.psupport |= PERIPHERAL_ESP8266;
 				rom.header.pdefault |= PERIPHERAL_ESP8266;
 				fprintf(stderr,"\tESP8266: Default\n");
+
+			}else if(!strncmp(line,"esp8266_ap=default",18)){
+				rom.header.psupport |= PERIPHERAL_ESP8266;
+				rom.header.psupport |= PERIPHERAL_ESP8266_AP;
+				rom.header.pdefault |= PERIPHERAL_ESP8266_AP;
+				fprintf(stderr,"\tESP8266 AP: Default\n");
 
 			}else if(!strncmp(line,"spiram=",7)){//bank count
 				rom.header.spiRamBanks=(u8) strtoul(line+7,NULL,10);
@@ -604,11 +633,11 @@ int main(int argc,char **argv){
 				fprintf(stderr,"\tJAMMA: Flip Horizontal\n");
 
 			}else if(!strncmp(line,"JAMMA=flipV",11)){
-				rom.header.jamma |= JAMMA_FLIP_H;
+				rom.header.jamma |= JAMMA_FLIP_V;
 				fprintf(stderr,"\tJAMMA: Flip Vertical\n");
 
 			}else{//terminate string at '\r' or '\n', and compare to remaining possible arguments
-			
+
 				for(char *p=line+5; *p;++p){
 					if(*p < ' '){
 						*p=0;
@@ -653,18 +682,17 @@ int main(int argc,char **argv){
 						return 1;
 					}
 				}else if(!strncmp(line,"dependency=",11)){
-						// append a data file, first verify it exists and record the length
-						FILE *datafile = fopen(line+11, "rb");
-						if(datafile){
-							fseek(datafile, 0L, SEEK_END);
-							int size = ftell(datafile);
-							rom.header.dependencyLen = (u32)size;
-							fclose(datafile);
-							strncpy(dependencyFile,line+11,sizeof(dependencyFile)-2);
-						}else{
-							fprintf(stderr,"\tError: Failed to determine dependency length\n");
-							return 1;
-						}
+					FILE *datafile = fopen(line+11, "rb");
+					if(datafile){
+						fseek(datafile, 0L, SEEK_END);
+						int size = ftell(datafile);
+						rom.header.dependencyLen = (u32)size;
+						fclose(datafile);
+						strncpy(dependencyFile,line+11,sizeof(dependencyFile)-2);
+					}else{
+						fprintf(stderr,"\tError: Failed to determine dependency length\n");
+						return 1;
+					}
 				}else{
 					fprintf(stderr,"\tUnknown Option [%s]\n", line);
 				}
@@ -696,7 +724,6 @@ int main(int argc,char **argv){
 	fprintf(stderr,"\tCRC32: 0x%lx\n", (long unsigned int) rom.header.crc32);
 	fprintf(stderr,"\tProgram size: %li \n", (long unsigned int) rom.header.progSize);
 
-	//write the output file
 	FILE *out_file = fopen(argv[2],"wb");
 	if(out_file == NULL){
 		fprintf(stderr,"\tError: Failed to open output file [%s]\n", argv[2]);
@@ -711,20 +738,41 @@ int main(int argc,char **argv){
 	if(rom.header.dependencyLen){//append dependency/data file
 		FILE *datafile = fopen(dependencyFile, "rb");
 		if(datafile){
-			fprintf(stderr,"\tPadding ROM to 60K\n");
-			for(int i=rom.header.progSize+HEADER_SIZE; i<MAX_PROG_SIZE+HEADER_SIZE; i++){
-				fputc(0xFF,out_file);
+			u32 paddedRomSize = MAX_PROG_SIZE + HEADER_SIZE;
+			u32 currentSize = rom.header.progSize + HEADER_SIZE;
+			u32 padLen = 0;
+			u8 padBuf[IO_BUF_SIZE];
+
+			memset(padBuf, 0xFF, sizeof(padBuf));
+
+			if(currentSize < paddedRomSize){
+				padLen = paddedRomSize - currentSize;
 			}
+
+			fprintf(stderr,"\tPadding program area to 60K (+512-byte header)\n");
+			while(padLen){
+				size_t chunk = (padLen > (u32)sizeof(padBuf)) ? sizeof(padBuf) : (size_t)padLen;
+				if(fwrite(padBuf, 1, chunk, out_file) != chunk){
+					fprintf(stderr,"\tError: Failed while padding ROM\n");
+					fclose(datafile);
+					fclose(out_file);
+					return 1;
+				}
+				padLen -= (u32)chunk;
+			}
+
 			fprintf(stderr,"\tDependency file: %s\n", dependencyFile);
 			fprintf(stderr,"\tDependency size: %d\n", rom.header.dependencyLen);
 			fprintf(stderr,"\tTotal Size(ROM+Header+Dependency): %d\n", MAX_PROG_SIZE+HEADER_SIZE+rom.header.dependencyLen);
-			while(!feof(datafile)){
-				fputc(fgetc(datafile), out_file); 
-			}
-			if(ferror(datafile)){
+
+			if(!copy_exact_bytes(datafile, out_file, rom.header.dependencyLen)){
 				fprintf(stderr,"\tError: Failed while appending dependency data\n");
+				fclose(datafile);
+				fclose(out_file);
 				return 1;
 			}
+
+			fclose(datafile);
 		}else{
 			fprintf(stderr,"\tError: Could not process dependency file: %s\n", dependencyFile);
 			return 1;
