@@ -2882,5 +2882,6 @@ vm23_fillcircle_spans:
 ; ---------------------------------------------------------
 DisplayLogo:
 VideoModeVsync:
+	call ProcessFading
 InitializeVideoMode:
 	ret
