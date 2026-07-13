@@ -53,7 +53,6 @@
 .global GetTile
 .global palette
 .global SetPaletteColorAsm
-.global tile_bank
 
 ;Screen Sections Struct offsets
 #define scrollX              0
@@ -98,8 +97,17 @@
 
 	ram_tiles:             .space RAM_TILES_COUNT * (TILE_HEIGHT * TILE_WIDTH / 2) ; 1024
 	palette:               .space 256       ; + 256
-	vram:                  .space VRAM_SIZE ; + 1024
-	                                        ; = 2304 = 0x900 + 0x100 = 0xa00 (Scrolling)
+	vram:                  .space VRAM_SIZE
+	overlay_vram:
+#if OVERLAY_LINES > 0
+	                        .space VRAM_TILES_H * OVERLAY_LINES
+#endif
+#if SCROLLING == 0
+	; The scanline loop prefetches one tile past the visible row.  Scrolling
+	; VRAM naturally has padding, but tightly packed non-scrolling VRAM does
+	; not, so retain one harmless guard byte after all VRAM storage.
+	vram_guard:            .space 1
+#endif
 
 
 .section .bss
@@ -727,8 +735,9 @@ no_ramtiles:
 
 
 
-	lds r2,overlay_tile_table
-	lds r3,overlay_tile_table+1
+	; Non-scrolling mode uses the normal tile table for the complete frame.
+	lds r2,tile_table_lo
+	lds r3,tile_table_hi
 	lds r16,tile_table_lo 
 	lds r17,tile_table_hi
 	movw r12,r16
@@ -794,22 +803,13 @@ next_tile_line:
 	rjmp next_tile_line	
 
 next_tile_row:
-	clr r22		;current char line			;1	
+	clr  r22                         ; current scanline within tile
+	adiw YL, VRAM_TILES_H            ; next tightly packed linear tile row
 
-	;increment vram pointer next row
-	mov r16,YL
-	andi r16,0x7
-	cpi r16,7
-	breq 1f
-	inc YL
-	rjmp 2f
-1:
-	andi YL,0xf8
-	inc YH
-2:
-
-	nop
-
+	; The ordinary-scanline path from the BREQ through its RJMP is 14
+	; cycles.  Keep this row-transition path at the same 14 cycles so HSync
+	; does not shift by one CPU cycle every eighth scanline.
+	WAIT r19, 7
 	rjmp next_tile_line
 
 frame_end:
@@ -868,7 +868,7 @@ render_tile_line:
 	sts _SFR_MEM_ADDR(TCNT1L),r16
 	sei
 
-	lds r18,tile_bank
+	lds r18,tile_table_hi
 	ori r18,1		;set base adress of both ram and rom tiles at 0x100
 
 	mov r24,r22		;Y offset in tiles*tile width in bytes (4)
@@ -880,7 +880,7 @@ render_tile_line:
 	mov r15,r16
 	clr r2
 
-    ld r17,Y     	;load first tile # from VRAM
+    ld r17,Y+    	;load first tile # from linear VRAM
 	bst r17,7		;set T flag with msbit of tile index. 1=rom, 0=ram tile   
 	andi r17,0x7f   ;clear tile index msbit to have both ram/rom tile bases adress at zero	
 	mul r17,r15 	;tile*32	
@@ -894,10 +894,10 @@ render_tile_line:
 
 romloop:
 	ld   r16,X+		;LUT pixel 0
-	subi YL,-8		;VRAM+8
+	nop             	;keep the 48-cycle tile loop cadence
 
 	out VIDEO,r16	;output pixel 0
-	ld 	r17,Y		;load next tile index from VRAM
+	ld 	r17,Y+		;load next tile index from linear VRAM
 	bst r17,7		;set T flag with msbit of tile index. 1=rom, 0=ram tile   
 	ld 	r16,X		;LUT pixel 1
 
@@ -939,10 +939,10 @@ ramloop:
 	out VIDEO,r16   ;output pixel 0
 	ld r16,X      	;LUT pixel 1
 	ldd XL,Z+1      ;load ram pixels 2,3
-	subi YL,-8		;VRAM+8
+	nop             	;keep the 48-cycle tile loop cadence
 
 	out VIDEO,r16   ;output pixel 1
-	ld r17,Y      	;load next tile from VRAM
+	ld r17,Y+     	;load next tile from linear VRAM
 	bst r17,7      	;set T flag with msbit of tile index. 1=rom, 0=ram tile     
 	ld r16,X+      	;LUT pixel 2
   
@@ -1010,7 +1010,11 @@ CopyTileToRam:
 
 	;compute source adress
 	clr ZL				;tile_table_lo
-	lds ZH,screen_tile_bank	;tile_table_hi
+#if SCROLLING == 1
+	lds ZH,screen_tile_bank	;active scrolling section tile bank
+#else
+	lds ZH,tile_table_hi	;configured non-scrolling tile table bank
+#endif
 	ori ZH,1			;add 0x100 offset	
 	mul r24,r18
 	add ZL,r0
