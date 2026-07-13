@@ -30,8 +30,8 @@
 #define VMODE_C_PROTOTYPES "videoMode13/videoMode13.h"
 #define VMODE_FUNC sub_video_mode13
 
-//No scrolling saves RAM and allows a 30x28 screen resolution
-//while scrolling reduces to 28x28 and require vram of at least 32 tiles wide.
+// No scrolling uses linear VRAM and allows up to a 30x28 screen.
+// Scrolling uses a 32-column interleaved VRAM layout.
 #ifndef SCROLLING
 	#define SCROLLING 0
 #endif
@@ -62,6 +62,15 @@
 		#define SCREEN_TILES_H 28
 	#endif
 	#define FILL_DELAY 0
+#endif
+
+
+#if SCROLLING == 0 && VRAM_TILES_H > 30
+	#error Non-scrolling Mode 13 supports at most 30 horizontal tiles.
+#endif
+
+#if SCROLLING == 0 && VRAM_TILES_H < 1
+	#error VRAM_TILES_H must be at least 1.
 #endif
 
 #ifndef SCREEN_TILES_V
