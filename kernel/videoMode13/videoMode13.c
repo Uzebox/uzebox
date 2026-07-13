@@ -562,9 +562,13 @@
 
 
 		//fill
-		for(int i=0;i<(30*28);i++){
+		for(unsigned int i=0;i<VRAM_SIZE;i++){
 			vram[i]=0x80+5;
 		}
+		#if SCROLLING == 0
+		//non-scrolling scanline renderer prefetches one harmless guard tile after the final visible row.
+		vram[VRAM_SIZE+(VRAM_TILES_H*OVERLAY_LINES)]=0x80+5;
+		#endif
 
 	}
 
