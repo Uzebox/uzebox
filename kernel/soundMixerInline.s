@@ -406,12 +406,11 @@ uart2_rx_in:					;6
 	rjmp  uart2_end				;28
 
 uart2_tx_check:					;5
-	ldi   ZL,    lo8(uart_tx_buf)		;6
-	ldi   ZH,    hi8(uart_tx_buf)		;7
-	lds   r18,   uart_tx_tail		;9
-
-	add   ZL,    r18			;10
-	adc   ZH,    r1				;11 r1 = 0
+	lds   r18,   uart_tx_tail		;7
+	mov   ZL,    r18			;8
+	clr   ZH					;9
+	subi  ZL,    lo8(-(uart_tx_buf))	;10
+	sbci  ZH,    hi8(-(uart_tx_buf))	;11
 
 	lds   r0,    _SFR_MEM_ADDR(UCSR0A)	;13
 
