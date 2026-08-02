@@ -32,6 +32,10 @@
  *	  This file must define: font6x8_h:
  */
 
+#ifndef VM23_ENABLE_TEXT
+	#define VM23_ENABLE_TEXT 1
+#endif
+
 .global InitializeVideoMode
 .global DisplayLogo
 .global VideoModeVsync
@@ -49,6 +53,7 @@
 .global SetPalette
 .global SetInvert
 
+#if VM23_ENABLE_TEXT
 .global ArduboySetCursor
 .global ArduboyGetCursorX
 .global ArduboyGetCursorY
@@ -56,6 +61,7 @@
 .global ArduboySetTextColor
 .global ArduboySetTextBackground
 .global ArduboyWrite
+#endif
 
 .global DrawPixel
 .global ArduboyDrawPixel
@@ -75,9 +81,11 @@
 .global ArduboyDrawCircle
 .global ArduboyFillCircle
 
+#if VM23_ENABLE_TEXT
 .global ArduboyPrint
 .global ArduboyPrintU8
 .global ArduboyPrintU16
+#endif
 
 .global __do_copy_data
 .global __do_clear_bss
@@ -113,18 +121,22 @@ front_buffer:
 vm23_front_pad:
 	.space 1
 
+#if VM23_ENABLE_TEXT
 arduboy_cursor_x:
 	.space 2
 arduboy_cursor_y:
 	.space 2
+#endif
 
 .section .data
 fg_color:		.byte 0xff
 bg_color:		.byte 0x00
 invert_flag:	.byte 0x00
 
+#if VM23_ENABLE_TEXT
 text_color:		.byte 0x01		; default WHITE
 text_bg:		.byte 0x00		; default BLACK
+#endif
 
 .section .text
 
@@ -375,11 +387,13 @@ vm23_clear_vram_loop:
 	dec r24
 	brne vm23_clear_vram_loop
 
+#if VM23_ENABLE_TEXT
 	; cursor = 0,0
 	sts arduboy_cursor_x,   r1
 	sts arduboy_cursor_x+1, r1
 	sts arduboy_cursor_y,   r1
 	sts arduboy_cursor_y+1, r1
+#endif
 	ret
 
 
@@ -430,6 +444,7 @@ SetInvert:
 	ret
 
 
+#if VM23_ENABLE_TEXT
 ; ---------------------------------------------------------
 ; ArduboySetCursor(x,y)
 ; s16 x=r25:r24, s16 y=r23:r22
@@ -495,6 +510,7 @@ ArduboyWrite:
 	ldi r24,1
 	ret
 
+#endif
 
 ; ---------------------------------------------------------
 ; DrawPixel(x,y,color) / ArduboyDrawPixel
@@ -2052,6 +2068,7 @@ vm23_drawrect_done:
 	ret
 
 
+#if VM23_ENABLE_TEXT
 ; ---------------------------------------------------------
 ; ArduboyPrintChar5x7 (6x8 cell from font6x8_h)
 ; Uses the existing row-major font, but plots into the native Arduboy
@@ -2441,6 +2458,7 @@ vm23_printu16_emit:
 vm23_printu16_digit_ret:
 	ret
 
+#endif
 
 ; ---------------------------------------------------------
 ; ArduboyDrawLine(x0,y0,x1,y1,color)
@@ -2873,8 +2891,10 @@ vm23_fillcircle_spans:
 ; Put them in gfx.inc so you can add logo data too.
 ; gfx.inc must define: font6x8_h:
 ; ---------------------------------------------------------
+#if VM23_ENABLE_TEXT
 .section .progmem.data
 #include "gfx.inc"
+#endif
 
 
 .section .text
