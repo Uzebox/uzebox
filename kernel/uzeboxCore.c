@@ -786,7 +786,7 @@ char EepromBlockExists(unsigned int blockId, u16* eepromAddr, u8* nextFreeBlockI
 
 	//obsolete
 	u8 UartUnreadCount(){
-		return uart_rx_head-uart_rx_tail;
+    	return (u8)((uart_rx_head-uart_rx_tail)&(UART_RX_BUFFER_SIZE-1));
 	}
 
 	bool IsUartRxBufferEmpty(){
