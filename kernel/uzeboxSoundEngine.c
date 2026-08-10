@@ -78,7 +78,7 @@ u8 step;
 	const char *songPos;
 	const char *songStart;
 	const char *loopStart;
-	
+
 	u16	nextDeltaTime;
 	u16	currDeltaTime;
 
@@ -123,7 +123,7 @@ u8 step;
 	const u16 *patternOffsets;
 	const char *patterns;
 #endif
-		
+
 
 /*
  * Command 00: Set envelope speed per frame +127/-128, 0=no enveloppe
@@ -232,14 +232,14 @@ void PatchCommand10(Track* track, char param){
 void PatchCommand11(Track* track, char param){
 	//slide to note from current note
 	s16 currentStep,targetStep,delta;	
-	
+
 	currentStep=pgm_read_word(&(steptable[track->note]));
 	targetStep=pgm_read_word(&(steptable[track->note+param]));	
 	delta=((targetStep-currentStep)/track->slideSpeed);
 	if(delta==0)delta++;
 
 	mixer.channels.all[track->channel].step+=delta;
-	
+
 	track->slideStep=delta;
 	track->flags|=TRACK_FLAGS_SLIDING;
 	track->slideNote=track->note+param;
@@ -296,7 +296,7 @@ void PatchCommand14(Track* track, char param){
 			while(1){
 				track->patchCommandStreamPos-=3;
 				command=pgm_read_byte(track->patchCommandStreamPos-3+1);
-				
+
 				//if we found the loop point or somehow reached the previous patch, exit
 				if(command==PC_LOOP_START || command==PATCH_END) break;				
 			}
@@ -306,27 +306,51 @@ void PatchCommand14(Track* track, char param){
 }
 #endif
 
+/*
+ * Disabled optional patch commands keep their command-number slots in the
+ * dispatch table. This preserves direct indexed dispatch while allowing
+ * tremolo, slide and loop support to be compiled out independently.
+ */
+#if (NO_PC_TREMOLO != 0 || NO_PC_SLIDE != 0 || NO_PC_LOOP != 0)
+void PatchCommandDummy(Track* track, char param){
+	(void)track;
+	(void)param;
+}
+#endif
+
 const PatchCommand patchCommands[] PROGMEM ={
-&PatchCommand00,
-&PatchCommand01,
-&PatchCommand02,
-&PatchCommand03,
-&PatchCommand04,
-&PatchCommand05,
-&PatchCommand06,
-&PatchCommand07,
-&PatchCommand08,
-#if (NO_PC_TREMOLO == 0 && NO_PC_SLIDE == 0 && NO_PC_LOOP == 0)
+	&PatchCommand00,
+	&PatchCommand01,
+	&PatchCommand02,
+	&PatchCommand03,
+	&PatchCommand04,
+	&PatchCommand05,
+	&PatchCommand06,
+	&PatchCommand07,
+	&PatchCommand08,
+
+#if NO_PC_TREMOLO == 0
 	&PatchCommand09,
 	&PatchCommand10,
+#else
+	&PatchCommandDummy,
+	&PatchCommandDummy,
 #endif
-#if (NO_PC_SLIDE == 0 && NO_PC_LOOP == 0)
+
+#if NO_PC_SLIDE == 0
 	&PatchCommand11,
 	&PatchCommand12,
+#else
+	&PatchCommandDummy,
+	&PatchCommandDummy,
 #endif
-#if (NO_PC_LOOP == 0)
+
+#if NO_PC_LOOP == 0
 	&PatchCommand13,
 	&PatchCommand14
+#else
+	&PatchCommandDummy,
+	&PatchCommandDummy
 #endif
 };
 
@@ -556,20 +580,20 @@ void ProcessMusic(void){
 
 	//Process song MIDI notes
 	if(playSong){
-	
+
 		#if MUSIC_ENGINE == MIDI
-			
+
 			//process all simultaneous events
 			while(currDeltaTime==nextDeltaTime){
 
 				c1=pgm_read_byte(songPos++);
-			
+
 				if(c1==0xff){
 					//META data type event
 
 					c1=pgm_read_byte(songPos++);
 
-				
+
 					if(c1==0x2f){ //end of song
 						playSong=false;
 						break;	
@@ -582,13 +606,13 @@ void ProcessMusic(void){
 							songPos=loopStart;
 						}
 					}
-				
+
 
 				}else{
 
 					if(c1&0x80) lastStatus=c1;					
 					channel=lastStatus&0x0f;
-				
+
 					//get next data byte		
 					if(c1&0x80) c1=pgm_read_byte(songPos++);
 
@@ -598,7 +622,7 @@ void ProcessMusic(void){
 						case 0x90:
 							//c1 = note						
 							c2=pgm_read_byte(songPos++)<<1; //get volume
-						
+
 							if(tracks[channel].flags|TRACK_FLAGS_ALLOCATED){ //allocated==true
 								TriggerNote(channel,tracks[channel].patchNo,c1,c2);
 							}
@@ -608,7 +632,7 @@ void ProcessMusic(void){
 						case 0xb0:
 							///c1 = controller #
 							c2=pgm_read_byte(songPos++); //get controller value
-						
+
 							if(c1==CONTROLER_VOL){
 								tracks[channel].trackVol=c2<<1;
 							}
@@ -620,7 +644,7 @@ void ProcessMusic(void){
 						#if NO_PC_TREMOLO == 0
 							else if(c1==CONTROLER_TREMOLO){
 								tracks[channel].tremoloLevel=c2<<1;
-								
+
 							}else if(c1==CONTROLER_TREMOLO_RATE){
 									tracks[channel].tremoloRate=c2<<1;
 							}
@@ -641,7 +665,7 @@ void ProcessMusic(void){
 				//read next delta time
 				nextDeltaTime=ReadVarLen(&songPos);			
 				currDeltaTime=0;
-		
+
 				#if SONG_SPEED == 1
 					if(songSpeed != 0){
 						u32 l  = (u32)(nextDeltaTime<<8);
@@ -658,11 +682,11 @@ void ProcessMusic(void){
 				#endif
 
 			}//end while
-		
+
 			currDeltaTime++;
-	
+
 		#elif MUSIC_ENGINE == STREAM
-		
+
 			//process all simultaneous events
 			//everything about this format is designed to minimize the size of the most common events
 			if(nextDeltaTime)//eat last frames delay
@@ -695,7 +719,7 @@ void ProcessMusic(void){
 					//c2 = note, c1 = volume
 					if(tracks[channel].flags|TRACK_FLAGS_ALLOCATED)//allocated==true
 						TriggerNote(channel,tracks[channel].patchNo,c2,c1);
-				
+
 				}else{//"channel" is not actually the channel, but an indicator of the command
 					c2 = (c1 &	0b11100000);//determine the actual command type by the "channel" signal
 
@@ -703,10 +727,10 @@ void ProcessMusic(void){
 						channel = (c1 & 0b00000111);//extract actual channel(not the 5 used for signal)
 						c2 = SongBufRead();//get patch
 						tracks[channel].patchNo = c2;
-					
+
 					}else if(c2 ==	0b11000000){//"channel" == 6<<5 indicates Marker						
 						c2 = (c1 & 0b00000011);
-						
+
 						if(c2 == 0b00000000){//Loop End(0b11000000)
 							#if STREAM_MUSIC_RAM == 1//only need to record the loop end for buffer rollover calculations						
 								loopEnd = songPos;
@@ -726,7 +750,7 @@ void ProcessMusic(void){
 						channel = (c1 & 0b00000111);//get the actual channel
 						c2 = (c1 & 0b00011000);//mask the controller type
 						c1 = SongBufRead();//get controller value
-						
+
 						if(c2 == 0b00000000)//Channel Volume
 							tracks[channel].trackVol=c1<<1;
 					#if NO_CHAN_EXPRESSION == 0
@@ -741,7 +765,7 @@ void ProcessMusic(void){
 					#endif
 					}
 				}
-		
+
 				#if SONG_SPEED == 1
 					if(!nextDeltaTime)
 						continue;
@@ -761,9 +785,9 @@ void ProcessMusic(void){
 				#endif
 
 			}//end while
-		
+
 		#else //MOD
-			
+
 
 			u8 patternNo,data, note,data2,flags;
 			u16 tmp1;
@@ -773,7 +797,7 @@ void ProcessMusic(void){
 				for(u8 trackNo=0;trackNo<modChannels;trackNo++){
 					track=&tracks[trackNo];
 					const char* patPos;
-					
+
 					if(currentStep==0){
 						//get pattern order
 						patternNo=pgm_read_byte(songPos+trackNo);
@@ -836,7 +860,7 @@ void ProcessMusic(void){
 								track->noteVol=(pgm_read_byte(patPos++)<<3);
 								patPos+=2; //TODO: skip 2 effects bytes
 								break;
-						
+
 						}
 					}
 					if(note!=0){
@@ -847,7 +871,7 @@ void ProcessMusic(void){
 								TriggerNote(trackNo,track->patchNo,note,track->noteVol);
 							}
 						}
-						
+
 					}
 
 					track->patternPos=patPos;										
@@ -873,8 +897,8 @@ void ProcessMusic(void){
 				}
 			}
 
-			
-	
+
+
 		#endif
 
 	}//end if(playSong)
@@ -924,7 +948,7 @@ void ProcessMusic(void){
 						}else{
 							c1=ReadUART(); //get controller #
 							c2=ReadUART(); //get value
-							
+
 							if(c1==CONTROLER_VOL){
 								tracks[channel].trackVol=c2<<1;
 							}
@@ -981,7 +1005,7 @@ void ProcessMusic(void){
 									UartGoBack(1);
 								}else{
 									c2=ReadUART(); //get value								
-									
+
 									if(c1==CONTROLER_VOL){
 										tracks[channel].trackVol=c2<<1;
 									}
@@ -999,13 +1023,13 @@ void ProcessMusic(void){
 								#endif
 								}
 								break;
-						
+
 							//program change
 							case 0xc0:
 								if(c1==80)c1=8;
 								tracks[channel].patchNo=c1;
 								break;											
-						
+
 						}
 
 				}
@@ -1013,7 +1037,7 @@ void ProcessMusic(void){
 			}
 
 		}
-		
+
 	#endif
 
 
@@ -1038,6 +1062,7 @@ void ProcessMusic(void){
 
 				}else{
 					c2=pgm_read_byte(track->patchCommandStreamPos++);
+
 					//invoke patch command function
 					((PatchCommand)pgm_read_word(&patchCommands[c1]))(track,c2);
 				}
@@ -1068,10 +1093,10 @@ void ProcessMusic(void){
 
 				uVol=(track->noteVol*trackVol)+0x100;
 				uVol>>=8;
-				
+
 				uVol=(uVol*track->envelopeVol)+0x100;
 				uVol>>=8;
-				
+
 				#if MUSIC_ENGINE == MIDI
 					#if NO_CHAN_EXPRESSION == 0
 						uVol=(uVol*track->expressionVol)+0x100;
@@ -1080,7 +1105,7 @@ void ProcessMusic(void){
 					#endif
 					uVol>>=8;
 				#endif
-				
+
 				uVol=(uVol*masterVolume)+0x100;
 				uVol>>=8;
 
@@ -1096,12 +1121,12 @@ void ProcessMusic(void){
 
 						u16 tVol=(track->tremoloLevel*tmp)+0x100;
 						tVol>>=8;
-					
+
 						uVol=(uVol*(0xff-tVol))+0x100;
 						uVol>>=8;
 					}
 				#endif
-			
+
 			}else{
 				uVol=0;
 			}	
@@ -1112,10 +1137,10 @@ void ProcessMusic(void){
 		}else{
 			uVol=0;
 		}
-		
+
 		mixer.channels.all[trackNo].volume=(uVol&0xff);
 	}
-	
+
 }
 
 
@@ -1143,7 +1168,7 @@ unsigned int ReadVarLen(const char **songPos)
 
 #elif MUSIC_ENGINE == STREAM
 	#if STREAM_MUSIC_RAM == 1
-	
+
 	u8 SongBufBytes(){
 		if(songBufIn > songBufOut)
 			return (songBufIn-songBufOut);
@@ -1283,7 +1308,7 @@ void TriggerCommon(Track* track,u8 patch,u8 volume,u8 note){
  */
 void TriggerFx(unsigned char patch,unsigned char volume,bool retrig){
 	unsigned char channel;
-	
+
 	unsigned char type=(unsigned char)pgm_read_byte(&(patchPointers[patch].type));
 
 	//find the channel to play the fx
@@ -1320,10 +1345,10 @@ void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,un
 
 	//allow only other music notes 
 	if((track->flags&TRACK_FLAGS_PLAYING)==0 || (track->flags&TRACK_FLAGS_PRIORITY)==0){
-			
+
 		if(volume==0){ //note-off received
 
-			
+
 			//cut note if there's no envelope & no note hold
 			if(track->envelopeStep==0 && !(track->flags&TRACK_FLAGS_HOLD_ENV)){
 				track->noteVol=0;
@@ -1331,7 +1356,7 @@ void TriggerNote(unsigned char channel,unsigned char patch,unsigned char note,un
 
 			track->flags&=(~TRACK_FLAGS_HOLD_ENV);//patchEnvelopeHold=false;
 		}else{
-		
+
 			track->flags=0;//&=(~TRACK_FLAGS_PRIORITY);// priority=0;
 			track->patchCommandStreamPos = NULL;
 			TriggerCommon(track,patch,volume,note);
