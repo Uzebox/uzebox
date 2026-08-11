@@ -135,6 +135,11 @@
 						.space 1
 
 	vsync_counter:		.space 2
+
+	joypad1_status_lo_t:	.space 1
+						.space 1
+	joypad2_status_lo_t:	.space 1
+						.space 1
 	
 #if TRUE_RANDOM_GEN == 1
 	random_value:			.space 2
@@ -370,6 +375,7 @@ push_loop:
 
 	call VMODE_FUNC		;TCNT1=0x234
 
+
 	;pop r1-r29
 	ldi ZL,1
 	clr ZH
@@ -383,7 +389,109 @@ no_render:
 
 	;check if it's the last hsync pulse and we are 
 	;ready for VSYNC
+
+
+	#if (SLOW_CONTROLLERS == 1) && (CONTROLLERS_VSYNC_READ == 1)
+
+	; Read the controllers slowly during 18 scanline after SLOW_CONTROLLER_LINE
+	; ZL contains lines until transfer to video (0), which are used the
+	; following manner:
+	; SLOW_CONTROLLER_LINE    : Raise controller latch pin
+	; SLOW_CONTROLLER_LINE - 1: Release controller latch pin
+	; SLOW_CONTROLLER_LINE - 1 .. -16: Read controller data bits
+	; The clock is normally kept low. Rising edges advance the shifer in
+	; the controller.
+
 	lds ZL,sync_pulse
+	cpi   ZL,      SLOW_CONTROLLER_LINE
+	brne  sync_ctrl_rd
+
+	; Check if controller is connected
+	clr   ZL
+	sbis  _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA1_PIN
+	ori   ZL, 1
+
+	sbis  _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA2_PIN
+	ori   ZL, 2
+	sts   joypadsConnectionStatus, ZL
+	
+	; Raise controller latch pin (maybe repeatedly for multiple scanlines,
+	; it doesn't really matter); also this path contains the first
+	; scanline after VSync, so also reprogram timer as needed.
+
+	sbi   _SFR_IO_ADDR(JOYPAD_OUT_PORT), JOYPAD_LATCH_PIN
+	rjmp  sync_ret
+
+
+	; Read controller data bits. Do this along with pushing the sbi of the
+	; clock as far back as possible to get a nice wide pulse.
+	; Carry is set on entry (enters with a brcs)
+sync_ctrl_rd:
+	cpi   ZL, SLOW_CONTROLLER_LINE
+	brcc  sync_ret
+	cpi   ZL,      SLOW_CONTROLLER_LINE - 16      ; already read all bits, so skip
+	brcs  sync_ret
+
+	; clear clock pin
+	cbi   _SFR_IO_ADDR(JOYPAD_OUT_PORT), JOYPAD_CLOCK_PIN
+
+	; Release controller latch pin when ZL (line counter) equals 17.
+	cbi   _SFR_IO_ADDR(JOYPAD_OUT_PORT), JOYPAD_LATCH_PIN
+
+	lds   r0,      joypad1_status_lo_t + 0
+	lds   r1,      joypad1_status_lo_t + 1
+	clc
+	sbis  _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA1_PIN
+	sec
+	ror   r1
+	ror   r0
+	sts   joypad1_status_lo_t + 0, r0
+	sts   joypad1_status_lo_t + 1, r1
+	cpi   ZL, SLOW_CONTROLLER_LINE - 16
+	brne  sync_ctrl_rd1c
+	sts   joypad1_status_lo   + 0, r0
+	sts   joypad1_status_lo   + 1, r1
+	mov   ZL, r0 ; joypad1_status_lo + 0 
+	cpi   ZL, (BTN_START | BTN_SELECT | BTN_Y | BTN_B)
+	brne  sync_ctrl_rd1c
+	jmp   SoftReset
+sync_ctrl_rd1c:
+#if (P2_DISABLE == 0)
+	lds   r0, joypad2_status_lo_t + 0
+	lds   r1, joypad2_status_lo_t + 1
+	clc
+	sbis  _SFR_IO_ADDR(JOYPAD_IN_PORT), JOYPAD_DATA2_PIN
+	sec
+	ror   r1
+	ror   r0
+	sts   joypad2_status_lo_t + 0, r0
+	sts   joypad2_status_lo_t + 1, r1
+	cpi   ZL, SLOW_CONTROLLER_LINE - 16
+	brne  sync_ctrl_rd2c
+	sts   joypad2_status_lo   + 0, r0
+	sts   joypad2_status_lo   + 1, r1
+
+	mov   ZL, r0 ; joypad1_status_lo + 0 
+	cpi   ZL, (BTN_START | BTN_SELECT | BTN_Y | BTN_B)
+	brne  sync_ctrl_rd2c
+	jmp   SoftReset
+
+sync_ctrl_rd2c:
+#endif
+	lpm   ZL,      Z
+	lpm   ZL,      Z
+	lpm   ZL,      Z
+	sbi   _SFR_IO_ADDR(JOYPAD_OUT_PORT), JOYPAD_CLOCK_PIN
+
+	; Done
+
+	rjmp  sync_ret
+#endif
+sync_ret:
+	lds ZL,sync_pulse
+
+;----Test_ENDE----
+
 	cpi ZL,0
 	breq .+2
 	rjmp sync_end
@@ -392,6 +500,7 @@ no_render:
 ; Process VSYNC stuff
 ;***************************************************
 	
+
 	;push C-call registers
 	push r18
 	push r19
@@ -407,13 +516,12 @@ no_render:
 	sei ;must enable ints for re-entrant sync pulses
 	clr r1
 
+
 	;set vsync flags
 	clr ZL
 	sts sync_phase,ZL
 	ldi ZL,SYNC_PRE_EQ_PULSES+SYNC_EQ_PULSES+SYNC_POST_EQ_PULSES
 	sts sync_pulse,ZL
-
-
 
 	;increment the vsync counter
 	lds r24,vsync_counter
@@ -432,7 +540,7 @@ no_render:
 	icall
 
 	;refresh buttons states
-	#if CONTROLLERS_VSYNC_READ == 1
+	#if (CONTROLLERS_VSYNC_READ == 1) && (SLOW_CONTROLLERS == 0)
 		call ReadControllers
 	#endif 
 	
@@ -450,6 +558,7 @@ no_render:
 	cpc ZH,r1
 	breq .+2 
 	icall
+
 
 	#if SNES_MOUSE == 1
 		call ReadMouseExtendedData
