@@ -1,12 +1,4 @@
-<img src="http://uzebox.org/belogic.com/uzebox/images/new_banner3.jpg"
- alt="Uzebox logo" />
-<img src="https://uzebox.org/belogic.com/uzebox/images/thumbs/case_thumb.gif" height="74px"  />
-<img src="https://uzebox.org/belogic.com/uzebox/images/games/donkeykong.png"  />
-<img src="https://uzebox.org/belogic.com/uzebox/images/games/alterego.png"  />
-<img src="https://uzebox.org/belogic.com/uzebox/images/games/ghostyghost.png"  />
-<img src="https://uzebox.org/belogic.com/uzebox/images/games/loderunner.png"  />
-<img src="https://uzebox.org/belogic.com/uzebox/images/games/mellisretroland.png"  />
-
+<img src="gfx/new_banner3.jpg" alt="Uzebox logo" /> <img src="gfx/case_thumb.gif" height="74px"  /> <img src="gfx/donkeykong.png"  /> <img src="gfx/alterego.png"  /> <img src="gfx/ghostyghost.png"  /> <img src="gfx/loderunner.png"  /> <img src="gfx/mellisretroland.png"  />
 
 The Uzebox is an open source, retro-minimalist game console design. It is based on an AVR 8-bit general purpose microcontroller made by Atmel. The particularity of the system is that it's based on an interrupt driven engine and has no frame buffer. Functions such as video sync generation, tile rendering and music mixing is done realtime in software by a background task so games can easily be developed in C. The design goal was to be as simple as possible yet have good enough sound and graphics while leaving enough resources to implement interesting games. Emphasis was put on making it easy and fun to assemble and program for any hobbyists. The final design contains only two chips: an ATmega644 and an AD725 RGB-to-NTSC converter.
 
