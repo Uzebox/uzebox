@@ -222,12 +222,18 @@ update_sound:
 	add   r1,      ZH      ; Add sample to mix buffer lsb
 	adc   r0,      ZL      ; Adjust mix buffer msb
 
+	; Noise lock fix (issue #132): the three delay lpm below must target ZH, never ZL.
+	; ZL holds the divider stored at ch4_end. With 'lpm ZL,Z' (since ddc078a, 2018) the
+	; divider became a flash byte from page ZH (the noise sample), so any patch with a
+	; divider >= 1 corrupted it; with 0xFF past the program the LFSR stopped shifting and
+	; the channel stayed silent until reset. ZH is dead here: both paths after ch4_end
+	; load it before reading it. Timing unchanged (3 x 3 cycles).
 	lds   ZL,      tr4_divider ; load the divider
 	subi  ZL,      2       ; Decrement bits 1..7 leaving bit 0 untouched by subtracting 2
-	brcs  ch4_shift        ; if not enough ticks have elapsed then don't shift the LFSR
-	lpm   ZL,      Z
-	lpm   ZL,      Z
-	lpm   ZL,      Z
+	brcs  ch4_shift        ; Borrow: divider was 0, so shift the LFSR and reload it
+	lpm   ZH,      Z       ; 9 cycles of delay; must not touch ZL (see above)
+	lpm   ZH,      Z
+	lpm   ZH,      Z
 	rjmp  ch4_end
 
 ch4_shift:
