@@ -573,12 +573,32 @@
 	}
 
 	//Callback invoked during hsync
+	#ifdef MODE13_USER_SPRITES
+		/* the game composes its own sprites into ram tiles (see Crystal Raider) */
+		extern void MODE13_USER_SPRITES(void);
+	#endif
+
 	void VideoModeVsync(){
 		
 		ProcessFading();
+	#ifdef MODE13_USER_SPRITES
+		MODE13_USER_SPRITES();
+	#else
 		ProcessSprites();
+	#endif
 
 	}
+
+	#if SCROLLING == 0
+	extern u8 row_bank[];
+	/* Use another flash tile table for one tile row (non-scrolling only).
+	   Flash tiles are fetched from ((table>>8)|1)<<8, so a table must start on an
+	   odd 256 byte page (the main one is at 0x100), and rows using a table other
+	   than the main one must not contain ram tiles. */
+	void SetTileTableRow(u8 row, const char *table){
+		row_bank[row] = ((u16)table) >> 8;
+	}
+	#endif
 
 	void SetPalette(const u8* data, u8 numColors)
 	{

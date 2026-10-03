@@ -65,3 +65,7 @@ extern u8 GetTile(u8 x,u8 y);
 
 void SetPalette(const u8* data, u8 numColors);
 void SetPaletteColor(u8 index, u8 color);
+#if SCROLLING == 0
+void SetTileTableRow(u8 row, const char *table);
+#endif
+
