@@ -35,6 +35,9 @@
 .global TIMER1_OVF_vect
 .global vram
 .global ram_tiles
+#if SCROLLING == 0
+.global row_bank
+#endif
 .global ram_tiles_restore
 .global sprites
 .global overlay_vram
@@ -108,6 +111,11 @@
 	; not, so retain one harmless guard byte after all VRAM storage.
 	vram_guard:            .space 1
 #endif
+#ifdef MODE13_USER_RAM
+	; game data kept in this section (it is padded to 256 bytes anyway)
+	.global user_ram
+	user_ram:              .space MODE13_USER_RAM
+#endif
 
 
 .section .bss
@@ -115,12 +123,21 @@
 	.align 1
 
 	sprites:               .space SPRITE_STRUCT_SIZE * MAX_SPRITES
+#ifdef MODE13_RESTORE_COUNT
+	; the game uses only the first MODE13_RESTORE_COUNT ram tiles for sprites
+	ram_tiles_restore:     .space MODE13_RESTORE_COUNT * 3
+#else
 	ram_tiles_restore:     .space RAM_TILES_COUNT * 3 ; vram addr | Tile
+#endif
 
 	sprites_tile_banks:    .space 8
 	tile_table_lo:         .space 1
 	tile_table_hi:         .space 1
 	font_tile_index:       .space 1
+#if SCROLLING == 0
+	; per tile row flash tile bank (high byte of the tile table address), see SetTileTableRow()
+	row_bank:              .space SCREEN_TILES_V
+#endif
 
 	; ScreenType struct members
 
@@ -688,7 +705,8 @@ TIMER1_OVF_vect:
 sub_video_mode13:
 
 	;wait cycles to align with next hsync
-	WAIT r16,38+15
+	;(8 cycles are used below to set up the per row tile banks)
+	WAIT r16,38+15-8
 
 
 	;Refresh ramtiles indexes in VRAM 
@@ -742,6 +760,14 @@ no_ramtiles:
 	lds r17,tile_table_hi
 	movw r12,r16
 	movw r6,r16
+
+	; per row tile banks: row 0 now, the next rows at each tile row change (r13:r12 = &row_bank[1])
+	ldi r16,lo8(row_bank+1)		;1
+	mov r12,r16			;1
+	ldi r16,hi8(row_bank+1)		;1
+	mov r13,r16			;1
+	lds r16,row_bank		;2
+	sts tile_table_hi,r16		;2
 
 	ldi r24,SCREEN_TILES_V
 	ldi YL,lo8(vram)
@@ -809,7 +835,12 @@ next_tile_row:
 	; The ordinary-scanline path from the BREQ through its RJMP is 14
 	; cycles.  Keep this row-transition path at the same 14 cycles so HSync
 	; does not shift by one CPU cycle every eighth scanline.
-	WAIT r19, 7
+	; The 7 spare cycles load the tile bank of the new row.
+	movw ZL, r12                     ; 1
+	ld   r19, Z+                     ; 2
+	movw r12, ZL                     ; 1
+	sts  tile_table_hi, r19          ; 2
+	nop                              ; 1
 	rjmp next_tile_line
 
 frame_end:
@@ -880,6 +911,101 @@ render_tile_line:
 	mov r15,r16
 	clr r2
 
+#ifdef MODE13_RAM_BELOW
+	/* tile index < RAM_TILES_COUNT: ram tile, else a flash tile at bank + index * 32 (the
+	   main bank, the only one with ram tiles, must be at 0x100): RAM_TILES_COUNT more flash
+	   tiles than with bit 7.  The ram/rom test is on the high byte of the tile address. */
+    ld r17,Y+    	;load first tile # from linear VRAM
+	ldi r20,1+RAM_TILES_COUNT/8	;high address byte of the first flash tile (main bank)
+	mul r17,r15 	;tile*32	
+    add r0,r24    	;add row offset to tile table addr
+	adc r1,r18		;add tile bank offset
+	movw ZL,r0
+	cpi ZH,1+RAM_TILES_COUNT/8	;C set: ram tile
+
+	lpm XL,Z+       ;load rom pixels 0,1
+	brcs ramloop
+	rjmp .
+
+romloop:
+	ld   r16,X+		;LUT pixel 0
+	nop             	;keep the 48-cycle tile loop cadence
+
+	out VIDEO,r16	;output pixel 0
+	ld 	r17,Y+		;load next tile index from linear VRAM
+	nop
+	ld 	r16,X		;LUT pixel 1
+
+	out VIDEO,r16   ;output pixel 1
+	lpm XL,Z+		;load rom pixels 2,3
+	ld  r16,X+      ;LUT pixel 2
+
+	out VIDEO,r16   ;output pixel 2
+	mul r17,r15     ;tile index * 32
+	add r0,r24		;add Y tile offset (no carry: tile * 32 + 0..28)
+	ld   r16,X      ;LUT pixel 3
+
+	out VIDEO,r16   ;output pixel 3
+	lpm XL,Z+		;load rom pixels 4,5
+	ld   r16,X+     ;LUT pixel 4
+
+	out VIDEO,r16   ;output pixel 4
+	ld   r16,X      ;LUT pixel 5
+	lpm XL,Z		;load rom pixels 6,7   
+
+	out VIDEO,r16   ;output pixel 5
+	ld   r16,X+     ;LUT pixel 6
+	ld   r17,X      ;LUT pixel 7
+	movw ZL,r0      ;copy next tile address
+
+	out VIDEO,r16   ;output pixel 6
+	add ZH,r18		;add tile bank offset
+	cp ZH,r20		;C set: ram tile
+	lpm XL,Z+       ;load rom pixels 0,1
+	 
+mainloop:
+	out VIDEO,r17	;output pixel 7 (ram & rom)
+	brcc romloop
+
+ramloop: 
+	ld XL,-Z		;load ram pixels 0,1
+	ld r16,X+		;LUT pixel 0
+
+	out VIDEO,r16   ;output pixel 0
+	ld r16,X      	;LUT pixel 1
+	ldd XL,Z+1      ;load ram pixels 2,3
+	nop             	;keep the 48-cycle tile loop cadence
+
+	out VIDEO,r16   ;output pixel 1
+	ld r17,Y+     	;load next tile from linear VRAM
+	nop
+	ld r16,X+      	;LUT pixel 2
+  
+	out VIDEO,r16   ;output pixel 2
+	mul r17,r15     ;tile index * 32
+	ld r16,X      	;LUT pixel 3
+	add r0,r24		;add Y tile offset
+     
+	out VIDEO,r16   ;output pixel 3
+	ldd XL,Z+2      ;load ram pixels 4,5
+	ld r16,X+      	;LUT pixel 4
+	adc r1,r18		;add tile bank offset
+
+	out VIDEO,r16   ;output pixel 4
+	ld r16,X      	;LUT pixel 5
+	ldd XL,Z+3      ;load ram pixels 6,7
+	cp r1,r20		;C set: ram tile
+
+	out VIDEO,r16   ;output pixel 5
+	ld r16,X+      	;LUT pixel 6
+	ld r17,X      	;LUT pixel 7
+	movw ZL,r0      ;copy tile pointer
+
+	out VIDEO,r16   ;output pixel 6
+	lpm XL,Z+      	;load rom pixels 0,1
+	rjmp mainloop	
+
+#else
     ld r17,Y+    	;load first tile # from linear VRAM
 	bst r17,7		;set T flag with msbit of tile index. 1=rom, 0=ram tile   
 	andi r17,0x7f   ;clear tile index msbit to have both ram/rom tile bases adress at zero	
@@ -970,6 +1096,8 @@ ramloop:
 	lpm XL,Z+      	;load rom pixels 0,1
 	rjmp mainloop	
 
+
+#endif
 
 ;end of render line   
 TIMER1_OVF_vect:
@@ -1638,6 +1766,14 @@ SetTile:
 SetTileTable:
 	sts tile_table_lo,r24
 	sts tile_table_hi,r25	
+#if SCROLLING == 0
+	ldi ZL,lo8(row_bank)
+	ldi ZH,hi8(row_bank)
+	ldi r18,SCREEN_TILES_V
+1:	st Z+,r25
+	dec r18
+	brne 1b
+#endif
 	ret
 
 
