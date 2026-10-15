@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <fstream>
 
 #define HEADER_VERSION 1
@@ -97,8 +98,11 @@ typedef struct{
 	u8 jamma;				// 0x194: JAMMA Options(Rotation/Mirroring)
 	u32 dependencyLen;		// 0x195-0x198: Length of appended dependency/data file
 	u8 spiRamBanks;			// 0x199: Ideal SPI RAM size(in 64K banks, emulation behavior on start)
-	u8 reserved[107];		// 0x19A-0x1FF: Future use
+	u8 sdTiming;			// 0x19A: 0=unspecified, 1=slow, 2=normal, 3=fast; 4..255 reserved
+	u8 reserved[101];		// 0x19B-0x1FF: Future use
 }RomHeader;
+static_assert(sizeof(RomHeader) == HEADER_SIZE, "UZE header must be 512 bytes");
+static_assert(offsetof(RomHeader, sdTiming) == 0x19A, "SD timing byte moved");
 
 union ROM{
 	u8 progmem[MAX_PROG_SIZE+HEADER_SIZE];
@@ -409,6 +413,12 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 		fprintf(out_file2, "dependency=%s\n", out_filename3);
 
 	fprintf(out_file2, "spiram=%d\n", (u32)(rom.header.spiRamBanks));
+	if(rom.header.sdTiming == 1)
+		fprintf(out_file2, "sd=slow\n");
+	else if(rom.header.sdTiming == 2)
+		fprintf(out_file2, "sd=normal\n");
+	else if(rom.header.sdTiming == 3)
+		fprintf(out_file2, "sd=fast\n");
 	if(rom.header.spiRamBanks)
 		rom.header.psupport |= PERIPHERAL_SPIRAM;//mark as supported if banks were specified(no default for SPI RAM, only bank count)
 
@@ -520,12 +530,24 @@ int main(int argc,char **argv){
 	}
 	chksum_crc32gentab();
 	memset((void *)&rom.header, 0x00 , HEADER_SIZE);
+	if(mode == 1){
+		if(!strcmp(argv[1], argv[2])){
+			fprintf(stderr,"Patch input and output must be different files.\n"); return 1;
+		}
+		FILE *original = fopen(argv[1], "rb");
+		if(!original || fread(&rom.header, 1, HEADER_SIZE, original) != HEADER_SIZE || memcmp(rom.header.marker, "UZEBOX", 6)){
+			if(original) fclose(original);
+			fprintf(stderr,"Invalid input UZE header.\n"); return 1;
+		}
+		fclose(original);
+	}
 
 	//parse the games properties file
 	FILE *file = fopen (argv[3], "r");
 	if(file){
 		char line [128];
 		while(fgets( line, sizeof(line), file ) != NULL){ /* read a line */
+			line[strcspn(line, "\r\n")] = 0;
 			if(!strncmp(line,"#",1)){
 				continue;//ignore comment line
 
@@ -600,6 +622,18 @@ int main(int argc,char **argv){
 				rom.header.psupport |= PERIPHERAL_ESP8266_AP;
 				rom.header.pdefault |= PERIPHERAL_ESP8266_AP;
 				fprintf(stderr,"\tESP8266 AP: Default\n");
+
+			}else if(!strcmp(line,"sd=slow")){
+				rom.header.sdTiming=1;
+				fprintf(stderr,"\tSD timing hint: Slow\n");
+
+			}else if(!strcmp(line,"sd=normal")){
+				rom.header.sdTiming=2;
+				fprintf(stderr,"\tSD timing hint: Normal\n");
+
+			}else if(!strcmp(line,"sd=fast")){
+				rom.header.sdTiming=3;
+				fprintf(stderr,"\tSD timing hint: Fast\n");
 
 			}else if(!strncmp(line,"spiram=",7)){//bank count
 				rom.header.spiRamBanks=(u8) strtoul(line+7,NULL,10);
@@ -736,8 +770,12 @@ int main(int argc,char **argv){
 	}
 
 	if(rom.header.dependencyLen){//append dependency/data file
-		FILE *datafile = fopen(dependencyFile, "rb");
+		bool keepDependency = mode == 1 && dependencyFile[0] == 0;
+		FILE *datafile = fopen(keepDependency ? argv[1] : dependencyFile, "rb");
 		if(datafile){
+			if(keepDependency && fseek(datafile, MAX_PROG_SIZE + HEADER_SIZE, SEEK_SET)){
+				fclose(datafile); fclose(out_file); return 1;
+			}
 			u32 paddedRomSize = MAX_PROG_SIZE + HEADER_SIZE;
 			u32 currentSize = rom.header.progSize + HEADER_SIZE;
 			u32 padLen = 0;
