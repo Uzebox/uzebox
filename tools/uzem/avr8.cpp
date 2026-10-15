@@ -316,8 +316,13 @@ inline void avr8::write_io(u8 addr,u8 value)
 }
 
 // Should not be called directly, use write_io instead (pixel output!)
+/* AVR: the instruction after one that sets the I flag (SEI, OUT/STS to SREG) always
+   executes before an interrupt is taken.  avr-gcc relies on it when it updates the
+   stack pointer (out SPH / out SREG / out SPL). */
+static unsigned long long instr_count, irq_hold=~0ULL;
 void avr8::write_io_x(u8 addr,u8 value)
 {
+	if(addr==ports::SREG && (value&0x80) && !(SREG&0x80)) irq_hold=instr_count;
 	u8 changed;
 	u8 went_low;
 
@@ -969,7 +974,7 @@ inline void avr8::update_hardware_ins()
 
 	// Process interrupts in order of priority
 
-	if(SREG & (1<<SREG_I))
+	if((SREG & (1<<SREG_I)) && (irq_hold==~0ULL || instr_count>irq_hold+1))
 	{
 		// Note (Jubatian):
 		// The SD card's SPI interrupt trigger was within the SPI
@@ -1106,6 +1111,7 @@ instructionList_t instructionList[] = {
 
 unsigned int avr8::exec()
 {
+	instr_count++;
 
 	currentPc=pc;
 	const instructionDecode_t insnDecoded = progmemDecoded[pc];
@@ -1254,6 +1260,7 @@ unsigned int avr8::exec()
 
 		case  12: // 1001 0100 0sss 1000		(1) BSET s (SEC, etc are aliases with sss implicit)
 			Rd = arg1_8;
+			if(Rd==7 && !(SREG&0x80)) irq_hold=instr_count;
 			SREG |= (1U << Rd);
 			break;
 
