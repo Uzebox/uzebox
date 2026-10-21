@@ -31,6 +31,7 @@
 #include "terminal.h"
 #include "computer.h"
 #include "uzenet_setup.h"
+#include "netstat.h"
 
 #define TERMINAL &TERMINAL_STREAM
 
@@ -44,6 +45,7 @@ void vsyncCallback(){
 	wifi_VsyncCallback();		//used to handle timeouts
 	telnet_VsyncCallback();		//used to advance the progress bar
 	terminal_VsyncCallback();	//used to poll the keyboard
+	netstat_VsyncCallback();	//used to advance the progress bar
 }
 
 /**
@@ -56,6 +58,10 @@ int main(){
 	terminal_Clear();
 	terminal_SetCursorVisible(true);
 	stdout = &TERMINAL_STREAM;  //bind the terminal receiver to stdout
+
+
+	//uzenet_netstat();
+	//while(1);
 
 	//Uncomment this block to build a standalone uzenet_setup rom
 	#if UZENET_SETUP == 1

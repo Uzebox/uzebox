@@ -301,7 +301,7 @@
 	sec_off:	.space 1	;offset of the 128 sector in the 512 bytes sector
 
 	ram_size:	.space 1	;SPI RAM size detected 0=64K, 1=128K
-	cache:		.space 256
+	;cache:		.space 256
 
 	halt: 		.space 1
 	debug:		.space 1

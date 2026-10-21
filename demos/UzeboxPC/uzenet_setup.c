@@ -188,7 +188,7 @@ int load_Config_File(){
 /**
  *
  */
-void quit(int status){
+static void quit(int status){
 	printf_P(PSTR("\x1b[0m")); //insure inverse video is off
 
 	if(status!=UZENET_NOCHANGE){

@@ -20,6 +20,7 @@
 #include <petitfatfs/pff.h>
 #include <petitfatfs/diskio.h>
 #include "uzenet.h"
+#include "netstat.h"
 #include "computer.h"
 #include "telnet.h"
 #include "uzenet_setup.h"
@@ -267,6 +268,9 @@ void computer_RunNativeApp(u8 appId){
 			break;
 		case 1:
 			uzenet_Setup();
+			break;
+		case 2:
+			uzenet_netstat();
 			break;
 		default:
 			printf_P(PSTR("\r\nError: Unknown native application with ID:%d\r\n"),appId, res);
