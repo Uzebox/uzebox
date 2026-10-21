@@ -1,0 +1,86 @@
+(footprint "6000-XXXX-RC"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Radial Lead RF Chokes\n\nSource: www.bourns.com .. 6000_series.pdf")
+	(property "Reference" "REF**"
+		(at -4.5056 -4.6326 0)
+		(layer "F.SilkS")
+		(uuid "fcb75608-eb5b-45ee-b5ac-4f265c61e9c4")
+		(effects
+			(font
+				(size 1.1684 1.1684)
+				(thickness 0.1016)
+			)
+			(justify left bottom)
+		)
+	)
+	(property "Value" "6000-XXXX-RC"
+		(at -4.5056 6.4106 0)
+		(layer "F.Fab")
+		(uuid "9409217c-9f57-4194-ab78-7536febab06c")
+		(effects
+			(font
+				(size 1.1684 1.1684)
+				(thickness 0.1016)
+			)
+			(justify left bottom)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "c012c858-8ab0-4506-a23e-2ed66d5065e1")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "92197cdf-ee7f-49e7-97b8-58edc184b29a")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_circle
+		(center 0 0)
+		(end 4.4 0)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "c750bd40-74e1-4560-992e-d9626e092900")
+	)
+	(pad "1" thru_hole circle
+		(at -2.5 0)
+		(size 1.4224 1.4224)
+		(drill 0.9)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(solder_mask_margin 0.0508)
+		(thermal_bridge_angle 0)
+		(uuid "5845e245-ddf1-4769-a7e4-6810dc5107f2")
+	)
+	(pad "2" thru_hole circle
+		(at 2.5 0)
+		(size 1.4224 1.4224)
+		(drill 0.9)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(solder_mask_margin 0.0508)
+		(thermal_bridge_angle 0)
+		(uuid "8ab6968a-aa70-4d08-a0b0-36e3dd205fb9")
+	)
+	(embedded_fonts no)
+)
