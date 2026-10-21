@@ -543,6 +543,21 @@ void DisplayUsage(){
 	fprintf(stderr,"Bootloader5 supports full-width names/authors; the original Bootloader does not.\n");
 }
 
+// Compare the filename suffix, not text in a directory or an earlier suffix.
+// Extensions are ASCII; avoid platform-specific case-insensitive string APIs.
+static bool has_extension(const char *path,const char *extension){
+	size_t pathLength=strlen(path);
+	size_t extensionLength=strlen(extension);
+	if(pathLength<extensionLength) return false;
+	const char *suffix=path+pathLength-extensionLength;
+	for(size_t i=0;i<extensionLength;i++){
+		unsigned char c=(unsigned char)suffix[i];
+		if(c>='A' && c<='Z') c=(unsigned char)(c-'A'+'a');
+		if(c!=(unsigned char)extension[i]) return false;
+	}
+	return true;
+}
+
 int main(int argc,char **argv){
 
 	bool fullWidthText=false;
@@ -571,13 +586,13 @@ int main(int argc,char **argv){
 		return -1;
 	}
 
-	if(strstr(argv[1], ".uze") != NULL && strstr(argv[2], ".hex") != NULL){//extract the ROM image to an output .uze and .info file(and data/icon files if present)
+	if(has_extension(argv[1], ".uze") && has_extension(argv[2], ".hex")){//extract the ROM image to an output .uze and .info file(and data/icon files if present)
 		if(!extract_hex(argv[1], argv[2], ((argc>3)?argv[3]:"extracted.properties"), ((argc>4)?argv[4]:"extracted.dat"),((argc>5)?argv[5]:"extracted.raw")))
 			return -1;
 		return 0;
 	}
 	int mode = 0;//default create mode
-	if(strstr(argv[1], ".uze") != NULL){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
+	if(has_extension(argv[1], ".uze")){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
 		if(argc < 4){
 			fprintf(stderr,"\n\tPatch mode requires: [input.uze] [output.uze] [patch.properties]\n\n");
 			DisplayUsage();
