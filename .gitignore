@@ -35,3 +35,7 @@ MovieDemo
 cad/Enclosures/Uzebox-PC/V1.0/assets/image1.png
 
 cad/Enclosures/Uzebox-PC/V1.0/readme.md
+
+# KiCad lock files and local history
+*.lck
+.history
