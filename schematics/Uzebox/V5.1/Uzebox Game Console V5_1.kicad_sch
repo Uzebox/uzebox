@@ -9396,7 +9396,7 @@
 	)
 	(wire
 		(pts
-			(xy 58.42 74.93) (xy 58.42 66.04)
+			(xy 58.42 74.93) (xy 58.42 57.15)
 		)
 		(stroke
 			(width 0)
@@ -10086,6 +10086,16 @@
 	)
 	(wire
 		(pts
+			(xy 41.91 73.66) (xy 40.64 73.66)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "6cc77b87-bdc4-464a-b0cf-a45e179f0c91")
+	)
+	(wire
+		(pts
 			(xy 55.88 162.56) (xy 63.5 162.56)
 		)
 		(stroke
@@ -10176,7 +10186,7 @@
 	)
 	(wire
 		(pts
-			(xy 77.47 64.77) (xy 77.47 71.12)
+			(xy 77.47 57.15) (xy 77.47 71.12)
 		)
 		(stroke
 			(width 0.1524)
@@ -10376,7 +10386,7 @@
 	)
 	(wire
 		(pts
-			(xy 68.58 64.77) (xy 68.58 71.12)
+			(xy 68.58 57.15) (xy 68.58 71.12)
 		)
 		(stroke
 			(width 0.1524)
@@ -10876,16 +10886,6 @@
 	)
 	(wire
 		(pts
-			(xy 43.18 73.66) (xy 40.64 73.66)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "a70e50fa-61e7-40a2-aad9-38f31fea7cf5")
-	)
-	(wire
-		(pts
 			(xy 309.88 139.7) (xy 312.42 139.7)
 		)
 		(stroke
@@ -11143,16 +11143,6 @@
 			(type solid)
 		)
 		(uuid "bf6163a6-0210-4f41-9ddd-4452200007c3")
-	)
-	(wire
-		(pts
-			(xy 43.18 64.77) (xy 43.18 73.66)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "c0028076-7b21-46ef-91d8-5013a41cb5b4")
 	)
 	(wire
 		(pts
@@ -11576,6 +11566,16 @@
 	)
 	(wire
 		(pts
+			(xy 41.91 57.15) (xy 41.91 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d9cd3ff7-4101-4828-acb9-2a55ae921273")
+	)
+	(wire
+		(pts
 			(xy 48.26 198.12) (xy 39.37 198.12)
 		)
 		(stroke
@@ -11733,6 +11733,16 @@
 			(type solid)
 		)
 		(uuid "ea6c0bfa-4c6c-4e55-87b7-122ed3359425")
+	)
+	(wire
+		(pts
+			(xy 41.91 69.85) (xy 41.91 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eb627a6c-d0a0-4843-bc19-060aeabd4f81")
 	)
 	(wire
 		(pts
@@ -12176,7 +12186,7 @@
 	)
 	(global_label "MOSI"
 		(shape input)
-		(at 68.58 64.77 90)
+		(at 68.58 57.15 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -12186,7 +12196,7 @@
 		)
 		(uuid "043f58f9-ec84-4de1-8e93-adb6215a5264")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 68.58 57.1886 90)
+			(at 68.58 49.5686 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12632,7 +12642,7 @@
 	)
 	(global_label "MISO"
 		(shape input)
-		(at 43.18 64.77 90)
+		(at 41.91 57.15 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -12642,7 +12652,7 @@
 		)
 		(uuid "627dadba-4fb5-4819-93f0-261b8b7c51f4")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 43.18 57.1886 90)
+			(at 41.91 49.5686 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13160,7 +13170,7 @@
 	)
 	(global_label "SD_CE"
 		(shape input)
-		(at 58.42 66.04 90)
+		(at 58.42 57.15 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13170,7 +13180,7 @@
 		)
 		(uuid "b3a03afa-943d-470a-9673-3654e45fd371")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 58.42 57.3659 90)
+			(at 58.42 48.4759 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13256,7 +13266,7 @@
 	)
 	(global_label "SCK"
 		(shape input)
-		(at 77.47 64.77 90)
+		(at 77.47 57.15 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -13266,7 +13276,7 @@
 		)
 		(uuid "bf55e8b9-1fde-410c-abb1-755a3cadaed0")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 77.47 58.0353 90)
+			(at 77.47 50.4153 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14565,6 +14575,87 @@
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
 					(reference "R17")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Uzebox Game Console F6_bak-eagle-import:R-US_0207/10")
+		(at 41.91 64.77 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "20f7648c-1ba6-417e-b4de-2d64d17c4a11")
+		(property "Reference" "R29"
+			(at 40.386 67.31 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.778 1.5113)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "301"
+			(at 45.212 67.056 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.778 1.5113)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "Uzebox Game Console F6_bak-import-fps:0207_10"
+			(at 41.91 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 41.91 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 41.91 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9eae6188-9c6e-45ab-b420-cb3c58722d01")
+		)
+		(pin "2"
+			(uuid "1bf40f94-8cf8-4c39-8307-51bcf665a698")
+		)
+		(instances
+			(project "Uzebox Game Console V5_1"
+				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
+					(reference "R29")
 					(unit 1)
 				)
 			)
@@ -16312,7 +16403,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 51.816 60.706 0)
+			(at 54.864 60.96 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
