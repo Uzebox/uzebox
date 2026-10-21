@@ -13635,7 +13635,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "06732d74-bb39-4b5c-8412-6d18d8f36d69")
-		(property "Reference" "EXT1"
+		(property "Reference" "EXT"
 			(at 44.45 180.975 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13741,7 +13741,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "EXT1")
+					(reference "EXT")
 					(unit 1)
 				)
 			)
@@ -13915,7 +13915,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "12822cc4-5042-415c-ac8b-ba7691ce55b9")
-		(property "Reference" "MCU1"
+		(property "Reference" "MCU"
 			(at 127 110.49 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14093,7 +14093,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "MCU1")
+					(reference "MCU")
 					(unit 1)
 				)
 			)
@@ -15066,7 +15066,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "3334aca5-cbea-49c1-a1ca-2963fee567f5")
-		(property "Reference" "A/V1"
+		(property "Reference" "A/V"
 			(at 44.45 206.375 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15148,7 +15148,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "A/V1")
+					(reference "A/V")
 					(unit 1)
 				)
 			)
@@ -15567,7 +15567,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "43b6c80c-907d-49e2-a9ff-2863ac5cb784")
-		(property "Reference" "POWER1"
+		(property "Reference" "POWER"
 			(at 195.072 182.626 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15638,7 +15638,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "POWER1")
+					(reference "POWER")
 					(unit 1)
 				)
 			)
@@ -15736,7 +15736,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "4ab78cb4-120d-4ab5-bde3-ea3d3b999d82")
-		(property "Reference" "LED1"
+		(property "Reference" "LED"
 			(at 199.136 223.012 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15800,7 +15800,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "LED1")
+					(reference "LED")
 					(unit 1)
 				)
 			)
@@ -15817,7 +15817,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "4b00400b-458b-4f64-b49c-342b06c31087")
-		(property "Reference" "AUDIO1"
+		(property "Reference" "AUDIO"
 			(at 156.21 211.074 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15881,7 +15881,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "AUDIO1")
+					(reference "AUDIO")
 					(unit 1)
 				)
 			)
@@ -16624,7 +16624,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "5c6e98de-07a1-432c-a829-860402dc60b5")
-		(property "Reference" "XTAL0"
+		(property "Reference" "XTAL"
 			(at 112.522 123.698 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16688,7 +16688,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "XTAL0")
+					(reference "XTAL")
 					(unit 1)
 				)
 			)
@@ -19685,7 +19685,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "93a00bc4-3065-4971-b6e8-73b2c4056500")
-		(property "Reference" "SVIDEO1"
+		(property "Reference" "SVIDEO"
 			(at 320.04 200.66 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -19765,7 +19765,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "SVIDEO1")
+					(reference "SVIDEO")
 					(unit 1)
 				)
 			)
@@ -20896,7 +20896,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "b2b2bb48-6142-4a21-ad47-d344dc99799b")
-		(property "Reference" "ISP1"
+		(property "Reference" "ISP"
 			(at 115.062 52.578 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20972,7 +20972,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "ISP1")
+					(reference "ISP")
 					(unit 1)
 				)
 			)
@@ -21472,7 +21472,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "c799d953-1ba4-4edb-907c-56a815c460c0")
-		(property "Reference" "RESET1"
+		(property "Reference" "RESET"
 			(at 120.904 93.472 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21543,7 +21543,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "RESET1")
+					(reference "RESET")
 					(unit 1)
 				)
 			)
@@ -22452,7 +22452,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "db8a8706-0e18-4ab4-9269-5fe055dbcd06")
-		(property "Reference" "VIDEO1"
+		(property "Reference" "VIDEO"
 			(at 379.73 170.434 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22516,7 +22516,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "VIDEO1")
+					(reference "VIDEO")
 					(unit 1)
 				)
 			)
@@ -22534,7 +22534,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "dd48906f-8589-4ade-a738-d3c8d5c42ead")
-		(property "Reference" "SDCARD1"
+		(property "Reference" "SDCARD"
 			(at 35.306 68.072 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22632,7 +22632,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "SDCARD1")
+					(reference "SDCARD")
 					(unit 1)
 				)
 			)
