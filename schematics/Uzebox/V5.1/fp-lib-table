@@ -1,4 +1,0 @@
-(fp_lib_table
-	(version 7)
-	(lib (name "Uzebox Game Console F6_bak-import-fps") (type "KiCad") (uri "${KIPRJMOD}/Uzebox Game Console F6_bak-import-fps.pretty") (options "kicad_import_cache=1") (descr ""))
-)
