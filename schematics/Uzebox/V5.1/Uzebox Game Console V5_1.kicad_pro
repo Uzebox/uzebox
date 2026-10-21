@@ -78,59 +78,7 @@
       ],
       "drc_exclusions": [
         [
-          "copper_edge_clearance|109361100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|f34fc8c4-c841-4023-a77a-0766caf443e1",
-          ""
-        ],
-        [
-          "copper_edge_clearance|113361100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|22380aa1-68a7-42f5-b2f6-bebaafbeee5b",
-          ""
-        ],
-        [
-          "copper_edge_clearance|117361100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|cb35d513-5ca0-4338-b19b-3e9db5d51be1",
-          ""
-        ],
-        [
-          "copper_edge_clearance|121361100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|03bbd4bf-eee8-4b1a-80f7-f9d4a29a46cd",
-          ""
-        ],
-        [
-          "copper_edge_clearance|127861100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|1537c9d4-ea58-4855-bc9a-33245f5c0d92",
-          ""
-        ],
-        [
-          "copper_edge_clearance|131861100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|83a3bf8e-c01f-43f9-bf09-3d47b08a1933",
-          ""
-        ],
-        [
-          "copper_edge_clearance|135861100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|bf2ac98f-3f6c-4456-8dd4-e9effc0852f2",
-          ""
-        ],
-        [
-          "copper_edge_clearance|163971100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|aa5a7255-6be5-495e-9b80-1d3d8fad3b4b",
-          ""
-        ],
-        [
-          "copper_edge_clearance|167971100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|29a53cad-a745-46fe-86f3-e97be75aca0c",
-          ""
-        ],
-        [
-          "copper_edge_clearance|171971100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|9b19a5be-fddf-42b1-9152-a652578cbd5f",
-          ""
-        ],
-        [
-          "copper_edge_clearance|175971100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|75ffd8b7-e888-4a2e-96f6-608ccbef4457",
-          ""
-        ],
-        [
-          "copper_edge_clearance|182471100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|f1002bca-fd11-4825-abd2-690f782336c3",
-          ""
-        ],
-        [
-          "copper_edge_clearance|186471100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|8c7a6aae-a96d-46f9-99e8-b95cd5c11d50",
-          ""
-        ],
-        [
-          "copper_edge_clearance|190471100|145503600|1999ecbc-1163-4f2a-b684-3cdade26187a|1a9966b1-450e-4728-a0f1-eec5481f91c7",
+          "items_not_allowed|107471368|85897021|e8fde021-f350-4152-a851-d8d2581cd8a6|00000000-0000-0000-0000-000000000000",
           ""
         ]
       ],

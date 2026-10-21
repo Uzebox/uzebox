@@ -22,13 +22,13 @@
 (rule "Track width, outer layer (1oz copper)"
 	(layer outer)
 	(condition "A.Type == 'track'")
-	(constraint track_width (min 0.127mm))
+	(constraint track_width (min 0.1524 mm))
 )
 
 (rule "Track spacing, outer layer (1oz copper)"
 	(layer outer)
 	(condition "A.Type == 'track' && B.Type == A.Type")
-	(constraint clearance (min 0.127mm))
+	(constraint clearance (min 0.16mm))
 )
 
 (rule "Track width, inner layer"
@@ -40,7 +40,7 @@
 (rule "Track spacing, inner layer"
 	(layer inner)
 	(condition "A.Type == 'track' && B.Type == A.Type")
-	(constraint clearance (min 0.09mm))
+	(constraint clearance (min 0.16mm))
 )
 
 (rule "Silkscreen text"
@@ -128,6 +128,6 @@
 	(layer outer)
 #	(condition "(A.Type == 'Pad' || A.Type == 'Via') && (B.Type == 'Pad' || B.Type == 'Via') && A.Net != B.Net")	
 	(condition "A.isPlated() && B.isPlated() && A.Net != B.Net")
-	(constraint clearance (min 0.127mm))
+	(constraint clearance (min 0.2mm))
 )
 

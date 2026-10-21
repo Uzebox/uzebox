@@ -25,7 +25,7 @@ D1:1
 D2:1
 ESP-12:1
 EXT:1
-G***:1
+G***:3
 IC1:1
 IC2:1
 IC3:1
@@ -69,4 +69,4 @@ SVIDEO:1
 U5:1
 U6:1
 VIDEO:1
-XTAL0:1
+XTAL:1
