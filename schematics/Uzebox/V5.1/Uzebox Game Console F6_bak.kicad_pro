@@ -493,7 +493,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "Uzebox Game Console V5_1.kicad_pro",
+    "filename": "Uzebox Game Console F6_bak.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -661,7 +661,7 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "Uzebox Game Console V5_1.kicad_sch",
+        "filename": "Uzebox Game Console F6_bak.kicad_sch",
         "name": "Uzebox Game Console F6_bak_1",
         "uuid": "ad24a305-0c63-423b-bd2c-04f441f78b8a"
       }
