@@ -57,6 +57,9 @@
 #define PERIPHERAL_ESP8266_AP	64
 #define PERIPHERAL_FUTURE0		128
 
+#define UART_UZELINK_SUPPORT 0x01U
+#define UART_UZELINK_DEFAULT 0x10U
+
 #define JAMMA_ROTATE_90 1
 #define JAMMA_ROTATE_180 2
 #define JAMMA_ROTATE_270 4
@@ -99,9 +102,13 @@ typedef struct{
 	u32 dependencyLen;		// 0x195-0x198: Length of appended dependency/data file
 	u8 spiRamBanks;			// 0x199: Ideal SPI RAM size(in 64K banks, emulation behavior on start)
 	u8 sdTiming;			// 0x19A: 0=unspecified, 1=slow, 2=normal, 3=fast; 4..255 reserved
-	u8 reserved[101];		// 0x19B-0x1FF: Future use
+	u8 uart;				// 0x19B: low nibble support, high nibble defaults
+	u8 video;            // 0x19C: bit 0 enables interlace, bit 1 selects weave
+	u8 reserved[99];		// 0x19C-0x1FF: Future use
 }RomHeader;
+static_assert(offsetof(RomHeader, video) == 0x19C, "Video hint byte moved");
 static_assert(sizeof(RomHeader) == HEADER_SIZE, "UZE header must be 512 bytes");
+static_assert(offsetof(RomHeader, uart) == 0x19B, "UART byte moved");
 static_assert(offsetof(RomHeader, sdTiming) == 0x19A, "SD timing byte moved");
 
 union ROM{
@@ -159,16 +166,43 @@ void chksum_crc32gentab (){
 	}
 }
 
-//copy strings without end of lines special characters
-static void strcpy2(char* dest, char* src, int maxsize){
+// Clear old contents when patching. Reserve a terminator unless explicitly
+// targeting readers which accept full-width, non-terminated text fields.
+static void strcpy2(char* dest, const char* src, int maxsize,
+					bool fullWidth, const char* field){
+	if(maxsize<=0) return;
+	memset(dest,0,maxsize);
 	u8 c;
 	int i=0;
-	while(i<maxsize){
+	int limit=maxsize-(fullWidth?0:1);
+	while(i<limit){
 		c=*src++;
 		if(c<32) break;
 		*dest++=c;
 		i++;
 	}
+	if(i==limit && (u8)*src>=32)
+		fprintf(stderr,"Warning: %s truncated to %d bytes%s.\n",field,limit,
+				fullWidth?"":" to preserve zero termination");
+}
+
+// Also check fields inherited from a patched UZE, even if no replacement
+// property was supplied. Never rely on an adjacent field for termination.
+static void finishHeaderText(u8* text, int size, bool fullWidth, const char* field){
+	int length=0;
+	while(length<size && text[length]) length++;
+	if(length==size){
+		if(fullWidth){
+			fprintf(stderr,"Warning: %s uses all %d bytes without a zero terminator; "
+					"older bootloaders/tools may misread it. Requires a length-bounded reader.\n",
+					field,size);
+		}else{
+			fprintf(stderr,"Warning: %s truncated to %d bytes to preserve zero termination.\n",
+					field,size-1);
+			length=size-1;
+		}
+	}
+	memset(text+length,0,size-length);
 }
 
 static inline int parse_hex_nibble(char s){
@@ -402,17 +436,18 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	fclose(out_file1);
 	//extract and write Header data
 	if(rom.header.name[0])
-		fprintf(out_file2, "name=%s\n", (char *)(rom.header.name));
+		fprintf(out_file2, "name=%.*s\n", (int)sizeof(rom.header.name), (char *)(rom.header.name));
 	if(rom.header.year)
 		fprintf(out_file2, "year=%d\n", (u32)(rom.header.year));
 	if(rom.header.author[0])
-		fprintf(out_file2, "author=%s\n", (char *)(rom.header.author));
+		fprintf(out_file2, "author=%.*s\n", (int)sizeof(rom.header.author), (char *)(rom.header.author));
 	if(out_file4 != NULL)//icon present?
 		fprintf(out_file2, "icon=%s\n", out_filename4);
 	if(out_file3 != NULL)//dependency present?
 		fprintf(out_file2, "dependency=%s\n", out_filename3);
 
 	fprintf(out_file2, "spiram=%d\n", (u32)(rom.header.spiRamBanks));
+	if(rom.header.video & 1) fprintf(out_file2, "interlace=%s\n", (rom.header.video & 2) ? "weave" : "field");
 	if(rom.header.sdTiming == 1)
 		fprintf(out_file2, "sd=slow\n");
 	else if(rom.header.sdTiming == 2)
@@ -435,6 +470,11 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 		fprintf(out_file2, "esp8266=supported\n");
 	if(psupport & PERIPHERAL_ESP8266_AP)
 		fprintf(out_file2, "esp8266_ap=supported\n");
+
+	if(rom.header.uart & UART_UZELINK_DEFAULT)
+		fprintf(out_file2, "uzelink=default\n");
+	else if(rom.header.uart & UART_UZELINK_SUPPORT)
+		fprintf(out_file2, "uzelink=support\n");
 
 	u8 pdefault = rom.header.pdefault;//default peripherals
 	if(pdefault & PERIPHERAL_MOUSE)
@@ -462,7 +502,7 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 	if(jamma & JAMMA_FLIP_V)
 		fprintf(out_file2, "jamma=flipV\n");
 	if(rom.header.description[0]){
-		fprintf(out_file2, "description=%s", (char *)(rom.header.description));
+		fprintf(out_file2, "description=%.*s", (int)sizeof(rom.header.description), (char *)(rom.header.description));
 	}
 	if(ferror(out_file2)){
 		fprintf(stderr, "\tError: Failed while writing info [%s]\n", out_filename2);
@@ -487,32 +527,72 @@ void DisplayUsage(){
 	fprintf(stderr,"Packs a HEX file to UZE binary and adds INFO header(ICON and DATA if in INFO).\n");
 	fprintf(stderr,"Or Patches an existing UZE binary with new INFO header(ICON and DATA if in INFO).\n");
 	fprintf(stderr,"Or Extract a HEX and INFO(and ICON and DATA if present) from existing UZE file.\n\n");
-	fprintf(stderr,"Create UZE: packrom <input.hex> <ouput.uze> <gameinfo.properties>\n");
+	fprintf(stderr,"Create UZE: packrom [--full-width-text] <input.hex> <ouput.uze> <gameinfo.properties>\n");
 	fprintf(stderr,"\tcreation example: \x1b[1;31mpackrom game.hex game.uze gameinfo.properties\x1b[0;0m\n");
 	fprintf(stderr,"\tcreation notes: to include ICON and/or DATA dependency, encode path in INFO file\n\n");
-	fprintf(stderr,"Patch UZE: packrom <input.uze> <output.uze> <newinfo.properties>\n");
+	fprintf(stderr,"Patch UZE: packrom [--full-width-text] <input.uze> <output.uze> <newinfo.properties>\n");
 	fprintf(stderr,"\tpatching example: \x1b[1;31mpackrom game.uze patched.uze newinfo.properties\x1b[0;0m\n");
 	fprintf(stderr,"\tpatching notes: any specified ICON or DATA dependency in the INFO file will be packed\n\n");
 	fprintf(stderr,"Extract HEX: packrom <input.uze> <output.hex> <opt-output.properties> <opt-output.dat> <opt-icon-out.raw>\n");
 	fprintf(stderr,"\textract example: \x1b[1;31mpackrom game.uze output.hex info.properties dependency.dat icon.raw\x1b[0;0m\n");
 	fprintf(stderr,"\textract example: \x1b[1;31mpackrom game.uze output.hex\x1b[0;0m\n");
 	fprintf(stderr,"\textract notes: any unspecified name will output as extracted.properties, extraced.dat, or extracted.raw\n\n");
+	fprintf(stderr,"Default text limits: name/author 31 bytes, description 63 bytes, plus zero terminator.\n");
+	fprintf(stderr,"--full-width-text permits 32-byte names/authors and 64-byte descriptions.\n");
+	fprintf(stderr,"Full fields have no zero terminator and warn about older bootloaders/tools.\n");
+	fprintf(stderr,"Bootloader5 supports full-width names/authors; the original Bootloader does not.\n");
+}
+
+// Compare the filename suffix, not text in a directory or an earlier suffix.
+// Extensions are ASCII; avoid platform-specific case-insensitive string APIs.
+static bool has_extension(const char *path,const char *extension){
+	size_t pathLength=strlen(path);
+	size_t extensionLength=strlen(extension);
+	if(pathLength<extensionLength) return false;
+	const char *suffix=path+pathLength-extensionLength;
+	for(size_t i=0;i<extensionLength;i++){
+		unsigned char c=(unsigned char)suffix[i];
+		if(c>='A' && c<='Z') c=(unsigned char)(c-'A'+'a');
+		if(c!=(unsigned char)extension[i]) return false;
+	}
+	return true;
 }
 
 int main(int argc,char **argv){
+
+	bool fullWidthText=false;
+	bool options=true;
+	int positional=1;
+	for(int i=1;i<argc;i++){
+		if(options && !strcmp(argv[i],"--full-width-text")){
+			fullWidthText=true;
+		}else if(options && !strcmp(argv[i],"--")){
+			options=false;
+		}else if(options && (!strcmp(argv[i],"--help") || !strcmp(argv[i],"-h"))){
+			DisplayUsage();
+			return 0;
+		}else if(options && !strncmp(argv[i],"--",2)){
+			fprintf(stderr,"Unknown option: %s\n",argv[i]);
+			return 1;
+		}else{
+			argv[positional++]=argv[i];
+		}
+	}
+	argc=positional;
+	argv[argc]=NULL;
 
 	if(argc < 3){
 		DisplayUsage();
 		return -1;
 	}
 
-	if(strstr(argv[1], ".uze") != NULL && strstr(argv[2], ".hex") != NULL){//extract the ROM image to an output .uze and .info file(and data/icon files if present)
+	if(has_extension(argv[1], ".uze") && has_extension(argv[2], ".hex")){//extract the ROM image to an output .uze and .info file(and data/icon files if present)
 		if(!extract_hex(argv[1], argv[2], ((argc>3)?argv[3]:"extracted.properties"), ((argc>4)?argv[4]:"extracted.dat"),((argc>5)?argv[5]:"extracted.raw")))
 			return -1;
 		return 0;
 	}
 	int mode = 0;//default create mode
-	if(strstr(argv[1], ".uze") != NULL){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
+	if(has_extension(argv[1], ".uze")){//if the user inputs a .uze file, assumed the intent is to patch with the given properties file(skip hex load)
 		if(argc < 4){
 			fprintf(stderr,"\n\tPatch mode requires: [input.uze] [output.uze] [patch.properties]\n\n");
 			DisplayUsage();
@@ -552,16 +632,18 @@ int main(int argc,char **argv){
 				continue;//ignore comment line
 
 			}else if(!strncmp(line,"name=",5)){
-				strcpy2((char*)rom.header.name,line+5,sizeof(rom.header.name));
-				fprintf(stderr,"\tGame Name: %s\n", rom.header.name);
+				strcpy2((char*)rom.header.name,line+5,sizeof(rom.header.name),fullWidthText,"name");
+				fprintf(stderr,"\tGame Name: %.*s\n", (int)sizeof(rom.header.name), rom.header.name);
 
-			}else if(!strncmp(line,"desc=",5)){//this is allowed to contain '\n'?
-				strcpy2((char*)rom.header.description,line+5,sizeof(rom.header.description));
-				fprintf(stderr,"\tDescription: %s\n", rom.header.description);
+			}else if(!strncmp(line,"desc=",5) || !strncmp(line,"description=",12)){
+				// Extraction writes "description="; retain the original "desc=" alias.
+				const char* value=strchr(line,'=')+1;
+				strcpy2((char*)rom.header.description,value,sizeof(rom.header.description),fullWidthText,"description");
+				fprintf(stderr,"\tDescription: %.*s\n", (int)sizeof(rom.header.description), rom.header.description);
 
 			}else if(!strncmp(line,"author=",7)){
-				strcpy2((char*)rom.header.author,line+7,sizeof(rom.header.author));
-				fprintf(stderr,"\tAuthor: %s\n", rom.header.author);
+				strcpy2((char*)rom.header.author,line+7,sizeof(rom.header.author),fullWidthText,"author");
+				fprintf(stderr,"\tAuthor: %.*s\n", (int)sizeof(rom.header.author), rom.header.author);
 
 			}else if(!strncmp(line,"year=",5)){
 				rom.header.year=(u16) strtoul(line+5,NULL,10);
@@ -623,7 +705,21 @@ int main(int argc,char **argv){
 				rom.header.pdefault |= PERIPHERAL_ESP8266_AP;
 				fprintf(stderr,"\tESP8266 AP: Default\n");
 
-			}else if(!strcmp(line,"sd=slow")){
+			}else if(!strcmp(line,"uzelink=support") || !strcmp(line,"uzelink=supported")){
+                rom.header.uart |= UART_UZELINK_SUPPORT;
+            }else if(!strcmp(line,"uzelink=default")){
+                rom.header.uart |= UART_UZELINK_SUPPORT | UART_UZELINK_DEFAULT;
+            }else if(!strncmp(line,"uzelink=",8)){
+                fprintf(stderr,"Error: UzeLink requires support or default.\n");
+                fclose(file);
+                return 1;
+            }else if(!strcmp(line,"interlace=field") || !strcmp(line,"interlace=on") || !strcmp(line,"interlace=default")){
+                rom.header.video = (rom.header.video & ~3) | 1;
+            }else if(!strcmp(line,"interlace=weave")){
+                rom.header.video = (rom.header.video & ~3) | 3;
+            }else if(!strcmp(line,"interlace=off")){
+                rom.header.video &= ~3;
+            }else if(!strcmp(line,"sd=slow")){
 				rom.header.sdTiming=1;
 				fprintf(stderr,"\tSD timing hint: Slow\n");
 
@@ -737,6 +833,16 @@ int main(int argc,char **argv){
 		fprintf(stderr,"\tError Can't read properties file: %s \n",argv[3]);
 		return 1;
 	}
+
+	finishHeaderText(rom.header.name,sizeof(rom.header.name),fullWidthText,"name");
+	finishHeaderText(rom.header.author,sizeof(rom.header.author),fullWidthText,"author");
+	finishHeaderText(rom.header.description,sizeof(rom.header.description),fullWidthText,"description");
+
+    if((rom.header.uart & UART_UZELINK_DEFAULT) &&
+       (rom.header.pdefault & (PERIPHERAL_ESP8266 | PERIPHERAL_ESP8266_AP))){
+        fprintf(stderr,"Error: UzeLink and ESP8266 cannot both be default UART connections.\n");
+        return 1;
+    }
 
 	if(mode == 0){//create new .uze
 		if(!load_hex(argv[1])){
