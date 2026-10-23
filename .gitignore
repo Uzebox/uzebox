@@ -44,3 +44,5 @@ demos/UzeboxPC/default/netstat.p
 # KiCad lock files and local history
 *.lck
 .history
+
+schematics/Uzebox/V5.1/production/

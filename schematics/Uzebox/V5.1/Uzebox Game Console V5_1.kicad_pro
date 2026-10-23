@@ -78,10 +78,6 @@
       ],
       "drc_exclusions": [
         [
-          "items_not_allowed|107471368|85897021|e8fde021-f350-4152-a851-d8d2581cd8a6|00000000-0000-0000-0000-000000000000",
-          ""
-        ],
-        [
           "pth_inside_courtyard|156921100|73563600|9c5dd7c7-c1b5-4324-9ada-42045bf174e6|8a07aa24-a9ca-4ce1-a925-ab454e90afe2",
           ""
         ],
@@ -707,7 +703,7 @@
         "uuid": "ad24a305-0c63-423b-bd2c-04f441f78b8a"
       }
     ],
-    "used_designators": "#P+10-12,#SUPPLY23,#SUPPLY25,#SUPPLY27,#SUPPLY35-36,A/V1,AUDIO1,EXT1,ISP1,ISP\\-90DEG1,J1-2,JP1,LED1,MCU1,POWER1,R13,R29,RESET1,SDCARD1,SVIDEO1,VIDEO1",
+    "used_designators": "#P+10-12,#SUPPLY23,#SUPPLY25,#SUPPLY27,#SUPPLY35-36,A/V1,AUDIO1,EXT1,ISP1,ISP\\-90DEG1,J1-2,JP1,LED1,MCU1,POWER1,R13,R29,RESET1,SDCARD1,SVIDEO1,VIDEO1,XTAL1",
     "variants": []
   },
   "sheets": [
