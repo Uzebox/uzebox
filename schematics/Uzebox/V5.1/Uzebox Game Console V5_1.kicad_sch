@@ -15520,7 +15520,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "4ab78cb4-120d-4ab5-bde3-ea3d3b999d82")
-		(property "Reference" "LED"
+		(property "Reference" "LED1"
 			(at 199.136 223.012 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15584,7 +15584,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "LED")
+					(reference "LED1")
 					(unit 1)
 				)
 			)
@@ -15763,7 +15763,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "4efa5d3c-075b-47d3-8156-733268c66d36")
-		(property "Reference" "ISP-90DEG"
+		(property "Reference" "ISP-90DEG1"
 			(at 111.252 38.354 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15840,7 +15840,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "ISP-90DEG")
+					(reference "ISP-90DEG1")
 					(unit 1)
 				)
 			)
@@ -16409,7 +16409,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "5c6e98de-07a1-432c-a829-860402dc60b5")
-		(property "Reference" "XTAL"
+		(property "Reference" "XTAL1"
 			(at 112.522 123.698 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16473,7 +16473,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "XTAL")
+					(reference "XTAL1")
 					(unit 1)
 				)
 			)
