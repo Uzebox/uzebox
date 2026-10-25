@@ -60,6 +60,10 @@
 #define UART_UZELINK_SUPPORT 0x01U
 #define UART_UZELINK_DEFAULT 0x10U
 
+#define VIDEO_INTERLACE 1
+#define VIDEO_WEAVE 2
+#define VIDEO_AREA_WEIGHTED 4
+
 #define JAMMA_ROTATE_90 1
 #define JAMMA_ROTATE_180 2
 #define JAMMA_ROTATE_270 4
@@ -103,8 +107,8 @@ typedef struct{
 	u8 spiRamBanks;			// 0x199: Ideal SPI RAM size(in 64K banks, emulation behavior on start)
 	u8 sdTiming;			// 0x19A: 0=unspecified, 1=slow, 2=normal, 3=fast; 4..255 reserved
 	u8 uart;				// 0x19B: low nibble support, high nibble defaults
-	u8 video;            // 0x19C: bit 0 enables interlace, bit 1 selects weave
-	u8 reserved[99];		// 0x19C-0x1FF: Future use
+	u8 video;				// 0x19C: Interlace, weave and area-weighted sampling flags
+	u8 reserved[99];		// 0x19D-0x1FF: Future use
 }RomHeader;
 static_assert(offsetof(RomHeader, video) == 0x19C, "Video hint byte moved");
 static_assert(sizeof(RomHeader) == HEADER_SIZE, "UZE header must be 512 bytes");
@@ -447,7 +451,9 @@ const char *out_filename1, const char *out_filename2, const char *out_filename3,
 		fprintf(out_file2, "dependency=%s\n", out_filename3);
 
 	fprintf(out_file2, "spiram=%d\n", (u32)(rom.header.spiRamBanks));
-	if(rom.header.video & 1) fprintf(out_file2, "interlace=%s\n", (rom.header.video & 2) ? "weave" : "field");
+	if(rom.header.video & VIDEO_INTERLACE)
+		fprintf(out_file2, "interlace=%s\n", (rom.header.video & VIDEO_WEAVE) ? "weave" : "field");
+	fprintf(out_file2, "areaweight=%d\n", (rom.header.video & VIDEO_AREA_WEIGHTED) ? 1 : 0);
 	if(rom.header.sdTiming == 1)
 		fprintf(out_file2, "sd=slow\n");
 	else if(rom.header.sdTiming == 2)
@@ -541,6 +547,8 @@ void DisplayUsage(){
 	fprintf(stderr,"--full-width-text permits 32-byte names/authors and 64-byte descriptions.\n");
 	fprintf(stderr,"Full fields have no zero terminator and warn about older bootloaders/tools.\n");
 	fprintf(stderr,"Bootloader5 supports full-width names/authors; the original Bootloader does not.\n");
+	fprintf(stderr,"Video hints in INFO: interlace=off/field/weave, areaweight=0/1.\n");
+	fprintf(stderr,"Area-weighted sampling defaults off; emulator user settings override hints.\n");
 }
 
 // Compare the filename suffix, not text in a directory or an earlier suffix.
@@ -706,20 +714,39 @@ int main(int argc,char **argv){
 				fprintf(stderr,"\tESP8266 AP: Default\n");
 
 			}else if(!strcmp(line,"uzelink=support") || !strcmp(line,"uzelink=supported")){
-                rom.header.uart |= UART_UZELINK_SUPPORT;
-            }else if(!strcmp(line,"uzelink=default")){
-                rom.header.uart |= UART_UZELINK_SUPPORT | UART_UZELINK_DEFAULT;
-            }else if(!strncmp(line,"uzelink=",8)){
-                fprintf(stderr,"Error: UzeLink requires support or default.\n");
-                fclose(file);
-                return 1;
-            }else if(!strcmp(line,"interlace=field") || !strcmp(line,"interlace=on") || !strcmp(line,"interlace=default")){
-                rom.header.video = (rom.header.video & ~3) | 1;
-            }else if(!strcmp(line,"interlace=weave")){
-                rom.header.video = (rom.header.video & ~3) | 3;
-            }else if(!strcmp(line,"interlace=off")){
-                rom.header.video &= ~3;
-            }else if(!strcmp(line,"sd=slow")){
+				rom.header.uart |= UART_UZELINK_SUPPORT;
+
+			}else if(!strcmp(line,"uzelink=default")){
+				rom.header.uart |= UART_UZELINK_SUPPORT | UART_UZELINK_DEFAULT;
+
+			}else if(!strncmp(line,"uzelink=",8)){
+				fprintf(stderr,"Error: UzeLink requires support or default.\n");
+				fclose(file);
+				return 1;
+
+			}else if(!strcmp(line,"interlace=field") || !strcmp(line,"interlace=on") || !strcmp(line,"interlace=default")){
+				rom.header.video = (rom.header.video & ~(VIDEO_INTERLACE | VIDEO_WEAVE)) | VIDEO_INTERLACE;
+
+			}else if(!strcmp(line,"interlace=weave")){
+				rom.header.video |= VIDEO_INTERLACE | VIDEO_WEAVE;
+
+			}else if(!strcmp(line,"interlace=off")){
+				rom.header.video &= ~(VIDEO_INTERLACE | VIDEO_WEAVE);
+
+			}else if(!strcmp(line,"areaweight=0")){
+				rom.header.video &= ~VIDEO_AREA_WEIGHTED;
+				fprintf(stderr,"\tArea-weighted sampling: Off\n");
+
+			}else if(!strcmp(line,"areaweight=1")){
+				rom.header.video |= VIDEO_AREA_WEIGHTED;
+				fprintf(stderr,"\tArea-weighted sampling: On\n");
+
+			}else if(!strncmp(line,"areaweight=",11)){
+				fprintf(stderr,"Error: Area-weighted sampling requires 0 or 1.\n");
+				fclose(file);
+				return 1;
+
+			}else if(!strcmp(line,"sd=slow")){
 				rom.header.sdTiming=1;
 				fprintf(stderr,"\tSD timing hint: Slow\n");
 
