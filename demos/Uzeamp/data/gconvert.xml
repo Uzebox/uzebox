@@ -20,7 +20,8 @@
 			<map var-name="map_overlayParams" left="21" top="29" width="8" height="1"/>
 			<map var-name="map_overlaVuMeter" left="21" top="30" width="8" height="1"/>
 			<map var-name="map_vuMeterBarOff" left="21" top="31" width="1" height="1"/>
-			<map var-name="map_vuMeterBarOn" left="22" top="31" width="1" height="1"/>			
+			<map var-name="map_vuMeterBarOn" left="22" top="31" width="1" height="1"/>
+			<map var-name="map_icons" left="12" top="4" width="4" height="1"/>			
 		</maps>	
     </output>
 </gfx-xform>
