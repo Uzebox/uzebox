@@ -71,7 +71,6 @@ DEMOS += tutorial
 DEMOS += unittest
 DEMOS += Uzeamp
 DEMOS += VectorDemo
-DEMOS += VideoDemo
 DEMOS += Whack-a-Mole
 DEMOS += Zombienator
 DEMOS += sdspiram
