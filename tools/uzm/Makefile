@@ -72,7 +72,7 @@ FF_CONFIG := --prefix=$(FF_PREFIX) --enable-static --disable-shared --disable-pr
 
 ifeq ($(STATIC),1)
     # the inner make of `make dist`: FFmpeg's static libraries first, then the system's
-    export PKG_CONFIG_PATH := $(FF_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
+    # (PKG_CONFIG_PATH set by `dist`'s recipe: before make 4.4, $(shell) ignores `export`)
     OBJDIR   := $(BUILD)/obj-static
     TARGET   := dist/$(PROG)$(EXE)
     PCFLAGS  := --static
@@ -89,15 +89,19 @@ endif
 
 OBJS     := $(SRCS:src/%.c=$(OBJDIR)/%.o)
 
-# No FFmpeg (or no pkg-config): `make` says so and stops without an error, so the repository's
-# `make` still builds the other tools. `make check` and `make install` still fail.
+# FFmpeg 6.0 or newer (src/media.c checks the same)
+FF_MIN   := 'libavfilter >= 9.3.100'
+
+# No FFmpeg, one too old (Ubuntu 22.04, Debian 11: 4.x) or no pkg-config: `make` says so and
+# stops without an error, so the repository's `make` still builds the other tools.
+# `make check` and `make install` still fail.
 ifneq ($(STATIC),1)
-    HAVE_FFMPEG := $(shell $(PKG_CONFIG) --exists $(LIBS_PC) 2>/dev/null && echo y)
+    HAVE_FFMPEG := $(shell $(PKG_CONFIG) --exists $(LIBS_PC) $(FF_MIN) 2>/dev/null && echo y)
 endif
 ifeq ($(STATIC)$(HAVE_FFMPEG),)
 all:
-	@echo "uzm: skipped, FFmpeg's development libraries not found by $(PKG_CONFIG)" \
-	      "(see tools/uzm/README.md)"
+	@echo "uzm: skipped, FFmpeg's development libraries (6.0 or newer) not found by" \
+	      "$(PKG_CONFIG) (see tools/uzm/README.md)"
 else
 all: $(TARGET)
 endif
@@ -111,12 +115,13 @@ $(OBJDIR)/%.o: src/%.c src/uzm.h src/media.h | ffmpeg-check
 	$(CC) $(shell $(PKG_CONFIG) --cflags $(LIBS_PC)) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 ffmpeg-check:
-	@$(PKG_CONFIG) --exists $(LIBS_PC) || { echo "FFmpeg's libraries not found by \
-	$(PKG_CONFIG): see the Makefile's top for the packages" >&2; exit 1; }
+	@$(PKG_CONFIG) --exists $(LIBS_PC) $(FF_MIN) || { echo "FFmpeg's libraries (6.0 or \
+	newer) not found by $(PKG_CONFIG): see the Makefile's top for the packages" >&2; exit 1; }
 
 # ---- make dist ----
 dist: $(FF_LIB)
-	@$(MAKE) --no-print-directory STATIC=1 all
+	@PKG_CONFIG_PATH="$(FF_PREFIX)/lib/pkgconfig:$$PKG_CONFIG_PATH" \
+	    $(MAKE) --no-print-directory STATIC=1 all
 	@ls -l dist/$(PROG)$(EXE)
 
 $(FF_LIB): | $(FF_SRC)/configure
