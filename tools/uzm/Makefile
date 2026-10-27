@@ -39,7 +39,7 @@ ifeq ($(OS),Windows_NT)
     # MSYS2: its pkg-config may not search the environment's own prefix
     ifneq ($(MSYSTEM),)
         MSYS_PREFIX := /$(shell echo $(MSYSTEM) | tr A-Z a-z)
-        ifneq ($(shell $(PKG_CONFIG) --exists zlib && echo y),y)
+        ifneq ($(shell $(PKG_CONFIG) --exists zlib 2>/dev/null && echo y),y)
             export PKG_CONFIG_PATH := $(MSYS_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
         endif
     endif
@@ -60,7 +60,7 @@ FF_URL   ?= https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n$(FFMPEG_VERSION
 FF_PREFIX := $(CURDIR)/$(BUILD)/ffmpeg
 FF_LIB   := $(FF_PREFIX)/lib/libavformat.a
 JOBS     ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-DAV1D    := $(shell $(PKG_CONFIG) --exists dav1d && echo --enable-libdav1d)
+DAV1D    := $(shell $(PKG_CONFIG) --exists dav1d 2>/dev/null && echo --enable-libdav1d)
 # Everything that reads: FFmpeg's own demuxers, decoders, parsers and filters (--pre / --post
 # take any filter), dav1d for AV1, zlib. Nothing that writes, no device, no network, no other
 # library. GPL: decimate (--ivtc) is a GPL filter, and Uzebox is GPL 3 anyway.
@@ -89,7 +89,18 @@ endif
 
 OBJS     := $(SRCS:src/%.c=$(OBJDIR)/%.o)
 
+# No FFmpeg (or no pkg-config): `make` says so and stops without an error, so the repository's
+# `make` still builds the other tools. `make check` and `make install` still fail.
+ifneq ($(STATIC),1)
+    HAVE_FFMPEG := $(shell $(PKG_CONFIG) --exists $(LIBS_PC) 2>/dev/null && echo y)
+endif
+ifeq ($(STATIC)$(HAVE_FFMPEG),)
+all:
+	@echo "uzm: skipped, FFmpeg's development libraries not found by $(PKG_CONFIG)" \
+	      "(see tools/uzm/README.md)"
+else
 all: $(TARGET)
+endif
 
 $(TARGET): $(OBJS)
 	@mkdir -p $(dir $@)

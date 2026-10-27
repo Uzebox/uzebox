@@ -27,6 +27,10 @@ TOOLS += wav2raw
 # if you are running a pre-2013 version.
 TOOLS += midiconv
 
+# Uzeamp's movie encoder: needs FFmpeg's development libraries, skipped (with a
+# note) when they are not installed. See tools/uzm/README.md
+TOOLS += uzm
+
 ######################################
 # Tools used to build demos
 ######################################

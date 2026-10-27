@@ -77,7 +77,8 @@ make && sudo make install
 ```
 
 `make` puts `uzm` in the repository's `bin/` with the other tools (`DEST_DIR=dir` puts it
-there instead). `make check` writes the test pattern at every rate and checks every sector.
+there instead). The repository's `make` builds it too, and skips it with a note when FFmpeg's
+libraries aren't installed. `make check` writes the test pattern at every rate and checks every sector.
 
 ## How it matches uzm.py
 
