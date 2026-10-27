@@ -3,11 +3,12 @@
 # libraries (libavformat, libavcodec, libavfilter, libavutil, libswscale,
 # libswresample), found by pkg-config.
 #
-#   make                ./uzm (uzm.exe on Windows), with the system's FFmpeg libraries
+#   make                ../../bin/uzm (uzm.exe on Windows), like the other tools (DEST_DIR=dir:
+#                       there instead), with the system's FFmpeg libraries
 #   make dist           dist/uzm(.exe): one standalone program, FFmpeg built here from
 #                       source, trimmed to reading video, and linked in (Windows: no DLL)
 #   make check          the test pattern at every rate, written and checked
-#   make install        ./uzm to $(PREFIX)/bin (default /usr/local)
+#   make install        uzm to $(PREFIX)/bin (default /usr/local)
 #   make clean          (make distclean: FFmpeg's build too)
 #
 # Windows: an MSYS2 UCRT64 (or MINGW64, CLANG64) shell, with
@@ -27,6 +28,11 @@ PREFIX   ?= /usr/local
 PKG_CONFIG ?= pkg-config
 FFMPEG   := libavformat libavcodec libavfilter libavutil
 UNAME    := $(shell uname -s)
+# where the tools go: the repository's bin/, or DEST_DIR (the root Makefile passes it)
+BIN_DIR  ?= ../../bin
+ifneq ($(DEST_DIR),)
+    BIN_DIR := $(DEST_DIR)
+endif
 
 ifeq ($(OS),Windows_NT)
     EXE := .exe
@@ -77,7 +83,7 @@ ifeq ($(STATIC),1)
     LIBS_PC  := $(FFMPEG) libswscale libswresample
 else
     OBJDIR   := obj
-    TARGET   := $(PROG)$(EXE)
+    TARGET   := $(BIN_DIR)/$(PROG)$(EXE)
     LIBS_PC  := $(FFMPEG)
 endif
 
@@ -120,12 +126,12 @@ CHECK_DIR := check.tmp
 check: $(TARGET)
 	@rm -rf $(CHECK_DIR) && mkdir $(CHECK_DIR)
 	@for r in 60 30 25 24; do \
-		./$(TARGET) test $(CHECK_DIR)/T$$r.UZM 3 --rate $$r > /dev/null && \
-		./$(TARGET) info $(CHECK_DIR)/T$$r.UZM | tail -1 && \
-		./$(TARGET) sound $(CHECK_DIR)/T$$r.UZM $(CHECK_DIR)/T$$r.wav > /dev/null && \
-		./$(TARGET) frame $(CHECK_DIR)/T$$r.UZM 10 $(CHECK_DIR)/T$$r.png > /dev/null || exit 1; \
+		$(TARGET) test $(CHECK_DIR)/T$$r.UZM 3 --rate $$r > /dev/null && \
+		$(TARGET) info $(CHECK_DIR)/T$$r.UZM | tail -1 && \
+		$(TARGET) sound $(CHECK_DIR)/T$$r.UZM $(CHECK_DIR)/T$$r.wav > /dev/null && \
+		$(TARGET) frame $(CHECK_DIR)/T$$r.UZM 10 $(CHECK_DIR)/T$$r.png > /dev/null || exit 1; \
 	done
-	@./$(TARGET) test $(CHECK_DIR)/T60v1.UZM 3 --v1 > /dev/null && ./$(TARGET) info $(CHECK_DIR)/T60v1.UZM | tail -1
+	@$(TARGET) test $(CHECK_DIR)/T60v1.UZM 3 --v1 > /dev/null && $(TARGET) info $(CHECK_DIR)/T60v1.UZM | tail -1
 	@rm -rf $(CHECK_DIR)
 	@echo "check: all good"
 
@@ -134,7 +140,7 @@ install: $(TARGET)
 	install -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/
 
 clean:
-	rm -rf obj $(BUILD)/obj-static $(PROG)$(EXE) dist $(CHECK_DIR)
+	rm -rf obj $(BUILD)/obj-static $(BIN_DIR)/$(PROG)$(EXE) dist $(CHECK_DIR)
 
 distclean: clean
 	rm -rf $(BUILD)

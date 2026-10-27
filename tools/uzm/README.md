@@ -76,7 +76,8 @@ brew install pkg-config ffmpeg
 make && sudo make install
 ```
 
-`make check` writes the test pattern at every rate and checks every sector.
+`make` puts `uzm` in the repository's `bin/` with the other tools (`DEST_DIR=dir` puts it
+there instead). `make check` writes the test pattern at every rate and checks every sector.
 
 ## How it matches uzm.py
 
