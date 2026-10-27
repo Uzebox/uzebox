@@ -5,10 +5,7 @@ read with UzeFS (FAT16/FAT32, SD and SDHC cards).
 
 ![Uzeamp](ressources/Uzeamp1_1.png)
 
-<img src="ressources/Uzeamp-snapshot-0001.png" width="100" alt="Return of the Jedi">
-<img src="ressources/Uzeamp-snapshot-0006.png" width="100" alt="Dragon's Lair">
-<img src="ressources/Uzeamp-snapshot-0004.png" width="100" alt="The Matrix">
-<img src="ressources/Uzeamp-snapshot-0005.png" width="100" alt="Street Fighter II">
+<p><img src="ressources/Uzeamp-snapshot-0001.png" width="100" alt="Return of the Jedi"> <img src="ressources/Uzeamp-snapshot-0006.png" width="100" alt="Dragon's Lair"> <img src="ressources/Uzeamp-snapshot-0004.png" width="100" alt="The Matrix"> <img src="ressources/Uzeamp-snapshot-0005.png" width="100" alt="Street Fighter II"></p>
 
 Full documentation: **[uzebox.org/wiki/Uzeamp](https://uzebox.org/wiki/Uzeamp)**.
 ROMs (UZE and HEX): **[the forum post](https://uzebox.org/forums/viewtopic.php?p=38438#p38438)**.
