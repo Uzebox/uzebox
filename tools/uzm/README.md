@@ -57,7 +57,9 @@ The Makefile also finds FFmpeg when only MSYS's own `pkg-config` is installed.
 GitHub), builds it trimmed to what reading video needs (FFmpeg's own demuxers, decoders,
 parsers and filters, dav1d for AV1, zlib; no encoder, muxer, device, network or other library)
 and links it into `dist/uzm` (`dist/uzm.exe`: one 29 MB file that needs only Windows' own DLLs;
-FFmpeg's build takes about 10 minutes). It needs `nasm` and dav1d too
+FFmpeg's build takes about 10 minutes). On Windows it goes in `bin/` too, and from then on
+`make` (here or the repository's) builds this one, since the other runs only in an MSYS2
+shell. It needs `nasm` and dav1d too
 (MSYS2: `mingw-w64-ucrt-x86_64-nasm mingw-w64-ucrt-x86_64-dav1d`; Debian: `nasm
 libdav1d-dev`; Homebrew: `nasm dav1d`). `make distclean` removes FFmpeg's build.
 

@@ -6,7 +6,8 @@
 #   make                ../../bin/uzm (uzm.exe on Windows), like the other tools (DEST_DIR=dir:
 #                       there instead), with the system's FFmpeg libraries
 #   make dist           dist/uzm(.exe): one standalone program, FFmpeg built here from
-#                       source, trimmed to reading video, and linked in (Windows: no DLL)
+#                       source, trimmed to reading video, and linked in (Windows: no DLL).
+#                       Windows: copied to bin/ too, and from then on `make` builds this one
 #   make check          the test pattern at every rate, written and checked
 #   make install        uzm to $(PREFIX)/bin (default /usr/local)
 #   make clean          (make distclean: FFmpeg's build too)
@@ -85,6 +86,13 @@ else
     OBJDIR   := obj
     TARGET   := $(BIN_DIR)/$(PROG)$(EXE)
     LIBS_PC  := $(FFMPEG)
+    # Windows: once `make dist` has built FFmpeg here, bin/ always gets the standalone uzm.exe
+    # (the other one needs MSYS2's FFmpeg DLLs, so runs only in an MSYS2 shell)
+    ifeq ($(OS),Windows_NT)
+        ifneq ($(wildcard $(FF_LIB)),)
+            STANDALONE := 1
+        endif
+    endif
 endif
 
 OBJS     := $(SRCS:src/%.c=$(OBJDIR)/%.o)
@@ -98,7 +106,7 @@ FF_MIN   := 'libavfilter >= 9.3.100'
 ifneq ($(STATIC),1)
     HAVE_FFMPEG := $(shell $(PKG_CONFIG) --exists $(LIBS_PC) $(FF_MIN) 2>/dev/null && echo y)
 endif
-ifeq ($(STATIC)$(HAVE_FFMPEG),)
+ifeq ($(STATIC)$(STANDALONE)$(HAVE_FFMPEG),)
 all:
 	@echo "uzm: skipped, FFmpeg's development libraries (6.0 or newer) not found by" \
 	      "$(PKG_CONFIG) (see tools/uzm/README.md)"
@@ -106,9 +114,15 @@ else
 all: $(TARGET)
 endif
 
+ifeq ($(STANDALONE),1)
+# `make dist` builds dist/uzm.exe and copies it to bin/
+$(TARGET): $(SRCS) src/uzm.h src/media.h $(FF_LIB)
+	@$(MAKE) --no-print-directory dist
+else
 $(TARGET): $(OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(shell $(PKG_CONFIG) $(PCFLAGS) --libs $(LIBS_PC)) -lm
+endif
 
 $(OBJDIR)/%.o: src/%.c src/uzm.h src/media.h | ffmpeg-check
 	@mkdir -p $(OBJDIR)
@@ -122,6 +136,9 @@ ffmpeg-check:
 dist: $(FF_LIB)
 	@PKG_CONFIG_PATH="$(FF_PREFIX)/lib/pkgconfig:$$PKG_CONFIG_PATH" \
 	    $(MAKE) --no-print-directory STATIC=1 all
+ifeq ($(OS),Windows_NT)
+	@mkdir -p $(BIN_DIR) && cp dist/$(PROG)$(EXE) $(BIN_DIR)/
+endif
 	@ls -l dist/$(PROG)$(EXE)
 
 $(FF_LIB): | $(FF_SRC)/configure
