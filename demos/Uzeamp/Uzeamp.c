@@ -1122,13 +1122,13 @@ void startMovie(uint8_t index){
 	fres=uzefs_read(fh,h,512,&bytesRead);
 	if(fres!=UZEFS_OK) sdError(8,fres);
 	if(bytesRead>=512 && !memcmp(h,"UZM1",4) && rd16(h+4)==1){
-		animateTextLine_P(PSTR("RE-ENCODE WITH UZM TOOL"),true);
+		animateTextLine_P(PSTR("OLD MOVIE FORMAT, RE-ENCODE WITH UZM TOOL."),true);
 		return;
 	}
 	if(bytesRead<512 || memcmp(h,"UZM1",4) || rd16(h+4)!=2 || rd16(h+6)!=UZM_WIDTH ||
 	   rd16(h+8)!=UZM_ROWS || rd16(h+10)!=UZM_SECTORS || rd16(h+16)!=UZM_SAMPLES ||
 	   rd16(h+18)!=1 || !h[21] || h[20]<h[21] || h[20]>UZM_SHOWINGS*h[21]){
-		animateTextLine_P(PSTR("NOT A UZM MOVIE OF THIS FORMAT. SEE TOOLS/UZM.PY..."),true);
+		animateTextLine_P(PSTR("UNKNOWN MOVIE FORMAT, RE-ENCODE WITH UZM TOOL."),true);
 		return;
 	}
 	//the chain: 420 FAT sectors for 200 MB on 4 KB clusters, 10 times faster with the text
