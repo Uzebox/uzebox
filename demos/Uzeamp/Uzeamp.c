@@ -686,7 +686,8 @@ int main(){
 		}
 
 		updateVuMeter();
-		animateTextLine(NULL,false);
+		//(while loading, VsyncCallBack scrolls it)
+		if(playerStatus != PLAYER_LOADING) animateTextLine(NULL,false);
    }
 
 }
@@ -1827,102 +1828,60 @@ void getFilePlayingTime(uint16_t totalSeconds,char *buffer){
 }
 
 /**
- * Scrolls the song's information
+ * Scrolls the information line: the song's (in RAM) or a message (in flash, _P). NULL: the
+ * last one set, one step further, so the main loop scrolls whichever was set last.
  */
-void animateTextLine(char *infoSongStr, bool reset){
-	static char *infoSongStrCopy;
+static void scrollText(const char *str, bool inFlash, bool reset){
+	static const char *text;
+	static bool flash;
 	static uint8_t pos=0,wait=0;
 	uint8_t curPos=pos,c;
 
-	if(infoSongStr==NULL){
-		//animate previous setted string
-		infoSongStr=infoSongStrCopy;
-	}else{
-		infoSongStrCopy=infoSongStr;
+	if(str!=NULL){
+		text=str;
+		flash=inFlash;
 	}
+	if(text==NULL) return;
 
-	size_t songLen=strlen(infoSongStr);
+	size_t len=flash? strlen_P(text) : strlen(text);
 
 	if(reset){
 		pos=0;
 		curPos=0;
-		if(songLen<=24){
+		if(len<=24){
 			for(char i=0;i<24;i++)PrintChar2(3+i,7,' ',SFONT);
-			PrintString2(3,7,infoSongStr,SFONT);
+			if(flash) PrintString2_P(3,7,text,SFONT);
+			else PrintString2(3,7,(char *)text,SFONT);
 		}
 		wait=20;
 	}
 
 	if(wait>=20){
-		if(songLen>24){
+		if(len>24){
 			for(int16_t i=0;i<24;i++){
-				if(curPos>=songLen){
+				if(curPos>=len){
 					c=32;
 				}else{
-					c=infoSongStr[curPos];
+					c=flash? pgm_read_byte(&text[curPos]) : text[curPos];
 				}
 				PrintChar2(i+3,7,c,SFONT);
 				curPos++;
-				if(curPos>=(songLen+4)) curPos=0;
+				if(curPos>=(len+4)) curPos=0;
 			}
 
 			wait=0;
 			pos++;
-			if(pos>=(songLen+4)) pos=0;
+			if(pos>=(len+4)) pos=0;
 		}
 	}
 
 	wait++;
-
 }
-/**
- * Scrolls information in flash
- */
+void animateTextLine(char *infoSongStr, bool reset){
+	scrollText(infoSongStr,false,reset);
+}
 void animateTextLine_P(const char *infoSongStr, bool reset){
-	static const char *infoSongStrCopy;
-	static uint8_t pos=0,wait=0;
-	uint8_t curPos=pos,c;
-
-	if(infoSongStr==NULL){
-		//animate previous setted string
-		infoSongStr=infoSongStrCopy;
-	}else{
-		infoSongStrCopy=infoSongStr;
-	}
-
-	size_t songLen=strlen_P(infoSongStr);
-
-	if(reset){
-		pos=0;
-		curPos=0;
-		if(songLen<=24){
-			for(char i=0;i<24;i++)PrintChar2(3+i,7,' ',SFONT);
-			PrintString2_P(3,7,infoSongStr,SFONT);
-		}
-		wait=20;
-	}
-
-	if(wait>=20){
-		if(songLen>24){
-			for(int16_t i=0;i<24;i++){
-				if(curPos>=songLen){
-					c=32;
-				}else{
-					c=pgm_read_byte(&(infoSongStr[curPos]));
-				}
-				PrintChar2(i+3,7,c,SFONT);
-				curPos++;
-				if(curPos>=(songLen+4)) curPos=0;
-			}
-
-			wait=0;
-			pos++;
-			if(pos>=(songLen+4)) pos=0;
-		}
-	}
-
-	wait++;
-
+	scrollText(infoSongStr,true,reset);
 }
 /**
  * Custom function that prints a string in RAM and supports 2 fonts.
