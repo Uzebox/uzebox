@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Uzeamp in CUzeBox, driven through the GDB stub: a scripted session, its screenshots, and how
-deep the stack went.
+deep the stack went. See ../plan-video.md (each milestone's acceptance).
 
     python -I uzeamp_check.py run HEX CARD OUT [SCRIPT]   the session; screenshots OUT_<name>.png
     python -I uzeamp_check.py compare A_PREFIX B_PREFIX   the screenshots of two runs, the
                                                           emulator's overlay text cropped off
 
-HEX: the ROM (.hex, its .elf beside it); CARD: a folder whose files make the card (copied with
-the ROM into a scratch folder, which CUzeBox serves as the card).
+HEX: the ROM (.hex, its .elf beside it); CARD: a folder whose files make the card (copied into
+card/ of a scratch folder, which CUzeBox serves with its host-directory card: --sdhost=card).
 UZEAMP_EMU_ARGS: more CUzeBox options, e.g. --no-sdhost (no card in the slot).
 
 SCRIPT: steps separated by ";" (default: the M1 session below):
@@ -16,21 +16,31 @@ SCRIPT: steps separated by ";" (default: the M1 session below):
                     a, b, x, y, up, down, left, right, l, r (the shoulders: Uzeamp's SL/SR);
                     several joined with + (r+a)
     h BUTTONS N     hold BUTTONS for the next N frames, running none (f steps run them)
+    v N [late]      run N frames, checking each movie frame of play (Uzeamp's movieFrameHook):
+                    the picture its trailer named and its sound, read from the bank it went to,
+                    against the card's .UZM (the first one in CARD; version 2). late: the first
+                    repeat frame gets a late row (uzm.under + 1), as a slow card's would
+    w SYMBOL N      write N (16 bits) to a variable: w testStill 2100 makes the card test find
+                    the full frame's restarts too slow
     s NAME          screenshot
-    d NAME          the movie's state: its start picture, the frames since, the last trailer's
-                    picture (start + frames - 1 while it plays from the start; a still keeps
-                    one), the rows missing, the sound buffer's lowest and highest sample
+    d NAME          the movie's state: its start frame, the frames since (the card test's
+                    black frames included), the last trailer's picture, the rows missing, the
+                    sound buffer's lowest and highest sample (v checks every frame)
 The stack: at main, RAM from the end of .bss to 16 below SP is filled with 0xA5; at the end the
 lowest byte changed is the stack's deepest point.
 """
 import binascii
 import json
+import struct
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import uzm  # noqa: E402
 
 EMULATOR = os.environ.get("UZEBOX_EMULATOR",
                           r"C:\msys64\home\admin\cuzebox-esp8266-gdb\cuzebox.exe")
@@ -44,7 +54,8 @@ class Emu:
         from rsp_client import RSPClient
         flags = getattr(subprocess, "IDLE_PRIORITY_CLASS", 0)
         extra = os.environ.get("UZEAMP_EMU_ARGS", "").split()    # e.g. --no-sdhost: no card
-        self.proc = subprocess.Popen([EMULATOR, hexname, "--esp=0", "--gdb=%d" % port,
+        self.proc = subprocess.Popen([EMULATOR, hexname, "--esp=0", "--sdhost=card",
+                                      "--gdb=%d" % port,
                                       "--gdb-wait", "--gdb-nolimit"] + extra, cwd=work,
                                      stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
                                      creationflags=flags)
@@ -96,6 +107,11 @@ class Emu:
             raise RuntimeError("monitor %s: %s" % (cmd, reply["error"]))
         return reply
 
+    def pc(self):
+        regs = self.rsp.xchg("g")
+        # AVR: 32 registers, SREG, SP (2), PC (4): the PC is a byte address, little-endian
+        return int.from_bytes(bytes.fromhex(regs[2 * 35:2 * 39]), "little")
+
     def sp(self):
         g = bytes.fromhex(self.rsp.xchg("g"))
         return g[33] | g[34] << 8
@@ -115,9 +131,14 @@ def cmd_run(hexpath, card, out, script):
     syms = symbols(elf)
     work = tempfile.mkdtemp(prefix="uzeamp-")
     shutil.copy(hexpath, work)
+    os.makedirs(os.path.join(work, "card"))
     for f in os.listdir(card):
-        shutil.copy(os.path.join(card, f), work)
+        if os.path.isfile(os.path.join(card, f)):
+            shutil.copy(os.path.join(card, f), os.path.join(work, "card"))
     e = Emu(work, os.path.basename(hexpath))
+    movies = sorted(f for f in os.listdir(card) if f.upper().endswith(".UZM"))
+    movie = uzm.Uzm(os.path.join(card, movies[0])) if movies else None
+    checked = [0, 0, 0]                     # frames checked, picture wrong, sound wrong
     try:
         e.rsp.expect_ok("Z0,%x,2" % syms["main"])
         e.cont()
@@ -136,31 +157,77 @@ def cmd_run(hexpath, card, out, script):
             elif step[0] == "h":
                 e.monitor("input 0 press %s %s" % (step[1].replace("+", " "), step[2]))
             elif step[0] == "d":
-                import struct
-                mv = struct.unpack("<III", e.read(syms["movie"], 12))
-                u = e.read(syms["uzm"], 20)
+                # Movie: sect0, pictures, frames, frame, n, m, cut
+                sect0, pics, total, start, n, m, cut = struct.unpack(
+                    "<IIIIBBB", e.read(syms["movie"], 19))
+                u = e.read(syms["uzm"], 26)
                 frames, under = struct.unpack_from("<H", u, 18)[0], struct.unpack_from("<H", u, 12)[0]
                 mark = u[14] | u[15] << 7 | u[16] << 14
                 ps = e.read(syms["playerStatus"], 1)[0]
-                ok = "ok" if frames == 0 or mark == mv[2] + frames - 1 else "not start + frames - 1"
                 snd = e.read(syms["mix_buf"], 524)
-                print("%-9s status %d, movie from picture %d of %d, %d frames since, last mark "
-                      "%d (sector %d): %s, rows missing %d, sound %d..%d" %
-                      (step[1], ps, mv[2], mv[1], frames, mark, u[17], ok, under, min(snd), max(snd)))
+                print("%-9s status %d, movie from frame %d of %d (%d pictures, %d every %d "
+                      "frames%s), %d frames since (the card test's included), last mark %d (sector %d), "
+                      "rows missing %d, "
+                      "sound %d..%d" % (step[1], ps, start, total, pics, m, n, ", cut" if cut else "",
+                                        frames, mark, u[17], under, min(snd), max(snd)))
+            elif step[0] == "v":
+                hook = syms["movieFrameHook"]
+                e.rsp.expect_ok("Z0,%x,2" % hook)
+                e.monitor("frames %s" % step[1])
+                bad = []
+                late = len(step) > 2 and step[2] == "late"
+                drawn = None
+                while True:
+                    e.cont()
+                    if e.pc() != hook:
+                        break
+                    p = struct.unpack("<I", e.read(syms["movieChkP"], 4))[0]
+                    k = e.read(syms["movieChkK"], 1)[0]
+                    u = e.read(syms["uzm"], 26)
+                    # a blank with no movie frame since the last (the first, when a movie starts
+                    # without the card test's frames): nothing shown, no sound written
+                    f = struct.unpack_from("<H", u, 18)[0]
+                    if f == 0 or f == drawn:
+                        continue
+                    drawn = f
+                    mark = u[14] | u[15] << 7 | u[16] << 14
+                    aw = struct.unpack_from("<H", u, 8)[0] | 0x800000
+                    fr = uzm.start_frame(p, movie.n, movie.m) + k
+                    if late and k:
+                        under = struct.unpack_from("<H", u, 12)[0] + 1
+                        e.write(syms["uzm"] + 12, struct.pack("<H", under))
+                        print("          a late row on frame %d (picture %d, showing %d)" % (fr, p, k + 1))
+                        late = False
+                    checked[0] += 1
+                    if mark != p:
+                        checked[1] += 1
+                        bad.append("frame %d: picture %d's, the trailer said %d" % (fr, p, mark))
+                    elif e.read(aw - uzm.SAMPLES, uzm.SAMPLES) != movie.frame_sound(fr):
+                        checked[2] += 1
+                        bad.append("frame %d (picture %d, showing %d): the sound differs" % (fr, p, k + 1))
+                e.rsp.expect_ok("z0,%x,2" % hook)
+                print("%-9s checked to now: %d frames, %d pictures wrong, %d sounds wrong%s" % (
+                    "v %s" % step[1], checked[0], checked[1], checked[2],
+                    ("; " + "; ".join(bad[:3])) if bad else ""))
+            elif step[0] == "w":
+                e.write(syms[step[1]], struct.pack("<H", int(step[2], 0)))
             elif step[0] == "s":
                 path = os.path.abspath("%s_%s.png" % (out, step[1])).replace("\\", "/")
                 e.monitor("screenshot " + path)
                 print("shot %s" % path)
         if "cardTest" in syms:
-            import struct
             low, still, late = struct.unpack("<HHH", e.read(syms["cardTest"], 6))
-            print("the card test: lowest %d unread after a frame, a still's blank stored %d, rows "
-                  "late %d; warning %d, accepted %d" % (low, still, late,
-                                                       e.read(syms["movieSlow"], 1)[0],
-                                                       e.read(syms["cardAccepted"], 1)[0]))
+            ct = e.read(syms["cardTest"], 10)
+            still_cut, switches = struct.unpack_from("<HH", ct, 6)
+            mv = e.read(syms["movie"], 19)
+            print("the card test: lowest %d unread after a frame, a still's blank stored %d (cut %s), "
+                  "rows late %d; warning %d, accepted %d; cardCut %d, the movie cut %d, switched to "
+                  "the cut in play %d" % (low, still, still_cut if still_cut != 2048 else "-", late,
+                                          e.read(syms["movieSlow"], 1)[0],
+                                          e.read(syms["cardAccepted"], 1)[0],
+                                          e.read(syms["cardCut"], 1)[0], mv[18], switches))
         if "uzm" in syms:
-            import struct
-            u = e.read(syms["uzm"], 20)
+            u = e.read(syms["uzm"], 26)
             print("the renderer: %d video frames, rows missing on %d lines, last mark %s" %
                   (struct.unpack_from("<H", u, 18)[0], struct.unpack_from("<H", u, 12)[0],
                    u[14:18].hex()))

@@ -1,4 +1,4 @@
-# Spec: UzeFS, a small FAT file library for Uzebox Basic
+# Spec: UzeFS, a small FAT file library for UzeBasic
 
 Status: **version 1 functions implemented and passing on the emulator** (mount,
 read, seek, stat, listing, create, write, sync, close, truncate, delete,
@@ -7,15 +7,16 @@ rename), and passing on a 256 MB FAT16 SD card on the Uzebox with a clean
 deleted and renamed. The faster memory tiers (1, a small read buffer, and 2,
 a kept sector) are built and give the same results and card contents as tier
 0 on the emulator; on a real card only tier 2 has run, through Basic's SAVE.
-**Uzebox Basic reads and writes its programs with UzeFS** (LOAD and SAVE),
+**UzeBasic reads and writes its programs with UzeFS** (LOAD and SAVE),
 tested on the emulator and on a Uzebox with a clean `chkdsk`; its other file
 commands are not written yet. Version 1 covers SDSC cards with FAT16. **FAT32 is built since
 2026-09-26** (`UZEFS_FAT32=1`, which Basic sets): one build mounts either type, and it passes on
-a 4 KB-cluster FAT32 SDHC card on the Uzebox (the FAT32 bullets under 11.1–11.4).
+a 4 KB-cluster FAT32 SDHC card on the Uzebox (the FAT32 bullets under 11.1–11.4). The milestones are in
+[`plan-uzefs.md`](plan-uzefs.md).
 
 UzeFS lets a Uzebox program create, write, append to, truncate, rename and delete
 files on the SD card, and keep several of them open at once. Petit FatFs, which
-Uzebox Basic used before, can only read files and overwrite them in place. FatFs
+UzeBasic used before, can only read files and overwrite them in place. FatFs
 can do all of this but needs a permanent 512-byte buffer and more flash. UzeFS
 does it in 8,271 bytes of flash (7,495 with `-mrelax -mcall-prologues`) and 133
 bytes of permanent RAM with four file slots.
@@ -25,7 +26,7 @@ bytes of permanent RAM with four file slots.
 
 ### 1.1 Guiding principle: RAM comes first
 
-The ATmega644 has 4 KB of RAM, and Uzebox Basic leaves about 800 bytes of it for
+The ATmega644 has 4 KB of RAM, and UzeBasic leaves about 800 bytes of it for
 the stack. So:
 
 - **The default build uses the least RAM possible.**
@@ -195,7 +196,7 @@ costs little once freeing a chain exists for delete.
 2. **Chip select stays low for the whole block.** The SD specification requires
    it for the whole transaction. The emulator discards a block whose chip select
    is released partway through, as a real card would leave it unwritten.
-3. **SPI RAM shares the bus.** Uzebox Basic keeps its program in SPI RAM and
+3. **SPI RAM shares the bus.** UzeBasic keeps its program in SPI RAM and
    uses it between any two library calls. So a card transaction cannot be left
    open across calls, and bytes cannot be fetched from SPI RAM in the middle of
    one.
@@ -526,6 +527,7 @@ its Makefile, as Basic does.
 | `UZEFS_ROOT_GROW` | 1 | With `UZEFS_FAT32`: a create in a full FAT32 root directory gives it another cluster. 0 refuses it with `UZEFS_ERR_DIR_FULL`, as a full FAT16 root does (188 bytes in Basic) |
 | `UZEFS_FSINFO` | 1 | With `UZEFS_FAT32`: the first FAT change after mount marks FSInfo's free count unknown. 0 leaves a stale count for a PC to show until `chkdsk` (214 bytes and 4 of RAM in Basic) |
 | `UZEFS_SDHC` | 1 | SDHC sector addressing and `CMD8`/`CCS` init; 0 for SDSC only |
+| `UZEFS_BOOTLOADER` | 0 | 1: the card init, the commands and the mount are a version 5 bootloader's (5.0.06 and later, at 0xF000): link `uzefs_bl.c` for `uzefs_sd.c` (§10.1). The mount needs a buffer lent. Needs `UZEFS_WRITE`. About 570 bytes less in Basic |
 | `UZEFS_RDBUF` | 0 | Tier 1 read buffer size in bytes, 0 = none, at most 255. 16–128 is sensible |
 | `UZEFS_KEEP` | 0 | Tier 2: allow `uzefs_lend(buf, 1)` to keep a sector. Forced to 0 when `UZEFS_WRITE` is 0. With both tiers on, a kept sector serves reads while it is lent with `keep`, the read buffer otherwise |
 | `UZEFS_DIR` | 1 | `uzefs_opendir` / `uzefs_readdir` |
@@ -601,6 +603,24 @@ stays untouched for the demos that use it.
 Every driver call returns a `uzefs_res`: `UZEFS_OK`, `UZEFS_ERR_DISK`, or
 `UZEFS_ERR_NOT_READY` from init, so the library passes results on unchanged.
 
+### 10.1 Over the bootloader: `uzefs_bl.c` (`UZEFS_BOOTLOADER=1`, 2026-10-14)
+
+The same interface over a version 5 bootloader's entry points (`kernel/bootld5.h`,
+which calls them directly; `kernel/bootlib.s` is the same with a fallback for a
+console without one). `uzefs_sd_mount(sdc_struct_t *)` replaces `uzefs_sd_init`:
+the signature and version checked (with no such bootloader a call would run into
+erased flash: `UZEFS_ERR_NOT_READY`), then the bootloader's `FAT_Init`, which
+initialises the card and finds the first partition's volume, leaving its boot
+sector in the buffer the caller gives it (the lent one). `uzefs_mount()` takes
+the volume from there and reads what the bootloader keeps no copy of (the FAT's
+size, the volume's, the reserved sectors, the FSInfo sector). Commands are the
+bootloader's `SD_Command`, releases its `SD_Release`; the read and write loops are
+§10's, at the full SPI clock, after the mount turns the card's CRC off (`CMD59`
+0: the bootloader's init turns it on, and a card then refuses a write with no
+CRC, seen on a Uzebox). PA4 is raised and SPIF cleared before each call of the
+bootloader's. Limits that come with it: the first partition only, starting under
+sector 65,536 (the bootloader keeps 16 bits), two FATs.
+
 Rules:
 
 - **SPI RAM chip select.** Every command first raises PA4, the SPI RAM chip
@@ -612,8 +632,23 @@ Rules:
   bytes by counting cycles and leave SPIF set. With SPIF set, the wait after
   a byte returns while the byte is still going out, and the next write to SPDR
   is dropped, which can be the command byte. So `send_cmd` and `uzefs_sd_init`
-  read SPSR and then SPDR before using the bus. The emulator does not drop such
-  a write; only a Uzebox shows the fault.
+  read SPSR and then SPDR before using the bus. Upstream CUzeBox does not drop
+  such a write, and only a Uzebox showed the fault; the fork clears SPIF as the
+  chip does since 2026-10-13, and a build without this clear fails there too.
+- **Inside a sector the bytes overlap** (2026-10-13). A read starts the
+  sector's first byte after the start token; then each byte is waited for,
+  read, and **the next one started at once**, before the byte is skipped,
+  stored or handed to the handler. A write fetches and counts each byte while
+  the one before it clocks. The wait is still on SPIF, and the access to SPDR
+  that follows it (the read of the byte, or the write of the next) clears the
+  flag, so no wait begins with it set. A read clocks the same 514 bytes after
+  the token, the last one waited for with nothing started behind it. Called
+  for every byte through `rcv_spi()` and `xmit_spi()`, as before, a byte took
+  35 to 39 cycles; it takes 21 or 22 (the bus needs 16). Measured in the
+  emulator, with the interrupts of the vertical blank: a sector read 13,700
+  cycles for 23,900, a sector write 27,800 for 37,700. On a Uzebox the flag
+  matters where the emulator cannot show it (it clears SPIF on any write to
+  SPDR), so a change to these loops needs a run with a card (2026-10-13: a FAT16 SDSC card and a FAT32 SDHC card, Basic's `FILETEST.BAS`).
 - **Every call ends with the card deselected** and one byte clocked, except
   `uzefs_sd_stream_begin`, which hands the selected card to the host.
 - **Init first ends any read the card is still in.** A card left in a CMD18
@@ -903,12 +938,16 @@ the order still holds.
 ### 11.16 Streaming
 
 For a host that reads a file faster than a command per sector allows: the video
-player in `demos/Uzeamp`, which reads about
+player in `demos/Uzeamp` (see `demos/Uzeamp/video-study.md`), which reads about
 1.2 MB/s while it draws.
 
 - **`uzefs_fragments`** follows the chain once and counts the runs of
   consecutive clusters. A count of 1 marks the slot (`FF_CONTIG`), until a write
   to it clears the mark.
+  - First it reads the entries of the file's clusters in one multiple-block
+    read (`uzefs_sd_count`): in one piece they count up by one. From the first
+    that doesn't on, the walk counts the pieces as before. A 200 MB movie on
+    4 KB clusters: one read of 420 sectors, not 1,680 reads of one sector each.
 - **`uzefs_extent(fh, pos, *sect, *run)`** gives the card sector holding byte
   `pos` and how many sectors follow it without a break, up to the file's last.
   On a marked slot it is arithmetic (`clust_sect(sclust + n)`). Otherwise it
@@ -1024,7 +1063,7 @@ Rename in place is also what `--sdhost` recognises as a rename (that spec's
 rename test covers a driver that renames in place).
 
 
-## 13. Uzebox Basic integration
+## 13. UzeBasic integration
 
 Basic's LOAD, SAVE and FILES use UzeFS. OPEN, CLOSE, PRINT#, INPUT#, LINE INPUT#,
 EOF, LOF, LOC, SEEK, KILL and NAME are not written yet; the commands

@@ -71,8 +71,17 @@
 
 sub_video_mode5:
 
+#if SOUND_STREAM != 0
+	;a song streams: its own text frame (wst_frame.inc), entered at 479
+	lds   r16,     wst+WST_O_ON
+	sbrc  r16,     0
+	jmp   sub_video_wst
+	;(sbrc skipping the jmp: 3 cycles; the WAIT starts at 478)
+	WAIT ZL,1347-6-5
+#else
 	;waste line to align with next hsync in render function (entered 6 cycles late, at 473)
 	WAIT ZL,1347-6
+#endif
 
 	ldi YL,lo8(vram)
 	ldi YH,hi8(vram)

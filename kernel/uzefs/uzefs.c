@@ -837,6 +837,74 @@ static uzefs_res dir_remove(const dscan *c, const uint8_t *nm)
 /* Mount                                                                    */
 /*--------------------------------------------------------------------------*/
 
+#if UZEFS_BOOTLOADER
+/* The volume the bootloader found (uzefs_bl.c), and what it does not keep read
+** from the boot sector it leaves in the lent buffer: the FAT's size, the
+** volume's, the reserved sectors and the FSInfo sector. A FAT12 volume, or one
+** whose FAT is too small for its clusters, is refused as below. */
+uzefs_res uzefs_mount(void)
+{
+	sdc_struct_t d;
+	uint8_t  *b = VOL.win;
+	uzefs_res res;
+	uint32_t  fatsz, tot, ncl;
+	uint16_t  base;         /* the partition's first sector: the bootloader keeps 16 bits */
+	uint8_t   s;
+
+	VOL.flags = 0;
+	memset(files, 0, sizeof(files));
+#if UZEFS_KEEP
+	VOL.wstate &= WS_KEPT;
+#endif
+#if UZEFS_RDBUF
+	VOL.rd_len = 0;
+#endif
+	if (!b) { return UZEFS_ERR_NOBUF; }
+	d.bufp = b;
+	res = uzefs_sd_mount(&d);
+	if (res) { return res; }
+
+	for (s = 0; (1U << s) != d.csize; s++) {}
+	VOL.cshift = s;
+	VOL.cmask = (uint8_t)(d.csize - 1);
+	VOL.nfats = 2;
+	fatsz = rd16(b + 22);
+#if UZEFS_FAT32
+	if (fatsz == 0) { fatsz = rd32(b + 36); }
+#endif
+	tot = rd16(b + 19);
+	if (tot == 0) { tot = rd32(b + 32); }
+	base = d.fatp - rd16(b + 14);
+	ncl = ((tot - (d.datap - base)) >> s) + 2;
+	/* a FAT entry is 4 bytes on FAT32, 2 on FAT16: 128 or 256 to its sector */
+	if (ncl < 4085 + 2 || (fatsz << ((d.flags & SDC_FLAGS_FAT32) ? 7 : 8)) < ncl) { return UZEFS_ERR_NO_FS; }
+	VOL.max_clust = (clust_t)ncl;
+	VOL.fat_size = fatsz;
+	VOL.fat_sect = d.fatp;
+	VOL.dir_sect = d.rootp;
+	VOL.data_sect = d.datap;
+#if UZEFS_WRITE
+	VOL.free_hint = 2;
+#endif
+	s = VF_MOUNTED;
+	if (d.flags & SDC_FLAGS_FAT32) {
+#if UZEFS_FAT32
+		if (d.rootp < 2 || d.rootp >= ncl) { return UZEFS_ERR_NO_FS; }
+		VOL.dir_sect = clust_sect((clust_t)d.rootp);
+#if UZEFS_WRITE && UZEFS_FSINFO
+		VOL.fsi_sect = (uint32_t)base + rd16(b + 48);
+#endif
+		s = VF_MOUNTED | VF_FAT32;
+#else
+		return UZEFS_ERR_NO_FS;
+#endif
+	} else if (ncl >= 65525 + 2) { return UZEFS_ERR_NO_FS; }
+	VOL.flags = s;
+	return UZEFS_OK;
+}
+
+#else /* !UZEFS_BOOTLOADER */
+
 /* The fields of the boot sector mount reads: bytes 0..35, and on FAT32 up to
 ** 49 for the 32-bit FAT size, the root cluster and the FSInfo sector. */
 #if UZEFS_FAT32
@@ -948,6 +1016,7 @@ uzefs_res uzefs_mount(void)
 	VOL.flags = i;
 	return UZEFS_OK;
 }
+#endif /* UZEFS_BOOTLOADER */
 
 uzefs_res uzefs_unmount(void)
 {
@@ -1461,9 +1530,9 @@ uzefs_res uzefs_fragments(uint8_t fh, uint16_t *n)
 {
 	slot     *f = get_slot(fh);
 	uzefs_res res;
-	uint32_t  left;
+	uint32_t  left, k, sect;
 	clust_t   cl, nx;
-	uint16_t  runs = 0;
+	uint16_t  runs = 0, ofs;
 
 	if (!f) { return UZEFS_ERR_BAD_HANDLE; }
 	if (f->flags & FF_FAILED) { return UZEFS_ERR_DISK; }
@@ -1471,7 +1540,22 @@ uzefs_res uzefs_fragments(uint8_t fh, uint16_t *n)
 		runs = 1;
 		cl = f->sclust;
 		/* as uzefs_seek to the end: the clusters the size needs, no further */
-		for (left = (f->fsize - 1) >> (vol.cshift + 9); left; left--) {
+		left = (f->fsize - 1) >> (vol.cshift + 9);
+		/* In one piece, the entries of those clusters count up from the file's
+		** second: one multiple-block read checks them all (a 200 MB file on 4 KB
+		** clusters: 420 sectors in a row, not 1,600 reads). From a break on, the
+		** walk below counts the pieces. */
+		if (left && cl >= 2 && cl + left < VOL.max_clust) {
+			sect = fat_loc(cl, &ofs);
+			res = uzefs_sd_count(sect, ofs, (uint32_t)cl + 1, left, IS32 ? 1 : 0, &k);
+			if (res) {
+				f->flags |= FF_FAILED;
+				return res;
+			}
+			cl += (clust_t)k;
+			left -= k;
+		}
+		for (; left; left--) {
 			res = fat_next(cl, &nx);
 			if (!res && !nx) { res = UZEFS_ERR_CORRUPT; }
 			if (res) {

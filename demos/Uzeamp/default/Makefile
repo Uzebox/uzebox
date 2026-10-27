@@ -22,6 +22,9 @@ MODE_SRC = ../uzmmode
 MODE_DIR := $(shell cygpath -m $(realpath $(MODE_SRC)) 2>/dev/null || echo $(realpath $(MODE_SRC)))
 KERNEL_OPTIONS  = -DVIDEO_MODE=0 -DVIDEO_MODE_PATH=$(MODE_DIR)
 KERNEL_OPTIONS += -DINTRO_LOGO=0 -DFIRST_RENDER_LINE=32 -DFRAME_LINES=192 -DENABLE_MIXER=0 -DTILE_WIDTH=8 -DVRAM_TILES_V=25
+## The song stream (../plan-stream.md, S3): WAV songs in one piece play straight from the card,
+## at 15,734 or 31,468 Hz (uzmmode/wst.c; the kernel's second sample a line)
+KERNEL_OPTIONS += -DSOUND_STREAM=1
 ## UzeFS read-only (Uzeamp never writes to the card), FAT16 and FAT32, one file. A 128-byte
 ## read buffer: seeking follows the cluster chain a FAT entry a cluster, and the buffer serves
 ## 32 FAT32 entries a card read.
@@ -58,7 +61,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o uzefs.o uzefs_sd.o $(GAME).o 
+OBJECTS = uzeboxVideoEngineCore.o uzeboxCore.o uzeboxSoundEngine.o uzeboxSoundEngineCore.o uzeboxVideoEngine.o uzefs.o uzefs_sd.o wst.o $(GAME).o 
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -67,10 +70,14 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Build
-all: ../data/tiles.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size ramcheck
+all: ../data/tiles.inc $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size ramcheck flashcheck
 
 ## The movie frames' line program, generated and timing-checked
 $(MODE_SRC)/uzm_frame.inc: $(MODE_SRC)/gen_uzm.py
+	$(PYTHON) -I $<
+
+## The song stream's text frame (the line programs at both rates), generated and timing-checked
+$(MODE_SRC)/wst_frame.inc: $(MODE_SRC)/gen_wst.py
 	$(PYTHON) -I $<
 
 ## Regenerate the graphics include file
@@ -78,7 +85,7 @@ $(MODE_SRC)/uzm_frame.inc: $(MODE_SRC)/gen_uzm.py
 	$(UZEBIN_DIR)gconvert ../data/gconvert.xml
 
 ## Compile Kernel files
-uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s $(MODE_SRC)/uzm_frame.inc $(MODE_SRC)/videoModeCore.s $(MODE_SRC)/mode5.s $(MODE_SRC)/uzm.def.h
+uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s $(MODE_SRC)/uzm_frame.inc $(MODE_SRC)/wst_frame.inc $(MODE_SRC)/videoModeCore.s $(MODE_SRC)/mode5.s $(MODE_SRC)/uzm.def.h
 	$(CC) $(INCLUDES) $(ASMFLAGS) -c  $<
 
 uzeboxSoundEngineCore.o: $(KERNEL_DIR)/uzeboxSoundEngineCore.s
@@ -102,9 +109,14 @@ uzefs.o: $(KERNEL_DIR)/uzefs/uzefs.c
 uzefs_sd.o: $(KERNEL_DIR)/uzefs/uzefs_sd.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
-## Compile game sources
+## Compile game sources. -Os: the player's C has no cycle-counted code (the frames are
+## assembly), and -O3 left no room for the song stream below 0xF000 (it saves about 7 KB)
 $(GAME).o: ../Uzeamp.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+	$(CC) $(INCLUDES) $(CFLAGS) -Os -c  $<
+
+## The song stream's C side: -Os (it runs a few times a field; the flash is short)
+wst.o: $(MODE_SRC)/wst.c $(MODE_SRC)/wst.h
+	$(CC) $(INCLUDES) $(CFLAGS) -Os -c  $<
 
 ##Link
 $(TARGET): $(OBJECTS)
@@ -132,6 +144,14 @@ endif
 size: ${TARGET}
 	@echo
 	@avr-size ${AVRSIZEFLAGS}
+
+## The program must end below 0xF000, where the console's fuses start every reset (BOOTRST, a
+## 4 KB boot section: high fuse 0xD2). With that section erased the reset runs through it to
+## 0x0000; with code of ours in it, the console starts in the middle of that code: it may run,
+## it may not (2026-10-25: a 61,668-byte report build). packrom only warns about it
+.PHONY: flashcheck
+flashcheck: $(TARGET)
+	@end=$$(avr-nm $(TARGET) | awk '$$3=="__data_load_end"{print $$1}'); 	if [ $$((0x$$end)) -gt $$((0xF000)) ]; then 		echo "error: the program ends at 0x$$end, in the boot section (0xF000-0xFFFF)" >&2; 		rm -f $(TARGET) $(GAME).hex; exit 1; 	else echo "the program ends at 0x$$end: below the boot section (0xF000)"; fi
 
 ## .data and .bss must end below the video ring (0x0800, uzmmode); the stack has 0x1000-0x10FF
 .PHONY: ramcheck
@@ -161,7 +181,7 @@ $(error INTERFACE must be jtag or isp, not "$(INTERFACE)")
 endif
 
 .PHONY: flash
-flash:
+flash: flashcheck
 	@[ -f $(TARGET) ] || { echo "make flash: $(TARGET) not found, build it first" >&2; exit 1; }
 	"$(ATPROGRAM)" $(ATPROGRAM_FLAGS) program -c -fl -f $(TARGET)
 

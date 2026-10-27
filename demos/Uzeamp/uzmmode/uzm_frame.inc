@@ -23,25 +23,25 @@ sub_video_uzm:
 	clr   r0                               ;  498
 	clr   r14                              ;  499
 	clr   r15                              ;  500
-	ldi   r25, 228                         ;  501
-	ldi   r19, (1 << SPI2X)                ;  502
-	out   _SFR_IO_ADDR(SPSR), r19          ;  503
-	movw  r22, r8                          ;  504
-	sub   r22, r10                         ;  505
+	lds   r25, uzm+UZM_O_LINES             ;  501
+	ldi   r19, (1 << SPI2X)                ;  503
+	out   _SFR_IO_ADDR(SPSR), r19          ;  504
+	movw  r22, r8                          ;  505
+	sub   r22, r10                         ;  506
 	sbc   r23, r11                         ;
-	ldi   r21, 0xFE                        ;  507
-	ldi   r19, hi8(UZM_STALL)              ;  508
-	cpi   r22, lo8(UZM_STALL)              ;  509
+	ldi   r21, 0xFE                        ;  508
+	ldi   r19, hi8(UZM_STALL)              ;  509
+	cpi   r22, lo8(UZM_STALL)              ;  510
 	cpc   r23, r19                         ;
 	brlt  .+2                              ;
 	ldi   r21, 0                           ;
-	lds   r19, uzm+UZM_O_PROD              ;  513
-	and   r21, r19                         ;  515
-	mov   r19, r21                         ;  516
-	andi  r19, 0x40                        ;  517
-	ori   r19, (1 << MSTR)                 ;  518
-	out   _SFR_IO_ADDR(SPCR), r19          ;  519
-	WAIT  r19, 1300                          ;  520
+	lds   r19, uzm+UZM_O_PROD              ;  514
+	and   r21, r19                         ;  516
+	mov   r19, r21                         ;  517
+	andi  r19, 0x40                        ;  518
+	ori   r19, (1 << MSTR)                 ;  519
+	out   _SFR_IO_ADDR(SPCR), r19          ;  520
+	WAIT  r19, 1299                          ;  521
 
 uzm_line:                                    ; 1820 = 0 of the first line
 	out   SPDR_IO, r20                     ;    0
@@ -56,10 +56,9 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	brne  .+2                              ;
 	ldi   r19, 32                          ;
 	mov   r15, r19                         ;   12
-	subi  XL, lo8(-161)                    ;   13
-	sbci  XH, hi8(-161)                    ;
-	nop                                    ;   15
-	nop                                    ;   16
+	lds   r19, uzm+UZM_O_TOFF              ;   13
+	add   XL, r19                          ;   15
+	adc   XH, r1                           ;
 	in    r17, SPDR_IO                     ;   17
 	out   SPDR_IO, r20                     ;   18
 	st    Y, r17                           ;   19
@@ -68,15 +67,13 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;   23
 	andi  YH, 0x0F                         ;   24
 	ori   YH, 0x08                         ;   25
-	cpi   r25, 1                           ;   26
-	ldi   r16, 0                           ;
-	brne  .+2                              ;
-	ldi   r16, 4                           ;
+	lds   r16, uzm+UZM_O_KLO               ;   26
+	lds   r22, uzm+UZM_O_KHI               ;   28
 	cp    r1, r15                          ;   30
 	sbc   r18, r18                         ;
-	and   r16, r18                         ;   32
-	ldi   ZL, lo8(uzm_dummy)               ;   33
-	ldi   ZH, hi8(uzm_dummy)               ;   34
+	cp    r25, r16                         ;   32
+	sbc   r23, r23                         ;
+	com   r23                              ;   34
 	in    r17, SPDR_IO                     ;   35
 	out   SPDR_IO, r20                     ;   36
 	st    Y, r17                           ;   37
@@ -85,13 +82,15 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;   41
 	andi  YH, 0x0F                         ;   42
 	ori   YH, 0x08                         ;   43
-	sbrc  r18, 0                           ;   44
-	movw  ZL, r6                           ;
-	sub   ZL, r16                          ;   46
-	sbc   ZH, r1                           ;
-	ld    r19, X+                          ;   48
-	st    Z+, r19                          ;   50
-	nop                                    ;   52
+	and   r18, r23                         ;   44
+	cp    r22, r25                         ;   45
+	sbc   r23, r23                         ;
+	com   r23                              ;   47
+	and   r18, r23                         ;   48
+	cp    r25, r16                         ;   49
+	ldi   r16, 0                           ;
+	brne  .+2                              ;
+	ldi   r16, 2                           ;
 	in    r17, SPDR_IO                     ;   53
 	out   SPDR_IO, r20                     ;   54
 	st    Y, r17                           ;   55
@@ -100,11 +99,14 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;   59
 	andi  YH, 0x0F                         ;   60
 	ori   YH, 0x08                         ;   61
-	ld    r19, X+                          ;   62
-	st    Z+, r19                          ;   64
-	ld    r19, X+                          ;   66
-	st    Z+, r19                          ;   68
-	nop                                    ;   70
+	and   r16, r18                         ;   62
+	ldi   ZL, lo8(uzm_dummy)               ;   63
+	ldi   ZH, hi8(uzm_dummy)               ;   64
+	sbrc  r18, 0                           ;   65
+	movw  ZL, r6                           ;
+	sub   ZL, r16                          ;   67
+	sbc   ZH, r1                           ;
+	ld    r19, X+                          ;   69
 	in    r17, SPDR_IO                     ;   71
 	out   SPDR_IO, r20                     ;   72
 	st    Y, r17                           ;   73
@@ -113,10 +115,10 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;   77
 	andi  YH, 0x0F                         ;   78
 	ori   YH, 0x08                         ;   79
-	ld    r19, X+                          ;   80
-	st    Z+, r19                          ;   82
-	ld    r19, X+                          ;   84
-	st    Z+, r19                          ;   86
+	st    Z+, r19                          ;   80
+	ld    r19, X+                          ;   82
+	st    Z+, r19                          ;   84
+	ld    r19, X+                          ;   86
 	nop                                    ;   88
 	in    r17, SPDR_IO                     ;   89
 	out   SPDR_IO, r20                     ;   90
@@ -126,10 +128,10 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;   95
 	andi  YH, 0x0F                         ;   96
 	ori   YH, 0x08                         ;   97
-	ld    r19, X+                          ;   98
-	st    Z+, r19                          ;  100
-	ld    r19, X+                          ;  102
-	st    Z+, r19                          ;  104
+	st    Z+, r19                          ;   98
+	ld    r19, X+                          ;  100
+	st    Z+, r19                          ;  102
+	ld    r19, X+                          ;  104
 	nop                                    ;  106
 	in    r17, SPDR_IO                     ;  107
 	out   SPDR_IO, r20                     ;  108
@@ -139,10 +141,9 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;  113
 	andi  YH, 0x0F                         ;  114
 	ori   YH, 0x08                         ;  115
-	sbrc  r18, 0                           ;  116
-	movw  r6, ZL                           ;
+	st    Z+, r19                          ;  116
 	ld    r19, X+                          ;  118
-	sts   uzm+UZM_O_MARK+0, r19            ;  120
+	st    Z+, r19                          ;  120
 	ld    r19, X+                          ;  122
 	nop                                    ;  124
 	in    r17, SPDR_IO                     ;  125
@@ -153,11 +154,11 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;  131
 	andi  YH, 0x0F                         ;  132
 	ori   YH, 0x08                         ;  133
-	sts   uzm+UZM_O_MARK+1, r19            ;  134
+	st    Z+, r19                          ;  134
 	ld    r19, X+                          ;  136
 	nop                                    ;  138
 	sbi   _SFR_IO_ADDR(SYNC_PORT), SYNC_PIN ;  139
-	sts   uzm+UZM_O_MARK+2, r19            ;  141
+	st    Z+, r19                          ;  141
 	in    r17, SPDR_IO                     ;  143
 	out   SPDR_IO, r20                     ;  144
 	st    Y, r17                           ;  145
@@ -166,12 +167,13 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;  149
 	andi  YH, 0x0F                         ;  150
 	ori   YH, 0x08                         ;  151
-	ld    r19, X+                          ;  152
-	sts   uzm+UZM_O_MARK+3, r19            ;  154
-	movw  XL, r2                           ;  156
-	movw  ZL, r4                           ;  157
-	ld    r19, Z+                          ;  158
-	nop                                    ;  160
+	sbrc  r18, 0                           ;  152
+	movw  r6, ZL                           ;
+	movw  XL, r2                           ;  154
+	subi  XL, lo8(-185)                    ;  155
+	sbci  XH, hi8(-185)                    ;
+	ld    r19, X+                          ;  157
+	sts   uzm+UZM_O_MARK+0, r19            ;  159
 	in    r17, SPDR_IO                     ;  161
 	out   SPDR_IO, r20                     ;  162
 	st    Y, r17                           ;  163
@@ -180,14 +182,11 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;  167
 	andi  YH, 0x0F                         ;  168
 	ori   YH, 0x08                         ;  169
-	sts   _SFR_MEM_ADDR(OCR2A), r19        ;  170
-	ldi   r22, hi8(mix_buf+MIX_BUF_SIZE)   ;  172
-	cpi   ZL, lo8(mix_buf+MIX_BUF_SIZE)    ;  173
-	cpc   ZH, r22                          ;
-	ldi   r22, lo8(mix_buf)                ;
-	ldi   r23, hi8(mix_buf)                ;
-	brlo  .+2                              ;
-	movw  ZL, r22                          ;
+	ld    r19, X+                          ;  170
+	sts   uzm+UZM_O_MARK+1, r19            ;  172
+	ld    r19, X+                          ;  174
+	sts   uzm+UZM_O_MARK+2, r19            ;  176
+	nop                                    ;  178
 	in    r17, SPDR_IO                     ;  179
 	out   SPDR_IO, r20                     ;  180
 	st    Y, r17                           ;  181
@@ -196,14 +195,11 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;  185
 	andi  YH, 0x0F                         ;  186
 	ori   YH, 0x08                         ;  187
-	movw  r4, ZL                           ;  188
-	ldi   r24, 80                          ;  189
-	nop                                    ;  190
-	nop                                    ;  191
-	nop                                    ;  192
-	nop                                    ;  193
-	nop                                    ;  194
-	nop                                    ;  195
+	ld    r19, X+                          ;  188
+	sts   uzm+UZM_O_MARK+3, r19            ;  190
+	movw  XL, r2                           ;  192
+	movw  ZL, r4                           ;  193
+	ld    r19, Z+                          ;  194
 	nop                                    ;  196
 	in    r17, SPDR_IO                     ;  197
 	out   SPDR_IO, r20                     ;  198
@@ -213,15 +209,14 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;  203
 	andi  YH, 0x0F                         ;  204
 	ori   YH, 0x08                         ;  205
-	nop                                    ;  206
-	nop                                    ;  207
-	nop                                    ;  208
-	nop                                    ;  209
-	nop                                    ;  210
-	nop                                    ;  211
-	nop                                    ;  212
-	nop                                    ;  213
-	nop                                    ;  214
+	sts   _SFR_MEM_ADDR(OCR2A), r19        ;  206
+	ldi   r22, hi8(mix_buf+MIX_BUF_SIZE)   ;  208
+	cpi   ZL, lo8(mix_buf+MIX_BUF_SIZE)    ;  209
+	cpc   ZH, r22                          ;
+	ldi   r22, lo8(mix_buf)                ;
+	ldi   r23, hi8(mix_buf)                ;
+	brlo  .+2                              ;
+	movw  ZL, r22                          ;
 	in    r17, SPDR_IO                     ;  215
 	out   SPDR_IO, r20                     ;  216
 	st    Y, r17                           ;  217
@@ -230,8 +225,8 @@ uzm_line:                                    ; 1820 = 0 of the first line
 	adc   YH, r1                           ;  221
 	andi  YH, 0x0F                         ;  222
 	ori   YH, 0x08                         ;  223
-	nop                                    ;  224
-	nop                                    ;  225
+	movw  r4, ZL                           ;  224
+	ldi   r24, 80                          ;  225
 	nop                                    ;  226
 	nop                                    ;  227
 	nop                                    ;  228
@@ -427,7 +422,8 @@ uzm_end:
 
 	; the inline pulses did not count down sync_pulse; hsync_pulse did, once
 	lds   r24, sync_pulse
-	subi  r24, UZM_LINES
+	lds   r25, uzm+UZM_O_LINES
+	sub   r24, r25
 	sts   sync_pulse, r24
 
 	; vsync flag, field flip

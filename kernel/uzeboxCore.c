@@ -172,8 +172,13 @@ const u16 io_table[] PROGMEM ={
 	io_set(PORTB,  (1 << SYNC_PIN) | (1 << VIDEOCE_PIN) | (1 << PB6) | (1 << PB2) | (1 << PB1)), // Set sync & chip enable line to hi, MISO and unused pins pull-up
 	
 	//set sync generator counter, COMPB for Vsync on TIMER1
+#if SOUND_STREAM != 0
+	io_set(OCR1BL,STREAM_OCR1B_EQ&0xff),	//(the vector's dispatch takes 4 cycles)
+	io_set(OCR1BH,STREAM_OCR1B_EQ>>8)
+#else
 	io_set(OCR1BL,0x1D),
 	io_set(OCR1BH,0x03)
+#endif
 };
 
 

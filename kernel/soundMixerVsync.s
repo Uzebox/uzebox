@@ -479,9 +479,36 @@ update_sound:
 
 	lds ZL,mix_pos
 	lds ZH,mix_pos+1
-			
+
+#if SOUND_STREAM != 0
+	;a stream (bit 7 of sound_stream): the slot played is left at 0x80, and the read stops at
+	;sound_stream_w, the next slot the stream fills (an empty ring plays silence and loses
+	;nothing; sound_stream_held tells). Not a stream: nothing is written (until Initialize sets
+	;mix_pos, it walks the registers and the I/O space). 16 cycles any way, from the wait below
+	ld r16,Z
+	sts _SFR_MEM_ADDR(OCR2A),r16 ;output sound byte
+	lds r16,sound_stream_w		; 0
+	lds r18,sound_stream_w+1	; 2
+	lds r17,sound_stream		; 4
+	sbrs r17,7			; 6
+	rjmp 3f				; 7: not a stream, at 9
+	cp ZL,r16			; 8
+	cpc ZH,r18			; 9
+	breq 2f				; 10: held, at 12
+	ldi r16,0x80			; 11
+	st Z+,r16			; 12
+	rjmp 4f				; 14
+2:	sts sound_stream_held,r17	; 12
+	rjmp 4f				; 14
+3:	adiw ZL,1			; 9
+	rjmp .				; 11
+	rjmp .				; 13
+	nop				; 15
+4:					; 16
+#else
 	ld r16,Z+
 	sts _SFR_MEM_ADDR(OCR2A),r16 ;output sound byte
+#endif
 
 	;compare+wrap=8 cycles fixed
 	ldi r16,hi8(MIX_BUF_SIZE+mix_buf)
@@ -495,7 +522,7 @@ update_sound:
 	movw ZL,r16
 
 	sts mix_pos,ZL
-	sts mix_pos+1,ZH	
+	sts mix_pos+1,ZH
 
 
 #if UART_RX_BUFFER == 1
@@ -512,20 +539,30 @@ update_sound:
 	lds r18,_SFR_MEM_ADDR(UDR0)
 
 	st Z,r18
-	
+
 	sbrc r17,RXC0
 	inc r16
 	andi r16,(UART_RX_BUFFER_SIZE-1) ;wrap
 	sts uart_rx_buf_end,r16
-	
+
+#if SOUND_STREAM != 0
+	#error "SOUND_STREAM takes 16 cycles of update_sound's wait: none is left with UART_RX_BUFFER"
+#endif
 	rjmp .
 	rjmp .
 	rjmp .
 #else
 	//alignment cycles
+#if SOUND_STREAM != 0
+	ldi ZL,2
+	dec ZL
+	brne .-4
+	rjmp .
+#else
 	ldi ZL,8
 	dec ZL
 	brne .-4
+#endif
 #endif
 
 	pop ZL

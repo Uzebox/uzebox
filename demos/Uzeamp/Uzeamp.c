@@ -19,21 +19,25 @@
  *
  *  ---
  *
- *  Uzeamp is a music player that supports standard WAVE files encoded in 8-bit mono with 15734Hz sampling rate.
+ *  Uzeamp is a music player that supports standard WAVE files encoded in 8-bit mono at 15734Hz or 31468Hz.
  *
  *  Features:
- *  - Plays WAV files, 8-bit unsigned mono file at 15734Hz (the NTSC line rate).
+ *  - Plays WAV files, 8-bit unsigned mono file at 15734Hz (the NTSC line rate) or 31468Hz (twice
+ *    it: a file in one piece on the card, streamed: uzmmode/wst.h, plan-stream.md).
  *  - Supports WAV file metadata extension for song name and artist.
  *  - Supports FAT16/FAT32, SD and SDHC, file fragmentation
  *  - Supports very old and slow SD cards that were shipped in the Uzebox kits
  *  - Support skins/color schemes
  *  - VU meter
- *  - Auto-play next song
+ *  - Auto-play next song (Y turns it on and off: the icon under the meter)
+ *  - Movies (.UZM, tools/uzm.py)
  *
  *  Compatible WAVE files can be made using FFMPEG. This will produce a file in the correct format and striping
  *  all metadata from the orginal file while adding custom song title and artist name.
  *
  *  ffmpeg -i input.mp3 -f wav -bitexact -acodec pcm_u8 -ac 1 -ar 15734 -map_metadata -1 -metadata title="<song title>" -metadata artist="<song artist>"  output.wav
+ *
+ *  (-ar 31468 for the higher rate: twice the treble, files twice the size)
  *
  *  See the wiki page for details: https://uzebox.org/wiki/Uzeamp
 */
@@ -49,6 +53,7 @@
 #include <uzebox.h>
 #include <uzefs/uzefs.h>
 #include "data/tiles.inc"
+#include "uzmmode/wst.h"
 
 #define BFONT 	0
 #define SFONT	1
@@ -121,12 +126,11 @@ typedef union {
 
 /**
  * The kinds of files: the extension, and the icon before the list's number (map_icons in
- * data/gconvert.xml, in this order). Only the first TYPES_PLAYED are listed: SID and NSF have
- * their icon, not yet a player. A new kind: its extension here, its icon in the sheet's row 4
- * (and map_icons one wider), its player in startFile.
+ * data/gconvert.xml, in this order). A new kind: its extension here, its icon in the sheet's
+ * row 4 (and map_icons one wider), its player in startFile.
  */
-enum { TYPE_WAV, TYPE_UZM, TYPE_SID, TYPE_NSF };
-static const char typeExt[][5] PROGMEM = { ".WAV", ".UZM", ".SID", ".NSF" };
+enum { TYPE_WAV, TYPE_UZM };
+static const char typeExt[][5] PROGMEM = { ".WAV", ".UZM" };
 #define TYPES_PLAYED 2
 
 /**
@@ -148,9 +152,16 @@ typedef struct {
 	char info[129];					//Buffer for the artist name and display info used in the scroller
 	uint32_t currentSector;
 	uint32_t sectorsCount;
-	uint32_t position;
-	uint32_t riffDataOffset;
+	uint32_t position;				//the samples played (bytes from the data's start)
+	uint32_t riffDataOffset;		//the samples' first byte in the file
+	uint32_t dataLen;				//the samples' bytes
+	bool rate31;					//31,468 Hz (else 15,734 or 15,750)
+	bool stream;					//in one piece: played straight from the card (wst.h)
 } Song;
+
+/* The clock's units (drawDigits, the progress bar, the cue's steps) are 512 samples at
+** 15,734 Hz: 1,024 samples at 31,468 Hz */
+#define songShift() (currentSong.rate31 ? 10 : 9)
 
 
 void animateTextLine(char *infoSongStr, bool reset);
@@ -165,9 +176,11 @@ void drawFileLine(uint8_t y,uint8_t index,uint8_t number,uint8_t byteDigits);
 void startFile(uint8_t index);
 void startMovie(uint8_t index);
 void playMovie(void);
+void drawFormat(void);
+static void stopStream(void);
 #define BTN_CUE_FWD  (BTN_SR|BTN_RIGHT)	//cue forward: the right shoulder or the d-pad's right
 #define BTN_CUE_BACK (BTN_SL|BTN_LEFT)	//cue back: the left shoulder or the d-pad's left
-uint32_t picToSector(uint32_t pic);
+uint32_t frameToSector(uint32_t frame);
 void drawScreen(void);
 void scanFiles(void);
 void redrawAll(void);
@@ -175,6 +188,8 @@ void drawSlowWarning(void);
 uint8_t loadWaveInfoBlock(SdFile *file);
 void initSdCard();
 void drawDigits(uint32_t currentSectorNo );
+extern uint32_t digitsFrom, digitsTo;
+extern uint8_t barPixels;
 void PrintByte2(uint8_t x,uint8_t y,uint8_t val,bool zeropad,uint8_t maxDigits, uint8_t font);
 void PrintChar2(uint8_t x,uint8_t y,char ch,uint8_t font);
 void PrintString2(uint8_t x, uint8_t y, char *str, uint8_t font);
@@ -215,30 +230,124 @@ Song currentSong;				//Variables for the current song
 typedef struct {
 	uint32_t sect0;
 	uint32_t pictures;
-	uint32_t pic;
+	uint32_t frames;		//its length in frames: uzmStartFrame(pictures)
+	uint32_t frame;			//the next frame to show (stopped: where it goes on)
+	uint8_t  n, m;			//its cadence: m pictures every n frames (plan-rates.md)
+	uint8_t  cut;			//1: the cut frame (rows 6-107: a slow card's restarts fit its blank)
 } Movie;
 Movie movie;
 volatile bool moviePlaying=false;	//a movie plays: no song is read, mix_buf is the movie's
+
+/* A version 2 movie's cadence (plan-rates.md): picture p is shown from frame floor(p n / m)
+** to the next one's first, 1-3 times */
+static uint32_t uzmStartFrame(uint32_t p, uint8_t n, uint8_t m){
+	return p*n/m;
+}
+
+/* The picture frame fr shows (and from uzmStartFrame, which showing) */
+static uint32_t uzmPictureOf(uint32_t fr, uint8_t n, uint8_t m){
+	uint32_t p=fr*m/n;
+	while(uzmStartFrame(p+1,n,m)<=fr) p++;
+	return p;
+}
 uint8_t listTop=0;					//the list's first line when redrawn whole (SCROLL_NONE)
 uint8_t cursorX,cursorY,cursorPrevY;	//the list's cursor, on the screen
 bool redrawPending=false;			//a movie used the ring: redrawAll() before the list is used
 
+static uint16_t rd16(const uint8_t *p){ return p[0] | (uint16_t)p[1]<<8; }
+static uint32_t rd32(const uint8_t *p){ return rd16(p) | (uint32_t)rd16(p+2)<<16; }
+
 /**
- * The card test (plan M5), at the start of every movie until the user plays one anyway: the
- * first frames restart the read as a still does (pause, steps, cue), then the first seconds of
- * play are watched. Its figures stay here (for the warning and the checker's GDB reads).
+ * The song stream (uzmmode/wst.h, plan-stream.md S3): a WAV in one piece plays straight from
+ * the card, at 15,734 or 31,468 Hz, the text frames clocking the card's bytes into mix_buf (a
+ * ring). The card is the stream's while it plays: no other UzeFS call until stopStream. A
+ * 15.7 kHz song in pieces plays from the buffer as before (processPlayer).
+ */
+bool streaming=false;
+
+static void stopStream(void){
+	if(streaming){
+		wst_stop();
+		wst_off();
+		streaming=false;
+	}
+}
+
+/* The samples played: stored, less those still in the ring (at the last wst_poll) */
+static uint32_t streamPlayed(void){
+	return wsong.from+wsong.stored-(uint16_t)wsong.level;
+}
+
+/* The song open (currentSong) from its sample from */
+static void startStream(uint32_t from){
+	streaming=true;					//first: processPlayer leaves mix_buf alone from here
+	fres=wst_start(fh,currentSong.riffDataOffset,currentSong.dataLen,from,currentSong.rate31);
+	if(fres!=UZEFS_OK){
+		stopStream();				//(the text frames back)
+		sdError(15,fres);
+	}
+}
+
+/**
+ * The format line under the meter (x 19-25: the sheet's rows 29-30): "WAV 16 KHZ" or "WAV 32
+ * KHZ", "UZM 24 FPS" (25, 30, 60); blank before a file plays. Then, at x 26,
+ * the auto-play icon (Y toggles it).
+ */
+#define FMT_NONE	0
+#define FMT_WAV16	1
+#define FMT_WAV32	2
+#define FMT_UZM		3				//+0..3: 24, 25, 30, 60 fps; FMT_UZM+4: another rate
+uint8_t format=FMT_NONE;
+bool autoPlay=true;					//at a file's end, the next one plays
+
+void drawFormat(void){
+	uint8_t blank=pgm_read_byte(&map_fmtWav[2+6]);
+	for(uint8_t i=0;i<7;i++){
+		uint8_t t=blank;
+		if(format>=FMT_UZM){		//UZ M fps _F PS
+			if(i<2) t=pgm_read_byte(&map_fmtUzm[2+i]);
+			else if(i==2){ if(format<FMT_UZM+4) t=pgm_read_byte(&map_fmtUzm[2+2+format-FMT_UZM]); }
+			else if(i<5) t=pgm_read_byte(&map_fmtUzm[2+6+i-3]);
+		}else if(format){			//WA V_ 32|16 KH Z_
+			if(i<2) t=pgm_read_byte(&map_fmtWav[2+i]);
+			else if(i==2) t=pgm_read_byte(&map_fmtWav[2+2+(format==FMT_WAV16)]);
+			else if(i<5) t=pgm_read_byte(&map_fmtWav[2+4+i-3]);
+		}
+		SetTile(19+i,VU_METER_Y_OFFSET+1,t);
+	}
+	SetTile(26,VU_METER_Y_OFFSET+1,pgm_read_byte(&map_autoPlay[2+(autoPlay ? 0 : 1)]));
+}
+
+/**
+ * The card test (plan M5): black frames that restart the read as a still does (pause, steps,
+ * cue), at the start of the first movie played from the card (cardTested: a card change resets
+ * the console); then the first seconds of each movie's play are watched, until the user plays
+ * one anyway. Its figures stay
+ * here (for the warning and the checker's GDB reads).
  */
 #define SLOW_PLAY  1		//rows came late while playing, or the ring ran low
 #define SLOW_STILL 2		//a restart (still, step, cue) left the ring short
-#define TEST_STILLS 3		//black frames that restart the read, at the movie's start
+#define TEST_STILLS 30		//black frames that restart the read, at the movie's start: half a
+							//second. A slow card is often slow (the SanDisk 128 GB: 3 restarts
+							//in 10), not always: 3 could miss it (../sdtest/sd-survey.md)
 #define TEST_FRAMES 180		//frames of play watched: 3 seconds
 #define TEST_LEVEL  512		//unread bytes a frame must leave at least: a quarter of the ring
-#define TEST_STILL  480		//bytes a still's blank must store at least: 3 rows
+#define TEST_STILL  700		//bytes a restart's blank must store at least: 3 rows (480) and a
+							//margin. Short of it, the cut frame (plan-rates.md, M4): its blank
+							//is 24 lines longer
 struct {
 	uint16_t low;			//the fewest unread bytes after a frame of play
-	uint16_t still;			//the fewest bytes a still's blank stored
+	uint16_t still;			//the fewest bytes a still's blank stored (the full frame)
 	uint16_t late;			//rows late (lines that found theirs missing) in the test
+	uint16_t stillCut;		//the same in the cut frame, when the full one fell short
+	uint16_t switches;		//movies switched to the cut in play (a repeat came late)
 } cardTest;
+uint16_t testStill=TEST_STILL, testStillCut=TEST_STILL;	//the bars, full and cut (the emulator's
+							//check raises the full one: its card is never slow)
+uint8_t cardCut;			//1: this card restarts too slowly for the full frame's blank: movies
+							//with repeats play cut, stills and cues are cut (the last test's)
+#define REPORT_FRAMES 1200	//UZEAMP_REPORT builds: frames each movie plays (20 s)
+#define REPORT_EVENTS 8		//and the late frames each movie notes: reported after it
 #ifndef UZEAMP_REPORT
 #define UZEAMP_REPORT 0		//1 (make EXTRA=-DUZEAMP_REPORT=1): a console check build: the card's CID
 #endif						//and the card test's figures to the UART (115,200 baud), the first movie started by itself
@@ -266,17 +375,29 @@ static void rep_num(uint16_t v){
 uint8_t movieSlow=0;
 uint16_t warnPrev;			//the buttons when the warning was drawn		//SLOW_PLAY or SLOW_STILL: the movie stopped, the main loop warns
 bool cardAccepted=false;	//the user played a movie anyway: no test until the console resets
+bool cardTested=false;		//the test's restarts ran: its verdict in cardVerdict (and cardCut)
+uint8_t cardVerdict=0;		//0, SLOW_PLAY or SLOW_STILL: a movie started shows the warning
 
 /**
  * The card test's figures to the UART (UZEAMP_REPORT builds): at what point, the still's
  * fewest bytes, rows late, the fewest unread bytes in play, the verdict.
  */
+#if UZEAMP_REPORT
+static uint8_t repPending;	//the report lines to send after the movie: sent in play, a line's
+							//5 ms would take the blank from the card (a late frame, a switch)
+#endif
 static void cardReport(char when){
 #if UZEAMP_REPORT
+	if(moviePlaying){
+		repPending|=(when=='S') ? 1 : 2;
+		return;
+	}
 	rep_putc(when);
 	rep_str_P(PSTR(" still "));	rep_num(cardTest.still);
 	rep_str_P(PSTR(" late "));	rep_num(cardTest.late);
 	rep_str_P(PSTR(" low "));	rep_num(cardTest.low);
+	rep_str_P(PSTR(" cut "));	rep_num(cardTest.stillCut);
+	rep_str_P(PSTR(" switches "));	rep_num(cardTest.switches);
 	rep_str_P(PSTR(" slow "));	rep_num(movieSlow);
 	rep_str_P(PSTR("\r\n"));
 #else
@@ -366,6 +487,19 @@ int main(){
   	while(1)
   	{
 		WaitVsync(1);
+		if(streaming){
+			//the song stream: right after the frame, its bookkeeping and the ring's fill
+			uint8_t st=wst_poll();
+			currentSong.position=streamPlayed();
+			currentSong.currentSector=currentSong.position >> songShift();
+			if(st==WST_DONE){
+				stopStream();
+				playerStatus=PLAYER_SONG_ENDED;
+			}else if(st==WST_FAILED){
+				stopStream();
+				sdError(17,0);
+			}
+		}
 		if(redrawPending){
 			redrawPending=false;
 			redrawAll();
@@ -378,6 +512,15 @@ int main(){
 		if(movieSlow){
 			buttons=ReadJoypad(0);
 			uint16_t pressed=buttons & ~warnPrev;
+#if UZEAMP_REPORT
+			{	//the warning read for a second, then back to the list: the next movie is tested
+				static uint8_t shown=0;
+				if(++shown>=60){
+					shown=0;
+					pressed|=BTN_B;
+				}
+			}
+#endif
 			warnPrev=buttons;
 			if(pressed & (BTN_A|BTN_B|BTN_START|BTN_SELECT)){
 				while(ReadJoypad(0)) WaitVsync(1);	//the press must not reach the list
@@ -396,18 +539,20 @@ int main(){
 		buttons=ReadJoypad(0);
 
 #if UZEAMP_REPORT
-		{	//the first movie, 2 s after the list: the card test runs with nobody at the controller
-			static uint8_t autoStart=120;
+		{	//every movie in turn, 2 s after the list and after each: the card test and a play
+			//report (REPORT_FRAMES at most) with nobody at the controller
+			static uint8_t next=0, autoStart=120;
 			if(autoStart && !--autoStart){
-				for(uint8_t i=0;i<fileCount;i++){
-					if(isMovie(i)){
-						rep_str_P(PSTR("MOVIE "));
-						for(uint8_t j=0;j<8 && files[i].filename[j];j++) rep_putc(files[i].filename[j]);
-						rep_str_P(PSTR("\r\n"));
-						cursorSongIndex=playingFileIndex=i;
-						startFile(i);
-						break;
-					}
+				while(next<fileCount && !isMovie(next)) next++;
+				if(next<fileCount){
+					rep_str_P(PSTR("MOVIE "));
+					for(uint8_t j=0;j<8 && files[next].filename[j];j++) rep_putc(files[next].filename[j]);
+					rep_str_P(PSTR("\r\n"));
+					cursorSongIndex=playingFileIndex=next;
+					startFile(next++);
+					autoStart=120;
+				}else{
+					rep_str_P(PSTR("ALL MOVIES DONE\r\n"));
 				}
 			}
 		}
@@ -417,14 +562,22 @@ int main(){
 		if(process(buttons&BTN_START,0,false)){
 			if(playerStatus == PLAYER_STARTED && cursorSongIndex==playingFileIndex){
 				playerStatus = PLAYER_PAUSED;
+				stopStream();				//(the position kept: the stream starts again there)
 			}else if(cursorSongIndex!=playingFileIndex || playerStatus == PLAYER_STOPPED){
 				playingFileIndex=cursorSongIndex;
 				startFile(playingFileIndex);
 			}else if(isMovie(playingFileIndex)){
 				playMovie();				//a stopped movie: on from its picture
 			}else{
+				if(currentSong.stream) startStream(currentSong.position);
 				playerStatus = PLAYER_STARTED;
 			}
+		}
+
+		//Y: auto-play on or off (the icon under the meter)
+		if(process(buttons&BTN_Y,4,false)){
+			autoPlay=!autoPlay;
+			drawFormat();
 		}
 
 		//Move cursor up
@@ -490,7 +643,7 @@ int main(){
 
 		//Check if there is more songs to play (after a movie, once the list is read again)
 		if(playerStatus == PLAYER_SONG_ENDED && !redrawPending){
-			if(cursorSongIndex<(fileCount-1)){
+			if(autoPlay && cursorSongIndex<(fileCount-1)){
 				if(cursorSongIndex<(MAX_DISP_FILES-1))cursorY++;
 				cursorSongIndex++;
 				playingFileIndex=cursorSongIndex;
@@ -541,7 +694,7 @@ int main(){
  * Handle auto-repeat
  */
 bool process(bool buttonPressed,uint8_t buttonID,bool repeatOn){
-	static uint8_t autoRepeatDelay[4],autoRepeatRate[4];
+	static uint8_t autoRepeatDelay[5],autoRepeatRate[5];
 
 
 	if(!(buttonPressed)){
@@ -631,14 +784,17 @@ void updateFilesList(uint8_t scrollType){
 /**
  * Draws the progress bar
  */
+uint8_t barPixels=0xFF;				//the bar drawn: redrawn only when it changes (0xFF: redraw)
 void updateProgressBar(uint32_t currentSector){
 	if(currentSong.sectorsCount==0 && currentSector==0) return;
 
-	SetTile(3,8,128); //beginning
-	SetTile(26,8,138); //end
-
 	//bar is 24 tiles wide * 8 = 192 pixels
 	uint8_t pixels=192*currentSector/currentSong.sectorsCount;
+	if(pixels==barPixels) return;
+	barPixels=pixels;
+
+	SetTile(3,8,128); //beginning
+	SetTile(26,8,138); //end
 	uint8_t fullTiles=pixels/8;
 	uint8_t tilePixels=pixels%8;
 
@@ -664,11 +820,16 @@ void updateVuMeter(){
 	static uint8_t wait=0,current_segments=0,max=0;
 
 	uint8_t *buf=mix_buf;
-	if(mix_bank==1) buf+=MIX_BANK_SIZE;
+	uint16_t n=MIX_BANK_SIZE;
+	if(streaming){
+		n=MIX_BUF_SIZE;					//the ring: the samples about to play (played: 0x80)
+	}else if(mix_bank==1){
+		buf+=MIX_BANK_SIZE;
+	}
 
 	//get the loudest sample for the bank
 	uint8_t sample=0;
-	for(int16_t i=0;i<MIX_BANK_SIZE;i++){
+	for(uint16_t i=0;i<n;i++){
 		sample=(abs((int8_t)(buf[i]+0x80))*2);
 		if(sample>max)max=sample;
 	}
@@ -715,6 +876,7 @@ void processPlayer()
 	uint8_t *buf=mix_buf;
 	uint16_t bytesRead=0;
 
+	if(streaming) return;				//the card and mix_buf are the stream's
 	if(mix_bank==1) buf+=MIX_BANK_SIZE;
 
 	if(playerStatus == PLAYER_STARTED){
@@ -746,9 +908,7 @@ void startSong(int32_t firstSector, bool loadInfoBlock){
 	//first insure the vsync player is stopped
 	playerStatus =  PLAYER_LOADING;
 	moviePlaying=false;				//after a movie: the song reader on again
-
-	currentSong.currentSector=firstSector;
-	currentSong.position=firstSector * 512;
+	stopStream();					//a cue's restart: the card free for the open below
 
 	//display a loading message for large files (seeking is slow on large files)
 	animateTextLine_P(PSTR("... LOADING ... LOADING ... LOADING"),true);
@@ -768,17 +928,35 @@ void startSong(int32_t firstSector, bool loadInfoBlock){
 	if(loadInfoBlock){
 		uint8_t res=loadWaveInfoBlock(&files[playingFileIndex]);
 		if(res==ERR_INVALID_FORMAT){
-			animateTextLine_P(PSTR("UNSUPPORTED WAVE FILE FORMAT...MUST BE 15734Hz, 8BITS, MONO. SEE UZEBOX.ORG/WIKI/UZEAMP..."),true);
+			animateTextLine_P(PSTR("UNSUPPORTED WAVE FILE FORMAT...MUST BE 15734 OR 31468 HZ, 8 BITS, MONO. SEE UZEBOX.ORG/WIKI/UZEAMP..."),true);
 			return;
 		}else if(res==ERR_INVALID_STRUCTURE){
 			animateTextLine_P(PSTR("UNSUPPORTED WAVE FILE STRUCTURE..."),true);
 			return;
 		}
+		//in one piece: streamed. In pieces: the buffer, at 15.7 kHz only
+		uint16_t pieces;
+		fres=uzefs_fragments(fh,&pieces);
+		if(fres!=UZEFS_OK) sdError(16,fres);
+		currentSong.stream=(pieces==1);
+		if(!currentSong.stream && currentSong.rate31){
+			animateTextLine_P(PSTR("THIS 31 KHZ SONG IS IN PIECES ON THE CARD: COPY IT AGAIN TO A CARD WITH FREE SPACE..."),true);
+			return;
+		}
+		format=currentSong.rate31 ? FMT_WAV32 : FMT_WAV16;
+		drawFormat();
 	}
 
-	//Advance read pointer beginning of audio data
-	fres=seekSong((firstSector*512)+currentSong.riffDataOffset);
-	if(fres!=UZEFS_OK) sdError(3,fres);
+	currentSong.currentSector=firstSector;
+	currentSong.position=firstSector << songShift();
+
+	if(currentSong.stream){
+		startStream(currentSong.position);
+	}else{
+		//Advance read pointer beginning of audio data
+		fres=seekSong(currentSong.position+currentSong.riffDataOffset);
+		if(fres!=UZEFS_OK) sdError(3,fres);
+	}
 
 	animateTextLine(currentSong.info,true);
 
@@ -823,12 +1001,14 @@ void drawScreen(void){
 	//Draw the vu meter
 	DrawMap(19,VU_METER_Y_OFFSET-1,map_overlaVuMeter);
 	for(int16_t i=0;i<8;i++)DrawMap2(19+i,VU_METER_Y_OFFSET,map_vuMeterBarOff); //vu meter
-	//Draw the wave file parameters
-	DrawMap(19,VU_METER_Y_OFFSET+1,map_overlayParams);
+	//the playing file's format, the auto-play icon
+	drawFormat();
 	//draw progress bar
 	SetTile(2,8,128);SetTile(27,8,138);//beginning+end
 	for(uint8_t i=0;i<24;i++)SetTile(i+3,8,129);
+	barPixels=0xFF;
 
+	digitsTo=0;							//the map's digits: drawn again
 	drawDigits(0);
 }
 
@@ -853,7 +1033,8 @@ void scanFiles(void){
 					files[fileCount].filename[i]=fno.name[i];
 				}
 				for(;i<8;i++) files[fileCount].filename[i]=0;
-				files[fileCount].seconds=(type==TYPE_UZM) ? movieSeconds(fno.size) : wavSeconds(fno.size);
+				files[fileCount].seconds=(type==TYPE_UZM) ? movieSeconds(fno.size) :
+				                         (type==TYPE_WAV) ? wavSeconds(fno.size) : 0;
 				files[fileCount].type=type;
 				fileCount++;
 				if(fileCount==MAX_FILES) break;
@@ -862,11 +1043,39 @@ void scanFiles(void){
     }else{
     	sdError(0,fres);
     }
+
+	//a movie's length is in its header (version 2: its pictures and its cadence), and a WAV's
+	//rate (31,468 Hz: half the time its size gave): each read once the
+	//directory is (UzeFS keeps one file open; after a movie, its own: the movie goes on by its
+	//sectors, not by the file)
+	for(uint8_t i=0;i<fileCount;i++){
+		uint8_t h[28];
+		uint16_t n;
+		char name[13];
+		if(fileOpen){
+			uzefs_close(fh);
+			fileOpen=false;
+		}
+		strcpy(name,fileName(i));
+		strcat_P(name,typeExt[files[i].type]);
+		if(uzefs_open(&fh,name,UZEFS_O_READ)==UZEFS_OK){
+			if(files[i].type==TYPE_WAV){
+				if(uzefs_read(fh,h,28,&n)==UZEFS_OK && n==28 && rd16(h+24)==31468){
+					files[i].seconds/=2;
+				}
+			}else if(uzefs_read(fh,h,22,&n)==UZEFS_OK && n==22 && !memcmp_P(h,PSTR("UZM1"),4) &&
+			         rd16(h+4)==2 && h[21] && h[20]>=h[21]){
+				files[i].seconds=(uint16_t)(uzmStartFrame(rd32(h+12),h[20],h[21])*100UL/6005UL);
+			}
+			uzefs_close(fh);
+		}
+	}
 }
 
 /**
- * The playing time of a movie of size bytes, in seconds: a 512-byte header, then pictures of
- * UZM_SECTORS sectors at 60.05 a second (the console's field rate).
+ * The playing time of a movie of size bytes, in seconds, if each picture is shown once: a
+ * 512-byte header, then pictures of UZM_SECTORS sectors at 60.05 a second (the console's field
+ * rate). The list's first guess; scanFiles then reads the header's cadence (version 2).
  */
 uint16_t movieSeconds(uint32_t size){
 	if(size<512) return 0;
@@ -877,15 +1086,16 @@ uint16_t movieSeconds(uint32_t size){
  * Starts file index of the list: a song, or a movie.
  */
 void startFile(uint8_t index){
+	stopStream();						//the card free for the next file
+	currentSong.stream=false;
+	format=FMT_NONE;					//its format drawn once its header is read
+	drawFormat();
 	if(isMovie(index)){
 		startMovie(index);
 	}else{
 		startSong(0, true);
 	}
 }
-
-static uint16_t rd16(const uint8_t *p){ return p[0] | (uint16_t)p[1]<<8; }
-static uint32_t rd32(const uint8_t *p){ return rd16(p) | (uint32_t)rd16(p+2)<<16; }
 
 /**
  * A movie: opens it, checks its header (tools/uzm.py) and that it is in one piece on the card,
@@ -910,14 +1120,26 @@ void startMovie(uint8_t index){
 	fileOpen=true;
 	fres=uzefs_read(fh,h,512,&bytesRead);
 	if(fres!=UZEFS_OK) sdError(8,fres);
-	if(bytesRead<512 || memcmp(h,"UZM1",4) || rd16(h+6)!=UZM_WIDTH || rd16(h+8)!=UZM_ROWS ||
-	   rd16(h+10)!=UZM_SECTORS || rd16(h+16)!=UZM_SAMPLES || rd16(h+18)!=1){
-		animateTextLine_P(PSTR("NOT A UZM1 MOVIE OF THIS FORMAT. SEE TOOLS/UZM.PY..."),true);
+	if(bytesRead>=512 && !memcmp(h,"UZM1",4) && rd16(h+4)==1){
+		animateTextLine_P(PSTR("AN OLD MOVIE (UZM VERSION 1): RE-ENCODE IT WITH TOOLS/UZM.PY..."),true);
 		return;
 	}
+	if(bytesRead<512 || memcmp(h,"UZM1",4) || rd16(h+4)!=2 || rd16(h+6)!=UZM_WIDTH ||
+	   rd16(h+8)!=UZM_ROWS || rd16(h+10)!=UZM_SECTORS || rd16(h+16)!=UZM_SAMPLES ||
+	   rd16(h+18)!=1 || !h[21] || h[20]<h[21] || h[20]>UZM_SHOWINGS*h[21]){
+		animateTextLine_P(PSTR("NOT A UZM MOVIE OF THIS FORMAT. SEE TOOLS/UZM.PY..."),true);
+		return;
+	}
+	//the chain: 420 FAT sectors for 200 MB on 4 KB clusters, 10 times faster with the text
+	//frames on 8 lines, the screen black (as the movie starts)
+	n=DDRC;
+	DDRC=0x00;
+	uzm_text_lines(8);
 	fres=uzefs_fragments(fh,&pieces);
+	uzm_text_lines(FRAME_LINES);
 	if(fres!=UZEFS_OK) sdError(9,fres);
 	if(pieces!=1){
+		DDRC=n;
 		animateTextLine_P(PSTR("THIS MOVIE IS IN PIECES ON THE CARD: COPY IT AGAIN TO A CARD WITH FREE SPACE..."),true);
 		return;
 	}
@@ -933,62 +1155,119 @@ void startMovie(uint8_t index){
 	animateTextLine(currentSong.info,true);
 
 	movie.pictures=rd32(h+12);
-	movie.pic=0;
+	movie.n=h[20];
+	movie.m=h[21];
+	{	//its rate: m pictures every n frames at 60 a second
+		uint8_t fps=(uint8_t)(60u*movie.m/movie.n);
+		format=FMT_UZM+(fps==24 ? 0 : fps==25 ? 1 : fps==30 ? 2 : fps==60 ? 3 : 4);
+		drawFormat();
+	}
+	movie.frames=uzmStartFrame(movie.pictures,movie.n,movie.m);
+	movie.frame=0;
+	movie.cut=0;
 	currentSong.currentSector=0;
-	currentSong.sectorsCount=picToSector(movie.pictures);
+	currentSong.sectorsCount=frameToSector(movie.frames);
 	fres=uzefs_extent(fh,512,&movie.sect0,&run);	//picture 0: the file's second sector
 	if(fres!=UZEFS_OK) sdError(10,fres);
 	playMovie();
 }
 
 /**
- * A movie's picture on the songs' timeline, their 512-byte sectors at 15,734 bytes a second as
- * drawDigits counts them (1,844 a minute) against 3,603 pictures a minute (60.05 a second).
- * So the clock and the progress bar show a movie's position as a song's.
+ * A movie's frame on the songs' timeline, their 512-byte sectors at
+ * 15,734 bytes a second as drawDigits counts them (1,844 a minute) against 3,603 frames a
+ * minute (60.05 a second). So the clock and the progress bar show a movie's position as a
+ * song's.
  */
-uint32_t picToSector(uint32_t pic){
-	return pic*1844UL/3603UL;
+uint32_t frameToSector(uint32_t frame){
+	return frame*1844UL/3603UL;
+}
+
+/* For the emulator's check (tools/uzeamp_check.py, step v): after each video frame of play,
+** what it showed, and a call to stop at */
+volatile uint32_t movieChkP;			//the picture the read was at for the frame
+volatile uint8_t  movieChkK;			//its showing (whose sound the frame wrote)
+void __attribute__((noinline)) movieFrameHook(void){
+	__asm__ volatile ("");
 }
 
 #define MOVIE_BUSY 1000		//bytes of the card's busy a still's restart waits out: about 14 lines
-#define CUE_STEP   60		//pictures a cue step jumps: a second (ten with A)
+#define CUE_STEP   60		//frames a cue step jumps: a second (ten with A)
 #define CUE_FRAMES 6		//frames a cue step is shown: ten seconds of movie a second
 #define STEP_DELAY  20		//A/B held: frames before the steps repeat
 #define STEP_REPEAT 4		//then a picture every 4 frames: 15 a second
 
 /**
+ * The card sector a frame showing picture p starts at: the picture's first, or the cut frame's
+ * first (UZM_CUT_SECTOR).
+ */
+static uint32_t movieSector(uint32_t p){
+	return movie.sect0+p*UZM_SECTORS+(uzm.cut ? UZM_CUT_SECTOR : 0);
+}
+
+static bool moviePicture(uint32_t p);
+
+/**
+ * The card test's restarts: TEST_STILLS black frames, each in a blank right after a frame, the
+ * read restarted at picture p in the frame cut (or not); *least the fewest bytes a blank stored.
+ * False if the card's busy outlasted MOVIE_BUSY.
+ */
+static bool movieStills(uint32_t p, uint8_t cut, uint16_t *least){
+	uint16_t level;
+	for(uint8_t k=0;k<TEST_STILLS;k++){
+		WaitVsync(1);
+		if(!k) uzm_cut(cut);
+		if(!moviePicture(p)) return false;
+		uzm_fill();
+		level=uzm_level();
+		if(level<*least) *least=level;
+	}
+	return true;
+}
+
+/**
  * In the vertical blank, right after a frame: the read moved to picture p and the ring emptied,
- * so the next frame draws p. Whatever the frame before showed, a still shows the same picture
- * again. False if the card's busy outlasted MOVIE_BUSY: nothing is read then (uzm.prod 0).
+ * so the next frame draws p. Whatever the frame before showed: a still shows the same picture
+ * again, a repeat shows it again with its next showing's sound. False if the card's busy
+ * outlasted MOVIE_BUSY: nothing is read then (uzm.prod 0).
  */
 static bool moviePicture(uint32_t p){
 	uzm.prod=0;
-	if(uzefs_stream_restart(movie.sect0+p*UZM_SECTORS,MOVIE_BUSY)!=UZEFS_OK) return false;
+	if(uzefs_stream_restart(movieSector(p),MOVIE_BUSY)!=UZEFS_OK) return false;
 	uzm_reset();
 	uzm.prod=0xFF;
 	return true;
 }
 
 /**
- * Plays the movie from picture movie.pic to its end; START holds the picture (a still, the
- * sound muted: the read goes back to it in every vertical blank) and START again goes on from
- * the next one. SL/SR (or the d-pad's left/right) held cue back/forward in the pictures: a
- * second every CUE_FRAMES frames, ten with A, the sound muted; on release the movie goes on
- * from the cued picture (or stays still there). A/B step a picture forward/back, the movie
- * held still (held, they repeat: STEP_DELAY, STEP_REPEAT). SELECT goes back to Uzeamp's
- * screen, the movie paused (START goes on). So does a card that cannot go back in time for a
- * still. Until the user plays a movie anyway, it starts with the card test (cardTest): a card
- * too slow stops it there, and the main loop warns (movieSlow). The card is read with one
- * multiple-block read (uzmmode): no other UzeFS call until it ends. The frames use the ring,
- * where the text and the list are: the main loop draws and reads them again (redrawAll). The
- * picture is black (DDRC 0) while text frames would show the ring's movie bytes: as it fills,
- * during the test's restarts, and after the movie until the redraw.
+ * Plays the movie from frame movie.frame to its end. A picture is shown 1-3 times (the movie's
+ * cadence: tools/uzm.py, plan-rates.md): before a repeat the read restarts at the picture, and
+ * each showing plays its own sound (uzm_showing). START holds the picture (a still, the sound
+ * muted: the read goes back to it in every vertical blank) and START again goes on from the
+ * next one. SL/SR (or the d-pad's left/right) held cue back/forward: a second every CUE_FRAMES
+ * frames, ten with A, the sound muted; on release the movie goes on from the cued picture (or
+ * stays still there). A/B step a picture forward/back, the movie held still (held, they
+ * repeat: STEP_DELAY, STEP_REPEAT). SELECT goes back to Uzeamp's screen, the movie paused
+ * (START goes on). So does a card that cannot go back in time for a still or a repeat. The
+ * card test's restarts (cardTest) run at the start of the first movie played from the card; the
+ * next movies start at once. Until the user plays a movie anyway, a card found too slow stops
+ * every movie here and the main loop warns (movieSlow); the first seconds of play are watched. The card is read with one multiple-block read
+ * (uzmmode): no other UzeFS call until it ends. The frames use the ring, where the text and the
+ * list are: the main loop draws and reads them again (redrawAll). The picture is black (DDRC 0)
+ * while text frames would show the ring's movie bytes: as it fills, during the test's
+ * restarts, and after the movie until the redraw.
+ *
+ * The timeline is in frames (fr, the next frame to show); its picture and showing follow from
+ * the cadence. The read goes on by itself only into the next picture's first showing (in the
+ * cut frame, over the hidden sectors between them: uzm_drop): anything else, a repeat, a still,
+ * a cue, a jump or a blank the loop missed, restarts it at the picture.
  */
 void playMovie(void){
-	uint16_t f, last=0, buttons, prev, step, level, late0=0, watch=0;
-	uint32_t pic=movie.pic;					//the next picture to show; held (still, cue), the one shown
-	bool ended=false, still=false, cueing=false, jump;
-	uint8_t wait=0, repeat=0;
+	uint16_t f, d, last=0, buttons, prev, level, late0=0, watch=0, under0;
+	uint32_t fr=movie.frame;				//the next frame to show; held (still, cue), the one shown
+	uint32_t p, shown, step;				//the next frame's picture; the picture the read is at
+	bool ended=false, still=false, cueing=false, jump, cut;
+	bool repeats=movie.n>movie.m;			//pictures shown more than once: restarts in play
+	uint8_t wait=0, repeat=0, k, kShown;
 
 	playerStatus=PLAYER_STOPPED;			//no song is read from here on
 	moviePlaying=true;
@@ -997,7 +1276,14 @@ void playMovie(void){
 	uzm_reset();
 	uzm.under=0;
 	uzm.frames=0;
-	fres=uzefs_stream_begin(movie.sect0+pic*UZM_SECTORS);
+	movie.cut=repeats && cardCut;			//the last test's verdict until this one's
+	uzm_cut(movie.cut);
+	if(fr>=movie.frames) fr=0;
+	p=uzmPictureOf(fr,movie.n,movie.m);
+	kShown=(uint8_t)(fr-uzmStartFrame(p,movie.n,movie.m));
+	uzm_showing(kShown);
+	shown=p;
+	fres=uzefs_stream_begin(movieSector(p));
 	if(fres!=UZEFS_OK){
 		moviePlaying=false;
 		sdError(11,fres);
@@ -1008,41 +1294,100 @@ void playMovie(void){
 		uzm_fill();
 	}
 	uzm_video(1);
+#if UZEAMP_REPORT
+	uint16_t repFrames=0, repUnder=0;		//set before the test's goto stop: the report reads them
+#endif
+#if UZEAMP_REPORT>1
+	uint16_t repFill=0;
+	uint8_t repN=0, repRestarted=0;
+	struct { uint16_t frame, fill; uint8_t lines, what; } repEv[REPORT_EVENTS];
+#endif
 
-	if(!cardAccepted){
-		//the card test, first as a still: the read restarted at the picture in each blank, the
-		//frames black; then the movie from the picture, after one more restart
-		cardTest.low=cardTest.still=UZM_RING_SIZE;
+	if(!cardAccepted && cardTested){
+		//tested at an earlier movie's start: its verdict
+		if(cardVerdict){
+			movieSlow=cardVerdict;
+			goto stop;
+		}
+		late0=uzm.under;
+		watch=TEST_FRAMES;
+	}else if(!cardAccepted){
+		//the card test, first as stills: the read restarted at the picture in each blank, the
+		//frames black. A card too slow for the full frame's blank is tried in the cut's: if it
+		//keeps up there, movies with repeats play cut, and stills and cues are cut (cardCut).
+		//Then the movie from the picture, after one more restart
+		cardTest.low=cardTest.still=cardTest.stillCut=UZM_RING_SIZE;
 		movieSlow=0;
 		uzm_mute=1;
-		for(uint8_t k=0;k<=TEST_STILLS;k++){
-			WaitVsync(1);
-			if(!moviePicture(pic)){
-				movieSlow=SLOW_STILL;		//the card's busy outlasted MOVIE_BUSY
-				break;
+		cardCut=0;
+		if(!movieStills(p,0,&cardTest.still)){
+			movieSlow=SLOW_STILL;			//the card's busy outlasted MOVIE_BUSY
+		}else if(cardTest.still<testStill){
+			cardCut=1;
+			if(!movieStills(p,1,&cardTest.stillCut) || cardTest.stillCut<testStillCut){
+				movieSlow=SLOW_STILL;		//too slow even for the cut
 			}
+		}
+		movie.cut=repeats && cardCut;
+		if(!movieSlow){
+			WaitVsync(1);					//the movie's frame, and the restart that starts it
+			uzm_cut(movie.cut);
+			if(!moviePicture(p)) movieSlow=SLOW_STILL;
 			uzm_fill();
-			level=uzm_level();
-			if(level<cardTest.still) cardTest.still=level;
 		}
 		uzm_mute=0;
 		late0=uzm.under;					//rows late in the black frames: stills that would tear
 		cardTest.late=late0;
-		if(!movieSlow && cardTest.still<TEST_STILL) movieSlow=SLOW_STILL;	//a restart left it short
-		if(!movieSlow && late0) movieSlow=SLOW_PLAY;	//a full start, yet the frames fell behind
+		if(!movieSlow && late0 && !cardCut) movieSlow=SLOW_PLAY;	//a full start, yet the frames fell behind
 		cardReport('S');
+		cardTested=true;					//the verdict for the movies to come
+		cardVerdict=movieSlow;
 		if(movieSlow) goto stop;
-		last=uzm.frames;					//the next frame shows pic
+		last=uzm.frames;					//the next frame shows fr
 		watch=TEST_FRAMES;
 	}
 	DDRC=0xFF;								//the movie's own colours, whatever the skin
 
 	prev=ReadJoypad(0);
+	under0=uzm.under;
+#if UZEAMP_REPORT
+	repUnder=uzm.under;
+#endif
 	for(;;){
 		WaitVsync(1);						//a frame drawn: the blank is the card's until the next
-		f=uzm.frames;						//frames drawn: the last showed picture pic - 1
-		if(!still && !cueing) pic+=(uint16_t)(f-last);
+#if UZEAMP_REPORT
+		if(++repFrames>REPORT_FRAMES) break;
+#endif
+		movieChkP=shown;
+		movieChkK=kShown;
+		movieFrameHook();
+		f=uzm.frames;						//frames drawn since the last blank: normally 1
+		d=(uint16_t)(f-last);
+		if(!still && !cueing) fr+=d;
 		last=f;
+		jump=false;
+#if UZEAMP_REPORT>1
+		if(uzm.under!=under0 && repN<REPORT_EVENTS){	//a late frame: what it was, its blank's fill
+			repEv[repN].frame=repFrames;
+			repEv[repN].fill=repFill;
+			repEv[repN].lines=(uint8_t)(uzm.under-under0);
+			repEv[repN].what=(uint8_t)(kShown | (uzm.cut<<2) | (repRestarted<<3) | (d!=1 ? 16 : 0) |
+			                           (still ? 32 : 0));
+			repN++;
+		}
+#endif
+		if(uzm.under!=under0){				//rows came late in that frame
+			if(!uzm.cut && (still || cueing || (repeats && kShown))){
+				//after a restart: the card is slower than the test found. The cut from the next
+				//frame, for the rest of this movie (and the stills and cues of the next)
+				cardCut=1;
+				movie.cut=repeats;
+				cardTest.switches++;
+				late0+=uzm.under-under0;	//not the test's verdict: the cut answers it
+				jump=true;					//restarted below, in the cut frame
+			}
+			under0=uzm.under;
+		}
 		if(watch){							//the test's watch: plain play only
 			level=uzm_level();				//unread after the frame, before this blank's fill
 			if(level<cardTest.low) cardTest.low=level;
@@ -1054,26 +1399,26 @@ void playMovie(void){
 			}
 			if(!watch) cardReport('P');
 		}
-		if(pic>=movie.pictures){
+		if(fr>=movie.frames){
 			ended=true;
 			break;
 		}
-		jump=false;
 		buttons=ReadJoypad(0);
 		if(buttons & BTN_SELECT) break;		//back to Uzeamp's screen, paused
 		if(buttons & (BTN_CUE_BACK|BTN_CUE_FWD)){
 			if(!cueing){
 				cueing=true;
 				wait=0;
-				if(!still && pic) pic--;	//from the picture just shown
+				if(!still && fr) fr--;		//from the frame just shown
 			}
 			if(!wait){
 				step=(buttons & BTN_A) ? 10*CUE_STEP : CUE_STEP;
 				if(buttons & BTN_CUE_FWD){
-					pic=(pic+step<movie.pictures) ? pic+step : movie.pictures-1;
+					fr=(fr+step<movie.frames) ? fr+step : movie.frames-1;
 				}else{
-					pic=(pic>step) ? pic-step : 0;
+					fr=(fr>step) ? fr-step : 0;
 				}
+				fr=uzmStartFrame(uzmPictureOf(fr,movie.n,movie.m),movie.n,movie.m);	//a picture's first frame
 				wait=CUE_FRAMES;
 			}
 			wait--;
@@ -1088,34 +1433,94 @@ void playMovie(void){
 				repeat=(prev & (BTN_A|BTN_B)) ? STEP_REPEAT : STEP_DELAY;
 				if(!still){
 					still=true;
-					if(pic) pic--;			//from the picture just shown
+					if(fr) fr--;			//from the frame just shown
 				}
+				p=uzmPictureOf(fr,movie.n,movie.m);
 				if(buttons & BTN_A){
-					if(pic+1<movie.pictures) pic++;
-				}else if(pic){
-					pic--;
+					if(p+1<movie.pictures) p++;
+				}else if(p){
+					p--;
 				}
+				fr=uzmStartFrame(p,movie.n,movie.m);
 			}
 		}else if(buttons & ~prev & BTN_START){
 			still=!still;
 			if(still){
-				if(pic) pic--;				//the picture just shown
-			}else if(++pic>=movie.pictures){
-				ended=true;
-				break;
-			}else{
-				jump=true;					//on from the next
+				if(fr) fr--;				//the frame just shown
+			}else{							//on from the next picture
+				fr=uzmStartFrame(uzmPictureOf(fr,movie.n,movie.m)+1,movie.n,movie.m);
+				if(fr>=movie.frames){
+					ended=true;
+					break;
+				}
+				jump=true;
 			}
 		}
 		prev=buttons;
 		if(still || cueing || jump) watch=0;	//the user's doing: no verdict from this movie
 		uzm_mute=still || cueing;			//before this blank's vsync: the last picture's sound
 											//is played on going on, in its place
-		if((still || cueing || jump) && !moviePicture(pic)) break;
+		//the next frame: picture p, its showing k. The read is at the picture after the one
+		//just shown: anything else restarts it. The frame: the movie's, or the cut for a still
+		//or a cue on a slow card; a change of frame restarts the read too
+		p=uzmPictureOf(fr,movie.n,movie.m);
+		k=(uint8_t)(fr-uzmStartFrame(p,movie.n,movie.m));
+		cut=movie.cut || (cardCut && (still || cueing));
+		if(cut!=uzm.cut){
+			uzm_cut(cut);
+			jump=true;
+		}
+#if UZEAMP_REPORT>1
+		repRestarted=0;
+#endif
+		if(still || cueing || jump || d!=1 || k || p!=shown+1){
+			if(!moviePicture(p)) break;
+#if UZEAMP_REPORT>1
+			repRestarted=1;
+#endif
+		}else if(uzm.cut){
+			uzm_drop();						//the hidden sectors between the two pictures
+		}
+		shown=p;
+		kShown=k;
+		uzm_showing(k);
+#if UZEAMP_REPORT>1
+		repFill=uzm_fill();
+#else
 		uzm_fill();
+#endif
 	}
 
 stop:
+#if UZEAMP_REPORT
+	moviePlaying=false;						//the deferred lines now
+	if(repPending & 1) cardReport('S');
+	if(repPending & 2) cardReport('P');
+	repPending=0;
+	moviePlaying=true;
+	if(!movieSlow){
+		rep_str_P(PSTR("PLAYED frames "));	rep_num(repFrames);
+		rep_str_P(PSTR(" late "));			rep_num(uzm.under-repUnder);
+		rep_str_P(PSTR(" cut "));			rep_num(uzm.cut);
+		rep_str_P(PSTR(" cardcut "));		rep_num(cardCut);
+		rep_str_P(PSTR(" switches "));		rep_num(cardTest.switches);
+		rep_str_P(PSTR(" rate "));			rep_num(movie.m);
+		rep_putc('/');						rep_num(movie.n);
+		rep_str_P(PSTR("\r\n"));
+#if UZEAMP_REPORT>1
+		for(uint8_t i=0;i<repN;i++){		//what: showing | cut 4 | restarted 8 | blank missed 16 | still 32
+			rep_str_P(PSTR("  LATE frame "));	rep_num(repEv[i].frame);
+			rep_str_P(PSTR(" lines "));			rep_num(repEv[i].lines);
+			rep_str_P(PSTR(" fill "));			rep_num(repEv[i].fill);
+			rep_str_P(PSTR(" showing "));		rep_num(repEv[i].what & 3);
+			rep_str_P(PSTR(" cut "));			rep_num((repEv[i].what>>2) & 1);
+			rep_str_P(PSTR(" restarted "));		rep_num((repEv[i].what>>3) & 1);
+			rep_str_P(PSTR(" missed "));		rep_num((repEv[i].what>>4) & 1);
+			rep_str_P(PSTR("\r\n"));
+		}
+#endif
+	}
+#endif
 	uzm.prod=0;								//no frame reads the card after this
 	uzm_mute=0;
 	DDRC=0x00;								//black until the main loop has drawn the text again
@@ -1123,15 +1528,18 @@ stop:
 	uzefs_stream_end();
 	memset(mix_buf,0x80,MIX_BUF_SIZE);
 	if(movieSlow){
-		pic=movie.pic;						//"play anyway" starts where the test did
+		fr=movie.frame;						//"play anyway" starts where the test did
 		ended=false;
 	}
-	movie.pic=pic;
-	currentSong.currentSector=picToSector(pic);
+	movie.frame=fr;
+	currentSong.currentSector=frameToSector(fr);
 	redrawPending=true;						//the main loop redraws: here, the stack is deep
 	moviePlaying=false;
 	while(ReadJoypad(0) & (BTN_START|BTN_SELECT)) WaitVsync(1);	//the main loop must not take this press again
 	playerStatus=ended ? PLAYER_SONG_ENDED : PLAYER_PAUSED;
+#if UZEAMP_REPORT
+	playerStatus=PLAYER_PAUSED;				//the report's list goes on to the next movie, not the
+#endif										//player's auto-advance (each movie once)
 }
 
 /**
@@ -1175,9 +1583,12 @@ uint8_t loadWaveInfoBlock(SdFile *file){
 		sector.riffHeader.format[3]=='E'){
 
 		//next chunk is always "fmt ", check if wave is correct format
-		//Support 15750hz used by old .wav files as well as the correct 15734hz
+		//Support 15750hz used by old .wav files as well as the correct 15734hz, and 31468hz
+		//(two samples a line: streamed)
+		currentSong.rate31=(sector.riffHeader.sampleRate==31468);
 		if(sector.riffHeader.audioFormat!=WAVE_PCM || sector.riffHeader.numChannels!=1
-				|| !(sector.riffHeader.sampleRate ==15734 || sector.riffHeader.sampleRate==15750)
+				|| !(sector.riffHeader.sampleRate ==15734 || sector.riffHeader.sampleRate==15750 ||
+				     currentSong.rate31)
 				|| sector.riffHeader.bitsPerSample!=8){
 			return ERR_INVALID_FORMAT;
 		}
@@ -1191,8 +1602,9 @@ uint8_t loadWaveInfoBlock(SdFile *file){
 			//compute the address of the meta data that resides after the sound data
 			//Starts with the chunk ID "INFO"
 			infoBlockStartAddr=sector.riffHeader.subchunk2Size + sizeof(sector.riffHeader) + 1;
-			currentSong.sectorsCount=(sector.riffHeader.subchunk2Size/512);
-			currentSong.riffDataOffset=(sizeof(sector.riffHeader) + 1);
+			currentSong.riffDataOffset=sizeof(sector.riffHeader);	//44: the samples follow
+			currentSong.dataLen=sector.riffHeader.subchunk2Size;
+			currentSong.sectorsCount=currentSong.dataLen >> songShift();
 
 			//return if no INFO chunk after audio data
 			if(infoBlockStartAddr>=sector.riffHeader.chunkSize){
@@ -1213,8 +1625,15 @@ uint8_t loadWaveInfoBlock(SdFile *file){
 				 sector.riffHeader.subchunk2ID[2]=='S' &&
 				 sector.riffHeader.subchunk2ID[3]=='T'){
 
-			currentSong.sectorsCount=(sector.riffHeader.chunkSize-sector.riffHeader.subchunk1Size-sector.riffHeader.subchunk2Size)/512;
-				currentSong.riffDataOffset=36+18+sector.riffHeader.subchunk2Size;
+			//the LIST chunk (ffmpeg's metadata) at 36, then "data": its size, the samples
+			uint16_t o=36+8+sector.riffHeader.subchunk2Size;
+			currentSong.riffDataOffset=o+8;
+			if(o+8<=512 && !memcmp_P(sector.buffer+o,PSTR("data"),4)){
+				currentSong.dataLen=rd32(sector.buffer+o+4);
+			}else{
+				currentSong.dataLen=sector.riffHeader.chunkSize+8-currentSong.riffDataOffset;
+			}
+			currentSong.sectorsCount=currentSong.dataLen >> songShift();
 		}else{
 			//unrecognized structure
 			return ERR_INVALID_STRUCTURE;
@@ -1316,20 +1735,29 @@ uint8_t getChar(int16_t index){
 }
 
 /**
- * Draw the song's timestamp digits
+ * Draw the song's timestamp digits. Drawn again only for another second: the sectors from
+ * digitsFrom to before digitsTo show the time drawn.
  */
+uint32_t digitsFrom=1, digitsTo=0;
 void drawDigits(uint32_t currentSectorNo ){
-	uint32_t hours,minutes,seconds,temp;
+	uint32_t hours,minutes,seconds,temp,end;
 	uint8_t digit1, digit2,x=3;
 	//15734 bytes/sec @ 512bytes/sector
 	//31 sectors/sec
 	//1844 sectors/min
 	//110630 sectors/hour
 
+	if(currentSectorNo>=digitsFrom && currentSectorNo<digitsTo) return;
 	hours=currentSectorNo/110630;
 	temp=(currentSectorNo-(hours*110630));
 	minutes=temp/1844;
 	seconds=(temp-(minutes*1844))/31;
+
+	digitsFrom=hours*110630+minutes*1844+seconds*31;
+	digitsTo=digitsFrom+31;
+	end=hours*110630+(minutes+1)*1844;			//a minute's last second is shorter
+	if(end>(hours+1)*110630) end=(hours+1)*110630;
+	if(digitsTo>end) digitsTo=end;
 
 	//print hours
 	digit1=(hours/10)%10;
@@ -1592,12 +2020,12 @@ void drawSlowWarning(void){
 	if(movieSlow==SLOW_PLAY){
 		PrintString2_P(6,14,PSTR("LATE WHILE PLAYING"),BFONT);
 	}else{
-		PrintString2_P(3,14,PSTR("TOO SLOW TO PAUSE OR CUE"),BFONT);
-	}
+		PrintString2_P(3,14,PSTR("TOO SLOW TO GO BACK, CUT"),BFONT);	//to restart a read: for a
+	}															//repeat, a still, a cue
 	PrintString2_P(5,16,PSTR("LOW"),BFONT);					//the figures: cardTest
 	printNum(12,16,cardTest.low);
-	PrintString2_P(14,16,PSTR("STILL"),BFONT);
-	printNum(23,16,cardTest.still);
+	PrintString2_P(14,16,PSTR("STILL"),BFONT);				//the cut's when it was tried
+	printNum(23,16,cardTest.stillCut<UZM_RING_SIZE ? cardTest.stillCut : cardTest.still);
 	PrintString2_P(8,17,PSTR("ROWS LATE"),BFONT);
 	printNum(22,17,cardTest.late);
 	PrintString2_P(8,19,PSTR("A: PLAY ANYWAY"),BFONT);

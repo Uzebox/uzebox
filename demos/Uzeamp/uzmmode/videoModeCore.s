@@ -24,12 +24,26 @@
 
 #include QUOTE(VIDEO_MODE_PATH/uzm_frame.inc)
 
+#if SOUND_STREAM != 0
+; the song stream's text frame and fill (generated: wst_frame.inc)
+.global wst
+.global wst_fill
+
+.section .bss
+	wst:        .space WST_SIZE
+
+.section .text
+
+#include QUOTE(VIDEO_MODE_PATH/wst_frame.inc)
+#endif
+
 ;
 ; uint16_t uzm_fill(void)
 ;
 ; The vertical blank's share of the stream: bytes from the open read stored in the ring as the
 ; frame stores them (kept when below 0xFE), 18 cycles a byte, until UZM_FILL_MAX are unread or
-; the next frame is two lines away. Interrupts stay on: one between a byte's write and its read
+; the next frame is two lines away. At most 2031 a call: what it stored is counted modulo the
+; ring (after uzm_drop the unread count can start far below 0). Interrupts stay on: one between a byte's write and its read
 ; only slows the clock. Returns the bytes stored; nothing is being clocked when it returns, and
 ; the SPI is off. Does nothing when uzm.prod is 0.
 ;
@@ -79,6 +93,10 @@ f_room:
 	sub   r24,     XL
 	sbc   r25,     XH
 	andi  r25,     0x07
+	cpi   r24,     lo8(2032)           ; stored so far: under the ring's size
+	ldi   r16,     hi8(2032)
+	cpc   r25,     r16
+	brsh  f_stop
 	lds   r16,     uzm+UZM_O_PC
 	add   r24,     r16
 	lds   r16,     uzm+UZM_O_PC+1

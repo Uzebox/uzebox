@@ -57,6 +57,17 @@
 #define UZEFS_SDHC             1
 #endif
 
+/* 1: the card's init, its commands and the mount are a version 5 bootloader's
+** (5.0.06 and later, at 0xF000; ../bootld5.h): link uzefs_bl.c, not
+** uzefs_sd.c. About 800 bytes less. The mount then needs a buffer lent
+** (uzefs_lend), into which the bootloader reads the boot sector, and takes the
+** bootloader's limits: the card's first partition, starting under sector
+** 65,536, with two FATs. With no such bootloader the mount is
+** UZEFS_ERR_NOT_READY. Needs UZEFS_WRITE (the lent buffer). */
+#ifndef UZEFS_BOOTLOADER
+#define UZEFS_BOOTLOADER       0
+#endif
+
 /* Tier 1: a static read buffer of this many bytes, 0 = none, at most 255
 ** (16..128 is sensible). A read shorter than it -- each FAT entry followed by
 ** a seek included -- is served from it and refilled from the card when needed.
@@ -82,6 +93,9 @@
 #endif
 #if UZEFS_RDBUF > 255
 #error "UZEFS_RDBUF must be 255 or less"
+#endif
+#if UZEFS_BOOTLOADER && !UZEFS_WRITE
+#error "UZEFS_BOOTLOADER needs UZEFS_WRITE: the mount reads into the lent buffer"
 #endif
 
 /* 1: uzefs_opendir / uzefs_readdir, listing the root directory. 0: neither

@@ -346,6 +346,29 @@
 		#define SOUND_MIXER MIXER_TYPE_VSYNC
 	#endif
 
+	/*
+	 * SOUND_STREAM=1: the program can play a stream from mix_buf, read at mix_pos, at
+	 * 31,468 Hz (two samples a line) as well as 15,734 (demos/Uzeamp/plan-stream.md).
+	 * sound_stream (u8): bit 0, each line's second sample, mix_pos's next, is played half a
+	 * line after the first: in the vsync's other half lines, and by Timer1's compare B in
+	 * the hsync lines of the blank (STREAM_OCR1B_B, enabled after each vsync; its vector
+	 * serves the vsync's EQ pulses too, their compare 4 cycles earlier for the dispatch).
+	 * Bit 7, a stream: every sample played leaves 0x80 in its slot, and the read stops at
+	 * sound_stream_w (u16), the next slot the stream fills: an empty ring plays silence and
+	 * loses nothing (sound_stream_held is then set). Bit 0 only with bit 7. A video mode's
+	 * frame plays its lines' samples itself, the same way. update_sound keeps its cycles.
+	 * Off: every other game builds the kernel as it was.
+	 */
+	#ifndef SOUND_STREAM
+		#define SOUND_STREAM 0
+	#endif
+	#if SOUND_STREAM != 0 && SOUND_MIXER != MIXER_TYPE_VSYNC
+		#error SOUND_STREAM needs the vsync mixer (SOUND_MIXER=0): the stream is in mix_buf
+	#endif
+	#define STREAM_OCR1B_EQ (0x31D - 4)  /* the EQ pulses' compare B: bit 7 clear */
+	#define STREAM_OCR1B_B  1010         /* the second sample's: bit 7 set; it writes OCR2A at
+	                                     ** TCNT1 1037, 910 after the first (TCNT1 127) */
+
 
 	#ifndef MUSIC_ENGINE
 		#define MUSIC_ENGINE MIDI

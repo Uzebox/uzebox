@@ -71,7 +71,19 @@ void uzm_reset(void){
 	uzm.cc = 0;
 }
 
+/* The frame's geometry (full or cut) in uzm; the sample sectors' limits in lines left */
+static void uzm_geometry(uint8_t cut){
+	uint8_t s0 = cut ? UZM_CUT_SECTOR : 0;
+	uzm.cut   = cut;
+	uzm.lines = cut ? UZM_CUT_LINES : UZM_LINES;
+	uzm.first = cut ? UZM_CUT_FIRST : UZM_FIRST_LINE;
+	uzm.khi   = uzm.lines - 6 * (2 - s0) - 5;
+	uzm.klo   = uzm.lines - 6 * (34 - s0) - 5;
+	if (uzm.toff < 161) uzm.toff = 161;
+}
+
 extern volatile unsigned char sync_phase;
+extern volatile unsigned char sync_pulse;
 
 /* The kernel starts a frame on the line where sync_pulse enters the window that
 ** first_render_line and render_lines_count make. Changed right after a frame, the new window
@@ -84,10 +96,33 @@ void uzm_video(uint8_t on){
 		/* this vsync's VideoModeVsync came before uzm.on, and mix_bank has flipped since:
 		** the bank it would have named is the other one */
 		uzm.aw = (uint16_t)(mix_buf + (mix_bank ? 0 : MIX_BANK_SIZE));
-		SetRenderingParameters(UZM_FIRST_LINE, UZM_LINES);
+		if (!uzm.lines) uzm_geometry(0);
+		SetRenderingParameters(uzm.first, uzm.lines);
 		uzm.on = 1;
 	} else {
 		uzm.on = 0;
 		SetRenderingParameters(FIRST_RENDER_LINE, FRAME_LINES);
 	}
+}
+
+/* Mode 5's text frames on their first lines only (or all, FRAME_LINES). Drawing them takes
+** nearly all the CPU: a long card job (a big movie's cluster chain) runs 10 times faster on
+** 8 lines. Switched in the vsync's pulses, as uzm_video. */
+void uzm_text_lines(uint8_t lines){
+	while (sync_phase & 1) { }
+	SetRenderingParameters(FIRST_RENDER_LINE, lines);
+}
+
+/* The kernel starts a frame on a line whose sync_pulse (counting down) is in
+** [SYNC_HSYNC_PULSES - first - lines, SYNC_HSYNC_PULSES - first): [5, 233) full, [17, 221) cut.
+** Right after a full frame the count is below 5, outside the cut's window: the switch is at
+** once. Right after a cut frame it is below 17, which the full window holds down to 5: a frame
+** would start there and end in the next field. So to the full frame: below 5, or in the vsync's
+** pulses, first (12 lines at most). */
+void uzm_cut(uint8_t on){
+	if (uzm.on && !on && uzm.cut) {
+		while ((sync_phase & 1) && sync_pulse >= SYNC_HSYNC_PULSES - UZM_FIRST_LINE - UZM_LINES) { }
+	}
+	uzm_geometry(on);
+	if (uzm.on) SetRenderingParameters(uzm.first, uzm.lines);
 }

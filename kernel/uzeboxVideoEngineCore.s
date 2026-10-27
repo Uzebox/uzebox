@@ -140,6 +140,15 @@
 	random_value:			.space 2
 #endif
 
+#if SOUND_STREAM != 0
+	.global sound_stream
+	.global sound_stream_w
+	.global sound_stream_held
+	sound_stream:			.space 1	;SOUND_STREAM: bit 0, two samples a line; bit 7, a stream
+	sound_stream_w:			.space 2	;the stream's next slot to fill: the read stops there
+	sound_stream_held:		.space 1	;set (not 0) when a sample was held there
+#endif
+
 .section .text
 
 
@@ -206,7 +215,11 @@ TIMER1_COMPA_vect:
 	rjmp sync_end
 
 sync_pre_eq_no_sound_update:
+#if SOUND_STREAM != 0
+	call stream_half	;64 cycles: a stream's second sample, compare B for the EQ pulses
+#else
 	WAIT ZL,64
+#endif
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN	;TCNT1=0xAC
 		
 	rjmp sync_end
@@ -230,9 +243,19 @@ sync_eq:
 
 	bst ZL,0
 	ldi ZL,4
-	brtc sync_eq_skip
-	
+#if SOUND_STREAM != 0
+	brtc sync_eq_b
+
 	call update_sound
+	rjmp sync_eq_skip
+
+sync_eq_b:
+	call stream_half	;a stream's second sample (compare B gives the sbi)
+#else
+	brtc sync_eq_skip
+
+	call update_sound
+#endif
 
 sync_eq_skip:
 	;enable interupt to bring back sync 
@@ -258,6 +281,14 @@ sync_eq_skip:
 TIMER1_COMPB_vect:
 	push  ZL
 
+#if SOUND_STREAM != 0
+	;the EQ pulses' compare (STREAM_OCR1B_EQ: 4 cycles earlier for these 4), or a stream's
+	;second sample in the blank's hsync lines (STREAM_OCR1B_B): bit 7 of the compare
+	lds   ZL,      _SFR_MEM_ADDR(OCR1BL)
+	sbrc  ZL,      7
+	rjmp  stream_b_isr
+#endif
+
 	lds   ZL,      _SFR_MEM_ADDR(TCNT1L) ; 0x28 - 0x2D (5 cy jitter)
 
 	sbrc  ZL,      2
@@ -278,6 +309,7 @@ TIMER1_COMPB_vect:
 	reti
 
 
+
 ;***************************************************
 ; SYNC POST EQ pulse generation
 ; Note: TCNT1 should be equal to 
@@ -296,7 +328,11 @@ sync_post_eq:
 	rjmp sync_pre_eq_cont
 
 sync_post_eq_no_sound_update:
+#if SOUND_STREAM != 0
+	call stream_half	;64 cycles: a stream's second sample
+#else
 	WAIT ZL,64
+#endif
 
 	sbi _SFR_IO_ADDR(SYNC_PORT),SYNC_PIN 
 
@@ -312,7 +348,23 @@ sync_pre_eq_cont:
 	sts sync_pulse,ZL
 	ldi ZL,1
 	sts sync_phase,ZL
-	
+
+#if SOUND_STREAM != 0
+	;the blank's hsync lines: compare B plays a stream's second samples
+	ldi ZL,hi8(STREAM_OCR1B_B)
+	sts _SFR_MEM_ADDR(OCR1BH),ZL
+	ldi ZL,lo8(STREAM_OCR1B_B)
+	sts _SFR_MEM_ADDR(OCR1BL),ZL
+	ldi ZL,(1<<OCF1B)
+	sts _SFR_MEM_ADDR(TIFR1),ZL
+	lds ZL,sound_stream
+	andi ZL,1
+	lsl ZL
+	lsl ZL				;OCIE1B (bit 2)
+	ori ZL,(1<<OCIE1A)
+	sts _SFR_MEM_ADDR(TIMSK1),ZL
+#endif
+
 	rjmp sync_end
 	
 	
@@ -369,6 +421,12 @@ push_loop:
 	WAIT r16,230-(AUDIO_OUT_HSYNC_CYCLES)
 
 	call VMODE_FUNC		;TCNT1=0x234
+
+#if SOUND_STREAM != 0
+	;compare B matched in the frame's lines, which played their samples themselves
+	ldi ZL,(1<<OCF1B)
+	sts _SFR_MEM_ADDR(TIFR1),ZL
+#endif
 
 	;pop r1-r29
 	ldi ZL,1
@@ -499,6 +557,110 @@ hsync_pulse:
 	sts sync_pulse,ZL
 
 	ret
+
+#if SOUND_STREAM != 0
+	.if (STREAM_OCR1B_EQ & 0x80) || !(STREAM_OCR1B_B & 0x80)
+	.error "SOUND_STREAM: the two compare B values are told apart by bit 7"
+	.endif
+
+;**********************************************************
+; A stream's second sample in the blank's hsync lines (compare B at STREAM_OCR1B_B, enabled
+; after the vsync while bit 0 of sound_stream is set): mix_pos's next sample, as update_sound
+; plays the first. Its slot is left at 0x80, and the read stops at sound_stream_w (the ring
+; empty: silence, nothing lost). Bit 0 is only set with bit 7. ZL is pushed.
+;**********************************************************
+stream_b_isr:
+	push  ZH
+	in    ZH,      _SFR_IO_ADDR(SREG)
+	push  ZH
+	push  r16
+	push  r17
+	lds   ZL,      mix_pos
+	lds   ZH,      mix_pos+1
+	ld    r16,     Z
+	sts   _SFR_MEM_ADDR(OCR2A), r16 ; TCNT1 1037 (if entered at once)
+	lds   r16,     sound_stream_w
+	lds   r17,     sound_stream_w+1
+	cp    ZL,      r16
+	cpc   ZH,      r17
+	brne  1f
+	sts   sound_stream_held, r16    ; (an address in mix_buf: not 0)
+	rjmp  2f
+1:	ldi   r16,     0x80
+	st    Z+,      r16
+	ldi   r16,     hi8(mix_buf+MIX_BUF_SIZE)
+	cpi   ZL,      lo8(mix_buf+MIX_BUF_SIZE)
+	cpc   ZH,      r16
+	brlo  3f
+	ldi   ZL,      lo8(mix_buf)
+	ldi   ZH,      hi8(mix_buf)
+3:	sts   mix_pos, ZL
+	sts   mix_pos+1, ZH
+2:	pop   r17
+	pop   r16
+	pop   ZH
+	out   _SFR_IO_ADDR(SREG), ZH
+	pop   ZH
+	pop   ZL
+	reti
+
+;**********************************************************
+; The vsync's half lines without update_sound (pre-eq, EQ, post-eq): 64 cycles with the
+; call. A stream's second sample when bit 0 of sound_stream is set (22 cycles from the cbi,
+; as update_sound's first in the other half lines; its slot left at 0x80, the read stopped at
+; sound_stream_w), and compare B for the EQ pulses. ZL, ZH, r0, r1 and SREG are the
+; interrupt's.
+;**********************************************************
+stream_half:
+	push  r16                        ;  0
+	push  r17                        ;  2
+	lds   r0,      sound_stream      ;  4
+	lds   ZL,      mix_pos           ;  6
+	lds   ZH,      mix_pos+1         ;  8
+	sbrs  r0,      0                 ; 10
+	rjmp  2f                         ; 11: off, at 13
+	ld    r16,     Z                 ; 12
+	sts   _SFR_MEM_ADDR(OCR2A), r16  ; 14 (22 from the cbi)
+	lds   r16,     sound_stream_w    ; 16
+	lds   r17,     sound_stream_w+1  ; 18
+	cp    ZL,      r16               ; 20
+	cpc   ZH,      r17               ; 21
+	breq  3f                         ; 22: held, at 24
+	ldi   r16,     0x80              ; 23
+	st    Z+,      r16               ; 24
+	ldi   r16,     hi8(mix_buf+MIX_BUF_SIZE) ; 26
+	cpi   ZL,      lo8(mix_buf+MIX_BUF_SIZE) ; 27
+	cpc   ZH,      r16               ; 28
+	brlo  1f                         ; 29: at 31
+	ldi   ZL,      lo8(mix_buf)      ; 30
+	ldi   ZH,      hi8(mix_buf)      ; 31
+	rjmp  6f                         ; 32
+1:	rjmp  .                          ; 31
+	nop                              ; 33
+6:	sts   mix_pos, ZL                ; 34
+	sts   mix_pos+1, ZH              ; 36
+	rjmp  4f                         ; 38
+3:	sts   sound_stream_held, r0      ; 24 (held)
+	ldi   r16,     4                 ; 26
+	dec   r16
+	brne  .-4                        ; 27-37
+	rjmp  4f                         ; 38
+2:	ldi   r16,     8                 ; 13 (off)
+	dec   r16
+	brne  .-4                        ; 14-36
+	nop                              ; 37
+	rjmp  4f                         ; 38
+4:	ldi   r16,     hi8(STREAM_OCR1B_EQ) ; 40
+	sts   _SFR_MEM_ADDR(OCR1BH), r16 ; 41
+	ldi   r16,     lo8(STREAM_OCR1B_EQ) ; 43
+	sts   _SFR_MEM_ADDR(OCR1BL), r16 ; 44
+	pop   r17                        ; 46
+	pop   r16                        ; 48
+	ldi   ZL,      2                 ; 50
+	dec   ZL
+	brne  .-4                        ; 51-55
+	ret                              ; 56: 4 + 56 + 4 = 64
+#endif
 
 
 ;************************************

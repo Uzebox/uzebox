@@ -8,15 +8,20 @@
  *  - a sector write is a single call that sends all 512 bytes;
  *  - streamed reads go to a handler function instead of FORWARD();
  *  - clears SPIF before every command (spi_claim);
+ *  - inside a sector the bytes overlap: the next one is started before the
+ *    last is stored or counted (next_spi, and the write's loop).
  *  - init ends a read the card may still be in (CMD12) before CMD0;
  *  - uzefs_sd_gap times a multiple-block read (CMD18);
  *  - uzefs_sd_stream_begin/end start and stop a multiple-block read that
  *    the host clocks itself, uzefs_sd_stream_restart moves it;
- *  - uzefs_sd_reg reads the CID or the CSD.
+ *  - uzefs_sd_reg reads the CID or the CSD;
+ *  - uzefs_sd_count checks a run of FAT entries in one multiple-block read.
  */
 
 #include <avr/io.h>
 #include "uzefs_sd.h"
+
+#if !UZEFS_BOOTLOADER	/* uzefs_bl.c is the driver then */
 
 extern void WaitUs(unsigned int microseconds);
 
@@ -58,6 +63,21 @@ static uint8_t rcv_spi(void)
 	SPDR = 0xFF;
 	loop_until_bit_is_set(SPSR, SPIF);
 	return SPDR;
+}
+
+/* Inside a sector: the byte in flight, once it is in, with the next one
+** started before this one is returned, so that it clocks while the caller
+** stores and counts. Needs a byte already started, and leaves one started.
+** The wait reads SPSR with SPIF set and the read of SPDR then clears it, so no
+** byte is started with SPIF left set. */
+static inline __attribute__((always_inline)) uint8_t next_spi(void)
+{
+	uint8_t d;
+
+	loop_until_bit_is_set(SPSR, SPIF);
+	d = SPDR;
+	SPDR = 0xFF;
+	return d;
 }
 
 /* Takes the bus from the SPI RAM routines. They time their bytes by counting
@@ -239,14 +259,20 @@ uzefs_res uzefs_sd_read(uint8_t *buf, uint32_t sect, uint16_t ofs, uint16_t cnt)
 		} while (rc == 0xFF && --bc);
 
 		if (rc == 0xFE) {
-			bc = 514 - ofs - cnt;
-			while (ofs) { rcv_spi(); ofs--; }
+			/* The sector and its CRC, 514 bytes: the first is started here
+			** and each next_spi() starts the one after, so the last is
+			** waited for alone. */
+			bc = 513 - ofs - cnt;
+			SPDR = 0xFF;
+			while (ofs) { next_spi(); ofs--; }
 			if (buf) {
-				while (cnt) { *buf++ = rcv_spi(); cnt--; }
+				while (cnt) { *buf++ = next_spi(); cnt--; }
 			} else {
-				while (cnt) { uzefs_sd_handler(rcv_spi()); cnt--; }
+				while (cnt) { uzefs_sd_handler(next_spi()); cnt--; }
 			}
-			do { rcv_spi(); } while (--bc);
+			do { next_spi(); } while (--bc);
+			loop_until_bit_is_set(SPSR, SPIF);
+			(void)SPDR;
 			res = UZEFS_OK;
 		}
 	}
@@ -298,6 +324,49 @@ uzefs_res uzefs_sd_gap(uint32_t sect, uint8_t n, uint16_t *min, uint16_t *max)
 		*min = lo;
 		*max = hi;
 	}
+	return res;
+}
+
+
+uzefs_res uzefs_sd_count(uint32_t sect, uint16_t ofs, uint32_t v, uint32_t n, uint8_t wide,
+                         uint32_t *k)
+{
+	uzefs_res res = UZEFS_ERR_DISK;
+	uint32_t  done = 0;
+	uint16_t  bc;
+	uint8_t   rc, i, x;
+	uint8_t  *p = (uint8_t *)&v;      /* v's bytes, low first, as the card sends a word's */
+
+	wide = wide ? 4 : 2;
+	if (cmd_sect(CMD18, sect) == 0) {
+		res = UZEFS_OK;
+		while (done < n) {
+			bc = 40000;
+			do {
+				rc = rcv_spi();
+			} while (rc == 0xFF && --bc);
+			if (rc != 0xFE) { res = UZEFS_ERR_DISK; break; }
+			for (bc = ofs; bc; bc--) { rcv_spi(); }
+			for (bc = 512 - ofs; bc && done < n; bc -= wide) {
+				x = 0;
+				for (i = 0; i < wide; i++) {
+					rc = rcv_spi();
+					if (i == 3) { rc &= 0x0F; }
+					x |= rc ^ p[i];
+				}
+				if (x) { n = done; break; }
+				v++;
+				done++;
+			}
+			ofs = 0;
+			if (done < n) {
+				for (bc += 2; bc; bc--) { rcv_spi(); }  /* the sector's rest, its CRC */
+			}
+		}
+		if (stop_read(40000)) { res = UZEFS_ERR_DISK; }
+	}
+	release();
+	*k = done;
 	return res;
 }
 
@@ -363,10 +432,17 @@ uzefs_res uzefs_sd_write(const uint8_t *buf, uint32_t sect)
 
 	if (cmd_sect(CMD24, sect) == 0) {
 		rcv_spi();
-		xmit_spi(0xFE);
-		for (bc = 512; bc; bc--) {
-			xmit_spi(buf ? *buf++ : 0);
-		}
+		/* The data token, then the sector: each byte is fetched and
+		** counted while the one before it clocks, and sent when that one
+		** is out. The write of SPDR after the wait clears SPIF. */
+		SPDR = 0xFE;
+		bc = 512;
+		do {
+			rc = buf ? *buf++ : 0;
+			loop_until_bit_is_set(SPSR, SPIF);
+			SPDR = rc;
+		} while (--bc);
+		loop_until_bit_is_set(SPSR, SPIF);
 		rcv_spi();
 		rcv_spi();
 		bc = 10;
@@ -383,3 +459,5 @@ uzefs_res uzefs_sd_write(const uint8_t *buf, uint32_t sect)
 	return res;
 }
 #endif
+
+#endif /* !UZEFS_BOOTLOADER */

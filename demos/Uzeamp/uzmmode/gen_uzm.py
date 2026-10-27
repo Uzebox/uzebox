@@ -10,7 +10,8 @@ lines from the next one with one line program, run once a line:
   head   0-302    the SPI slots of the blank (P at 0, then one every 18 cycles), the sync pulse
                   (cbi at 3, sbi at 139, as the kernel's hsync_pulse), the row's start (line A
                   keeps X, line B goes back to it), the trailer (line B of a sector's last row:
-                  its 7 samples into the sound bank, its mark), the sound sample out
+                  the showing's 8 samples into the sound bank, sectors 2-34 only, its mark),
+                  the sound sample out
   loop   303-1741 80 periods of 18 cycles: 2 pixels (9 cycles apart, the first at 307) and one
                   SPI slot each; the loop's counting fits the period
   tail   1742-1819 the black pixel at 1747, R (the last byte in: nothing is clocked from
@@ -20,6 +21,13 @@ lines from the next one with one line program, run once a line:
 An SPI slot (9 cycles): in r17 (the byte the slot before started) / out SPDR, r20 (the next) /
 st Y, r17 / cp r17, r21 / adc YL / adc YH / andi YH / ori YH: Y moves on when the byte is below
 r21 (0xFE; 0 when stalled). A byte is read 17 cycles after the write that started it.
+
+Version 2 of the format (../plan-rates.md): a picture is shown 1-3 times, and each showing has
+its own 8 samples in the trailer (at 1, 9 or 17: uzm.toff = 161, 169 or 177 from the row's
+start), kept on sectors 2-34 only, sector 34's starting 2 before. Which sector a line is in
+comes from r25 (the lines left, uzm.lines at the frame's first line): sector 2's last line has
+r25 = uzm.khi, sector 34's uzm.klo, so the same code draws the full frame (228 lines from
+sector 0) and the cut one (204 from sector 2). Nothing the card sends steers a write.
 """
 import os
 import sys
@@ -38,7 +46,7 @@ HEAD_SLOTS = 16
 LINES = 228
 
 ONE = {"out", "in", "cp", "cpc", "cpi", "adc", "add", "sub", "sbc", "subi", "sbci", "andi", "ori",
-       "and", "mov", "movw", "ldi", "inc", "dec", "clr", "nop", "eor", "tst"}
+       "and", "mov", "movw", "ldi", "inc", "dec", "clr", "nop", "eor", "tst", "com", "or"}
 TWO = {"ld", "st", "ldd", "std", "lds", "sts", "adiw", "sbiw", "rjmp", "cbi", "sbi"}
 
 
@@ -138,21 +146,34 @@ def head():
         # r15: the trailer's 32 bytes, skipped after line B of a sector's last row (j = 5)
         G(["mov   r19, r14", "cpi   r19, 10", "ldi   r19, 0", "brne  .+2", "ldi   r19, 32"], 5),
         G("mov   r15, r19"),
-        # the trailer, 160 bytes on from the row; read on every line, kept on j = 5 only. Its
-        # first byte (back) is not read: the last sector's samples start 4 before (r25 = 1 on
-        # its line B2), whatever the card sent, so the writes end at the bank's end
-        G(["subi  XL, lo8(-161)", "sbci  XH, hi8(-161)"]),
-        G(["cpi   r25, 1", "ldi   r16, 0", "brne  .+2", "ldi   r16, 4"], 4),
-        G(["cp    r1, r15", "sbc   r18, r18"]),                 # r18: 0xFF on j = 5, else 0
+        # the trailer, 160 bytes on from the row; read on every line, kept on j = 5 of sectors
+        # 2-34 only. The showing's samples: uzm.toff on from the row's start
+        G("lds   r19, uzm+UZM_O_TOFF"),
+        G(["add   XL, r19", "adc   XH, r1"]),
+        # r18: 0xFF to keep (j = 5, khi >= r25 >= klo), else 0
+        G("lds   r16, uzm+UZM_O_KLO"),
+        G("lds   r22, uzm+UZM_O_KHI"),
+        G(["cp    r1, r15", "sbc   r18, r18"]),                 # 0xFF on j = 5
+        G(["cp    r25, r16", "sbc   r23, r23"]),                # 0xFF below sector 34
+        G("com   r23"),
+        G("and   r18, r23"),
+        G(["cp    r22, r25", "sbc   r23, r23"]),                # 0xFF above sector 2
+        G("com   r23"),
+        G("and   r18, r23"),
+        # sector 34's samples start 2 before (r25 = klo), whatever the card sent, so that a
+        # showing's 262 end at its bank's end
+        G(["cp    r25, r16", "ldi   r16, 0", "brne  .+2", "ldi   r16, 2"], 4),
         G("and   r16, r18"),
         G("ldi   ZL, lo8(uzm_dummy)"),
         G("ldi   ZH, hi8(uzm_dummy)"),
         G(["sbrc  r18, 0", "movw  ZL, r6"], 2),                 # the bank, or 8 bytes of nowhere
         G(["sub   ZL, r16", "sbc   ZH, r1"]),
     ]
-    for _ in range(7):
+    for _ in range(8):
         items += [G("ld    r19, X+"), G("st    Z+, r19")]
     items += [G(["sbrc  r18, 0", "movw  r6, ZL"], 2)]
+    # the mark, at the trailer's 25
+    items += [G("movw  XL, r2"), G(["subi  XL, lo8(-185)", "sbci  XH, hi8(-185)"])]
     for i in range(4):
         items += [G("ld    r19, X+"), G("sts   uzm+UZM_O_MARK+%d, r19" % i)]
     items += [
@@ -236,7 +257,7 @@ PROLOGUE = [
     "lds   r6, uzm+UZM_O_AW", "lds   r7, uzm+UZM_O_AW+1",
     "lds   r4, mix_pos", "lds   r5, mix_pos+1",
     "ldi   r20, 0xFF", "clr   r0", "clr   r14", "clr   r15",
-    "ldi   r25, %d" % LINES,
+    "lds   r25, uzm+UZM_O_LINES",
     "ldi   r19, (1 << SPI2X)", "out   _SFR_IO_ADDR(SPSR), r19",
 ]
 
@@ -274,7 +295,8 @@ uzm_end:
 
 	; the inline pulses did not count down sync_pulse; hsync_pulse did, once
 	lds   r24, sync_pulse
-	subi  r24, UZM_LINES
+	lds   r25, uzm+UZM_O_LINES
+	sub   r24, r25
 	sts   sync_pulse, r24
 
 	; vsync flag, field flip
