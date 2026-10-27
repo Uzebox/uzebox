@@ -1,35 +1,39 @@
 ###############################################################################
 # uzm -- Uzeamp's video files (.UZM): the encoder and its tools. C and FFmpeg's
-# libraries (libavformat, libavcodec, libavfilter, libavutil), found by pkg-config.
+# libraries (libavformat, libavcodec, libavfilter, libavutil, libswscale,
+# libswresample), found by pkg-config.
 #
-#   make                build ./uzm (uzm.exe on Windows)
+#   make                ./uzm (uzm.exe on Windows), with the system's FFmpeg libraries
+#   make dist           dist/uzm(.exe): one standalone program, FFmpeg built here from
+#                       source, trimmed to reading video, and linked in (Windows: no DLL)
 #   make check          the test pattern at every rate, written and checked
-#   make dist           Windows (MSYS2): dist/ with uzm.exe and the DLLs it needs
-#   make install        to $(PREFIX)/bin (default /usr/local)
-#   make clean
+#   make install        ./uzm to $(PREFIX)/bin (default /usr/local)
+#   make clean          (make distclean: FFmpeg's build too)
 #
 # Windows: an MSYS2 UCRT64 (or MINGW64, CLANG64) shell, with
 #     pacman -S make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-ffmpeg
+#     (make dist: also mingw-w64-ucrt-x86_64-nasm mingw-w64-ucrt-x86_64-dav1d)
 # Linux (Debian, Ubuntu):
 #     apt install build-essential pkg-config libavformat-dev libavcodec-dev \
-#                 libavfilter-dev libavutil-dev
+#                 libavfilter-dev libavutil-dev          (make dist: nasm libdav1d-dev)
 # macOS (Homebrew): xcode-select --install; brew install pkg-config ffmpeg
+#                                                        (make dist: nasm dav1d)
 ###############################################################################
 
 PROG     := uzm
 SRCS     := src/main.c src/encode.c src/cadence.c src/media.c src/format.c src/dither.c \
             src/png.c src/util.c
-OBJS     := $(SRCS:.c=.o)
 PREFIX   ?= /usr/local
 PKG_CONFIG ?= pkg-config
 FFMPEG   := libavformat libavcodec libavfilter libavutil
+UNAME    := $(shell uname -s)
 
 ifeq ($(OS),Windows_NT)
     EXE := .exe
     # MSYS2: its pkg-config may not search the environment's own prefix
     ifneq ($(MSYSTEM),)
         MSYS_PREFIX := /$(shell echo $(MSYSTEM) | tr A-Z a-z)
-        ifneq ($(shell $(PKG_CONFIG) --exists libavformat && echo y),y)
+        ifneq ($(shell $(PKG_CONFIG) --exists zlib && echo y),y)
             export PKG_CONFIG_PATH := $(MSYS_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
         endif
     endif
@@ -37,27 +41,81 @@ ifeq ($(OS),Windows_NT)
     LDFLAGS += -municode
 endif
 
-ifneq ($(shell $(PKG_CONFIG) --exists $(FFMPEG) && echo y),y)
-    $(error FFmpeg's libraries not found by $(PKG_CONFIG): see the Makefile's top for the packages)
-endif
-
 # -ffp-contract=off: no fused multiply-adds (clang's default on Apple silicon), so the dither's
 # doubles round as uzm.py's do and every system writes the same bytes
 CFLAGS   ?= -O2
 CFLAGS   += -std=gnu11 -Wall -Wextra -Wno-unused-parameter -ffp-contract=off
-CPPFLAGS += $(shell $(PKG_CONFIG) --cflags $(FFMPEG))
-LDLIBS   += $(shell $(PKG_CONFIG) --libs $(FFMPEG)) -lm
 
-TARGET   := $(PROG)$(EXE)
+# ---- FFmpeg built here (make dist) ----
+FFMPEG_VERSION ?= 8.0
+BUILD    := build
+FF_SRC   := $(BUILD)/FFmpeg-n$(FFMPEG_VERSION)
+FF_URL   ?= https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n$(FFMPEG_VERSION).tar.gz
+FF_PREFIX := $(CURDIR)/$(BUILD)/ffmpeg
+FF_LIB   := $(FF_PREFIX)/lib/libavformat.a
+JOBS     ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+DAV1D    := $(shell $(PKG_CONFIG) --exists dav1d && echo --enable-libdav1d)
+# Everything that reads: FFmpeg's own demuxers, decoders, parsers and filters (--pre / --post
+# take any filter), dav1d for AV1, zlib. Nothing that writes, no device, no network, no other
+# library. GPL: decimate (--ivtc) is a GPL filter, and Uzebox is GPL 3 anyway.
+FF_CONFIG := --prefix=$(FF_PREFIX) --enable-static --disable-shared --disable-programs \
+             --disable-doc --disable-debug --enable-gpl --enable-version3 --disable-autodetect \
+             --disable-network --disable-avdevice --disable-devices --disable-encoders \
+             --disable-muxers --disable-hwaccels --disable-protocols --enable-protocol=file,pipe \
+             --enable-zlib $(DAV1D) --pkg-config-flags=--static
+
+ifeq ($(STATIC),1)
+    # the inner make of `make dist`: FFmpeg's static libraries first, then the system's
+    export PKG_CONFIG_PATH := $(FF_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
+    OBJDIR   := $(BUILD)/obj-static
+    TARGET   := dist/$(PROG)$(EXE)
+    PCFLAGS  := --static
+    LDFLAGS  += -s
+    ifeq ($(OS),Windows_NT)
+        LDFLAGS += -static
+    endif
+    LIBS_PC  := $(FFMPEG) libswscale libswresample
+else
+    OBJDIR   := obj
+    TARGET   := $(PROG)$(EXE)
+    LIBS_PC  := $(FFMPEG)
+endif
+
+OBJS     := $(SRCS:src/%.c=$(OBJDIR)/%.o)
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
+	@mkdir -p $(dir $@)
+	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(shell $(PKG_CONFIG) $(PCFLAGS) --libs $(LIBS_PC)) -lm
 
-src/%.o: src/%.c src/uzm.h src/media.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/%.o: src/%.c src/uzm.h src/media.h | ffmpeg-check
+	@mkdir -p $(OBJDIR)
+	$(CC) $(shell $(PKG_CONFIG) --cflags $(LIBS_PC)) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
+ffmpeg-check:
+	@$(PKG_CONFIG) --exists $(LIBS_PC) || { echo "FFmpeg's libraries not found by \
+	$(PKG_CONFIG): see the Makefile's top for the packages" >&2; exit 1; }
+
+# ---- make dist ----
+dist: $(FF_LIB)
+	@$(MAKE) --no-print-directory STATIC=1 all
+	@ls -l dist/$(PROG)$(EXE)
+
+$(FF_LIB): | $(FF_SRC)/configure
+	@test -n "$(DAV1D)" || echo "note: no dav1d (pkg-config): this uzm won't read AV1 video"
+	@mkdir -p $(BUILD)/tmp
+	cd $(FF_SRC) && TMPDIR=$(CURDIR)/$(BUILD)/tmp ./configure $(FF_CONFIG)
+	$(MAKE) -C $(FF_SRC) -j$(JOBS)
+	$(MAKE) -C $(FF_SRC) install
+
+$(FF_SRC)/configure:
+	@mkdir -p $(BUILD)
+	curl -fL --connect-timeout 30 --retry 3 -o $(BUILD)/ffmpeg-$(FFMPEG_VERSION).tar.gz $(FF_URL)
+	tar -xzf $(BUILD)/ffmpeg-$(FFMPEG_VERSION).tar.gz -C $(BUILD)
+	@touch $@
+
+# ---- the rest ----
 CHECK_DIR := check.tmp
 check: $(TARGET)
 	@rm -rf $(CHECK_DIR) && mkdir $(CHECK_DIR)
@@ -71,21 +129,14 @@ check: $(TARGET)
 	@rm -rf $(CHECK_DIR)
 	@echo "check: all good"
 
-# Windows: the program and the DLLs it loads from the MSYS2 environment, to copy anywhere
-dist: $(TARGET)
-ifeq ($(OS),Windows_NT)
-	@rm -rf dist && mkdir dist && cp $(TARGET) dist/
-	@ldd $(TARGET) | awk '{print $$3}' | grep -i '^$(MSYS_PREFIX)/' | sort -u | xargs -I{} cp {} dist/
-	@echo "dist/: $$(ls dist | wc -l) files, $$(du -sh dist | cut -f1)"
-else
-	@echo "make dist is for Windows: elsewhere FFmpeg comes with the system's packages"
-endif
-
 install: $(TARGET)
 	install -d $(DESTDIR)$(PREFIX)/bin
 	install -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/
 
 clean:
-	rm -rf $(OBJS) $(TARGET) dist $(CHECK_DIR)
+	rm -rf obj $(BUILD)/obj-static $(PROG)$(EXE) dist $(CHECK_DIR)
 
-.PHONY: all check dist install clean
+distclean: clean
+	rm -rf $(BUILD)
+
+.PHONY: all dist check install clean distclean ffmpeg-check

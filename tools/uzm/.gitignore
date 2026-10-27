@@ -1,5 +1,6 @@
 uzm
 uzm.exe
-src/*.o
+obj/
+build/
 dist/
 check.tmp/

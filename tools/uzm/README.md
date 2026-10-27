@@ -49,10 +49,17 @@ libavcodec, libavfilter, libavutil), version 6.0 or newer.
 ```
 pacman -S make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-ffmpeg
 make
-make dist        # dist/: uzm.exe and the DLLs it loads, to copy to any Windows machine
 ```
 
 The Makefile also finds FFmpeg when only MSYS's own `pkg-config` is installed.
+
+**One standalone program** (any system): `make dist` downloads FFmpeg's source (8.0, from
+GitHub), builds it trimmed to what reading video needs (FFmpeg's own demuxers, decoders,
+parsers and filters, dav1d for AV1, zlib; no encoder, muxer, device, network or other library)
+and links it into `dist/uzm` (`dist/uzm.exe`: one 29 MB file that needs only Windows' own DLLs;
+FFmpeg's build takes about 10 minutes). It needs `nasm` and dav1d too
+(MSYS2: `mingw-w64-ucrt-x86_64-nasm mingw-w64-ucrt-x86_64-dav1d`; Debian: `nasm
+libdav1d-dev`; Homebrew: `nasm dav1d`). `make distclean` removes FFmpeg's build.
 
 **Linux** (Debian, Ubuntu 24.04 or newer):
 
