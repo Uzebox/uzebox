@@ -27,7 +27,7 @@
 #define AUDIO_RATE 15734
 
 #define MAXB 0xFD                       /* no byte of a picture's sector is 0xFE or 0xFF */
-#define DEFAULT_VERSION 2
+#define UZM_FORMAT 2                    /* the version written (version 1 files are still read) */
 
 /* version 2's trailer: 3 sets of 8 samples (one a showing), then the mark */
 #define SET 8
@@ -68,11 +68,9 @@ uint16_t crc16(const uint8_t *d, size_t n, uint16_t crc);   /* CRC-16/XMODEM, an
 extern const uint16_t CRC_TARGETS[4];
 uint16_t fix_crc(uint8_t sec[512]);
 void uzm_header(uint8_t h[512], uint32_t pictures, const char *title, const char *artist,
-                int version, int n, int m);
+                int n, int m);
 void pack_picture(uint8_t out[PIC_BYTES], uint32_t num, const uint8_t *px,
                   const uint8_t *const *sets, int nsets);
-void pack_picture_v1(uint8_t out[PIC_BYTES], uint32_t num, const uint8_t *px,
-                     const uint8_t *samples);
 void mark(uint8_t out[4], uint32_t n, int s);
 int sample_slot(int s);
 int64_t start_frame(int64_t p, int n, int m);
@@ -90,7 +88,7 @@ typedef struct {
 	FILE *f;
 	const uint8_t *audio;           /* the frames' sound, 262 samples a frame */
 	size_t audio_len;
-	int version, n, m;
+	int n, m;
 	uint32_t count;
 } Writer;
 void frame_sound(const uint8_t *audio, size_t len, int64_t fr, uint8_t out[SAMPLES]);
@@ -113,8 +111,7 @@ void uzm_frame_sound(Uzm *u, int64_t fr, uint8_t out[SAMPLES]);
 int cmd_info(const char *path);
 int cmd_frame(const char *path, long n, const char *out, int is_frame);
 int cmd_sound(const char *path, const char *out);
-int cmd_test(const char *out, double seconds, int rate, int version);
-int pick_version(int v1, int v2, const char *rate, int ivtc);
+int cmd_test(const char *out, double seconds, int rate);
 
 /* ---- dither.c ---- */
 void dither_init(void);

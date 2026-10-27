@@ -2,13 +2,12 @@
 """uzm.py -- makes Uzeamp video files (.UZM). See ../video-study.md, ../plan-rates.md and
 ../uzmmode/uzm.def.h.
 
-    python -I uzm.py test OUT.UZM [seconds] [--rate R] [--v1|--v2]
+    python -I uzm.py test OUT.UZM [seconds] [--rate R]
                                                   a test pattern: colour bars, gradients, a box
                                                   moving a pixel a picture, the picture number,
                                                   and a 440 Hz tone, continuous across frames
                                                   (default 10 s, 60 pictures a second)
-    Version 2 is written with --v2, --rate other than 60, or --ivtc; version 1 otherwise, until
-    Uzeamp reads version 2 (plan-rates.md, M3: then version 2 becomes the default)
+    Version 2 is written; version 1 files (Uzeamp 1.0's) are still read (info, frame, sound)
     python -I uzm.py encode IN OUT.UZM [options]  a video file, through ffmpeg
         --rate auto|60|30|25|24                   pictures a second (default auto: from IN's
                                                   frame rate). Each picture is stored once and
@@ -19,8 +18,6 @@
                                                   decimate drops 1 in 5), on the film's grid
                                                   (60/59.94 x 2/5, 30/29.97 x 4/5); the rate
                                                   then defaults to the film's
-        --v1 / --v2                               the format (version 1: 60 Hz only, what Uzeamp
-                                                  plays until plan-rates M3)
         --title T --artist A                      shown by the player
         --start S --duration D                    a part of IN (seconds)
         --dither ours|bayerN|fs|sierra2|sierra2_4a|sierra3|burkes|atkinson|none
@@ -89,7 +86,7 @@
                                                   its frames in a fixed pattern: --ivtc) and
                                                   how long each lasts
 
-The file (version 2; version 1 below)
+The file (version 2, the one written; version 1, below, is still read)
   Sector 0, the header (read with uzefs_read, so any bytes):
      0  "UZM1"           4  u16 version (2)     6  u16 width (160)    8  u16 rows (114)
     10  u16 sectors a picture (38)             12  u32 pictures      16  u16 samples a frame (262)
@@ -115,7 +112,7 @@ The file (version 2; version 1 below)
   No byte of a picture's sector is 0xFE or 0xFF, and with that CRC the player keeps every byte
   below 0xFE that the card sends in a multiple-block read: CRCs, waits and tokens all drop out.
 
-Version 1 (60 Hz only): the header's version 1, no cadence, 16 the samples a picture (262). The
+Version 1 (Uzeamp 1.0's, read only; 60 Hz only): the header's version 1, no cadence, 16 the samples a picture (262). The
   trailer: 0 back (0, or 4 in sector 37: its samples start 4 before), 1 7 samples (sectors 0-36
   hold samples 7s..7s+6, sector 37 255..261), 8 the picture's number and s, 12 zeros, 29 the CRC
   fix bytes.
@@ -135,9 +132,6 @@ F_CPU, LINE, LINES = 28636360, 1820, 262
 FPS = F_CPU / (LINE * LINES)                      # 60.0546
 AUDIO_RATE = 15734
 CRC_TARGETS = (0xFEFE, 0xFEFF, 0xFFFE, 0xFFFF)
-# the format written when nothing asks for version 2: 1 until Uzeamp reads version 2
-# (plan-rates.md, M3), then 2
-DEFAULT_VERSION = 2
 MAXB = 0xFD
 
 # version 2's trailer: 3 sets of 8 samples (one a showing), then the mark
@@ -308,12 +302,11 @@ def temporal_job(job):
 
 
 # --- packing ----------------------------------------------------------------------------------
-def header(pictures, title="", artist="", version=2, n=1, m=1):
+def header(pictures, title="", artist="", n=1, m=1):
     h = bytearray(512)
     h[0:4] = b"UZM1"
-    struct.pack_into("<HHHHIHH", h, 4, version, W, ROWS, SECTORS, pictures, SAMPLES, 1)
-    if version >= 2:
-        h[20], h[21] = n, m
+    struct.pack_into("<HHHHIHH", h, 4, 2, W, ROWS, SECTORS, pictures, SAMPLES, 1)
+    h[20], h[21] = n, m
     h[32:96] = title.encode("latin-1", "replace")[:63].ljust(64, b"\0")
     h[96:160] = artist.encode("latin-1", "replace")[:63].ljust(64, b"\0")
     return bytes(h)
@@ -321,25 +314,6 @@ def header(pictures, title="", artist="", version=2, n=1, m=1):
 
 def mark(n, s):
     return bytes((n & 0x7F, (n >> 7) & 0x7F, (n >> 14) & 0x7F, s))
-
-
-def picture_v1(n, pixels, samples):
-    """Version 1. n: the picture's number; pixels: 160 x 114 bytes (<= 0xFD); samples: 262
-    bytes. Returns the 38 sectors."""
-    assert len(pixels) == W * ROWS and len(samples) == SAMPLES
-    out = bytearray()
-    for s in range(SECTORS):
-        sec = bytearray(512)
-        sec[0:480] = pixels[s * 480:(s + 1) * 480]
-        first = 7 * s if s < SECTORS - 1 else SAMPLES - 7
-        sec[480] = 0 if s < SECTORS - 1 else 4
-        sec[481:488] = samples[first:first + 7]
-        sec[488:492] = mark(n, s)
-        if max(sec[:509]) > MAXB:
-            raise ValueError("picture %d sector %d holds 0xFE/0xFF" % (n, s))
-        fix_crc(sec)
-        out += sec
-    return bytes(out)
 
 
 def picture(n, pixels, sets):
@@ -370,10 +344,10 @@ def clamp_samples(b):
 
 class Writer:
     """Writes a file's pictures in turn, each with its showings' sound taken from the frames'
-    stream (262 samples a frame): version 2 by the cadence N/M, version 1 a frame a picture."""
+    stream (262 samples a frame), by the cadence N/M."""
 
-    def __init__(self, f, audio, version, n, m):
-        self.f, self.audio, self.version, self.n, self.m = f, audio, version, n, m
+    def __init__(self, f, audio, n, m):
+        self.f, self.audio, self.n, self.m = f, audio, n, m
         self.count = 0
 
     def frame_sound(self, fr):
@@ -382,12 +356,9 @@ class Writer:
 
     def add(self, px):
         p = self.count
-        if self.version == 1:
-            self.f.write(picture_v1(p, px, self.frame_sound(p)))
-        else:
-            f0 = start_frame(p, self.n, self.m)
-            self.f.write(picture(p, px, [self.frame_sound(f0 + k)
-                                         for k in range(showings(p, self.n, self.m))]))
+        f0 = start_frame(p, self.n, self.m)
+        self.f.write(picture(p, px, [self.frame_sound(f0 + k)
+                                     for k in range(showings(p, self.n, self.m))]))
         self.count += 1
 
 
@@ -492,17 +463,17 @@ def test_tone(frames):
                  for t in range(frames * SAMPLES))
 
 
-def cmd_test(out, seconds, rate, version):
+def cmd_test(out, seconds, rate):
     n, m = RATES[rate]
     pics = int(round(seconds * FPS * m / n))
-    audio = test_tone(frames_for(pics, version, n, m))
+    audio = test_tone(start_frame(pics, n, m))
     with open(out, "wb") as f:
-        f.write(header(pics, "TEST PATTERN %d" % rate, "uzm.py", version, n, m))
-        w = Writer(f, audio, version, n, m)
+        f.write(header(pics, "TEST PATTERN %d" % rate, "uzm.py", n, m))
+        w = Writer(f, audio, n, m)
         for i in range(pics):
             w.add(test_picture(i))
     print("%s: version %d, %d pictures at %.2f a second, %.1f s, %d bytes" % (
-        out, version, pics, FPS * m / n, frames_for(pics, version, n, m) / FPS,
+        out, 2, pics, FPS * m / n, start_frame(pics, n, m) / FPS,
         os.path.getsize(out)))
 
 
@@ -601,18 +572,7 @@ def loudness_filter(src, cut, target, amap=(), pre=""):
                                                           j["target_offset"])]
 
 
-def pick_version(v1, v2, rate, ivtc):
-    if v1 and (v2 or ivtc or rate not in (None, "auto", 60, "60")):
-        sys.exit("--v1 is 60 pictures a second only, without --ivtc")
-    if v1:
-        return 1
-    if v2 or ivtc or rate not in (None, "auto", 60, "60"):
-        return 2
-    return DEFAULT_VERSION
-
-
 def cmd_encode(src, out, opts):
-    version = pick_version(opts.get("v1"), opts.get("v2"), opts.get("rate"), opts.get("ivtc"))
     r = source_rate(src)
     film = None
     if opts.get("ivtc"):
@@ -626,13 +586,10 @@ def cmd_encode(src, out, opts):
         rate = int(rate)
     if rate not in RATES:
         sys.exit("--rate: 60, 30, 25 or 24")
-    if version == 1 and rate != 60:
-        print("  (version 1 is 60 pictures a second only: %d asks for --v2)" % rate)
-        rate = 60
     n, m = RATES[rate]
-    print("  source %s frames a second%s -> %d pictures a second (%.2f: %d frames for %d)%s" % (
+    print("  source %s frames a second%s -> %d pictures a second (%.2f: %d frames for %d)" % (
         "%.3f" % r if r else "?", ", film inside at %.3f" % film if film else "", rate,
-        FPS * m / n, n, m, ", version 1" if version == 1 else ""))
+        FPS * m / n, n, m))
     tmp = tempfile.mkdtemp(prefix="uzm-")
     pal_rgb = os.path.join(tmp, "pal.rgb")
     pal_png = os.path.join(tmp, "pal.png")
@@ -694,7 +651,7 @@ def cmd_encode(src, out, opts):
     if opts.get("temporal") or d == "ours":
         if opts.get("temporal") and d != "ours":
             print("  (--temporal: our dither, not %s)" % d)
-        if encode_ours(src, out, opts, cut, chain, n, m, version) is not False:
+        if encode_ours(src, out, opts, cut, chain, n, m) is not False:
             return
         print("  (no uzmdither: ffmpeg's sierra2_4a, which reddens near-black areas)")
         d = "sierra2_4a"
@@ -725,14 +682,14 @@ def cmd_encode(src, out, opts):
     for i, rgb in enumerate(palette()[:0xFE]):
         ours.setdefault(rgb, i)
     audio = clamp_samples(audio)
-    frames = frames_for(pics, version, n, m)
+    frames = start_frame(pics, n, m)
     if len(audio) < frames * SAMPLES - AUDIO_RATE // 10:
         print("  (the sound is %.2f s shorter than the pictures: silence after it)" %
               ((frames * SAMPLES - len(audio)) / AUDIO_RATE))
     with open(out, "wb") as f:
         f.write(header(pics, opts.get("title", os.path.basename(src)), opts.get("artist", ""),
-                       version, n, m))
-        w = Writer(f, audio, version, n, m)
+                       n, m))
+        w = Writer(f, audio, n, m)
         lut, lut_pal = None, None
         for i in range(pics):
             pal = video[i * step + frame:(i + 1) * step]
@@ -800,7 +757,7 @@ class Ditherer:
         self.p.wait()
 
 
-def encode_ours(src, out, opts, cut, chain, n, m, version):
+def encode_ours(src, out, opts, cut, chain, n, m):
     """Our dither (the default, and --temporal): the source's pictures (at 60.05 x m / n) as
     RGB from ffmpeg, dithered by uzmdither. Plain: a picture each, at the cadence n/m.
     --temporal: each picture expanded into its showings, written at 60 (cadence 1/1); without
@@ -833,7 +790,7 @@ def encode_ours(src, out, opts, cut, chain, n, m, version):
         d = Ditherer(exe)
         with open(out, "wb") as f:
             f.write(header(0))
-            w = Writer(f, audio, version, n, m)
+            w = Writer(f, audio, n, m)
             while True:
                 rgb = proc.stdout.read(size)
                 if len(rgb) < size:
@@ -843,11 +800,11 @@ def encode_ours(src, out, opts, cut, chain, n, m, version):
                 if pics % 600 == 0:
                     print("  %d pictures" % pics, flush=True)
             f.seek(0)
-            f.write(header(pics, title, artist, version, n, m))
+            f.write(header(pics, title, artist, n, m))
         d.close()
         if proc.wait():
             sys.exit("ffmpeg failed")
-        frames = frames_for(pics, version, n, m)
+        frames = start_frame(pics, n, m)
         if len(audio) < frames * SAMPLES - AUDIO_RATE // 10:
             print("  (the sound is %.2f s shorter than the pictures: silence after it)" %
                   ((frames * SAMPLES - len(audio)) / AUDIO_RATE))
@@ -870,7 +827,7 @@ def encode_ours(src, out, opts, cut, chain, n, m, version):
                     print("  %d pictures" % pics, flush=True)
             frames = start_frame(pics, n, m)
             f.seek(0)
-            f.write(header(frames, title, artist, 2, 1, 1))
+            f.write(header(frames, title, artist, 1, 1))
         d.close()
     else:
         pics, frames = encode_temporal_pool(proc, out, opts, src, n, m, size, sound)
@@ -907,7 +864,7 @@ def encode_temporal_pool(proc, out, opts, src, n, m, size, sound):
         frames = start_frame(pics, n, m)
         f.seek(0)
         f.write(header(frames, opts.get("title", os.path.basename(src)), opts.get("artist", ""),
-                       2, 1, 1))
+                       1, 1))
     return pics, frames
 
 
@@ -1014,26 +971,21 @@ def cmd_cadence(src, start=None, duration=None):
 def main():
     a = sys.argv[1:]
     if len(a) >= 2 and a[0] == "test":
-        rest, rate, v1, v2, secs = a[2:], 60, False, False, 10.0
+        rest, rate, secs = a[2:], 60, 10.0
         while rest:
             k = rest.pop(0)
             if k == "--rate":
                 rate = int(rest.pop(0))
-            elif k == "--v1":
-                v1 = True
-            elif k == "--v2":
-                v2 = True
             else:
                 secs = float(k)
         if rate not in RATES:
             sys.exit("--rate: 60, 30, 25 or 24")
-        version = pick_version(v1, v2, rate, False)
-        cmd_test(a[1], secs, rate, version)
+        cmd_test(a[1], secs, rate)
     elif len(a) >= 3 and a[0] == "encode":
         opts, rest = {}, a[3:]
         while rest:
             k = rest.pop(0)
-            if k in ("--letterbox", "--gpu", "--ivtc", "--v1", "--v2", "--compress", "--temporal"):
+            if k in ("--letterbox", "--gpu", "--ivtc", "--compress", "--temporal"):
                 opts[k[2:]] = True
             elif k in ("--title", "--artist", "--start", "--duration", "--dither", "--crop",
                        "--pre", "--post", "--black", "--scaler", "--cut", "--loudness", "--rate",

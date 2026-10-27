@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """uzm_test.py -- checks uzm.py's packing (plan-rates.md, M1).
 
-    python -I uzm_test.py [--old OLD_UZM_PY]
+    python -I uzm_test.py
 
 For clips made by ffmpeg (a test picture with a frame counter, and a tone) at 60, 30, 25 and
 24 frames a second, encoded at their rates:
@@ -9,8 +9,7 @@ For clips made by ffmpeg (a test picture with a frame counter, and a tone) at 60
   - the sound the player would play, unpacked frame by frame from the trailers (Uzm.frame_sound),
     is ffmpeg's sound, byte for byte, frame after frame;
   - each picture's showings are what the cadence says, and the frames' count and duration.
-Also the test patterns at each rate (their tone is known exactly), and, with --old (a copy of
-the version 1 encoder, e.g. from git), that --v1 writes the same file the old encoder did.
+Also the test patterns at each rate (their tone is known exactly).
 """
 import os
 import subprocess
@@ -54,7 +53,6 @@ def check_sound(path, expect):
 
 
 def main():
-    old = sys.argv[sys.argv.index("--old") + 1] if "--old" in sys.argv else None
     tmp = tempfile.mkdtemp(prefix="uzmtest-")
     fails = 0
 
@@ -82,7 +80,7 @@ def main():
     # test patterns at each rate: the tone is known exactly
     for rate in sorted(uzm.RATES):
         out = os.path.join(tmp, "test%d.UZM" % rate)
-        sh([sys.executable, "-I", UZM, "test", out, "2", "--rate", str(rate), "--v2"])
+        sh([sys.executable, "-I", UZM, "test", out, "2", "--rate", str(rate)])
         u, bad = check_sound(out, uzm.test_tone(uzm.frames_for(
             uzm.Uzm(out).pictures, 2, *uzm.RATES[rate])))
         info = subprocess.run([sys.executable, "-I", UZM, "info", out], capture_output=True)
@@ -95,7 +93,7 @@ def main():
                       ("24000/1001", 24)):
         src = clip(tmp, fps)
         out = os.path.join(tmp, "clip%s.UZM" % fps.replace("/", "_"))
-        log = sh([sys.executable, "-I", UZM, "encode", src, out, "--loudness", "off", "--v2"])
+        log = sh([sys.executable, "-I", UZM, "encode", src, out, "--loudness", "off"])
         u = uzm.Uzm(out)
         ok((u.n, u.m) == uzm.RATES[rate], "clip %s fps -> rate %d (%s)" % (
             fps, rate, log.splitlines()[0].strip()))
@@ -158,14 +156,6 @@ def main():
            "--temporal clip %s: %d pictures at 60, as many frames as without, sectors valid, "
            "sound of every frame right (%d wrong)" % (fps, u.pictures, bad))
 
-    # version 1 against the old encoder
-    if old:
-        src = clip(tmp, "60")
-        a, b = os.path.join(tmp, "new_v1.UZM"), os.path.join(tmp, "old_v1.UZM")
-        sh([sys.executable, "-I", UZM, "encode", src, a, "--v1", "--loudness", "off",
-            "--title", "T", "--dither", "sierra2_4a"])
-        sh([sys.executable, "-I", old, "encode", src, b, "--loudness", "off", "--title", "T"])
-        ok(open(a, "rb").read() == open(b, "rb").read(), "--v1 writes the old encoder's file")
     print("all passed" if not fails else "%d FAILED" % fails)
     sys.exit(1 if fails else 0)
 

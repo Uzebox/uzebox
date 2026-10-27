@@ -25,7 +25,6 @@ static const char *USAGE =
 "                                       Each picture is stored once and shown 1-3 times\n"
 "      --ivtc                           IN carries film with its frames repeated (24 fps\n"
 "                                       animation in a 60 fps file): each film frame once\n"
-"      --v1 / --v2                      the format (version 1: 60 pictures a second only)\n"
 "      --title T --artist A             shown by the player (default title: IN's name)\n"
 "      --start S --duration D           a part of IN (seconds, or [HH:]MM:SS[.m])\n"
 "      --dither ours|bayerN|fs|sierra2|sierra2_4a|sierra3|burkes|atkinson|none\n"
@@ -44,7 +43,7 @@ static const char *USAGE =
 "                                       EBU R128 on the mono mix); off: the source's level\n"
 "      --compress                       a film's range made smaller before the loudness\n"
 "      --audio N                        IN's audio track N (0 the first)\n"
-"  uzm test OUT.UZM [seconds] [--rate R] [--v1|--v2]\n"
+"  uzm test OUT.UZM [seconds] [--rate R]\n"
 "                                       a test pattern: colour bars, ramps, a moving box, the\n"
 "                                       picture's number, a 440 Hz tone (default 10 s at 60)\n"
 "  uzm info FILE.UZM                    the header, and a check of every sector\n"
@@ -82,18 +81,14 @@ static int run(int argc, char **argv)
 	if (!strcmp(cmd, "frame") && (n == 3 || (n == 4 && !strcmp(a[3], "--frame"))))
 		return cmd_frame(a[0], strtol(a[1], NULL, 10), a[2], n == 4);
 	if (!strcmp(cmd, "test") && n >= 1) {
-		int rate = 60, v1 = 0, v2 = 0;
+		int rate = 60;
 		double secs = 10.0;
-		const char *rs = NULL;
 		for (int i = 1; i < n; i++) {
-			if (!strcmp(a[i], "--rate") && i + 1 < n) rate = atoi(rs = a[++i]);
-			else if (!strcmp(a[i], "--v1")) v1 = 1;
-			else if (!strcmp(a[i], "--v2")) v2 = 1;
+			if (!strcmp(a[i], "--rate") && i + 1 < n) rate = atoi(a[++i]);
+			else if (!strncmp(a[i], "--", 2)) die("unknown option %s", a[i]);
 			else secs = atof(a[i]);
 		}
-		int cn, cm;
-		if (!rate_cadence(rate, &cn, &cm)) die("--rate: 60, 30, 25 or 24");
-		return cmd_test(a[0], secs, rate, pick_version(v1, v2, rs, 0));
+		return cmd_test(a[0], secs, rate);
 	}
 	if (!strcmp(cmd, "version")) {
 		printf("uzm %s\nFFmpeg libraries: avformat %s, avcodec %s, avfilter %s, avutil %s\n",

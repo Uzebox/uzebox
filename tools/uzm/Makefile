@@ -164,7 +164,6 @@ check: $(TARGET)
 		$(TARGET) sound $(CHECK_DIR)/T$$r.UZM $(CHECK_DIR)/T$$r.wav > /dev/null && \
 		$(TARGET) frame $(CHECK_DIR)/T$$r.UZM 10 $(CHECK_DIR)/T$$r.png > /dev/null || exit 1; \
 	done
-	@$(TARGET) test $(CHECK_DIR)/T60v1.UZM 3 --v1 > /dev/null && $(TARGET) info $(CHECK_DIR)/T60v1.UZM | tail -1
 	@rm -rf $(CHECK_DIR)
 	@echo "check: all good"
 

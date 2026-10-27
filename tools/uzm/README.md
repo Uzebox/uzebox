@@ -11,7 +11,7 @@ FFmpeg version (see [Checked](#checked)).
 
 ```
 uzm encode IN OUT.UZM [options]     a video file (anything FFmpeg reads)
-uzm test OUT.UZM [seconds] [--rate R] [--v1|--v2]
+uzm test OUT.UZM [seconds] [--rate R]
                                     a test pattern: colour bars, ramps, a moving box, the
                                     picture's number, a 440 Hz tone (default 10 s at 60)
 uzm info FILE.UZM                   the header, and a check of every sector
@@ -23,7 +23,7 @@ uzm cadence IN [--start S] [--duration D]
 uzm version                         this program's and FFmpeg's versions
 ```
 
-`uzm help` lists the encoder's options: `--rate auto|60|30|25|24`, `--ivtc`, `--v1`/`--v2`,
+`uzm help` lists the encoder's options: `--rate auto|60|30|25|24`, `--ivtc`,
 `--title`, `--artist`, `--start`, `--duration`, `--dither ours|bayerN|fs|sierra2|sierra2_4a|
 sierra3|burkes|atkinson|none`, `--temporal`, `--black N`, `--cut N`, `--pre F`, `--post F`,
 `--scaler S`, `--letterbox`, `--crop W:H:X:Y`, `--loudness N|off`, `--compress`, `--audio N`.
@@ -114,7 +114,7 @@ Against `uzm.py` with FFmpeg 8.0 on Windows (MSYS2 UCRT64), whole files compared
 **all identical**:
 
 - clips made by FFmpeg at 60, 30 (29.97), 25 and 24 fps, H.264/AAC in MP4 and VP9/Opus in MKV,
-  mono and stereo: default; `--v1`; `--rate 30`/`24` from 60; `--letterbox`; `--start` and
+  mono and stereo: default; `--rate 30`/`24` from 60; `--letterbox`; `--start` and
   `--duration` (six combinations); `--temporal` at 24 and 30; `--dither sierra2_4a`, `bayer2`,
   `fs`; `--black` with `--cut`; `--loudness off`; `--loudness -20 --compress`; `--crop`, `--pre`,
   `--post`, `--scaler`; UTF-8 title and artist;
@@ -123,7 +123,7 @@ Against `uzm.py` with FFmpeg 8.0 on Windows (MSYS2 UCRT64), whole files compared
 - real videos: a 5.4 minute music video (151 MB out), an 88 s laserdisc game capture, an AVI, a
   game intro with `--rate 30 --cut 24`, an HD intro with `--letterbox --start --duration
   --compress`, a clip with `--temporal --pre --post`;
-- `test` at every rate and `--v1` (the header's artist aside); `cadence`'s report, word for word.
+- `test` at every rate (the header's artist aside); `cadence`'s report, word for word.
 
 The Linux and macOS builds were not tried on those systems: the sources compile as strict C11
 with POSIX, and nothing in them is Windows-only outside `#ifdef _WIN32` (UTF-8 file names and

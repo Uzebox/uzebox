@@ -1,7 +1,7 @@
 /*
  * uzm -- the .UZM format: writing, reading, checking. Byte for byte what uzm.py writes.
  *
- * The file (version 2; version 1 below)
+ * The file (version 2, the one written; version 1, below, is still read)
  *   Sector 0, the header (read with uzefs_read, so any bytes):
  *      0  "UZM1"           4  u16 version (2)     6  u16 width (160)    8  u16 rows (114)
  *     10  u16 sectors a picture (38)             12  u32 pictures      16  u16 samples a frame (262)
@@ -101,21 +101,19 @@ static unsigned get16(const uint8_t *p) { return p[0] | p[1] << 8; }
 static uint32_t get32(const uint8_t *p) { return get16(p) | (uint32_t)get16(p + 2) << 16; }
 
 void uzm_header(uint8_t h[512], uint32_t pictures, const char *title, const char *artist,
-                int version, int n, int m)
+                int n, int m)
 {
 	memset(h, 0, 512);
 	memcpy(h, "UZM1", 4);
-	put16(h + 4, (unsigned)version);
+	put16(h + 4, UZM_FORMAT);
 	put16(h + 6, W);
 	put16(h + 8, ROWS);
 	put16(h + 10, SECTORS);
 	put32(h + 12, pictures);
 	put16(h + 16, SAMPLES);
 	put16(h + 18, 1);
-	if (version >= 2) {
-		h[20] = (uint8_t)n;
-		h[21] = (uint8_t)m;
-	}
+	h[20] = (uint8_t)n;
+	h[21] = (uint8_t)m;
 	to_latin1((char *)h + 32, 64, title ? title : "");
 	to_latin1((char *)h + 96, 64, artist ? artist : "");
 }
@@ -154,23 +152,6 @@ void pack_picture(uint8_t out[PIC_BYTES], uint32_t num, const uint8_t *px,
 		if (slot >= 0)
 			for (int k = 0; k < nsets; k++) memcpy(sec + T_SAMPLES + SET * k, sets[k] + slot, SET);
 		mark(sec + T_MARK, num, s);
-		check_sector(sec, num, s);
-		fix_crc(sec);
-	}
-}
-
-/* Version 1: the 38 sectors of picture num, with its frame's 262 samples */
-void pack_picture_v1(uint8_t out[PIC_BYTES], uint32_t num, const uint8_t *px,
-                     const uint8_t *samples)
-{
-	for (int s = 0; s < SECTORS; s++) {
-		uint8_t *sec = out + 512 * s;
-		memset(sec, 0, 512);
-		memcpy(sec, px + 480 * s, 480);
-		int first = s < SECTORS - 1 ? 7 * s : SAMPLES - 7;
-		sec[480] = s < SECTORS - 1 ? 0 : 4;
-		memcpy(sec + 481, samples + first, 7);
-		mark(sec + 488, num, s);
 		check_sector(sec, num, s);
 		fix_crc(sec);
 	}
@@ -257,30 +238,16 @@ void writer_add(Writer *w, const uint8_t *px)
 {
 	static uint8_t pic[PIC_BYTES], snd[SETS][SAMPLES];
 	uint32_t p = w->count;
-	if (w->version == 1) {
-		frame_sound(w->audio, w->audio_len, p, snd[0]);
-		pack_picture_v1(pic, p, px, snd[0]);
-	} else {
-		int64_t f0 = start_frame(p, w->n, w->m);
-		int k = showings(p, w->n, w->m);
-		const uint8_t *sets[SETS];
-		for (int j = 0; j < k; j++) {
-			frame_sound(w->audio, w->audio_len, f0 + j, snd[j]);
-			sets[j] = snd[j];
-		}
-		pack_picture(pic, p, px, sets, k);
+	int64_t f0 = start_frame(p, w->n, w->m);
+	int k = showings(p, w->n, w->m);
+	const uint8_t *sets[SETS];
+	for (int j = 0; j < k; j++) {
+		frame_sound(w->audio, w->audio_len, f0 + j, snd[j]);
+		sets[j] = snd[j];
 	}
+	pack_picture(pic, p, px, sets, k);
 	write_picture(w->f, pic);
 	w->count++;
-}
-
-int pick_version(int v1, int v2, const char *rate, int ivtc)
-{
-	int other = rate && strcmp(rate, "auto") && strcmp(rate, "60");
-	if (v1 && (v2 || ivtc || other)) die("--v1 is 60 pictures a second only, without --ivtc");
-	if (v1) return 1;
-	if (v2 || ivtc || other) return 2;
-	return DEFAULT_VERSION;
 }
 
 /* ---- reading ---- */
@@ -504,12 +471,12 @@ static void test_picture(uint32_t n, uint8_t px[NPIX])
 	}
 }
 
-int cmd_test(const char *out, double seconds, int rate, int version)
+int cmd_test(const char *out, double seconds, int rate)
 {
 	int n, m;
 	if (!rate_cadence(rate, &n, &m)) die("--rate: 60, 30, 25 or 24");
 	uint32_t pics = (uint32_t)llrint(seconds * FPS * m / n);
-	uint32_t frames = frames_for(pics, version, n, m);
+	uint32_t frames = (uint32_t)start_frame(pics, n, m);
 	size_t len = (size_t)frames * SAMPLES;
 	uint8_t *audio = xmalloc(len);
 	for (size_t t = 0; t < len; t++)                                  /* 440 Hz, continuous */
@@ -519,16 +486,16 @@ int cmd_test(const char *out, double seconds, int rate, int version)
 	uint8_t h[512], px[NPIX];
 	char title[32];
 	snprintf(title, sizeof title, "TEST PATTERN %d", rate);
-	uzm_header(h, pics, title, "uzm", version, n, m);
+	uzm_header(h, pics, title, "uzm", n, m);
 	fwrite(h, 1, 512, f);
-	Writer w = { f, audio, len, version, n, m, 0 };
+	Writer w = { f, audio, len, n, m, 0 };
 	for (uint32_t i = 0; i < pics; i++) {
 		test_picture(i, px);
 		writer_add(&w, px);
 	}
 	if (fclose(f)) die("writing %s failed", out);
 	free(audio);
-	printf("%s: version %d, %u pictures at %.2f a second, %.1f s, %lld bytes\n", out, version,
+	printf("%s: version %d, %u pictures at %.2f a second, %.1f s, %lld bytes\n", out, UZM_FORMAT,
 	       pics, FPS * m / n, frames / FPS, (long long)ufsize(out));
 	return 0;
 }

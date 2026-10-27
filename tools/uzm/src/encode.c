@@ -24,7 +24,7 @@
 typedef struct {
 	const char *title, *artist, *start, *duration, *dither, *crop, *pre, *post, *black, *scaler,
 	           *cut, *loudness, *rate, *audio;
-	int letterbox, gpu, ivtc, v1, v2, compress, temporal;
+	int letterbox, gpu, ivtc, compress, temporal;
 } Opts;
 
 /* ---- fractions, as uzm.py's (the source's rate, the film's) ---- */
@@ -262,8 +262,7 @@ int cmd_encode(int argc, char **argv)
 		const char *k = argv[i];
 		struct { const char *name; int *flag; } flags[] = {
 			{ "--letterbox", &o.letterbox }, { "--gpu", &o.gpu }, { "--ivtc", &o.ivtc },
-			{ "--v1", &o.v1 }, { "--v2", &o.v2 }, { "--compress", &o.compress },
-			{ "--temporal", &o.temporal },
+			{ "--compress", &o.compress }, { "--temporal", &o.temporal },
 		};
 		struct { const char *name; const char **val; } vals[] = {
 			{ "--title", &o.title }, { "--artist", &o.artist }, { "--start", &o.start },
@@ -284,7 +283,6 @@ int cmd_encode(int argc, char **argv)
 		if (!done) die("unknown option %s", k);
 	}
 
-	int version = pick_version(o.v1, o.v2, o.rate, o.ivtc);
 	AVRational ar = media_frame_rate(src);
 	Frac r = { 0, 1 }, film = { 0, 1 };
 	int have_r = ar.num > 0, have_film = 0;
@@ -299,16 +297,11 @@ int cmd_encode(int argc, char **argv)
 	else rate = atoi(o.rate);
 	int n, m;
 	if (!rate_cadence(rate, &n, &m)) die("--rate: 60, 30, 25 or 24");
-	if (version == 1 && rate != 60) {
-		printf("  (version 1 is 60 pictures a second only: %d asks for --v2)\n", rate);
-		rate = 60;
-		rate_cadence(rate, &n, &m);
-	}
 	char rs[32] = "?", fs[64] = "";
 	if (have_r) snprintf(rs, sizeof rs, "%.3f", frac_d(r));
 	if (have_film) snprintf(fs, sizeof fs, ", film inside at %.3f", frac_d(film));
-	printf("  source %s frames a second%s -> %d pictures a second (%.2f: %d frames for %d)%s\n",
-	       rs, fs, rate, FPS * m / n, n, m, version == 1 ? ", version 1" : "");
+	printf("  source %s frames a second%s -> %d pictures a second (%.2f: %d frames for %d)\n",
+	       rs, fs, rate, FPS * m / n, n, m);
 	if (o.gpu) printf("  (--gpu: decoding on the CPU in this build)\n");
 
 	Cut cut = { src, AV_NOPTS_VALUE, AV_NOPTS_VALUE };
@@ -373,7 +366,7 @@ int cmd_encode(int argc, char **argv)
 	FILE *f = ufopen(out, "wb");
 	if (!f) die("can't write %s", out);
 	uint8_t h[512];
-	uzm_header(h, 0, "", "", 2, 1, 1);
+	uzm_header(h, 0, "", "", 1, 1);
 	fwrite(h, 1, 512, f);
 	Pics *p = xmalloc(sizeof *p);
 	memset(p, 0, sizeof *p);
@@ -383,7 +376,7 @@ int cmd_encode(int argc, char **argv)
 	p->audio = audio;
 	p->audio_len = alen;
 	p->temporal = o.temporal;
-	p->w = (Writer){ f, audio, alen, version, n, m, 0 };
+	p->w = (Writer){ f, audio, alen, n, m, 0 };
 	char *desc = xmalloc(sizeof chain + 256);
 	if (ours) {
 		snprintf(desc, sizeof chain + 256, "%s,format=rgb24", chain);
@@ -409,10 +402,10 @@ int cmd_encode(int argc, char **argv)
 	const char *title = o.title ? o.title : base_name(src), *artist = o.artist ? o.artist : "";
 	if (o.temporal) {
 		frames = (uint32_t)start_frame(pics, n, m);
-		uzm_header(h, frames, title, artist, 2, 1, 1);
+		uzm_header(h, frames, title, artist, 1, 1);
 	} else {
-		frames = frames_for(pics, version, n, m);
-		uzm_header(h, pics, title, artist, version, n, m);
+		frames = (uint32_t)start_frame(pics, n, m);
+		uzm_header(h, pics, title, artist, n, m);
 	}
 	if (ufseek(f, 0, SEEK_SET) || fwrite(h, 1, 512, f) != 512) die("writing %s failed", out);
 	if (fclose(f)) die("writing %s failed", out);
