@@ -41,3 +41,13 @@ demos/UzeboxPC/default/netstat.lst
 demos/UzeboxPC/default/netstat.p
 
 *.COM
+
+demos/Uzeamp/.vscode/c_cpp_properties.json
+
+demos/Uzeamp/.vscode/launch.json
+
+demos/Uzeamp/.vscode/tasks.json
+
+demos/Uzeamp/.vscode/uzeamp.code-workspace
+
+demos/Uzeamp/default/esp.cfg
