@@ -1122,7 +1122,7 @@ void startMovie(uint8_t index){
 	fres=uzefs_read(fh,h,512,&bytesRead);
 	if(fres!=UZEFS_OK) sdError(8,fres);
 	if(bytesRead>=512 && !memcmp(h,"UZM1",4) && rd16(h+4)==1){
-		animateTextLine_P(PSTR("AN OLD MOVIE (UZM VERSION 1): RE-ENCODE IT WITH TOOLS/UZM.PY..."),true);
+		animateTextLine_P(PSTR("RE-ENCODE WITH UZM TOOL"),true);
 		return;
 	}
 	if(bytesRead<512 || memcmp(h,"UZM1",4) || rd16(h+4)!=2 || rd16(h+6)!=UZM_WIDTH ||
