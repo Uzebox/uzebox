@@ -18,6 +18,10 @@
 
 extern unsigned char mix_buf[];
 extern volatile unsigned char mix_bank;
+extern volatile unsigned char *mix_pos;
+extern volatile uint8_t sound_stream;
+extern volatile unsigned char sync_phase;
+extern volatile unsigned char sync_pulse;
 
 volatile uint8_t uzm_mute;
 
@@ -56,6 +60,25 @@ void InitializeVideoMode(){
 ** sector's 7 samples at a time (as Uzeamp's WAV player fills it at once). The other bank, which
 ** the last frame filled, is played from the flip on: muted, it is silenced first. */
 void VideoModeVsync(){
+	/* Before the flip, mix_pos has played from the start of the bank mix_bank does not name (the
+	** one the next field plays) as many samples as the vsync has played: one each odd pulse, as
+	** sync_pulse counts them down from 18 (each decremented before it is tested), then one each
+	** hsync line. How far into the vsync this call comes changes with the work before it, not
+	** that. A song's stream can leave mix_pos elsewhere: while its ring is empty the read holds
+	** (about a frame as the song starts) and mix_bank flips on. Out of step, a movie's frame (or
+	** processPlayer) fills a bank while it is still played: each field's late lines play samples
+	** two frames early, or, paused, one stale sample a field (a crackle 60 times a second). Not
+	** streaming, it is put back where it belongs; in step, nothing changes (262 samples a field). */
+	if (!(sound_stream & 0x80)) {
+		uint8_t sreg = SREG;
+		cli();
+		uint8_t sp = sync_pulse;
+		uint16_t played = (sync_phase & 1) ? 9 + (SYNC_HSYNC_PULSES - sp) : (19 - sp) >> 1;
+		volatile unsigned char *want = mix_buf + (mix_bank ? 0 : MIX_BANK_SIZE) + played;
+		if (want >= mix_buf + MIX_BUF_SIZE) want -= MIX_BUF_SIZE;
+		if (mix_pos != want) mix_pos = want;
+		SREG = sreg;
+	}
 	if (uzm.on) {
 		uzm.aw = (uint16_t)(mix_buf + (mix_bank ? MIX_BANK_SIZE : 0));
 		if (uzm_mute) {
