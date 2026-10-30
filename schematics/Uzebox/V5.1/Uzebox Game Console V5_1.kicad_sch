@@ -8522,10 +8522,28 @@
 		(uuid "0fc5d690-2d48-4644-8e8d-49c19db919c4")
 	)
 	(junction
+		(at 41.91 101.6)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "172b7e7d-ad65-458f-977f-bf673d54e7c6")
+	)
+	(junction
 		(at 195.58 45.72)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "172fdddf-3112-4eed-a116-dd76c4782cef")
+	)
+	(junction
+		(at 58.42 86.36)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "17aeed8d-1bcd-4403-b583-ad724ac750c3")
+	)
+	(junction
+		(at 77.47 81.28)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "18cd0a53-683c-4da7-9504-946bdcb0ac9d")
 	)
 	(junction
 		(at 86.36 124.46)
@@ -8544,12 +8562,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "2484097e-684a-4094-bd9e-0267fd02a2db")
-	)
-	(junction
-		(at 48.26 96.52)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "249cf169-68ea-4a9d-9570-30de881d0927")
 	)
 	(junction
 		(at 276.86 83.82)
@@ -8588,22 +8600,10 @@
 		(uuid "400a7c7a-1181-462a-95f7-cb8caab1da09")
 	)
 	(junction
-		(at 49.53 71.12)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "4d20146c-6d5d-4c17-a1f6-a7d405353131")
-	)
-	(junction
 		(at 119.38 101.6)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "551e626d-beca-42ef-8f06-3eaaabeceef3")
-	)
-	(junction
-		(at 48.26 101.6)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "606922ea-cb8a-4f31-bf6d-2839db55457e")
 	)
 	(junction
 		(at 226.06 170.18)
@@ -8622,6 +8622,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "631f584a-2714-4e1a-909c-77a2cad806df")
+	)
+	(junction
+		(at 68.58 83.82)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6930a7f6-86ee-4fd6-94cf-03e7541f208d")
 	)
 	(junction
 		(at 203.2 190.5)
@@ -8670,6 +8676,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "80a72dd8-5765-4ba5-8145-60cbbe3801ff")
+	)
+	(junction
+		(at 41.91 96.52)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "88ff18fa-c49a-4889-9217-c523c301a3af")
 	)
 	(junction
 		(at 198.12 69.85)
@@ -8726,12 +8738,6 @@
 		(uuid "c555c564-552e-4e4f-8f8c-b2569c2a096f")
 	)
 	(junction
-		(at 77.47 88.9)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c81394d0-0289-4d2a-b48e-7f5221f3b3b7")
-	)
-	(junction
 		(at 226.06 147.32)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -8768,12 +8774,6 @@
 		(uuid "d430d3ef-c01b-42f7-8acd-7acd1ac45787")
 	)
 	(junction
-		(at 49.53 83.82)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "d5f4d287-40d3-4e00-86a3-0cade18e0a91")
-	)
-	(junction
 		(at 224.79 245.11)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -8790,6 +8790,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "e2f392dd-9172-4a1a-882d-a4ce2f520b8a")
+	)
+	(junction
+		(at 41.91 99.06)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ee9cefb1-904c-480c-b211-b020f24c563f")
 	)
 	(junction
 		(at 295.91 245.11)
@@ -8814,12 +8820,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "fc70f2f3-849c-483d-8771-29e381229764")
-	)
-	(junction
-		(at 68.58 86.36)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "fd79aa90-15fc-4685-850e-1d5abf31b5ec")
 	)
 	(junction
 		(at 330.2 109.22)
@@ -8859,6 +8859,16 @@
 	)
 	(wire
 		(pts
+			(xy 40.64 63.5) (xy 40.64 71.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "01ac5ff7-ebee-4428-b787-9de36ac2c0de")
+	)
+	(wire
+		(pts
 			(xy 317.5 63.5) (xy 317.5 60.96)
 		)
 		(stroke
@@ -8876,6 +8886,16 @@
 			(type solid)
 		)
 		(uuid "04595b39-b4b2-44c9-b9e0-12d9ab471581")
+	)
+	(wire
+		(pts
+			(xy 41.91 101.6) (xy 41.91 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "05042806-bda7-4e8d-8ee2-c01c5769768c")
 	)
 	(wire
 		(pts
@@ -8936,6 +8956,16 @@
 			(type solid)
 		)
 		(uuid "0a9a6ae0-8197-4aa6-9ea9-6866fbe2e75d")
+	)
+	(wire
+		(pts
+			(xy 38.1 81.28) (xy 77.47 81.28)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "0aae0712-d985-4f96-87b1-bfdbd574f210")
 	)
 	(wire
 		(pts
@@ -9056,16 +9086,6 @@
 			(type solid)
 		)
 		(uuid "13e1c69a-c5f1-400e-bdcb-a911a34d0360")
-	)
-	(wire
-		(pts
-			(xy 48.26 96.52) (xy 48.26 93.98)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "15a7541a-2b8e-4474-8836-dc3b9f31ec75")
 	)
 	(wire
 		(pts
@@ -9229,16 +9249,6 @@
 	)
 	(wire
 		(pts
-			(xy 49.53 82.55) (xy 49.53 83.82)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "289d3d73-77b2-4419-ba11-25467b0c6d01")
-	)
-	(wire
-		(pts
 			(xy 198.12 43.18) (xy 205.74 43.18)
 		)
 		(stroke
@@ -9349,16 +9359,6 @@
 	)
 	(wire
 		(pts
-			(xy 58.42 74.93) (xy 58.42 57.15)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "31b8ee10-0bdb-4a6f-91d9-d75346a9940e")
-	)
-	(wire
-		(pts
 			(xy 121.92 132.08) (xy 116.84 132.08)
 		)
 		(stroke
@@ -9396,16 +9396,6 @@
 			(type solid)
 		)
 		(uuid "3425b4aa-8882-4d59-a0c0-8b44157baa0a")
-	)
-	(wire
-		(pts
-			(xy 40.64 88.9) (xy 77.47 88.9)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "356afc6c-01f5-4911-b083-68dc6fb591a2")
 	)
 	(wire
 		(pts
@@ -9639,6 +9629,26 @@
 	)
 	(wire
 		(pts
+			(xy 38.1 99.06) (xy 41.91 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "485e4ce0-db16-4da4-a381-2f6d3afe64c8")
+	)
+	(wire
+		(pts
+			(xy 77.47 81.28) (xy 77.47 93.98)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "49b0b40f-f63f-492e-8fa5-9a94391e28cb")
+	)
+	(wire
+		(pts
 			(xy 250.19 245.11) (xy 252.73 245.11)
 		)
 		(stroke
@@ -9686,16 +9696,6 @@
 			(type solid)
 		)
 		(uuid "4da80ffe-3a48-4a2f-b3ed-664110164823")
-	)
-	(wire
-		(pts
-			(xy 49.53 66.04) (xy 49.53 71.12)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "4f2f2d4d-3bdf-42e5-9953-b610abfc4df9")
 	)
 	(wire
 		(pts
@@ -9749,6 +9749,16 @@
 	)
 	(wire
 		(pts
+			(xy 68.58 83.82) (xy 68.58 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "51e19404-f835-41a2-9599-aa4d12dd2dd2")
+	)
+	(wire
+		(pts
 			(xy 309.88 149.86) (xy 330.2 149.86)
 		)
 		(stroke
@@ -9786,6 +9796,16 @@
 			(type solid)
 		)
 		(uuid "5510794d-b198-4ead-b5cb-82333d085629")
+	)
+	(wire
+		(pts
+			(xy 58.42 99.06) (xy 58.42 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5649245f-c339-4ed8-8c63-087fa135c2d9")
 	)
 	(wire
 		(pts
@@ -9999,17 +10019,17 @@
 	)
 	(wire
 		(pts
-			(xy 40.64 71.12) (xy 49.53 71.12)
+			(xy 58.42 69.85) (xy 58.42 86.36)
 		)
 		(stroke
 			(width 0.1524)
 			(type solid)
 		)
-		(uuid "6c433bfe-00d8-4aa8-944c-ab79a9543c82")
+		(uuid "6ab639e1-a207-476c-aa42-35a7be5e6937")
 	)
 	(wire
 		(pts
-			(xy 41.91 73.66) (xy 40.64 73.66)
+			(xy 49.53 73.66) (xy 38.1 73.66)
 		)
 		(stroke
 			(width 0.1524)
@@ -10109,7 +10129,17 @@
 	)
 	(wire
 		(pts
-			(xy 77.47 57.15) (xy 77.47 71.12)
+			(xy 41.91 96.52) (xy 41.91 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7237b725-d002-470d-a594-d8d91aebc972")
+	)
+	(wire
+		(pts
+			(xy 77.47 57.15) (xy 77.47 59.69)
 		)
 		(stroke
 			(width 0.1524)
@@ -10309,7 +10339,7 @@
 	)
 	(wire
 		(pts
-			(xy 68.58 57.15) (xy 68.58 71.12)
+			(xy 68.58 57.15) (xy 68.58 59.69)
 		)
 		(stroke
 			(width 0.1524)
@@ -10336,16 +10366,6 @@
 			(type solid)
 		)
 		(uuid "82222ace-2945-4df9-9ec1-7e46df2c479c")
-	)
-	(wire
-		(pts
-			(xy 40.64 86.36) (xy 68.58 86.36)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "84712010-8729-483e-be07-0ade5f224e48")
 	)
 	(wire
 		(pts
@@ -10549,16 +10569,6 @@
 	)
 	(wire
 		(pts
-			(xy 40.64 101.6) (xy 48.26 101.6)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "95676632-3c77-457b-993c-e511536c6531")
-	)
-	(wire
-		(pts
 			(xy 195.58 119.38) (xy 172.72 119.38)
 		)
 		(stroke
@@ -10566,16 +10576,6 @@
 			(type solid)
 		)
 		(uuid "95cf7767-3dde-494f-ba6c-a7f41ddcb76c")
-	)
-	(wire
-		(pts
-			(xy 68.58 81.28) (xy 68.58 86.36)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "968ec0bf-a1ea-4d0b-8634-d78aefc71d18")
 	)
 	(wire
 		(pts
@@ -10589,7 +10589,7 @@
 	)
 	(wire
 		(pts
-			(xy 77.47 93.98) (xy 77.47 88.9)
+			(xy 77.47 69.85) (xy 77.47 81.28)
 		)
 		(stroke
 			(width 0.1524)
@@ -10699,6 +10699,16 @@
 	)
 	(wire
 		(pts
+			(xy 38.1 86.36) (xy 58.42 86.36)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "9eec3d1b-f876-435d-8789-87c0d8670f76")
+	)
+	(wire
+		(pts
 			(xy 182.88 95.25) (xy 182.88 97.79)
 		)
 		(stroke
@@ -10716,16 +10726,6 @@
 			(type solid)
 		)
 		(uuid "9f75904d-9baf-4913-9ca6-2940eabf7f05")
-	)
-	(wire
-		(pts
-			(xy 40.64 93.98) (xy 48.26 93.98)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "a1788643-a165-47d7-80e5-23cd50d48cfc")
 	)
 	(wire
 		(pts
@@ -10849,6 +10849,16 @@
 	)
 	(wire
 		(pts
+			(xy 38.1 83.82) (xy 68.58 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aaa93506-fa3f-4412-94e9-b5ecf3d3086b")
+	)
+	(wire
+		(pts
 			(xy 248.92 193.04) (xy 251.46 193.04)
 		)
 		(stroke
@@ -10959,7 +10969,27 @@
 	)
 	(wire
 		(pts
-			(xy 49.53 71.12) (xy 49.53 72.39)
+			(xy 38.1 96.52) (xy 41.91 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b6faa3b4-e958-497f-b272-e85ecb3ca6bf")
+	)
+	(wire
+		(pts
+			(xy 38.1 101.6) (xy 41.91 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b7bd192e-d380-46f6-b5a7-c43038ff9f15")
+	)
+	(wire
+		(pts
+			(xy 58.42 57.15) (xy 58.42 59.69)
 		)
 		(stroke
 			(width 0.1524)
@@ -11069,16 +11099,6 @@
 	)
 	(wire
 		(pts
-			(xy 40.64 83.82) (xy 58.42 83.82)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "c521cf44-7b0d-4676-8fe4-b347a4e48583")
-	)
-	(wire
-		(pts
 			(xy 195.58 45.72) (xy 205.74 45.72)
 		)
 		(stroke
@@ -11086,26 +11106,6 @@
 			(type solid)
 		)
 		(uuid "c5c73c94-b3e0-46ac-a34e-2d6b98871908")
-	)
-	(wire
-		(pts
-			(xy 77.47 88.9) (xy 77.47 81.28)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "c640fe7c-6415-4231-8877-de4c4aaaf29c")
-	)
-	(wire
-		(pts
-			(xy 48.26 101.6) (xy 48.26 96.52)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "c7255211-d9d0-440d-b5c8-ec1ab7d067c9")
 	)
 	(wire
 		(pts
@@ -11126,6 +11126,16 @@
 			(type solid)
 		)
 		(uuid "c837deeb-2bee-4291-9392-a073e1129d6c")
+	)
+	(wire
+		(pts
+			(xy 41.91 99.06) (xy 41.91 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c9313ebd-6051-4f91-a7ad-e31652f40e92")
 	)
 	(wire
 		(pts
@@ -11166,6 +11176,16 @@
 			(type solid)
 		)
 		(uuid "ca9e3b2a-fcd4-451c-8374-e506fe4a78d7")
+	)
+	(wire
+		(pts
+			(xy 40.64 71.12) (xy 38.1 71.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cb803922-8bc4-4e67-8775-7fa1faf2eb32")
 	)
 	(wire
 		(pts
@@ -11279,6 +11299,16 @@
 	)
 	(wire
 		(pts
+			(xy 58.42 86.36) (xy 58.42 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d206d2da-ac20-458f-9f4b-6033c89ff380")
+	)
+	(wire
+		(pts
 			(xy 224.79 255.27) (xy 240.03 255.27)
 		)
 		(stroke
@@ -11309,7 +11339,7 @@
 	)
 	(wire
 		(pts
-			(xy 68.58 86.36) (xy 68.58 93.98)
+			(xy 68.58 69.85) (xy 68.58 83.82)
 		)
 		(stroke
 			(width 0.1524)
@@ -11389,6 +11419,16 @@
 	)
 	(wire
 		(pts
+			(xy 38.1 93.98) (xy 41.91 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d8b24e08-3991-44a7-82cd-c7bc5b6d7fbb")
+	)
+	(wire
+		(pts
 			(xy 172.72 149.86) (xy 176.53 149.86)
 		)
 		(stroke
@@ -11419,7 +11459,7 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 57.15) (xy 41.91 59.69)
+			(xy 49.53 57.15) (xy 49.53 59.69)
 		)
 		(stroke
 			(width 0)
@@ -11486,6 +11526,16 @@
 			(type solid)
 		)
 		(uuid "dd8779f6-52c5-4309-9afc-9f6a4ae545bd")
+	)
+	(wire
+		(pts
+			(xy 41.91 93.98) (xy 41.91 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "deed12d1-5ec0-4789-b22c-a21cfb5f7aee")
 	)
 	(wire
 		(pts
@@ -11569,7 +11619,7 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 69.85) (xy 41.91 73.66)
+			(xy 49.53 69.85) (xy 49.53 73.66)
 		)
 		(stroke
 			(width 0)
@@ -11596,6 +11646,16 @@
 			(type solid)
 		)
 		(uuid "eda9dc28-110e-4993-a38c-4612c797f0fb")
+	)
+	(wire
+		(pts
+			(xy 68.58 83.82) (xy 68.58 93.98)
+		)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(uuid "ef3deca8-51f6-4a74-8b0a-76bc61d6a5f1")
 	)
 	(wire
 		(pts
@@ -11626,16 +11686,6 @@
 			(type solid)
 		)
 		(uuid "f3b1672d-b5e5-43b8-9154-156b45b19f91")
-	)
-	(wire
-		(pts
-			(xy 48.26 101.6) (xy 48.26 104.14)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "f417aa50-4b3f-4bf7-b9e4-90c3ec509608")
 	)
 	(wire
 		(pts
@@ -11676,16 +11726,6 @@
 			(type default)
 		)
 		(uuid "f56b9ea1-02fd-40d8-a51a-6053b9c0c951")
-	)
-	(wire
-		(pts
-			(xy 58.42 80.01) (xy 58.42 83.82)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "f5a89046-0386-44f6-9669-1bc43237de76")
 	)
 	(wire
 		(pts
@@ -11736,16 +11776,6 @@
 			(type solid)
 		)
 		(uuid "f944ae0a-558e-41c3-b182-337523b7e2e5")
-	)
-	(wire
-		(pts
-			(xy 40.64 96.52) (xy 48.26 96.52)
-		)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(uuid "fa1f1a7a-ad82-4968-900f-c897dbffa5d5")
 	)
 	(wire
 		(pts
@@ -12425,7 +12455,7 @@
 	)
 	(global_label "MISO"
 		(shape input)
-		(at 41.91 57.15 90)
+		(at 49.53 57.15 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -12435,7 +12465,7 @@
 		)
 		(uuid "627dadba-4fb5-4819-93f0-261b8b7c51f4")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 41.91 49.5686 90)
+			(at 49.53 49.5686 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12953,17 +12983,17 @@
 	)
 	(global_label "SD_CE"
 		(shape input)
-		(at 58.42 57.15 90)
+		(at 58.42 99.06 270)
 		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.2446 1.2446)
 			)
-			(justify left)
+			(justify right)
 		)
 		(uuid "b3a03afa-943d-470a-9673-3654e45fd371")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 58.42 48.4759 90)
+			(at 58.42 107.7341 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12971,7 +13001,7 @@
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 	)
@@ -13419,7 +13449,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "06732d74-bb39-4b5c-8412-6d18d8f36d69")
-		(property "Reference" "EXT"
+		(property "Reference" "EXT1"
 			(at 44.45 180.975 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13525,7 +13555,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "EXT")
+					(reference "EXT1")
 					(unit 1)
 				)
 			)
@@ -13699,7 +13729,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "12822cc4-5042-415c-ac8b-ba7691ce55b9")
-		(property "Reference" "MCU"
+		(property "Reference" "MCU1"
 			(at 127 110.49 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13877,7 +13907,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "MCU")
+					(reference "MCU1")
 					(unit 1)
 				)
 			)
@@ -14365,7 +14395,7 @@
 	)
 	(symbol
 		(lib_id "Uzebox Game Console F6_bak-eagle-import:R-US_0207/10")
-		(at 41.91 64.77 90)
+		(at 49.53 64.77 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -14375,7 +14405,7 @@
 		(dnp no)
 		(uuid "20f7648c-1ba6-417e-b4de-2d64d17c4a11")
 		(property "Reference" "R29"
-			(at 40.386 67.31 0)
+			(at 48.006 67.31 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -14386,7 +14416,7 @@
 			)
 		)
 		(property "Value" "301"
-			(at 45.212 67.056 0)
+			(at 52.832 67.056 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -14397,7 +14427,7 @@
 			)
 		)
 		(property "Footprint" "Uzebox Game Console F6_bak-import-fps:0207_10"
-			(at 41.91 64.77 0)
+			(at 49.53 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14408,7 +14438,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 41.91 64.77 0)
+			(at 49.53 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14419,7 +14449,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 41.91 64.77 0)
+			(at 49.53 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14850,7 +14880,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "3334aca5-cbea-49c1-a1ca-2963fee567f5")
-		(property "Reference" "A/V"
+		(property "Reference" "A/V1"
 			(at 44.45 206.375 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14932,7 +14962,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "A/V")
+					(reference "A/V1")
 					(unit 1)
 				)
 			)
@@ -15351,7 +15381,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "43b6c80c-907d-49e2-a9ff-2863ac5cb784")
-		(property "Reference" "POWER"
+		(property "Reference" "POWER1"
 			(at 195.072 182.626 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15422,7 +15452,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "POWER")
+					(reference "POWER1")
 					(unit 1)
 				)
 			)
@@ -15601,7 +15631,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "4b00400b-458b-4f64-b49c-342b06c31087")
-		(property "Reference" "AUDIO"
+		(property "Reference" "AUDIO1"
 			(at 156.21 211.074 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15665,7 +15695,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "AUDIO")
+					(reference "AUDIO1")
 					(unit 1)
 				)
 			)
@@ -16166,7 +16196,7 @@
 	)
 	(symbol
 		(lib_id "Uzebox Game Console F6_bak-eagle-import:+3V3")
-		(at 49.53 63.5 0)
+		(at 58.42 54.61 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -16176,7 +16206,7 @@
 		(dnp no)
 		(uuid "58da2ea9-c827-433e-8f80-81f02e9f7395")
 		(property "Reference" "#+3V3"
-			(at 49.53 63.5 0)
+			(at 58.42 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16187,7 +16217,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 54.864 60.96 0)
+			(at 60.452 51.816 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -16198,7 +16228,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 49.53 63.5 0)
+			(at 58.42 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16209,7 +16239,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 49.53 63.5 0)
+			(at 58.42 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16220,7 +16250,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 49.53 63.5 0)
+			(at 58.42 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18716,7 +18746,7 @@
 	)
 	(symbol
 		(lib_id "Uzebox Game Console F6_bak-eagle-import:R-US_0207/10")
-		(at 49.53 77.47 90)
+		(at 58.42 64.77 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -18726,7 +18756,7 @@
 		(dnp no)
 		(uuid "885bd669-c31e-4750-aede-45df78594e41")
 		(property "Reference" "R12"
-			(at 48.006 79.502 0)
+			(at 56.896 66.802 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -18737,7 +18767,7 @@
 			)
 		)
 		(property "Value" "3.16K"
-			(at 52.832 80.518 0)
+			(at 61.722 67.818 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -18748,7 +18778,7 @@
 			)
 		)
 		(property "Footprint" "Uzebox Game Console F6_bak-import-fps:0207_10"
-			(at 49.53 77.47 0)
+			(at 58.42 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18759,7 +18789,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 49.53 77.47 0)
+			(at 58.42 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -18770,7 +18800,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 49.53 77.47 0)
+			(at 58.42 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -19470,7 +19500,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "93a00bc4-3065-4971-b6e8-73b2c4056500")
-		(property "Reference" "SVIDEO"
+		(property "Reference" "SVIDEO1"
 			(at 320.04 200.66 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -19550,7 +19580,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "SVIDEO")
+					(reference "SVIDEO1")
 					(unit 1)
 				)
 			)
@@ -20107,7 +20137,7 @@
 	)
 	(symbol
 		(lib_id "Uzebox Game Console F6_bak-eagle-import:GND")
-		(at 48.26 106.68 0)
+		(at 41.91 106.68 0)
 		(mirror y)
 		(unit 1)
 		(body_style 1)
@@ -20118,7 +20148,7 @@
 		(dnp no)
 		(uuid "a5d7bf0a-bc70-42f2-8448-25fdfb5511e9")
 		(property "Reference" "#SUPPLY14"
-			(at 48.26 106.68 0)
+			(at 41.91 106.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20129,7 +20159,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 50.165 109.855 0)
+			(at 43.815 109.855 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -20140,7 +20170,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 48.26 106.68 0)
+			(at 41.91 106.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20151,7 +20181,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 48.26 106.68 0)
+			(at 41.91 106.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20162,7 +20192,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 48.26 106.68 0)
+			(at 41.91 106.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20672,7 +20702,7 @@
 	)
 	(symbol
 		(lib_id "Uzebox Game Console F6_bak-eagle-import:R-US_0207/10")
-		(at 68.58 76.2 90)
+		(at 68.58 64.77 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -20682,7 +20712,7 @@
 		(dnp no)
 		(uuid "b327f1eb-1756-4755-ac7b-24f6415fcb68")
 		(property "Reference" "R28"
-			(at 67.056 78.74 0)
+			(at 67.056 67.31 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -20693,7 +20723,7 @@
 			)
 		)
 		(property "Value" "301"
-			(at 71.882 78.486 0)
+			(at 71.882 67.056 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -20704,7 +20734,7 @@
 			)
 		)
 		(property "Footprint" "Uzebox Game Console F6_bak-import-fps:0207_10"
-			(at 68.58 76.2 0)
+			(at 68.58 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20715,7 +20745,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 68.58 76.2 0)
+			(at 68.58 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20726,7 +20756,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 68.58 76.2 0)
+			(at 68.58 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -20746,6 +20776,84 @@
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
 					(reference "R28")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Uzebox Game Console F6_bak-eagle-import:+3V3")
+		(at 40.64 60.96 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b482b345-6851-48f2-83e5-fad77435d4bd")
+		(property "Reference" "#+3V02"
+			(at 40.64 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 43.18 57.912 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.778 1.5113)
+				)
+				(justify right top)
+			)
+		)
+		(property "Footprint" ""
+			(at 40.64 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 40.64 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 40.64 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c4f8f4aa-0df4-48af-a453-cb9c39c56c00")
+		)
+		(instances
+			(project "Uzebox Game Console V5_1"
+				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
+					(reference "#+3V02")
 					(unit 1)
 				)
 			)
@@ -21164,7 +21272,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "c799d953-1ba4-4edb-907c-56a815c460c0")
-		(property "Reference" "RESET"
+		(property "Reference" "RESET1"
 			(at 120.904 93.472 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21235,7 +21343,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "RESET")
+					(reference "RESET1")
 					(unit 1)
 				)
 			)
@@ -21480,7 +21588,7 @@
 	)
 	(symbol
 		(lib_id "Uzebox Game Console F6_bak-eagle-import:R-US_0207/10")
-		(at 77.47 76.2 90)
+		(at 77.47 64.77 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -21490,7 +21598,7 @@
 		(dnp no)
 		(uuid "d10afc6e-69ad-4b8e-9f27-759d2243832e")
 		(property "Reference" "R27"
-			(at 75.9714 80.01 0)
+			(at 75.9714 68.58 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -21501,7 +21609,7 @@
 			)
 		)
 		(property "Value" "301"
-			(at 80.772 80.01 0)
+			(at 80.772 68.58 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -21512,7 +21620,7 @@
 			)
 		)
 		(property "Footprint" "Uzebox Game Console F6_bak-import-fps:0207_10"
-			(at 77.47 76.2 0)
+			(at 77.47 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21523,7 +21631,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 77.47 76.2 0)
+			(at 77.47 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21534,7 +21642,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 77.47 76.2 0)
+			(at 77.47 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21642,7 +21750,7 @@
 	)
 	(symbol
 		(lib_id "Uzebox Game Console F6_bak-eagle-import:SCHOTTKY-DIODEDO35-7")
-		(at 58.42 77.47 90)
+		(at 58.42 91.44 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -21652,7 +21760,7 @@
 		(dnp no)
 		(uuid "d6497573-6664-4dd9-919c-0b583b0ae059")
 		(property "Reference" "D2"
-			(at 56.642 79.248 0)
+			(at 60.198 89.662 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -21663,7 +21771,7 @@
 			)
 		)
 		(property "Value" "BAT85"
-			(at 62.484 79.248 0)
+			(at 54.356 89.662 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -21674,7 +21782,7 @@
 			)
 		)
 		(property "Footprint" "Uzebox Game Console F6_bak-import-fps:DO35-7"
-			(at 58.42 77.47 0)
+			(at 58.42 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21685,7 +21793,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 58.42 77.47 0)
+			(at 58.42 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -21696,7 +21804,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 58.42 77.47 0)
+			(at 58.42 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22144,7 +22252,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "db8a8706-0e18-4ab4-9269-5fe055dbcd06")
-		(property "Reference" "VIDEO"
+		(property "Reference" "VIDEO1"
 			(at 379.73 170.434 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22208,7 +22316,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "VIDEO")
+					(reference "VIDEO1")
 					(unit 1)
 				)
 			)
@@ -22216,7 +22324,7 @@
 	)
 	(symbol
 		(lib_id "Uzebox Game Console F6_bak-eagle-import:SD_CARD_SOCKET4UCON")
-		(at 27.94 86.36 0)
+		(at 25.4 86.36 0)
 		(mirror y)
 		(unit 1)
 		(body_style 1)
@@ -22226,8 +22334,8 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "dd48906f-8589-4ade-a738-d3c8d5c42ead")
-		(property "Reference" "SDCARD"
-			(at 35.306 68.072 0)
+		(property "Reference" "SDCARD1"
+			(at 32.766 68.072 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -22238,7 +22346,7 @@
 			)
 		)
 		(property "Value" "SD_CARD_SOCKET4UCON"
-			(at 35.052 106.68 0)
+			(at 32.512 106.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22250,7 +22358,7 @@
 			)
 		)
 		(property "Footprint" "Uzebox Game Console F6_bak-import-fps:SDCARD_4UCONN"
-			(at 27.94 86.36 0)
+			(at 25.4 86.36 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22261,7 +22369,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 27.94 86.36 0)
+			(at 25.4 86.36 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22272,7 +22380,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 27.94 86.36 0)
+			(at 25.4 86.36 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22324,7 +22432,7 @@
 		(instances
 			(project "Uzebox Game Console V5_1"
 				(path "/ad24a305-0c63-423b-bd2c-04f441f78b8a"
-					(reference "SDCARD")
+					(reference "SDCARD1")
 					(unit 1)
 				)
 			)
