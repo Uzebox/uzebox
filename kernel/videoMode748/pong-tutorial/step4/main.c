@@ -1,0 +1,228 @@
+/* Pong for the Uzebox, video mode 748 - a beginner's tutorial game */
+#include <stdbool.h>
+#include <stddef.h>
+#include <avr/pgmspace.h>
+#include <uzebox.h>
+#include <spiram.h>
+
+/* ---------------------------------------------------------------- graphics */
+
+/* Two 4-bit pixels packed into one byte: the left pixel in the high half */
+#define PX(a, b)  (((a) << 4) | (b))
+
+/* Background tiles (8 x 8 pixels, 4 bytes per row, 32 bytes per tile).
+** They stay in flash; Mode 748 needs them to start on a 256-byte boundary. */
+static const u8 bg_tiles[3 * 32] __attribute__((aligned(256))) PROGMEM = {
+	/* tile 0: empty */
+	0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	/* tile 1: a dash of the net, in colour 2 */
+	PX(0,0),PX(0,2),PX(2,0),PX(0,0),  PX(0,0),PX(0,2),PX(2,0),PX(0,0),
+	PX(0,0),PX(0,2),PX(2,0),PX(0,0),  PX(0,0),PX(0,2),PX(2,0),PX(0,0),
+	0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	/* tile 2: wall, in colour 1 */
+	0,0,0,0, 0,0,0,0, 0x11,0x11,0x11,0x11, 0x11,0x11,0x11,0x11,
+	0x11,0x11,0x11,0x11, 0x11,0x11,0x11,0x11, 0,0,0,0, 0,0,0,0,
+};
+#define T_EMPTY 0
+#define T_NET   1
+#define T_WALL  2
+
+/* The sprite system recolours every pixel through this table; an identity
+** table means "draw the colours as they are". The Makefile places it at
+** M74_RECTB_OFF (0xE000). */
+const u8 recolor[16] __attribute__((section(".rectb"))) =
+	{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+
+/* Sprite tiles are made at start-up and copied into SPI RAM */
+#define SPI_VRAM     0x0000U          /* background tile map: 24 rows x 25 bytes */
+#define SPI_SPRITES  0x1000U          /* sprite tiles, 32 bytes each */
+#define SPR_PADDLE   0
+#define SPR_BALL     1
+#define SPR_DIGIT0   2                /* digits 0-9 follow */
+
+/* Score digits, 4 x 7 pixels: one byte per row, the low 4 bits are the pixels */
+static const u8 font[10][7] PROGMEM = {
+	{6,9,9,9,9,9,6}, {2,6,2,2,2,2,7}, {6,9,1,2,4,8,15}, {14,1,1,6,1,1,14},
+	{2,6,10,15,2,2,2}, {15,8,14,1,1,9,6}, {6,8,8,14,9,9,6}, {15,1,2,2,4,4,4},
+	{6,9,9,6,9,9,6}, {6,9,9,7,1,1,6}
+};
+
+/* ------------------------------------------------------------------- video */
+
+#define ROWS 24                       /* 24 tile rows of 8 lines = 192 lines */
+
+static m74_mode0_vram_t rows[ROWS];   /* one control block per tile row */
+static u8 rowsel[] = { 0, 255 };      /* start the display at logical line 0 */
+
+#define R(n) ((u16)(&rows[(n) % ROWS]))
+static const u16 row_table[32] PROGMEM = {
+	R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), R(8), R(9), R(10), R(11),
+	R(12), R(13), R(14), R(15), R(16), R(17), R(18), R(19), R(20), R(21), R(22), R(23),
+	R(24), R(25), R(26), R(27), R(28), R(29), R(30), R(31)
+};
+
+/* Make one 8 x 8 sprite tile from a function telling the colour of each pixel */
+static void make_tile(u8 number, u8 (*pixel)(u8 x, u8 y, u8 arg), u8 arg)
+{
+	u8 tile[32];
+	u8 x, y;
+	for (y = 0; y < 8; y++) {
+		for (x = 0; x < 8; x += 2) {
+			tile[y * 4 + x / 2] = PX(pixel(x, y, arg), pixel(x + 1, y, arg));
+		}
+	}
+	SpiRamWriteFrom(0, SPI_SPRITES + number * 32U, tile, 32);
+}
+
+static u8 paddle_px(u8 x, u8 y, u8 arg) { return (x >= 2 && x <= 5) ? 1 : 0; }
+static u8 ball_px(u8 x, u8 y, u8 arg)
+{
+	bool corner = (x == 1 || x == 6) && (y == 1 || y == 6);
+	return (x >= 1 && x <= 6 && y >= 1 && y <= 6 && !corner) ? 3 : 0;
+}
+static u8 digit_px(u8 x, u8 y, u8 d)
+{
+	if (y >= 7) { return 0; }
+	return (pgm_read_byte(&font[d][y]) & (8 >> (x / 2))) ? 1 : 0;
+}
+
+static void setup_video(void)
+{
+	u8 r, c, line[25];
+	u8* palette = (u8*)m74_paddr;
+
+	/* colours: 0 black, 1 white, 2 grey, 3 yellow (Uzebox colours are BBGGGRRR) */
+	palette[0] = 0x00; palette[1] = 0xFF; palette[2] = 0x52; palette[3] = 0x3F;
+
+	for (r = 0; r < ROWS; r++) {
+		for (c = 0; c < 25; c++) {
+			if (r == 0 || r == ROWS - 1) { line[c] = T_WALL; }
+			else if (c == 12)            { line[c] = T_NET; }
+			else                         { line[c] = T_EMPTY; }
+		}
+		SpiRamWriteFrom(0, SPI_VRAM + r * 25U, line, 25);
+		rows[r].config    = 0;                       /* row mode 0: tiles */
+		rows[r].bg_addr   = SPI_VRAM + r * 25U;      /* its tile map in SPI RAM */
+		rows[r].t0_addr_h = (u16)bg_tiles >> 8;      /* where its tiles are */
+		rows[r].t1_addr_h = (u16)bg_tiles >> 8;
+	}
+
+	make_tile(SPR_PADDLE, paddle_px, 0);
+	make_tile(SPR_BALL, ball_px, 0);
+	for (c = 0; c < 10; c++) { make_tile(SPR_DIGIT0 + c, digit_px, c); }
+
+	SetRenderingParameters(32, ROWS * 8);
+	m74_rows   = (u16)rowsel;
+	m74_vaddr  = (u16)row_table;
+	m74_rtbase = RT_BASE;
+	m74_rtmax  = RT_MAX;
+	M74_VramRestore();
+	m74_config |= M74_CFG_ENABLE;                    /* switch the display on */
+}
+
+/* Draw a sprite tile with its top left corner at (x, y) */
+static void sprite(u8 number, u8 x, u8 y)
+{
+	M74_BlitSprite(SPI_SPRITES + number * 32U, x + 8, y + 8, 0);
+}
+
+/* ------------------------------------------------------------------- sound */
+
+static const char bounce_sound[] PROGMEM = {
+	0, PC_WAVE, 4,            /* a square wave */
+	0, PC_PITCH, 72,          /* a high note */
+	0, PC_ENV_SPEED, -40,     /* that fades out quickly */
+	4, PC_NOTE_CUT, 0,        /* and stops after 4 frames */
+	0, PATCH_END
+};
+static const struct PatchStruct patches[] PROGMEM = { {0, NULL, bounce_sound, 0, 0} };
+
+/* -------------------------------------------------------------------- game */
+
+#define TOP      8                    /* the court, inside the walls */
+#define BOTTOM   184
+#define PADDLE_H 32                   /* 4 sprite tiles tall */
+#define LEFT_X   8                    /* sprite x of each paddle */
+#define RIGHT_X  176
+
+u8 left_y = 80, right_y = 80;         /* paddle tops */
+int ball_x = 92, ball_y = 92;         /* ball position */
+int speed_x = 2, speed_y = 1;         /* ball speed in pixels per frame */
+u8 score_left = 0, score_right = 0;
+
+static void draw_paddle(u8 x, u8 y)
+{
+	u8 i;
+	for (i = 0; i < 4; i++) { sprite(SPR_PADDLE, x, y + i * 8); }
+}
+
+static void serve(int direction)
+{
+	ball_x = 92; ball_y = 92;
+	speed_x = direction * 2;
+	speed_y = (speed_y > 0) ? -1 : 1;
+}
+
+/* Does the ball touch a paddle whose sprite is at (x, y)? */
+static bool hits(u8 x, u8 y)
+{
+	return ball_x + 1 <= x + 5 && ball_x + 6 >= x + 2 &&
+	       ball_y + 6 >= y && ball_y + 1 <= y + PADDLE_H - 1;
+}
+
+static void bounce(u8 paddle_y)
+{
+	int offset = (ball_y + 4) - (paddle_y + PADDLE_H / 2);   /* -16 .. 16 */
+	speed_x = -speed_x;
+	speed_y = offset / 6;                  /* hitting off-centre angles the ball */
+	TriggerFx(0, 0xC0, true);
+}
+
+static void update(void)
+{
+	u16 pad = ReadJoypad(0);
+
+	/* player: up and down */
+	if ((pad & BTN_UP) && left_y > TOP) { left_y -= 2; }
+	if ((pad & BTN_DOWN) && left_y + PADDLE_H < BOTTOM) { left_y += 2; }
+
+	/* computer: follows the ball, a little slower than it can move */
+	if (ball_y + 4 < right_y + PADDLE_H / 2 && right_y > TOP) { right_y--; }
+	if (ball_y + 4 > right_y + PADDLE_H / 2 && right_y + PADDLE_H < BOTTOM) { right_y++; }
+
+	/* ball */
+	ball_x += speed_x;
+	ball_y += speed_y;
+	if (ball_y + 1 < TOP)     { ball_y = TOP - 1;    speed_y = -speed_y; TriggerFx(0, 0x80, true); }
+	if (ball_y + 6 >= BOTTOM) { ball_y = BOTTOM - 7; speed_y = -speed_y; TriggerFx(0, 0x80, true); }
+	if (speed_x < 0 && hits(LEFT_X, left_y))   { bounce(left_y); }
+	if (speed_x > 0 && hits(RIGHT_X, right_y)) { bounce(right_y); }
+
+	/* points */
+	if (ball_x < 0)   { score_right++; serve(1); }
+	if (ball_x > 186) { score_left++;  serve(-1); }
+	if (score_left > 9 || score_right > 9) { score_left = 0; score_right = 0; }
+}
+
+static void draw(void)
+{
+	M74_VramRestore();                           /* remove last frame's sprites */
+	sprite(SPR_DIGIT0 + score_left, 72, 12);
+	sprite(SPR_DIGIT0 + score_right, 112, 12);
+	draw_paddle(LEFT_X, left_y);
+	draw_paddle(RIGHT_X, right_y);
+	sprite(SPR_BALL, ball_x, ball_y);
+}
+
+int main(void)
+{
+	if (SpiRamInit() == 0) { while (1) { } }     /* no SPI RAM: stop here */
+	InitMusicPlayer(patches);
+	setup_video();
+
+	while (1) {
+		WaitVsync(1);                            /* wait for the next frame */
+		draw();
+		update();
+	}
+}
