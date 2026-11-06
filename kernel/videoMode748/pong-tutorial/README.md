@@ -116,10 +116,11 @@ A **Makefile** tells `make` how to compile the kernel and your game and link the
 # Makefile for the Uzebox Mode 748 Pong tutorial
 GAME       = pong
 MCU        = atmega644
-# Where is the Uzebox kernel? make looks in the usual places next to or around
-# this folder; if yours is elsewhere, run:  make UZEBOX=/path/to/uzebox
+# Where is the Uzebox kernel? First where this tutorial lives in the Uzebox repo
+# (kernel/videoMode748/pong-tutorial/stepN), then the usual places for a game
+# folder; if yours is elsewhere, run:  make UZEBOX=/path/to/uzebox
 KERNEL_DIR ?= $(if $(UZEBOX),$(UZEBOX)/kernel,$(patsubst %/uzebox.h,%,$(firstword \
-              $(wildcard ../../kernel/uzebox.h ../../../kernel/uzebox.h \
+              $(wildcard ../../../uzebox.h ../../kernel/uzebox.h ../../../kernel/uzebox.h \
                          ../uzebox/kernel/uzebox.h ../../uzebox/kernel/uzebox.h))))
 ifeq ($(wildcard $(KERNEL_DIR)/uzebox.h)$(filter clean,$(MAKECMDGOALS)),)
 $(error Uzebox kernel not found. Run: make UZEBOX=/path/to/uzebox)
